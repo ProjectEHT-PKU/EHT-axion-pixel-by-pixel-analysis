@@ -103,9 +103,13 @@ class ImageS:
 
     Intensity_max = 0.00175
 
-    def __init__(self, data, blur=True):
+    def __init__(
+        self, data, blur=True, rotation_angle=0.6 * np.pi, gaussian_kernel=None
+    ):
         # self.data = np.flip(data.swapaxes(0,1),axis=1)
         # self.data = data.swapaxes(0,1)
+        self.rotation_angle = rotation_angle
+        self.gaussian_kernel = 2.16871 if gaussian_kernel is None else gaussian_kernel
         self.data = data
         self.shape = data[:, :, 0].shape[0]
         # self.res = round(self.shape*2/80.)
@@ -130,12 +134,12 @@ class ImageS:
             self.data[:, :, 3],
         )
         if blur == True:
-            gausian_kernal = 2.16871  # * 1.558722, 20uas = 2.16871
-            # gausian_kernal=0 # kernel?
-            self.I = gaussian_filter(I0, gausian_kernal * self.res)
-            self.Q = gaussian_filter(Q0, gausian_kernal * self.res)
-            self.U = gaussian_filter(U0, gausian_kernal * self.res)
-            self.V = gaussian_filter(V0, gausian_kernal * self.res)
+            gausian_kernel = self.gaussian_kernel  # * 1.558722, 20uas = 2.16871
+            # gausian_kernel=0 # kernel?
+            self.I = gaussian_filter(I0, gausian_kernel * self.res)
+            self.Q = gaussian_filter(Q0, gausian_kernel * self.res)
+            self.U = gaussian_filter(U0, gausian_kernel * self.res)
+            self.V = gaussian_filter(V0, gausian_kernel * self.res)
             self.I0 = I0
             iQ = scipy.interpolate.RectBivariateSpline(
                 self.xmesh[:, 0], self.ymesh[0, :], self.Q
@@ -152,7 +156,7 @@ class ImageS:
             iI0 = scipy.interpolate.RectBivariateSpline(
                 self.xmesh[:, 0], self.ymesh[0, :], self.I0
             )
-            rotation_angle = 0.6 * np.pi
+            rotation_angle = self.rotation_angle
             # rotation_angle = 0
             x, y = np.meshgrid(np.arange(64), np.arange(64), indexing="ij")
             xv = (x - 63 / 2.0) * 0.518838 * np.cos(rotation_angle) + (
@@ -182,12 +186,12 @@ class ImageS:
             self.amp = np.sqrt(self.Q**2 + self.U**2)
             self.Create_EVPA_Dataset()
         else:
-            gausian_kernal = 0  # * 1.558722, 20uas = 2.16871
-            # gausian_kernal=0 # kernel?
-            self.I = gaussian_filter(I0, gausian_kernal * self.res)
-            self.Q = gaussian_filter(Q0, gausian_kernal * self.res)
-            self.U = gaussian_filter(U0, gausian_kernal * self.res)
-            self.V = gaussian_filter(V0, gausian_kernal * self.res)
+            gausian_kernel = 0  # * 1.558722, 20uas = 2.16871
+            # gausian_kernel=0 # kernel?
+            self.I = gaussian_filter(I0, gausian_kernel * self.res)
+            self.Q = gaussian_filter(Q0, gausian_kernel * self.res)
+            self.U = gaussian_filter(U0, gausian_kernel * self.res)
+            self.V = gaussian_filter(V0, gausian_kernel * self.res)
             self.I0 = I0
             iQ = scipy.interpolate.RectBivariateSpline(
                 self.xmesh[:, 0], self.ymesh[0, :], self.Q
