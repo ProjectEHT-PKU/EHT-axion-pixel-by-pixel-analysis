@@ -40,3 +40,4 @@ tornado==6.4.2
 traitlets==5.14.3
 tzdata==2025.1
 wcwidth==0.2.13
+statsmodels==0.14.5

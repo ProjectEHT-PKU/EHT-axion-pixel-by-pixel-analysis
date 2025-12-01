@@ -1,0 +1,19 @@
+__pycache__
+.venv# pixi environments
+.pixi
+pixi.lock
+pixi.toml
+*.png
+.*
+*.gif
+*.jpg
+*.pdf
+*.old
+*.npy
+*.npz
+*.h5
+*.dat
+*.pkl
+# Large generated RAPTOR ray-tracing tables
+/GRMHD/data_in/GRMHD_cut
+/GRMHD/data_in/GRMHD_cut_150
