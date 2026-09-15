@@ -17,3 +17,9 @@ pixi.toml
 # Large generated RAPTOR ray-tracing tables
 /GRMHD/data_in/GRMHD_cut
 /GRMHD/data_in/GRMHD_cut_150
+
+# Local audit workspaces and regenerated intermediate arrays
+/audit/logs/
+/audit/topset_work/
+/audit/rebuilt_1d/
+/audit/rebuilt_2d/

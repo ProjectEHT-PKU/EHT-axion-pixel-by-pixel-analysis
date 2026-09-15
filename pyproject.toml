@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eht-axion-analysis"
+version = "0.1.0"
+description = "Reproducible EHT M87* axion pixel-by-pixel limit analysis"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=2.1,<3",
+  "scipy>=1.14,<2",
+  "matplotlib>=3.9,<4",
+  "statsmodels>=0.14,<0.15",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.9"]
+
+[tool.setuptools.packages.find]
+include = ["eht_axion*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]

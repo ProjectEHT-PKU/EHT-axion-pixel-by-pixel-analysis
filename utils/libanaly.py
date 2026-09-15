@@ -6,7 +6,7 @@ import scipy.integrate
 import scipy.stats as stats
 from scipy.ndimage import gaussian_filter
 from copy import deepcopy
-from scipy import integrate, optimize
+from scipy import optimize
 from statsmodels.stats.diagnostic import lilliefors
 
 
@@ -36,8 +36,14 @@ class CircleCalc:
 
     @staticmethod
     def circle_sub(a1, a2, lower_bound=-np.pi, upper_bound=np.pi):
+        """Return the shortest signed circular difference ``a1 - a2``.
+
+        A difference is invariant under the affine offset used to map an
+        arbitrary interval to [-pi, pi), so the old trailing ``-d`` was wrong
+        for non-symmetric ranges such as [0, 360].
+        """
         c, d = CircleCalc.normalize_params(lower_bound, upper_bound)
-        return (CircleCalc._circle_sub(c * a1 + d, c * a2 + d) - d) / c
+        return CircleCalc._circle_sub(c * np.asarray(a1) + d, c * np.asarray(a2) + d) / c
 
     @staticmethod
     def circle_sub_evpa(a1, a2):
@@ -48,9 +54,10 @@ class CircleCalc:
 
     @staticmethod
     def choose_small_abs(a1, a2):
-        x = deepcopy(a1)
-        x[np.abs(x) > np.abs(a2)] = a2[np.abs(x) > np.abs(a2)]
-        return x
+        """Select the value with smaller magnitude, with scalar broadcasting."""
+        first, second = np.asarray(a1), np.asarray(a2)
+        result = np.where(np.abs(first) <= np.abs(second), first, second)
+        return result[()] if result.ndim == 0 else result
 
 
 def gaussian(x, *param):
@@ -188,6 +195,7 @@ def fit_gaussian2(
     threshold=1,
     plot=False,
     nomean=False,
+    p_value_threshold=None,
     **kwargs,
 ):
     if rm_nan:
@@ -203,6 +211,12 @@ def fit_gaussian2(
         )
     else:
         pass
+    if p_value_threshold is not None:
+        _, p_value = lilliefors(_d1arr)
+        if p_value <= p_value_threshold:
+            if plot_failed:
+                plot_gaussian(_d1arr, bins=bins)
+            return np.array([np.nan, np.nan])
     _mean, _sigma = np.asarray(stats.norm.fit(_d1arr))
     counts, bins = np.histogram(
         _d1arr, bins=bins, density=True, range=(_mean - 5 * _sigma, _mean + 5 * _sigma)
@@ -240,7 +254,7 @@ def fit_gaussian2(
             pcovsigma = pcov[1][1]
             poptsigma = popt[1]
     except Exception as e:
-        print(f"badfit, error", e)
+        print("badfit, error", e)
         if plot_failed:
             plot_gaussian(_d1arr, bins=bins)
         return np.array([np.nan, np.nan])
@@ -442,9 +456,9 @@ class ImageS:
             ) * np.cos(2 * rotation_angle)
             self.V = iV.ev(xv, yv)
             self.I0 = iI0.ev(xv, yv)
-            self.data = [
-                idata[18:81, 18:81] for idata in self.data
-            ]  # ? 有问题，不过没有什么用
+            # Keep ``self.data`` as the original Stokes cube.  The previous
+            # list comprehension iterated over image rows and produced empty
+            # channel slices, corrupting the object's public state.
             xgrid = np.linspace(
                 -self._final_fov / 2, self._final_fov / 2, self.shape, endpoint=False
             )
@@ -482,7 +496,7 @@ class ImageS:
             iI0 = scipy.interpolate.RectBivariateSpline(
                 self.xmesh[:, 0], self.ymesh[0, :], self.I0
             )
-            rotation_angle = 0.6 * np.pi
+            rotation_angle = self.rotation_angle
             # rotation_angle = 0
             x, y = np.meshgrid(
                 np.arange(self.shape), np.arange(self.shape), indexing="ij"
@@ -823,12 +837,13 @@ class ImageS:
         x_mesh = r[:, None] * np.cos(phi[None, :])
         y_mesh = r[:, None] * np.sin(phi[None, :])
 
-        Ii = iI.ev(x_mesh, y_mesh)
         Qi = iQ.ev(x_mesh, y_mesh)
         Ui = iU.ev(x_mesh, y_mesh)
 
-        integrand_Q = r[:, None] * Qi * Ii * dr * dphi
-        integrand_U = r[:, None] * Ui * Ii * dr * dphi
+        # Q and U are Stokes fluxes (not fractional q=Q/I, u=U/I), so
+        # multiplying by I again would apply an unphysical I-squared weight.
+        integrand_Q = r[:, None] * Qi * dr * dphi
+        integrand_U = r[:, None] * Ui * dr * dphi
 
         # fast integration, for each point there are 6*6 blocks to be integrated, the border overlaps.
         # fast?
@@ -878,15 +893,18 @@ class ImageS:
             ]
         )
 
+        # Each entry above is a one-degree bin.  Sum ten adjacent bins to
+        # implement the documented ten-degree angular aperture.
+        ten_degree_offsets = range(-5, 5)
         integrated_Q_phi_10deg = np.array(
             [
-                np.sum([integrated_Q_phi[(i + k - 1) % Pn] for k in range(3)])
+                np.sum([integrated_Q_phi[(i + k) % Pn] for k in ten_degree_offsets])
                 for i in range(Pn)
             ]
         )
         integrated_U_phi_10deg = np.array(
             [
-                np.sum([integrated_U_phi[(i + k - 1) % Pn] for k in range(3)])
+                np.sum([integrated_U_phi[(i + k) % Pn] for k in ten_degree_offsets])
                 for i in range(Pn)
             ]
         )

@@ -1,0 +1,43 @@
+{
+  "selected_pixels": 933,
+  "topset_size": 1572,
+  "topset_overlap": 1374,
+  "topset_changed": 198,
+  "spearman_rank_correlation": 0.972510222005652,
+  "maximum_absolute_rank_change": 1380,
+  "elapsed_seconds": 62.58990867999819,
+  "days": {
+    "95": {
+      "offset": [
+        2,
+        0
+      ],
+      "fit_finite_pixels": 3968,
+      "elapsed_seconds": 16.74282942699938
+    },
+    "96": {
+      "offset": [
+        1,
+        1
+      ],
+      "fit_finite_pixels": 3969,
+      "elapsed_seconds": 14.88826169600361
+    },
+    "100": {
+      "offset": [
+        -4,
+        4
+      ],
+      "fit_finite_pixels": 3600,
+      "elapsed_seconds": 12.474956388999999
+    },
+    "101": {
+      "offset": [
+        -1,
+        1
+      ],
+      "fit_finite_pixels": 3969,
+      "elapsed_seconds": 16.03439445800177
+    }
+  }
+}

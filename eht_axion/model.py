@@ -1,0 +1,114 @@
+"""Axion EVPA templates reconstructed from saved GRMHD fit products."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Mapping
+
+import numpy as np
+from numpy.typing import NDArray
+
+ALPHAS = np.array((0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.44))
+AXION_NORM = 0.1
+TIME_CONVERSION = 0.112411
+
+
+def omega(alpha: float) -> float:
+    return alpha * (1 - alpha**2 / (2 * 4**2))
+
+
+def cloud_amplitude_scaling(alpha: float) -> float:
+    return 0.03 * (alpha / 0.05) ** (7 / 4)
+
+
+def _load_dictionary(path: Path) -> Mapping[float, NDArray[np.floating]]:
+    result = np.load(path, allow_pickle=True).item()
+    if not isinstance(result, dict):
+        raise ValueError(f"{path} does not contain a dictionary")
+    return result
+
+
+def load_fit_parameters(root: Path, dimension: str, data_dir: Path | None = None):
+    suffix = "_1d" if dimension == "1d" else ""
+    data_dir = data_dir or root / "GRMHD" / "data_out"
+    amplitude = _load_dictionary(data_dir / f"A_params{suffix}_dict.npy")
+    phase = _load_dictionary(data_dir / f"phi0_params{suffix}_dict.npy")
+    if set(amplitude) != set(phase):
+        raise ValueError("amplitude and phase grids differ")
+    return amplitude, phase
+
+
+def interpolate_fit_parameters(
+    alpha: float,
+    values: Mapping[float, NDArray[np.floating]],
+    *,
+    circular: bool = False,
+) -> NDArray[np.floating]:
+    """Interpolate fit products in alpha, treating phase means circularly."""
+    grid = np.array(sorted(values))
+    if alpha <= grid[0]:
+        return np.array(values[float(grid[0])], copy=True)
+    if alpha >= grid[-1]:
+        return np.array(values[float(grid[-1])], copy=True)
+    lower_index = np.searchsorted(grid, alpha) - 1
+    lower, upper = grid[lower_index : lower_index + 2]
+    weight = (alpha - lower) / (upper - lower)
+    first, second = values[float(lower)], values[float(upper)]
+    if not circular:
+        return (1 - weight) * first + weight * second
+    # The first row is a phase mean; interpolate it on the unit circle.  The
+    # second row is an ordinary standard deviation and remains linear.
+    result = np.empty_like(first)
+    vector = (1 - weight) * np.exp(1j * first[0]) + weight * np.exp(1j * second[0])
+    result[0] = np.angle(vector)
+    result[1] = (1 - weight) * first[1] + weight * second[1]
+    return result
+
+
+def evpa_templates(
+    alpha: float,
+    amplitude_parameters: Mapping[float, NDArray[np.floating]],
+    phase_parameters: Mapping[float, NDArray[np.floating]],
+    *,
+    phase_count: int = 16,
+    duplicate_endpoint: bool = False,
+    circular_phase_interpolation: bool = True,
+    legacy_shared_uncertainty: bool = False,
+) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
+    """Return two-epoch signal templates and their propagated uncertainties.
+
+    Signals and propagated standard deviations have unit
+    ``gagg * cloud_amplitude_scaling(alpha)`` and shape
+    ``(phase, epoch_pair, spatial...)``.
+    """
+    amplitude = interpolate_fit_parameters(alpha, amplitude_parameters)
+    phase = interpolate_fit_parameters(
+        alpha, phase_parameters, circular=circular_phase_interpolation
+    )
+    initial_phase = np.linspace(0, 2 * np.pi, phase_count, endpoint=duplicate_endpoint).reshape(
+        (phase_count,) + (1,) * (amplitude.ndim - 1)
+    )
+    angular_frequency = omega(alpha)
+    exposure = TIME_CONVERSION * angular_frequency / 2 * 6
+    constant = (
+        2
+        * np.sin(TIME_CONVERSION * angular_frequency / 2 * 24)
+        * np.sinc(exposure / np.pi)
+        / AXION_NORM
+    )
+    phase_first = initial_phase + phase[0]
+    phase_second = phase_first + TIME_CONVERSION * angular_frequency / 2 * 24 * 5
+    signal = constant * amplitude[0] * np.stack((np.sin(phase_first), np.sin(phase_second)), axis=1)
+    uncertainty = np.stack(
+        tuple(
+            np.sqrt(
+                (constant * np.sin(epoch_phase) * amplitude[1]) ** 2
+                + (constant * amplitude[0] * np.cos(epoch_phase) * phase[1]) ** 2
+            )
+            for epoch_phase in (phase_first, phase_second)
+        ),
+        axis=1,
+    )
+    if legacy_shared_uncertainty:
+        uncertainty[:, 1] = uncertainty[:, 0]
+    return signal, uncertainty

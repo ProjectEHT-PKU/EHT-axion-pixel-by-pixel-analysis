@@ -1,0 +1,576 @@
+{
+  "eht": {
+    "100": {
+      "all_data": {
+        "dtype": "float64",
+        "finite_fraction": 0.95361328125,
+        "max": 0.002689499839404208,
+        "max_abs_I_mean_difference": 0.0,
+        "max_abs_P_mean_difference": 2.710505431213761e-20,
+        "mean": 3.904300942627107e-05,
+        "min": -0.002309380208387183,
+        "sha256": "6bb5b9f8af92c76f78d4ea830417d53f5acdc842e1fc36778e6a1ee82185cea7",
+        "shape": [
+          1572,
+          64,
+          64,
+          4
+        ]
+      },
+      "evpa_1d": {
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 1.570778645202509,
+        "mean": -0.14680500090094972,
+        "min": -1.570771305741245,
+        "sha256": "3d3d9a52486ea4172eba8453559c3726a00ec8ad1b698ff41da09203f41224c3",
+        "shape": [
+          1572,
+          360
+        ]
+      },
+      "summary": {
+        "i_mean": {
+          "dtype": "float64",
+          "finite_fraction": 0.95361328125,
+          "max": 0.0011739659447301258,
+          "mean": 0.00015990879797828054,
+          "min": 4.2273902178942906e-06,
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "p_mean": {
+          "dtype": "float64",
+          "finite_fraction": 0.95361328125,
+          "max": 0.00015366993492672346,
+          "mean": 1.6907450482618967e-05,
+          "min": 7.683439644678168e-08,
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "sha256": "1c6dca8cef0a97a6e4dfab878331274b9511a10be7fa87919df25cd74636337f",
+        "theta_mean": {
+          "dtype": "float64",
+          "finite_fraction": 0.95361328125,
+          "max": 1.5707285382652598,
+          "mean": -0.15833227375143327,
+          "min": -1.5704505612944204,
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "theta_std": {
+          "dtype": "float64",
+          "finite_fraction": 0.95361328125,
+          "max": 1.0684289836484886,
+          "mean": 0.3415168910348915,
+          "min": 0.07715282709181286,
+          "shape": [
+            64,
+            64
+          ]
+        }
+      }
+    },
+    "101": {
+      "all_data": {
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 0.0025054211330950006,
+        "max_abs_I_mean_difference": 0.0,
+        "max_abs_P_mean_difference": 2.710505431213761e-20,
+        "mean": 3.7756319830530253e-05,
+        "min": -0.0024262359828026024,
+        "sha256": "3236662d9f15c9ab5ac50610d26857944340544c8fe0654c34ea18c118e5cd42",
+        "shape": [
+          1572,
+          64,
+          64,
+          4
+        ]
+      },
+      "evpa_1d": {
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 1.5707948153906006,
+        "mean": 0.13808023194053953,
+        "min": -1.5707880294095418,
+        "sha256": "06c69619bafd25798492462610977b182cd234b0573967a03c57b36400340b61",
+        "shape": [
+          1572,
+          360
+        ]
+      },
+      "summary": {
+        "i_mean": {
+          "dtype": "float64",
+          "finite_fraction": 1.0,
+          "max": 0.001360321477181708,
+          "mean": 0.00015377185786821416,
+          "min": 4.2108910350733475e-06,
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "p_mean": {
+          "dtype": "float64",
+          "finite_fraction": 1.0,
+          "max": 0.00017899101141934996,
+          "mean": 1.4787124859568894e-05,
+          "min": 1.8936328209926746e-07,
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "sha256": "886755fb433a203ddd41b9154a4150081ca635b6ba05703f15e5f2d4587e6267",
+        "theta_mean": {
+          "dtype": "float64",
+          "finite_fraction": 1.0,
+          "max": 1.5707371643901,
+          "mean": 0.047521186134186245,
+          "min": -1.5702339616308922,
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "theta_std": {
+          "dtype": "float64",
+          "finite_fraction": 1.0,
+          "max": 1.0738562472448907,
+          "mean": 0.2998009476198655,
+          "min": 0.0389843978813663,
+          "shape": [
+            64,
+            64
+          ]
+        }
+      }
+    },
+    "95": {
+      "all_data": {
+        "dtype": "float64",
+        "finite_fraction": 0.984375,
+        "max": 0.0022359343376547724,
+        "max_abs_I_mean_difference": 0.0,
+        "max_abs_P_mean_difference": 2.710505431213761e-20,
+        "mean": 3.846737708437407e-05,
+        "min": -0.0007985642816897915,
+        "sha256": "6cb2e73201f0bf015dd57d4fe712a0d42e1f05ae4ea1561c46742e4e45b9fd27",
+        "shape": [
+          1572,
+          64,
+          64,
+          4
+        ]
+      },
+      "evpa_1d": {
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 1.5707951866337921,
+        "mean": -0.06364858612690036,
+        "min": -1.570790337187496,
+        "sha256": "7a88214bd6aa1c9998cf9b4f9f1fd11ab79057c88ad271f9354e9d7d039eac76",
+        "shape": [
+          1572,
+          360
+        ]
+      },
+      "summary": {
+        "i_mean": {
+          "dtype": "float64",
+          "finite_fraction": 0.984375,
+          "max": 0.001512579514861178,
+          "mean": 0.00015455443659681583,
+          "min": 4.473142113445095e-06,
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "p_mean": {
+          "dtype": "float64",
+          "finite_fraction": 0.984375,
+          "max": 0.00024347757000839476,
+          "mean": 1.889637115102931e-05,
+          "min": 4.2111795220256536e-08,
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "sha256": "93daa3760e46b31b2faed38e274b8fa9799518185b9d6a7f762e3a459c3585fe",
+        "theta_mean": {
+          "dtype": "float64",
+          "finite_fraction": 0.984375,
+          "max": 1.5703726697992901,
+          "mean": -0.20191534365205605,
+          "min": -1.57014990752268,
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "theta_std": {
+          "dtype": "float64",
+          "finite_fraction": 0.984375,
+          "max": 1.0495239313271978,
+          "mean": 0.2381866084382955,
+          "min": 0.03412257798202414,
+          "shape": [
+            64,
+            64
+          ]
+        }
+      }
+    },
+    "96": {
+      "all_data": {
+        "dtype": "float64",
+        "finite_fraction": 0.984375,
+        "max": 0.002188750814096878,
+        "max_abs_I_mean_difference": 0.0,
+        "max_abs_P_mean_difference": 5.421010862427522e-20,
+        "mean": 3.8776554563980786e-05,
+        "min": -0.0009115748271003486,
+        "sha256": "b5ef1f23641be5177f3376bfe9fc4ff47ddb477df479ec2d2bb005d2e3f79692",
+        "shape": [
+          1572,
+          64,
+          64,
+          4
+        ]
+      },
+      "evpa_1d": {
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 1.5707916456105613,
+        "mean": -0.15581900245881153,
+        "min": -1.570744401148198,
+        "sha256": "d549fbd3c4ba58e890633d4a48919e27804e0d79bed3e6b63190fd2f494ca553",
+        "shape": [
+          1572,
+          360
+        ]
+      },
+      "summary": {
+        "i_mean": {
+          "dtype": "float64",
+          "finite_fraction": 0.984375,
+          "max": 0.0014815363827706401,
+          "mean": 0.0001553319965088089,
+          "min": 4.4270251448069885e-06,
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "p_mean": {
+          "dtype": "float64",
+          "finite_fraction": 0.984375,
+          "max": 0.0003577027552150338,
+          "mean": 1.796297472247443e-05,
+          "min": 6.049465685760137e-08,
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "sha256": "d6a5948874a2c91c3648b6e40eb7c3adc2247dfa7e54c2a16f9464b87c75abfe",
+        "theta_mean": {
+          "dtype": "float64",
+          "finite_fraction": 0.984375,
+          "max": 1.5702311728420248,
+          "mean": -0.08001418811230471,
+          "min": -1.5705623195489424,
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "theta_std": {
+          "dtype": "float64",
+          "finite_fraction": 0.984375,
+          "max": 1.0490836617200223,
+          "mean": 0.2670362260416072,
+          "min": 0.03993046343464147,
+          "shape": [
+            64,
+            64
+          ]
+        }
+      }
+    },
+    "condition": {
+      "dtype": "bool",
+      "finite_fraction": 1.0,
+      "max": 1.0,
+      "mean": 0.18798828125,
+      "min": 0.0,
+      "selected_pixels": 770,
+      "sha256": "f5f1f8393a510004f9bf4d8f5f982ec0af84c8bcaf688225b16dfbf857842a79",
+      "shape": [
+        64,
+        64
+      ]
+    }
+  },
+  "grmhd": {
+    "0.1": {
+      "EVPA_cos_fit_result_1d_10deg_alpha=0.1.npy": {
+        "bytes": 1218368,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.141454097988068,
+        "mean": -0.0959583441626204,
+        "min": -3.141554267498933,
+        "sha256": "b97d480b5c603f02befb85c75c8445574b1081615fd5c5aeffce99af34718a10",
+        "shape": [
+          141,
+          360,
+          3
+        ]
+      },
+      "EVPA_cos_fit_result_alpha=0.1.npy": {
+        "bytes": 13860992,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.1415925204671744,
+        "mean": -0.05330821779825186,
+        "min": -3.14158702552799,
+        "sha256": "2649dce09ba4d65cdbf822b6c91fdf6b454c7fc649c167c3b6894c2b38bb6705",
+        "shape": [
+          141,
+          64,
+          64,
+          3
+        ]
+      }
+    },
+    "0.15": {
+      "EVPA_cos_fit_result_1d_10deg_alpha=0.15.npy": {
+        "bytes": 1218368,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.1413713048191934,
+        "mean": 0.06161854865101485,
+        "min": -3.1413788079252596,
+        "sha256": "55d0a9d218a8d62f7d8daf16bc181f60621ab6b5b06fdd8b8b9cce1cb761ba32",
+        "shape": [
+          141,
+          360,
+          3
+        ]
+      },
+      "EVPA_cos_fit_result_alpha=0.15.npy": {
+        "bytes": 13860992,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.1415878112876605,
+        "mean": -0.007910822034447299,
+        "min": -3.1415682212717617,
+        "sha256": "693f407d1e0544db10741abce160fd6ab3b9dd2560b96dab58bc24a5a3a72462",
+        "shape": [
+          141,
+          64,
+          64,
+          3
+        ]
+      }
+    },
+    "0.2": {
+      "EVPA_cos_fit_result_1d_10deg_alpha=0.2.npy": {
+        "bytes": 1218368,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.141531922839887,
+        "mean": -0.051714675862909634,
+        "min": -3.141589324761025,
+        "sha256": "c852f438ee118c92e0c1b692ede0d5114338a9af80ab10af940ef4c2c1577694",
+        "shape": [
+          141,
+          360,
+          3
+        ]
+      },
+      "EVPA_cos_fit_result_alpha=0.2.npy": {
+        "bytes": 13860992,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.141591898528371,
+        "mean": 0.008563619002391259,
+        "min": -3.1415912057763133,
+        "sha256": "96d228cb1cfd9467b33cf94a0ee4156d2ba3753ab465bd4547dfaea865d7a2f1",
+        "shape": [
+          141,
+          64,
+          64,
+          3
+        ]
+      }
+    },
+    "0.25": {
+      "EVPA_cos_fit_result_1d_10deg_alpha=0.25.npy": {
+        "bytes": 1218368,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.141559915199463,
+        "mean": 0.005857523007175,
+        "min": -3.1411100349281034,
+        "sha256": "fc5fb9b9999ccc10743a87bab0c1f657232388022ba07de96824427c53f4b907",
+        "shape": [
+          141,
+          360,
+          3
+        ]
+      },
+      "EVPA_cos_fit_result_alpha=0.25.npy": {
+        "bytes": 13860992,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.1415614469438227,
+        "mean": -0.026328785266672282,
+        "min": -3.141584153160633,
+        "sha256": "ef53fd87930a327715b01ca0398210e5d929190d0d9d8dfeadb16bfce6f32897",
+        "shape": [
+          141,
+          64,
+          64,
+          3
+        ]
+      }
+    },
+    "0.3": {
+      "EVPA_cos_fit_result_1d_10deg_alpha=0.3.npy": {
+        "bytes": 1218368,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.141586232018634,
+        "mean": 0.05279149041469758,
+        "min": -3.141529065493764,
+        "sha256": "13d1c9fa565924f49c4cd6d787272ff0c0f8bcc7d896f97eaef439a66742b6ad",
+        "shape": [
+          141,
+          360,
+          3
+        ]
+      },
+      "EVPA_cos_fit_result_alpha=0.3.npy": {
+        "bytes": 13860992,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.1415860287141824,
+        "mean": 0.0676324921892269,
+        "min": -3.14158943863854,
+        "sha256": "147ef9d7355c1eb75372a8e5ae5a6bfdfea148c7e511eede31479bf6a86b54ff",
+        "shape": [
+          141,
+          64,
+          64,
+          3
+        ]
+      }
+    },
+    "0.35": {
+      "EVPA_cos_fit_result_1d_10deg_alpha=0.35.npy": {
+        "bytes": 1218368,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.1415276700653347,
+        "mean": -0.07567699470252177,
+        "min": -3.141526056850049,
+        "sha256": "80559db33d9e8c1aa99dcf19260244fef9f23e7da63fe4860048f9eee7bbb9c2",
+        "shape": [
+          141,
+          360,
+          3
+        ]
+      },
+      "EVPA_cos_fit_result_alpha=0.35.npy": {
+        "bytes": 13860992,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.141537970435264,
+        "mean": -0.09379683651451645,
+        "min": -3.1415775459394775,
+        "sha256": "cba8a9aac032dc1238bf6ce84aa4f764906a5cca9c92abfe09fad132f5d12405",
+        "shape": [
+          141,
+          64,
+          64,
+          3
+        ]
+      }
+    },
+    "0.4": {
+      "EVPA_cos_fit_result_1d_10deg_alpha=0.4.npy": {
+        "bytes": 1218368,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.1415374662245927,
+        "mean": 0.22387258829453033,
+        "min": -3.1414806099451353,
+        "sha256": "788330b0a12b920398f35ad0a54533e21940265433e4be8270f6993fff17166d",
+        "shape": [
+          141,
+          360,
+          3
+        ]
+      },
+      "EVPA_cos_fit_result_alpha=0.4.npy": {
+        "bytes": 13860992,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.14158441091797,
+        "mean": 0.21383473399758743,
+        "min": -3.1415847541809723,
+        "sha256": "80f8191403d2c0deeb9af8e0206fc6d11448b225e12d74a362c6d50c8ba865bc",
+        "shape": [
+          141,
+          64,
+          64,
+          3
+        ]
+      }
+    },
+    "0.44": {
+      "EVPA_cos_fit_result_1d_10deg_alpha=0.44.npy": {
+        "bytes": 1218368,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.140953834606707,
+        "mean": 0.03944599754256737,
+        "min": -3.1415443994330166,
+        "sha256": "93c958bb90533959beb6e3ec146027dcd55eff384441eed9603451770aa9e866",
+        "shape": [
+          141,
+          360,
+          3
+        ]
+      },
+      "EVPA_cos_fit_result_alpha=0.44.npy": {
+        "bytes": 13860992,
+        "dtype": "float64",
+        "finite_fraction": 1.0,
+        "max": 3.141592346957278,
+        "mean": 0.046696990084361935,
+        "min": -3.1415922017241393,
+        "sha256": "0ecae8ca8a9e7ddcec805664476616696c44a2c0b47f7c8c9529c0b72c2e155e",
+        "shape": [
+          141,
+          64,
+          64,
+          3
+        ]
+      }
+    }
+  },
+  "root": "/home/canoziia/MyProject/PHYS/EHT_ZC"
+}
