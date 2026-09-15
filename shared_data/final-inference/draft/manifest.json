@@ -1,0 +1,585 @@
+{
+  "angular_offset": 4,
+  "angular_spacing_degrees": 10,
+  "angular_window_degrees": 10,
+  "dataset": "EHT M87* final-inference inputs",
+  "files": [
+    {
+      "arrays": {
+        "arr_0": {
+          "dtype": "float64",
+          "shape": [
+            360
+          ]
+        },
+        "arr_1": {
+          "dtype": "float64",
+          "shape": [
+            360
+          ]
+        }
+      },
+      "bytes": 6266,
+      "path": "1d/100_1d.npz",
+      "sha256": "163cb025e7aaa57541f0bf485eac263bce139dd1ce46e22960b2770b3f48ccf6"
+    },
+    {
+      "bytes": 4527488,
+      "dtype": "float64",
+      "path": "1d/100_EVPA_1d.npy",
+      "sha256": "616412f0f63a186b0a3fe22996f23ba60bb1ca6445d5627f398e6520a1af256f",
+      "shape": [
+        1572,
+        360
+      ]
+    },
+    {
+      "arrays": {
+        "arr_0": {
+          "dtype": "float64",
+          "shape": [
+            360
+          ]
+        },
+        "arr_1": {
+          "dtype": "float64",
+          "shape": [
+            360
+          ]
+        }
+      },
+      "bytes": 6266,
+      "path": "1d/101_1d.npz",
+      "sha256": "fea5a0cea568a7f0000206eec2222c001b9fa7720f8368b58620117b8dbb40eb"
+    },
+    {
+      "bytes": 4527488,
+      "dtype": "float64",
+      "path": "1d/101_EVPA_1d.npy",
+      "sha256": "5f9af2c64db55b661a94cb8c33cb79b97f722b407829df0b958e637fe800ed37",
+      "shape": [
+        1572,
+        360
+      ]
+    },
+    {
+      "arrays": {
+        "arr_0": {
+          "dtype": "float64",
+          "shape": [
+            360
+          ]
+        },
+        "arr_1": {
+          "dtype": "float64",
+          "shape": [
+            360
+          ]
+        }
+      },
+      "bytes": 6266,
+      "path": "1d/95_1d.npz",
+      "sha256": "d7ad510c809a34bac575af3ae5122eb6aa09d81df193441cbea14700b9c02c41"
+    },
+    {
+      "bytes": 4527488,
+      "dtype": "float64",
+      "path": "1d/95_EVPA_1d.npy",
+      "sha256": "a202f4dabacef2f4d52cda3cac18b581a4bcdf2e6a12d82a100a044ab75a6048",
+      "shape": [
+        1572,
+        360
+      ]
+    },
+    {
+      "arrays": {
+        "arr_0": {
+          "dtype": "float64",
+          "shape": [
+            360
+          ]
+        },
+        "arr_1": {
+          "dtype": "float64",
+          "shape": [
+            360
+          ]
+        }
+      },
+      "bytes": 6266,
+      "path": "1d/96_1d.npz",
+      "sha256": "95391169907cf1aabdddc1e36bb29e107f51f6e9ff5ae5519dd05d513b3a1933"
+    },
+    {
+      "bytes": 4527488,
+      "dtype": "float64",
+      "path": "1d/96_EVPA_1d.npy",
+      "sha256": "25a8938c6d43a0791ccca4a5cd5733ebcd7c3640d90d70d6c01992dd411a0ce5",
+      "shape": [
+        1572,
+        360
+      ]
+    },
+    {
+      "bytes": 46753,
+      "format": "numpy-pickled-dictionary",
+      "keys": [
+        "0.1",
+        "0.15",
+        "0.2",
+        "0.25",
+        "0.3",
+        "0.35",
+        "0.4",
+        "0.44"
+      ],
+      "path": "1d/A_params_1d_dict.npy",
+      "sha256": "7c6c2cb188b731f978dc866b6cfc5af79782518049d44c1e8fd077baa5e2afe0",
+      "value_dtypes": {
+        "0.1": "float64",
+        "0.15": "float64",
+        "0.2": "float64",
+        "0.25": "float64",
+        "0.3": "float64",
+        "0.35": "float64",
+        "0.4": "float64",
+        "0.44": "float64"
+      },
+      "value_shapes": {
+        "0.1": [
+          2,
+          360
+        ],
+        "0.15": [
+          2,
+          360
+        ],
+        "0.2": [
+          2,
+          360
+        ],
+        "0.25": [
+          2,
+          360
+        ],
+        "0.3": [
+          2,
+          360
+        ],
+        "0.35": [
+          2,
+          360
+        ],
+        "0.4": [
+          2,
+          360
+        ],
+        "0.44": [
+          2,
+          360
+        ]
+      }
+    },
+    {
+      "bytes": 46753,
+      "format": "numpy-pickled-dictionary",
+      "keys": [
+        "0.1",
+        "0.15",
+        "0.2",
+        "0.25",
+        "0.3",
+        "0.35",
+        "0.4",
+        "0.44"
+      ],
+      "path": "1d/phi0_params_1d_dict.npy",
+      "sha256": "95a804aaee506a37f3f63a6575aaf94d27daf83f706b2cfd905889d0d1ac1860",
+      "value_dtypes": {
+        "0.1": "float64",
+        "0.15": "float64",
+        "0.2": "float64",
+        "0.25": "float64",
+        "0.3": "float64",
+        "0.35": "float64",
+        "0.4": "float64",
+        "0.44": "float64"
+      },
+      "value_shapes": {
+        "0.1": [
+          2,
+          360
+        ],
+        "0.15": [
+          2,
+          360
+        ],
+        "0.2": [
+          2,
+          360
+        ],
+        "0.25": [
+          2,
+          360
+        ],
+        "0.3": [
+          2,
+          360
+        ],
+        "0.35": [
+          2,
+          360
+        ],
+        "0.4": [
+          2,
+          360
+        ],
+        "0.44": [
+          2,
+          360
+        ]
+      }
+    },
+    {
+      "arrays": {
+        "arr_0": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "arr_1": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "arr_2": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "arr_3": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        }
+      },
+      "bytes": 132062,
+      "path": "2d/100.npz",
+      "sha256": "7d89dd58586aecb8e03ab8a546f31bf38ca52d7ea537b5b83bba5d2ad3fbea3b"
+    },
+    {
+      "bytes": 206045312,
+      "dtype": "float64",
+      "path": "2d/100_all_data.npy",
+      "sha256": "e36338a5c4ed8efab1592082b918cec63b7a8aa6a4ba0786c94cdae947f3d076",
+      "shape": [
+        1572,
+        64,
+        64,
+        4
+      ]
+    },
+    {
+      "arrays": {
+        "arr_0": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "arr_1": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "arr_2": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "arr_3": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        }
+      },
+      "bytes": 132062,
+      "path": "2d/101.npz",
+      "sha256": "57a47df39cd896af8c447bb3656c1feb2fb01c0e9f656cf4ebc652cbf91cc63e"
+    },
+    {
+      "bytes": 206045312,
+      "dtype": "float64",
+      "path": "2d/101_all_data.npy",
+      "sha256": "f2f3d8e4fd10a45c26f38249fc396431821de1a089c1d56c2cdcb97f2bd75f1e",
+      "shape": [
+        1572,
+        64,
+        64,
+        4
+      ]
+    },
+    {
+      "arrays": {
+        "arr_0": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "arr_1": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "arr_2": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "arr_3": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        }
+      },
+      "bytes": 132062,
+      "path": "2d/95.npz",
+      "sha256": "50ec313afb181008551807aa980a140da493809d7be1b162c5654d92b62efc93"
+    },
+    {
+      "bytes": 206045312,
+      "dtype": "float64",
+      "path": "2d/95_all_data.npy",
+      "sha256": "aad73294e570c6778c64123530a29f746c15ce915cd2331a130d1a2dd9a4775f",
+      "shape": [
+        1572,
+        64,
+        64,
+        4
+      ]
+    },
+    {
+      "arrays": {
+        "arr_0": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "arr_1": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "arr_2": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        },
+        "arr_3": {
+          "dtype": "float64",
+          "shape": [
+            64,
+            64
+          ]
+        }
+      },
+      "bytes": 132062,
+      "path": "2d/96.npz",
+      "sha256": "071000cc556e4fc0f40d392d2bd1ab88b3b44bffa254dee0d864253cd61ddfc3"
+    },
+    {
+      "bytes": 206045312,
+      "dtype": "float64",
+      "path": "2d/96_all_data.npy",
+      "sha256": "537a46bedb2a4303ee6f59ea331663699ea26a4250803e8283937bfd9af20acc",
+      "shape": [
+        1572,
+        64,
+        64,
+        4
+      ]
+    },
+    {
+      "bytes": 525041,
+      "format": "numpy-pickled-dictionary",
+      "keys": [
+        "0.1",
+        "0.15",
+        "0.2",
+        "0.25",
+        "0.3",
+        "0.35",
+        "0.4",
+        "0.44"
+      ],
+      "path": "2d/A_params_dict.npy",
+      "sha256": "eb84f0016f6512d2bf54d33c2b9202f9576f396669e92ba2e063db41a42975be",
+      "value_dtypes": {
+        "0.1": "float64",
+        "0.15": "float64",
+        "0.2": "float64",
+        "0.25": "float64",
+        "0.3": "float64",
+        "0.35": "float64",
+        "0.4": "float64",
+        "0.44": "float64"
+      },
+      "value_shapes": {
+        "0.1": [
+          2,
+          64,
+          64
+        ],
+        "0.15": [
+          2,
+          64,
+          64
+        ],
+        "0.2": [
+          2,
+          64,
+          64
+        ],
+        "0.25": [
+          2,
+          64,
+          64
+        ],
+        "0.3": [
+          2,
+          64,
+          64
+        ],
+        "0.35": [
+          2,
+          64,
+          64
+        ],
+        "0.4": [
+          2,
+          64,
+          64
+        ],
+        "0.44": [
+          2,
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "bytes": 4224,
+      "dtype": "bool",
+      "path": "2d/condition.npy",
+      "sha256": "d6aabd255b125d1c17522beb1e7c14036f4092222c1f0a690f2ae19363982d0d",
+      "shape": [
+        64,
+        64
+      ]
+    },
+    {
+      "bytes": 525041,
+      "format": "numpy-pickled-dictionary",
+      "keys": [
+        "0.1",
+        "0.15",
+        "0.2",
+        "0.25",
+        "0.3",
+        "0.35",
+        "0.4",
+        "0.44"
+      ],
+      "path": "2d/phi0_params_dict.npy",
+      "sha256": "1402e7f5572398547587b38ba26ce1ee2334a2007ec73db9a54fc53f17ec4a3b",
+      "value_dtypes": {
+        "0.1": "float64",
+        "0.15": "float64",
+        "0.2": "float64",
+        "0.25": "float64",
+        "0.3": "float64",
+        "0.35": "float64",
+        "0.4": "float64",
+        "0.44": "float64"
+      },
+      "value_shapes": {
+        "0.1": [
+          2,
+          64,
+          64
+        ],
+        "0.15": [
+          2,
+          64,
+          64
+        ],
+        "0.2": [
+          2,
+          64,
+          64
+        ],
+        "0.25": [
+          2,
+          64,
+          64
+        ],
+        "0.3": [
+          2,
+          64,
+          64
+        ],
+        "0.35": [
+          2,
+          64,
+          64
+        ],
+        "0.4": [
+          2,
+          64,
+          64
+        ],
+        "0.44": [
+          2,
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "generated_from_commit": "2cbddf8b359d50993a92555aa0f972743e37809f",
+  "revision": "draft",
+  "schema_version": 1,
+  "selected_2d_pixels": 757,
+  "status": "development",
+  "topset_size": 1572,
+  "total_bytes": 843992324
+}

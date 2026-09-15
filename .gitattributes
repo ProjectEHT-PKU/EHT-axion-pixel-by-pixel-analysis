@@ -1,0 +1,9 @@
+# SCM syntax highlighting & preventing 3-way merges
+pixi.lock merge=binary linguist-language=YAML linguist-generated=true
+
+# Only curated collaborator-facing datasets use Git LFS. Local intermediates
+# elsewhere remain ignored by .gitignore.
+shared_data/**/*.npy filter=lfs diff=lfs merge=lfs -text
+shared_data/**/*.npz filter=lfs diff=lfs merge=lfs -text
+shared_data/**/*.h5 filter=lfs diff=lfs merge=lfs -text
+shared_data/**/*.pkl filter=lfs diff=lfs merge=lfs -text

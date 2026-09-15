@@ -63,6 +63,27 @@ python scripts/plot_final_limits.py
 See [`audit/REPORT.md`](audit/REPORT.md) for reproduced values, verified fixes,
 runtime measurements, and remaining scientific choices.
 
+## Shared final-inference data
+
+Collaborator-facing binary inputs live only under
+`shared_data/final-inference/draft/` and are managed by Git LFS. The `draft`
+revision is intentionally mutable while the analysis is under active review;
+immutable `v1` will be created only when the paper result is frozen.
+
+After `git lfs pull`, run directly from the shared dataset:
+
+```bash
+python scripts/run_final_limits.py --dimension 2d --mode cor_grmhd \
+  --observation-dir shared_data/final-inference/draft/2d \
+  --fit-parameter-dir shared_data/final-inference/draft/2d
+python scripts/run_final_limits.py --dimension 1d --mode cor_grmhd \
+  --observation-dir shared_data/final-inference/draft/1d \
+  --fit-parameter-dir shared_data/final-inference/draft/1d
+```
+
+See [`shared_data/README.md`](shared_data/README.md) for update, freeze, and
+partial-download policy.
+
 ## Intermediate data
 
 Raw and generated arrays are intentionally not stored in ordinary Git.  The
