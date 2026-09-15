@@ -47,5 +47,6 @@ GIT_LFS_SKIP_SMUDGE=1 git clone <repository-url>
 Fetch only the development inference dataset later:
 
 ```bash
+git lfs install
 git lfs pull --include='shared_data/final-inference/draft/**'
 ```

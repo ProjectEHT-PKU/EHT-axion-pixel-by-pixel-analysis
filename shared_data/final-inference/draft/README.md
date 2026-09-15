@@ -10,6 +10,7 @@ reconstruction.
 ## Get and verify data
 
 ```bash
+git lfs install
 git lfs pull --include='shared_data/final-inference/draft/**'
 python scripts/verify_shared_data.py
 ```
