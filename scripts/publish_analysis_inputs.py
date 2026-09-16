@@ -162,6 +162,82 @@ def publish_raptor(destination: Path, shard_size: int) -> tuple[list[dict], dict
     return files, {"unsharded": sources, "res_400_source": source_summary}
 
 
+def publish_transport_diagnostics(destination: Path) -> tuple[list[dict], list[dict]]:
+    """Publish the single-snapshot transfer-term decomposition used by Fig. 4.
+
+    Exact upstream RAPTOR switch files are not present in this repository; the
+    semantic labels below are inferred from the analysis notebook and retained
+    as explicit provenance caveats in the manifest.
+    """
+    source_dir = ROOT / "GRMHD" / "data_in"
+    output_dir = destination / "raptor-transport-diagnostics" / "snapshot-2110-res-400"
+    definitions = {
+        "common": "normal/full transfer configuration",
+        "common_noaxion": "no-axion background for the common configuration",
+        "jonly": "emissivity-only run; absorption/Faraday propagation disabled",
+        "eq_jonly": "equatorial-plane emissivity-only run",
+        "fake": "artificial emissivity test run for analytical comparison",
+    }
+    files = []
+    sources = []
+    for variant, interpretation in definitions.items():
+        source = source_dir / f"grmhdData2110_400_{variant}.npy"
+        target = output_dir / f"{variant}.npy"
+        method = hardlink_or_copy(source, target)
+        files.append(
+            array_entry(
+                target,
+                destination,
+                snapshot=2110,
+                resolution=400,
+                transport_variant=variant,
+                interpretation=interpretation,
+                interpretation_source="inferred from GRMHD/main.ipynb; upstream RAPTOR configs unavailable",
+                state_axis=(
+                    "single no-axion image"
+                    if variant == "common_noaxion"
+                    else "0=no axion; 1..16=axion phases 0..15"
+                ),
+                stokes_axis=["I", "Q", "U", "V"],
+            )
+        )
+        sources.append(
+            {
+                "source": str(source.relative_to(ROOT)),
+                "published": str(target.relative_to(destination)),
+                "local_materialization": method,
+            }
+        )
+        print(f"published transport diagnostic {variant} via {method}", flush=True)
+
+    auxiliary = {
+        "r_coord_400.npy": "equatorial-plane crossing radius per screen pixel",
+        "axion_field_coord_400_16.npy": "analytical axion field for 16 phases",
+    }
+    for name, interpretation in auxiliary.items():
+        source = source_dir / name
+        target = output_dir / name
+        method = hardlink_or_copy(source, target)
+        files.append(
+            array_entry(
+                target,
+                destination,
+                snapshot=2110,
+                resolution=400,
+                interpretation=interpretation,
+            )
+        )
+        sources.append(
+            {
+                "source": str(source.relative_to(ROOT)),
+                "published": str(target.relative_to(destination)),
+                "local_materialization": method,
+            }
+        )
+        print(f"published transport auxiliary {name} via {method}", flush=True)
+    return files, sources
+
+
 def publish_eht(destination: Path) -> tuple[list[dict], list[dict]]:
     source_dir = ROOT / "EHT-Imaging" / "data_in"
     output_dir = destination / "eht-image-ensemble"
@@ -205,8 +281,11 @@ def main() -> None:
     args = parse_args()
     destination = validate_revision(args)
     raptor_files, raptor_sources = publish_raptor(destination, args.time_shard_size)
+    transport_files, transport_sources = publish_transport_diagnostics(destination)
     eht_files, eht_sources = publish_eht(destination)
-    files = sorted(raptor_files + eht_files, key=lambda item: item["path"])
+    files = sorted(
+        raptor_files + transport_files + eht_files, key=lambda item: item["path"]
+    )
     commit = subprocess.check_output(
         ["git", "rev-parse", "origin/audit/reproduce-fix-final-results"],
         cwd=ROOT,
@@ -221,11 +300,16 @@ def main() -> None:
         "scope": {
             "raptor": "Stokes IQUV cubes, 141 times, no-axion + 16 phases",
             "eht": "four days, 4800 image hyperparameter combinations per day",
+            "transport_diagnostics": "snapshot 2110 transfer-term decomposition used by Fig. 4",
         },
         "files": files,
         "file_count": len(files),
         "total_bytes": sum(item["bytes"] for item in files),
-        "provenance": {"raptor": raptor_sources, "eht": eht_sources},
+        "provenance": {
+            "raptor": raptor_sources,
+            "transport_diagnostics": transport_sources,
+            "eht": eht_sources,
+        },
     }
     (destination / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n"

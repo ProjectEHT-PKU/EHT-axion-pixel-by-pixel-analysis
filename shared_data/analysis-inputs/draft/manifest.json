@@ -1,7 +1,7 @@
 {
   "analysis_commit": "2cbddf8b359d50993a92555aa0f972743e37809f",
   "dataset": "EHT axion analysis inputs after RAPTOR and EHT-Imaging",
-  "file_count": 27,
+  "file_count": 34,
   "files": [
     {
       "arrays": {
@@ -40,6 +40,7 @@
       },
       "bytes": 630542192,
       "day": 100,
+      "format": "pickle",
       "image_count": 4800,
       "metadata_fields": [
         "MEM",
@@ -57,8 +58,7 @@
         "zbl"
       ],
       "path": "eht-image-ensemble/230_100.pkl",
-      "sha256": "19ad4064dcb1df2a1306034312cb911681f52e3d40707222f448018f6df748bd",
-      "format": "pickle"
+      "sha256": "19ad4064dcb1df2a1306034312cb911681f52e3d40707222f448018f6df748bd"
     },
     {
       "arrays": {
@@ -97,6 +97,7 @@
       },
       "bytes": 630542192,
       "day": 101,
+      "format": "pickle",
       "image_count": 4800,
       "metadata_fields": [
         "MEM",
@@ -114,8 +115,7 @@
         "zbl"
       ],
       "path": "eht-image-ensemble/230_101.pkl",
-      "sha256": "19d18a54e90b2665f1d1593e2b7871a5df4f29c5873625b78308c188c51b0bc8",
-      "format": "pickle"
+      "sha256": "19d18a54e90b2665f1d1593e2b7871a5df4f29c5873625b78308c188c51b0bc8"
     },
     {
       "arrays": {
@@ -154,6 +154,7 @@
       },
       "bytes": 630542192,
       "day": 95,
+      "format": "pickle",
       "image_count": 4800,
       "metadata_fields": [
         "MEM",
@@ -171,8 +172,7 @@
         "zbl"
       ],
       "path": "eht-image-ensemble/230_95.pkl",
-      "sha256": "49608d711da800ebdf8b3e7d5bc806522c8a70678c96d065700bf72c876d266f",
-      "format": "pickle"
+      "sha256": "49608d711da800ebdf8b3e7d5bc806522c8a70678c96d065700bf72c876d266f"
     },
     {
       "arrays": {
@@ -211,6 +211,7 @@
       },
       "bytes": 630542192,
       "day": 96,
+      "format": "pickle",
       "image_count": 4800,
       "metadata_fields": [
         "MEM",
@@ -228,8 +229,7 @@
         "zbl"
       ],
       "path": "eht-image-ensemble/230_96.pkl",
-      "sha256": "1c7c8c4156139e135f2dc9bf2b79d039ec814d4e03d91a50e6f7a75d66b9ee8f",
-      "format": "pickle"
+      "sha256": "1c7c8c4156139e135f2dc9bf2b79d039ec814d4e03d91a50e6f7a75d66b9ee8f"
     },
     {
       "alpha": 0.1,
@@ -983,6 +983,152 @@
       "time_values": [
         3000
       ]
+    },
+    {
+      "bytes": 20480128,
+      "dtype": "float64",
+      "interpretation": "analytical axion field for 16 phases",
+      "path": "raptor-transport-diagnostics/snapshot-2110-res-400/axion_field_coord_400_16.npy",
+      "resolution": 400,
+      "sha256": "c532b339c70efd6f79036421689e48013784bd5a297db11c9ea1a5b829c5199f",
+      "shape": [
+        16,
+        400,
+        400
+      ],
+      "snapshot": 2110
+    },
+    {
+      "bytes": 87040128,
+      "dtype": "float64",
+      "interpretation": "normal/full transfer configuration",
+      "interpretation_source": "inferred from GRMHD/main.ipynb; upstream RAPTOR configs unavailable",
+      "path": "raptor-transport-diagnostics/snapshot-2110-res-400/common.npy",
+      "resolution": 400,
+      "sha256": "909d47e36501ca82e0ae0abe2078c549ae24a71c378a8cd807cec67cd3bce33d",
+      "shape": [
+        17,
+        400,
+        400,
+        4
+      ],
+      "snapshot": 2110,
+      "state_axis": "0=no axion; 1..16=axion phases 0..15",
+      "stokes_axis": [
+        "I",
+        "Q",
+        "U",
+        "V"
+      ],
+      "transport_variant": "common"
+    },
+    {
+      "bytes": 5120128,
+      "dtype": "float64",
+      "interpretation": "no-axion background for the common configuration",
+      "interpretation_source": "inferred from GRMHD/main.ipynb; upstream RAPTOR configs unavailable",
+      "path": "raptor-transport-diagnostics/snapshot-2110-res-400/common_noaxion.npy",
+      "resolution": 400,
+      "sha256": "e7609ef9a3fffe51846943578ed2bfa96ec920a7061e12a7e0511fa05a717c92",
+      "shape": [
+        400,
+        400,
+        4
+      ],
+      "snapshot": 2110,
+      "state_axis": "single no-axion image",
+      "stokes_axis": [
+        "I",
+        "Q",
+        "U",
+        "V"
+      ],
+      "transport_variant": "common_noaxion"
+    },
+    {
+      "bytes": 87040128,
+      "dtype": "float64",
+      "interpretation": "equatorial-plane emissivity-only run",
+      "interpretation_source": "inferred from GRMHD/main.ipynb; upstream RAPTOR configs unavailable",
+      "path": "raptor-transport-diagnostics/snapshot-2110-res-400/eq_jonly.npy",
+      "resolution": 400,
+      "sha256": "4084a9cb5f1bcad37b1b038be2936e32ea55f07326c0b0247f12b57ab2c12ff0",
+      "shape": [
+        17,
+        400,
+        400,
+        4
+      ],
+      "snapshot": 2110,
+      "state_axis": "0=no axion; 1..16=axion phases 0..15",
+      "stokes_axis": [
+        "I",
+        "Q",
+        "U",
+        "V"
+      ],
+      "transport_variant": "eq_jonly"
+    },
+    {
+      "bytes": 87040128,
+      "dtype": "float64",
+      "interpretation": "artificial emissivity test run for analytical comparison",
+      "interpretation_source": "inferred from GRMHD/main.ipynb; upstream RAPTOR configs unavailable",
+      "path": "raptor-transport-diagnostics/snapshot-2110-res-400/fake.npy",
+      "resolution": 400,
+      "sha256": "7742677f674ab9ee7ec39043d818e024f21ee0d54c6767a5f91dc1ccac5b848a",
+      "shape": [
+        17,
+        400,
+        400,
+        4
+      ],
+      "snapshot": 2110,
+      "state_axis": "0=no axion; 1..16=axion phases 0..15",
+      "stokes_axis": [
+        "I",
+        "Q",
+        "U",
+        "V"
+      ],
+      "transport_variant": "fake"
+    },
+    {
+      "bytes": 87040128,
+      "dtype": "float64",
+      "interpretation": "emissivity-only run; absorption/Faraday propagation disabled",
+      "interpretation_source": "inferred from GRMHD/main.ipynb; upstream RAPTOR configs unavailable",
+      "path": "raptor-transport-diagnostics/snapshot-2110-res-400/jonly.npy",
+      "resolution": 400,
+      "sha256": "d22228877518ad2bee2ebd93bf8edf431ab5152dfb0f20bf1b6b01f7ae13dbfd",
+      "shape": [
+        17,
+        400,
+        400,
+        4
+      ],
+      "snapshot": 2110,
+      "state_axis": "0=no axion; 1..16=axion phases 0..15",
+      "stokes_axis": [
+        "I",
+        "Q",
+        "U",
+        "V"
+      ],
+      "transport_variant": "jonly"
+    },
+    {
+      "bytes": 1280128,
+      "dtype": "float64",
+      "interpretation": "equatorial-plane crossing radius per screen pixel",
+      "path": "raptor-transport-diagnostics/snapshot-2110-res-400/r_coord_400.npy",
+      "resolution": 400,
+      "sha256": "8dbf3dca8b427b72f23e2609ee2afb53c5643ce34eefca6636a2d00d5116e0f1",
+      "shape": [
+        400,
+        400
+      ],
+      "snapshot": 2110
     }
   ],
   "provenance": {
@@ -1066,14 +1212,52 @@
           "source": "GRMHD/data_in/GRMHD_Data_1600-3000_alpha=0.44_res=100.npy"
         }
       ]
-    }
+    },
+    "transport_diagnostics": [
+      {
+        "local_materialization": "hardlink",
+        "published": "raptor-transport-diagnostics/snapshot-2110-res-400/common.npy",
+        "source": "GRMHD/data_in/grmhdData2110_400_common.npy"
+      },
+      {
+        "local_materialization": "hardlink",
+        "published": "raptor-transport-diagnostics/snapshot-2110-res-400/common_noaxion.npy",
+        "source": "GRMHD/data_in/grmhdData2110_400_common_noaxion.npy"
+      },
+      {
+        "local_materialization": "hardlink",
+        "published": "raptor-transport-diagnostics/snapshot-2110-res-400/jonly.npy",
+        "source": "GRMHD/data_in/grmhdData2110_400_jonly.npy"
+      },
+      {
+        "local_materialization": "hardlink",
+        "published": "raptor-transport-diagnostics/snapshot-2110-res-400/eq_jonly.npy",
+        "source": "GRMHD/data_in/grmhdData2110_400_eq_jonly.npy"
+      },
+      {
+        "local_materialization": "hardlink",
+        "published": "raptor-transport-diagnostics/snapshot-2110-res-400/fake.npy",
+        "source": "GRMHD/data_in/grmhdData2110_400_fake.npy"
+      },
+      {
+        "local_materialization": "hardlink",
+        "published": "raptor-transport-diagnostics/snapshot-2110-res-400/r_coord_400.npy",
+        "source": "GRMHD/data_in/r_coord_400.npy"
+      },
+      {
+        "local_materialization": "hardlink",
+        "published": "raptor-transport-diagnostics/snapshot-2110-res-400/axion_field_coord_400_16.npy",
+        "source": "GRMHD/data_in/axion_field_coord_400_16.npy"
+      }
+    ]
   },
   "revision": "draft",
   "schema_version": 1,
   "scope": {
     "eht": "four days, 4800 image hyperparameter combinations per day",
-    "raptor": "Stokes IQUV cubes, 141 times, no-axion + 16 phases"
+    "raptor": "Stokes IQUV cubes, 141 times, no-axion + 16 phases",
+    "transport_diagnostics": "snapshot 2110 transfer-term decomposition used by Fig. 4"
   },
   "status": "development",
-  "total_bytes": 20931131712
+  "total_bytes": 21306172608
 }

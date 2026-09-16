@@ -36,6 +36,9 @@ git lfs pull --include='shared_data/analysis-inputs/draft/raptor-stokes/res-100/
 
 # Only RAPTOR alpha=.3 res=400 shards (~12.27 GB)
 git lfs pull --include='shared_data/analysis-inputs/draft/raptor-stokes/res-400/**'
+
+# Only plasma/transport-term diagnostic runs for Fig. 4 (~375 MB)
+git lfs pull --include='shared_data/analysis-inputs/draft/raptor-transport-diagnostics/**'
 ```
 
 ## Update draft

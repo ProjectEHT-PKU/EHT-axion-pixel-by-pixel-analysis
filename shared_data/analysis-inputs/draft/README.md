@@ -28,6 +28,26 @@ raptor-stokes/res-400/alpha-0.3/stokes-t3000-t3000.npy
 
 Concatenate shards in filename/time order along axis 0 to reconstruct the source.
 
+### RAPTOR transport-term diagnostics (Figure 4)
+
+```text
+raptor-transport-diagnostics/snapshot-2110-res-400/
+├── common.npy
+├── common_noaxion.npy
+├── jonly.npy
+├── eq_jonly.npy
+├── fake.npy
+├── r_coord_400.npy
+└── axion_field_coord_400_16.npy
+```
+
+These single-snapshot runs compare full/normal transfer, emissivity-only
+transport, equatorial emissivity, and an artificial emissivity reference. They
+are required for the plasma-on/off and source-contribution decomposition shown
+in Figure 4. The exact upstream RAPTOR parameter files are not present, so the
+variant interpretations in the manifest are inferred from `GRMHD/main.ipynb`
+and must be confirmed before paper release.
+
 ### EHT image ensembles
 
 ```text
