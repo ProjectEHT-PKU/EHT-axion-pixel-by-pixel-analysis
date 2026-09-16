@@ -84,6 +84,13 @@ python scripts/run_final_limits.py --dimension 1d --mode cor_grmhd \
 See [`shared_data/README.md`](shared_data/README.md) for update, freeze, and
 partial-download policy.
 
+A separate, larger development dataset is available under
+`shared_data/analysis-inputs/draft/` (about 20.9 GB via Git LFS). It contains the
+RAPTOR Stokes cubes and four EHT-Imaging 4800-image ensembles required to
+reconstruct the full downstream analysis. It starts *after* RAPTOR and
+EHT-Imaging have run; it is not raw GRMHD/visibility input. See
+[`shared_data/analysis-inputs/README.md`](shared_data/analysis-inputs/README.md).
+
 ## Intermediate data
 
 Raw and generated arrays are intentionally not stored in ordinary Git.  The

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import pickle
 from pathlib import Path
 
 import numpy as np
@@ -54,6 +55,9 @@ def main() -> None:
         try:
             if entry.get("format") == "numpy-pickled-dictionary":
                 np.load(path, allow_pickle=True).item()
+            elif entry.get("format") == "pickle":
+                with path.open("rb") as stream:
+                    pickle.load(stream)
             else:
                 np.load(path, mmap_mode="r", allow_pickle=False)
         except Exception as error:  # pragma: no cover - diagnostic path
