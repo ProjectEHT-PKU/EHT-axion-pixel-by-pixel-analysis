@@ -35,8 +35,8 @@ convergence = { cmd = "python scripts/check_convergence.py", description = "Chec
 transport = { cmd = "python scripts/transport_diagnostics.py", description = "Figure-4 transport diagnostics" }
 convert-hdf5 = { cmd = "python scripts/raptor_tools.py convert", description = "Convert explicitly mapped HDF5 Stokes datasets" }
 compare = { cmd = "python scripts/compare_original_limits.py", description = "Compare saved original and new null limit curves" }
-test = { cmd = "python -m pytest -q", description = "Run scientific, pipeline and failure-mode tests" }
-lint = { cmd = "ruff check eht_axion tests scripts", description = "Check reusable modules and direct research scripts" }
+test = { cmd = 'python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=. scripts"', description = "Run tests; discovery and local source paths are configured here" }
+lint = { cmd = "ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts", description = "Check code using explicit rules; no external Ruff configuration" }
 check = { depends-on = ["test", "lint"], description = "Run tests and lint" }
 
 [environments]

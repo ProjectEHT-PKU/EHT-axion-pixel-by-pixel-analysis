@@ -46,11 +46,14 @@ def test_script_help_outside_repository_without_installation(name, tmp_path):
     assert "usage:" in result.stdout
 
 
-def test_workspace_is_tool_config_not_package():
-    tools = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    assert "build-system" not in tools
-    assert "project" not in tools
+def test_workspace_configuration_is_only_in_pixi():
+    for name in ("pyproject.toml", "pytest.ini", "ruff.toml", ".ruff.toml"):
+        assert not (ROOT / name).exists()
     pixi = tomllib.loads((ROOT / "pixi.toml").read_text())
+    assert "pythonpath=. scripts" in pixi["tasks"]["test"]["cmd"]
+    assert "testpaths=tests" in pixi["tasks"]["test"]["cmd"]
+    assert "--isolated" in pixi["tasks"]["lint"]["cmd"]
+    assert "--select E,F,W" in pixi["tasks"]["lint"]["cmd"]
     assert not pixi.get("pypi-dependencies")
     assert pixi["tasks"]["pipeline"]["cmd"] == "python scripts/run_all.py"
     assert not (ROOT / "eht_axion/pipeline/cli.py").exists()

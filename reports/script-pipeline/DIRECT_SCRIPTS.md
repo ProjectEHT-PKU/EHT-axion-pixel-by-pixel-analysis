@@ -1,5 +1,9 @@
 # Direct research scripts, reusable modules, no installable project
 
+**Configuration follow-up:** pytest/Ruff options have since been moved into Pixi tasks
+and `pyproject.toml` removed. Dependencies and checks now use `pixi.toml` only.
+The packaging-removal history below records the preceding step.
+
 ## What changed
 
 - Removed `[build-system]`, `[project]`, package discovery and console registration

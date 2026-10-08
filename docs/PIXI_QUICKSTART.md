@@ -168,6 +168,8 @@ pixi run test
 pixi run lint
 ```
 
+依赖和检查参数统一在`pixi.toml`中，没有额外的pyproject/pytest.ini/ruff.toml。
+请通过以上Pixi任务运行检查，裸执行pytest或ruff不会自动取得这些参数。
 所有当前测试都在默认环境运行，不需要额外的`legacy`环境或statsmodels。
 旧Notebook、旧工具库和对应测试已从此worktree清除，原始`EHT_ZC`中仍完整保留。
 数值回归用的兼容代码和合成测试仍在，清理没有改变科学公式。

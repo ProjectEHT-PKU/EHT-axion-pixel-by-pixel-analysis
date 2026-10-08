@@ -65,8 +65,10 @@ pixi run pipeline \
 `pixi.lock` fixes the resolved environment. Pixi does **not** install this project.
 Tasks execute `python scripts/*.py`; scripts load the adjacent reusable source modules
 through a small repository-relative bootstrap. No pip install, editable distribution,
-console entrypoint or manual PYTHONPATH is needed. `pyproject.toml` holds pytest/Ruff
-settings only. Platforms are Linux x86-64/ARM64,
+console entrypoint or manual PYTHONPATH is needed. Dependencies and explicit pytest/Ruff
+options are unified in `pixi.toml`; use `pixi run test` and `pixi run lint` rather than
+bare tool commands. No separate packaging/test/lint config files remain.
+Platforms are Linux x86-64/ARM64,
 macOS Intel/Apple Silicon and Windows x86-64. The actual execution validation reported
 here is Linux x86-64; a solved lockfile for another platform is not an execution test.
 

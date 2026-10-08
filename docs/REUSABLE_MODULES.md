@@ -87,4 +87,6 @@ pixi run python scripts/my_analysis.py
 参数解析留在脚本，复用模块不依赖它。没有`eht-pipeline`console命令、`python -m
  eht_axion.pipeline`统一入口、editable安装或项目distribution元数据。
 
-`pyproject.toml`现在仅保存pytest和Ruff配置，依赖只由Pixi管理。
+依赖、测试搜索路径及代码检查规则全部保存在`pixi.toml`中。
+不再保留`pyproject.toml`、`pytest.ini`或`ruff.toml`。请使用`pixi run test`和
+`pixi run lint`，确保应用这里统一声明的参数。

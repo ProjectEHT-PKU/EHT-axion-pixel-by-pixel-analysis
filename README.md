@@ -97,6 +97,8 @@ are not needed here. All current tests run in the single default Pixi environmen
 import its angle, HDF5/image, plotting, statistics and cache functions directly.
 `workflow.py` holds our data-specific run order, while argument parsing is in scripts/.
 There is no `eht-pipeline` command, editable installation or package build metadata.
-`pyproject.toml` is retained solely for pytest/Ruff settings. Existing `pixi run` task
-names stay familiar; for example, `pixi run raptor` executes
+Dependencies and test/lint settings are all in `pixi.toml`; there is no
+`pyproject.toml`, `pytest.ini` or `ruff.toml`. Use `pixi run test` / `pixi run lint`
+so the explicit search paths and rules are applied. Existing task names stay familiar;
+for example, `pixi run raptor` executes
 `python scripts/process_raptor.py`.
