@@ -16,19 +16,18 @@ existing results.
 ```bash
 pixi install --locked
 pixi run check
-pixi shell
 cp .env.example .env
 # Review .env; enable EHT_TRUST_PICKLE=true only for the trusted supplied inputs.
 set -a
 source .env
 set +a
-python scripts/run_all.py
+pixi run pipeline
 ```
 
 The recommended settings live in your ignored `.env`, exported by your shell.
 Explicit script arguments override `EHT_*` variables; Python never executes `.env`.
-The official `.env.example` is tracked. In `pixi shell`, execute the Python scripts
-directly; use `exit` to leave. `pixi run` tasks remain available for noninteractive use.
+The official `.env.example` is tracked. Use the `pixi run` tasks below; no interactive
+shell activation is required.
 
 For another machine, obtain the provided scientific dataset first; see the
 [download appendix](docs/PIXI_QUICKSTART.md). Local data links and `.pixi/` are not
