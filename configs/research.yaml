@@ -9,9 +9,11 @@ data:
   alphas: [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.44]
 
 image:
-  initial_fov_rg: 46.2262
+  initial_fov_rg: 46.2262  # from RAPTOR：输入模拟图像的视场边长，单位 Rg。
+  # RAPTOR旋转后裁切/重采样的目标视场；旧代码给EHT图像也使用同一尺度，以便逐像素匹配。
+  # 该数值与实际EHT-Imaging角FOV的换算仍需原成像设置确认。
   final_fov_rg: 32.6868
-  final_shape: 64
+  final_shape: 64  # 目标网格与EHT候选图的64×64数组匹配。
   rotation_degrees: 108.0
   gaussian_sigma_rg: 2.16871  # 保留旧 σ；原始角尺度标定仍需确认。
 
