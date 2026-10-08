@@ -77,7 +77,7 @@ cp .env.example .env
 打开`.env`，确认：
 
 ```dotenv
-EHT_CONFIG=configs/research.toml
+EHT_CONFIG=configs/research.yaml
 EHT_INPUT_ROOT=data/inputs
 EHT_OUTPUT_ROOT=../eht-pipeline-runs
 EHT_TRUST_PICKLE=false
@@ -91,7 +91,10 @@ EHT_REUSE_IMPORTED=false
 `EHT_REBUILD`和`EHT_REUSE_IMPORTED`通常保持false；需要时用命令行临时开启。
 
 `.env`是本机配置，不进入Git；官方只提交`.env.example`。物理方法和数值参数仍放在
-`configs/research.toml`，`.env`不替代科学配置文件。
+`configs/research.yaml`，`.env`不替代科学配置文件。科学配置使用YAML；只有Pixi自身的
+依赖和任务配置仍是`pixi.toml`，那是Pixi规定的格式，不需要日常修改。
+YAML中的null模式写成`observation: "null"`（带引号），以免被解释为空值。
+不要在同一mapping中重复写同一个参数名；读取器会拒绝重复键，避免后值静默覆盖前值。
 
 ### 3.2 加载到当前 shell
 
@@ -123,7 +126,7 @@ pixi run figures       # ⑥ 图片与表格
 参数覆盖仅影响这次命令，不会修改`.env`或shell：
 
 ```bash
-pixi run inference --config configs/observed.toml --output-root ../eht-pipeline-runs/observed-run
+pixi run inference --config configs/observed.yaml --output-root ../eht-pipeline-runs/observed-run
 pixi run figures --rebuild
 pixi run eht --no-trust-pickle
 pixi run inference --no-rebuild --no-reuse-imported
@@ -155,7 +158,7 @@ Pixi 重算结果；Pixi 验证记录将单独保留。生产stage记录输入/�
 ## 5. 看中间量与结果
 
 ```text
-config.toml                             本次配置快照
+config.yaml                             本次配置快照
 manifest.json                           稳定的run身份说明
 invocations/*.json                      每次请求的配置与环境，追加记录
 raptor/processed/alpha-0.30/stokes.npy     处理后IQUV，可mmap
@@ -187,7 +190,7 @@ pixi run transport --help
 pixi run convert-hdf5 --help
 ```
 
-默认 `configs/research.toml` 是零日差/null配置；实际观测日差用`configs/observed.toml`，
+默认 `configs/research.yaml` 是零日差/null配置；实际观测日差用`configs/observed.yaml`，
 并使用独立输出，不要覆盖null结果。已有NumPy cubes时无需HDF5转换。
 
 ## 6. 一个环境即可

@@ -5,20 +5,50 @@ import json
 from pathlib import Path
 import numpy as np
 
-try:
-    import tomllib
-except ImportError:  # Python 3.10
-    import tomli as tomllib
+import yaml
 from .common import stage_directory, verify_stage, manifest_path
 from .layout import RunLayout, input_raptor_files, input_eht_file
 from .constants import PhysicalScale
 
 
+class ScientificConfigLoader(yaml.SafeLoader):
+    """Safe YAML with duplicate keys rejected instead of silently overwritten."""
+
+
+def _unique_mapping(loader, node, deep=False):
+    loader.flatten_mapping(node)
+    result = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if not isinstance(key, str):
+            raise ValueError("Scientific YAML configuration keys must be strings")
+        if key in result:
+            raise ValueError(f"Duplicate YAML configuration key: {key}")
+        result[key] = loader.construct_object(value_node, deep=deep)
+    return result
+
+
+ScientificConfigLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _unique_mapping)
+
+
 def read_config(path):
-    with Path(path).open("rb") as stream:
-        config = tomllib.load(stream)
+    path = Path(path)
+    if path.suffix.lower() not in {".yaml", ".yml"}:
+        raise ValueError("Scientific configuration must be YAML (.yaml or .yml)")
+    try:
+        config = yaml.load(path.read_text(encoding="utf-8"), Loader=ScientificConfigLoader)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"Invalid scientific YAML configuration: {path}: {exc}") from exc
+    if not isinstance(config, dict):
+        raise ValueError("Scientific YAML configuration must contain a mapping")
+    for section in ("physical", "data", "image", "aperture", "eht", "background", "inference"):
+        if not isinstance(config.get(section), dict):
+            raise ValueError(f"Missing or invalid scientific configuration section: {section}")
+    observation = config["inference"].get("observation")
+    if not isinstance(observation, str) or observation not in {"null", "observed"}:
+        raise ValueError('observation must be the string "null" (quoted in YAML) or observed')
     # The published angle conventions/offset4 are defined on a one-degree grid.
-    if config["aperture"]["angular_bins"] != 360:
+    if config["aperture"].get("angular_bins") != 360:
         raise ValueError("Research profile requires 360 angular bins (one-degree grid)")
     return config
 
@@ -235,12 +265,12 @@ def run_stage(
             if temporary is not None:
                 plot_results(inference_dir, temporary)
     output.mkdir(parents=True, exist_ok=True)
-    snapshot = output / "config.toml"
+    snapshot = output / "config.yaml"
     if snapshot.exists() and snapshot.read_bytes() != args.config.read_bytes():
         import hashlib
 
         digest = hashlib.sha256(args.config.read_bytes()).hexdigest()[:12]
-        snapshot = output / "configs" / f"{digest}.toml"
+        snapshot = output / "configs" / f"{digest}.yaml"
         snapshot.parent.mkdir(exist_ok=True)
     snapshot.write_bytes(args.config.read_bytes())
     import platform

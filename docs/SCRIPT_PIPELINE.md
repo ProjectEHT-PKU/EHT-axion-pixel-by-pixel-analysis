@@ -7,7 +7,7 @@
 ## Structure
 
 ```text
-configs/research.toml         physical scales + preserved image settings + analysis choices
+configs/research.yaml         physical scales + preserved image settings + analysis choices
 
 eht_axion/
   pipeline/
@@ -89,7 +89,7 @@ Main research-stage scripts use command-line arguments over exported `EHT_*`
 environment values. Python does not auto-load `.env`; source a trusted local file
 in the shell as shown above. Destructive/reuse options default false and can be
 explicitly disabled with `--no-rebuild`/`--no-reuse-imported`. Numerical choices
-remain in the TOML science config, not environment variables.
+remain in the YAML science config, not environment variables.
 
 Individual stages use the same exported configuration:
 

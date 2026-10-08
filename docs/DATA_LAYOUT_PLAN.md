@@ -25,7 +25,7 @@ are known. No physical data are renamed inside EHT_ZC.
 ## Canonical run
 
 ```text
-config.toml
+config.yaml
 manifest.json                       stable run identity (not stage completion)
 invocations/*.json                  append-only requested config/environment records
 raptor/processed/alpha-0.30/stokes.npy

@@ -16,7 +16,7 @@ def clean_environment(monkeypatch):
 
 
 def configured(monkeypatch):
-    monkeypatch.setenv("EHT_CONFIG", "configs/research.toml")
+    monkeypatch.setenv("EHT_CONFIG", "configs/research.yaml")
     monkeypatch.setenv("EHT_INPUT_ROOT", "data/inputs")
     monkeypatch.setenv("EHT_OUTPUT_ROOT", "../runs/example")
 
@@ -25,7 +25,7 @@ def test_exported_values_are_used(monkeypatch):
     configured(monkeypatch)
     monkeypatch.setenv("EHT_TRUST_PICKLE", "TRUE")
     args = _stage.parse_options("eht", [])
-    assert args.config == Path("configs/research.toml")
+    assert args.config == Path("configs/research.yaml")
     assert args.input_root == Path("data/inputs")
     assert args.output_root == Path("../runs/example")
     assert args.trust_pickle is True
@@ -42,7 +42,7 @@ def test_cli_overrides_paths_and_bools_even_when_environment_invalid(monkeypatch
         "eht",
         [
             "--config",
-            "other.toml",
+            "other.yaml",
             "--input-root",
             "other data",
             "--output-root",
@@ -52,7 +52,7 @@ def test_cli_overrides_paths_and_bools_even_when_environment_invalid(monkeypatch
             "--no-reuse-imported",
         ],
     )
-    assert args.config == Path("other.toml")
+    assert args.config == Path("other.yaml")
     assert args.input_root == Path("other data")
     assert args.output_root == Path("other run")
     assert args.trust_pickle and not args.rebuild and not args.reuse_imported
@@ -107,7 +107,7 @@ def test_shell_exports_reviewed_dotenv(tmp_path):
         pytest.skip("Bash shell loading example is tested only where Bash exists")
     env_file = tmp_path / "settings with spaces.env"
     env_file.write_text(
-        'EHT_CONFIG="science config.toml"\nEHT_INPUT_ROOT="input data"\n'
+        'EHT_CONFIG="science config.yaml"\nEHT_INPUT_ROOT="input data"\n'
         'EHT_OUTPUT_ROOT="run output"\nEHT_TRUST_PICKLE=false\n'
     )
     script_dir = Path(__file__).resolve().parents[1] / "scripts"
@@ -135,12 +135,12 @@ def test_shell_exports_reviewed_dotenv(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout) == dict(
-        config="science config.toml", input="input data", output="run output", trust=False
+        config="science config.yaml", input="input data", output="run output", trust=False
     )
 
 
 def test_local_dotenv_is_not_automatically_executed(tmp_path):
-    (tmp_path / ".env").write_text("touch unexpected-side-effect\nEHT_CONFIG=do-not-load.toml\n")
+    (tmp_path / ".env").write_text("touch unexpected-side-effect\nEHT_CONFIG=do-not-load.yaml\n")
     root = Path(__file__).resolve().parents[1]
     environment = dict(os.environ)
     for name in _stage.ENVIRONMENT_OPTIONS.values():

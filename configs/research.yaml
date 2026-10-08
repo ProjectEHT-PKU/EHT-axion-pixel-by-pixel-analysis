@@ -1,0 +1,49 @@
+# 科学参数；本机路径和运行开关放在 .env。
+# 保留的图像几何设置不等同于已经验证的 EHT 测量值。
+physical:
+  mass_solar: 6500000000.0
+  distance_mpc: 16.8
+  label_step_tg: 0.1
+
+data:
+  alphas: [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.44]
+
+image:
+  initial_fov_rg: 46.2262
+  final_fov_rg: 32.6868
+  final_shape: 64
+  rotation_degrees: 108.0
+  gaussian_sigma_rg: 2.16871  # 保留旧 σ；原始角尺度标定仍需确认。
+
+aperture:
+  weighting: intensity  # EHT-VII coherent intensity-weighted pizza EVPA
+  window_degrees: 10
+  radial_max_rg: 16.3434
+  angular_bins: 360
+
+eht:
+  topset_size: 1572
+  min_radius_rg: 2.0
+  intensity_fraction: 0.1
+  historical_mask: true
+  inherit_2d_mask_in_1d: false
+  angular_offset: 4
+  covariance_ridge: 0.0
+
+background:
+  alpha: 0.3
+  source_resolution: 400
+  lag_frames: 3  # 3 t_g ≈ 26.68 h，不是精确 24 h。
+  method: mle   # 整体角度差的 Gaussian MLE，不是旧直方图拟合。
+
+inference:
+  phase_count: 64
+  coupling_points: 120
+  coupling_min: 0.0072992700729927005  # 1/137
+  coupling_max: 1000.0
+  prior: log-uniform
+  observation: "null"  # 必须加引号：这是字符串模式名，不是 YAML 空值。
+  principal_n: 4  # 保留旧频率约定；与模拟模板态的对应仍需确认。
+  exposure_hours: 6.0
+  day_gap_hours: 24.0
+  pair_separation_hours: 120.0

@@ -63,22 +63,22 @@ def make_inputs(root):
 def test_script_only_chain_and_cache(tmp_path):
     raw, out = tmp_path / "input", tmp_path / "output"
     make_inputs(raw)
-    template = Path(__file__).resolve().parents[1] / "configs" / "research.toml"
+    template = Path(__file__).resolve().parents[1] / "configs" / "research.yaml"
     text = template.read_text()
     for before, after in [
-        ("alphas = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.44]", "alphas = [0.1, 0.3]"),
-        ("final_shape = 64", "final_shape = 8"),
-        ("topset_size = 1572", "topset_size = 40"),
-        ("min_radius_rg = 2.0", "min_radius_rg = 0.0"),
-        ("historical_mask = true", "historical_mask = false"),
-        ("covariance_ridge = 0.0", "covariance_ridge = 0.001"),
-        ("source_resolution = 400", "source_resolution = 100"),
-        ("phase_count = 64", "phase_count = 16"),
-        ("coupling_points = 120", "coupling_points = 30"),
+        ("alphas: [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.44]", "alphas: [0.1, 0.3]"),
+        ("final_shape: 64", "final_shape: 8"),
+        ("topset_size: 1572", "topset_size: 40"),
+        ("min_radius_rg: 2.0", "min_radius_rg: 0.0"),
+        ("historical_mask: true", "historical_mask: false"),
+        ("covariance_ridge: 0.0", "covariance_ridge: 0.001"),
+        ("source_resolution: 400", "source_resolution: 100"),
+        ("phase_count: 64", "phase_count: 16"),
+        ("coupling_points: 120", "coupling_points: 30"),
     ]:
         assert before in text
         text = text.replace(before, after)
-    config = tmp_path / "config.toml"
+    config = tmp_path / "config.yaml"
     config.write_text(text)
     args = Namespace(
         config=config,
@@ -121,6 +121,8 @@ def test_script_only_chain_and_cache(tmp_path):
         assert z["cuts"].shape == (3, 2)
         assert z["modes"].tolist() == ["std", "cor", "cor_grmhd"]
     assert (out / "figures/limits.png").stat().st_size > 10_000
+    assert (out / "config.yaml").read_bytes() == config.read_bytes()
+    assert not (out / "config.toml").exists()
     assert verify_stage(out / "figures")["complete"]
     assert (out / "eht/2017-04-05/stokes.npy").is_file()
     assert (out / "raptor/processed/alpha-0.10/stokes.npy").is_file()
@@ -131,22 +133,22 @@ def test_script_only_chain_and_cache(tmp_path):
     run(args)
     assert (out / "inference/limits-1d.npz").stat().st_mtime_ns == stamp
     root_identity = (out / "manifest.json").read_bytes()
-    config.write_text(text.replace('prior = "log-uniform"', 'prior = "uniform"'))
+    config.write_text(text.replace("prior: log-uniform", "prior: uniform"))
     args.stage = "figures"
     run(args)
     assert (out / "manifest.json").read_bytes() == root_identity
     assert len(list((out / "invocations").glob("*.json"))) == 3
     config.write_text(text)
     args.stage = "all"
-    config.write_text(text.replace('weighting = "intensity"', 'weighting = "flux"'))
+    config.write_text(text.replace("weighting: intensity", "weighting: flux"))
     args.stage = "inference"
     args.rebuild = True
     with pytest.raises(ValueError, match="differs from completed EHT"):
         run(args)
-    config.write_text(text.replace("source_resolution = 100", "source_resolution = 400"))
+    config.write_text(text.replace("source_resolution: 100", "source_resolution: 400"))
     with pytest.raises(ValueError, match="background source differs"):
         run(args)
-    config.write_text(text.replace("alphas = [0.1, 0.3]", "alphas = [0.1]"))
+    config.write_text(text.replace("alphas: [0.1, 0.3]", "alphas: [0.1]"))
     args.rebuild = False
     with pytest.raises(ValueError, match="alpha grid differs|lineage belongs"):
         run(args)
