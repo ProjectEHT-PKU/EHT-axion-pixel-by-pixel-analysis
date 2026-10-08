@@ -21,7 +21,6 @@ eht-pipeline = "eht_axion.pipeline.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.9"]
-legacy = ["statsmodels>=0.14,<0.15"]
 
 [tool.setuptools.packages.find]
 include = ["eht_axion*"]

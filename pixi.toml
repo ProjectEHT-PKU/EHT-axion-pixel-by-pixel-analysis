@@ -45,9 +45,5 @@ test = { cmd = "python -m pytest -q", description = "Run scientific, pipeline an
 lint = { cmd = "ruff check eht_axion tests scripts/check_script_pipeline_legacy.py scripts/compare_original_limits.py", description = "Check active Python code style" }
 check = { depends-on = ["test", "lint"], description = "Run tests and lint" }
 
-[feature.legacy.dependencies]
-statsmodels = ">=0.14,<0.15"
-
 [environments]
-default = { features = [], solve-group = "research" }
-legacy = { features = ["legacy"], solve-group = "research" }
+default = { features = [] }

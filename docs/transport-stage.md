@@ -26,9 +26,9 @@ products = run_transport_diagnostics(
 Run from the project environment with NumPy, SciPy and Matplotlib installed:
 
 ```bash
-cd /home/canoziia/eht-script-pipeline
-python -m eht_axion.pipeline.transport \
-  shared_data/analysis-inputs/draft/raptor-transport-diagnostics/snapshot-2110-res-400 \
+cd /home/canoziia/MyProject/PHYS/eht-script-pipeline
+pixi run transport \
+  data/inputs/transport/snapshot-2110-res-400 \
   --output-dir /tmp/eht-transport-snapshot2110 \
   --radii 4 5 6 7 8 9 10 --r-width 0.5 \
   --fov 46.2262 --sigma 2.16871 --rotation-angle 0 \
@@ -43,8 +43,8 @@ only the product-path JSON on success. It also works outside the checkout when
 this package is installed or the checkout is on `PYTHONPATH`. No Jupyter, TeX,
 external fonts, or interactive display is needed.
 
-Inputs must be **materialized** NPY files, not Git LFS pointer text. This checkout
-had pointer files during development; this stage deliberately does not fetch or
+Inputs must be **materialized** NPY files, not Git LFS pointer text. The cleaned checkout
+uses its provided `data/inputs` links to the external archive; this stage does not fetch or
 modify them. The parent/data owner supplies the actual data and runs the real
 command above. No real-data result or producer configuration is claimed verified
 by the synthetic tests.

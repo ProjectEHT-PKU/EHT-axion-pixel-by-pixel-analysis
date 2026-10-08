@@ -156,18 +156,17 @@ pixi run convert-hdf5 --help
 默认 `configs/research.toml` 是零日差/null配置；实际观测日差用`configs/observed.toml`，
 并使用独立输出，不要覆盖null结果。已有NumPy cubes时无需HDF5转换。
 
-## 6. 历史工具环境（可选）
-
-新主链不依赖statsmodels。只有旧工具测试/历史库需要时：
+## 6. 一个环境即可
 
 ```bash
-pixi install --locked -e legacy
-pixi run -e legacy test
+pixi run test
+pixi run lint
 ```
 
-默认 `pixi run test` 会明确跳过legacy-utils模块，而不是隐藏失败；`legacy`环境运行完整测试。
-本机首次环境磁盘占用约1.5GiB；default和legacy两套环境合计约3GiB（不含原始科学数据）。
-通常合作者只需default；`.pixi/`不进入Git。
+所有当前测试都在默认环境运行，不需要额外的`legacy`环境或statsmodels。
+旧Notebook、旧工具库和对应测试已从此worktree清除，原始`EHT_ZC`中仍完整保留。
+数值回归用的兼容代码和合成测试仍在，清理没有改变科学公式。
+本地`.pixi/`是实际运行所需的环境，不是科学数据，也不进入Git。
 
 ## 7. 维护规则
 
@@ -192,6 +191,7 @@ pixi run -e legacy test
 如果只有Git LFS指针，则先在包含已发布共享数据的checkout中执行：
 
 ```bash
+# 在提供数据的原项目checkout中执行，不是在这个已清理的代码worktree中：
 git lfs install
 git lfs pull --include='shared_data/analysis-inputs/draft/**'
 ```

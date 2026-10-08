@@ -1,5 +1,9 @@
 # Script-only pipeline: implementation and real-data validation
 
+**Current checkout:** old notebooks/data-pointer copies and utility-only dependencies
+have been removed. See [CLEANUP.md](CLEANUP.md) for source-preservation checks and the
+current single-environment test gate. Earlier measurements below are retained history.
+
 ## Delivery locations
 
 - Worktree: `/home/canoziia/eht-script-pipeline`
@@ -13,7 +17,8 @@
 
 Original worktree, raw files, shared manifests, old intermediates and old figures were
 not modified. The original three uncommitted audit/planning documents remain there.
-Copies are included on this branch. No raw data were copied into this worktree.
+The cleaned branch keeps only the current constant audit in docs/; old classification
+and run-chain copies were removed. No raw data were copied into this worktree.
 
 ## What is implemented
 
@@ -37,9 +42,10 @@ Copies are included on this branch. No raw data were copied into this worktree.
 9. Transactional stage directories, source/input hashes, output checksums, stale-cache
    rejection, input-directory containment guard and failed-rebuild rollback.
 
-New production code never reads, executes or imports notebooks. Old notebooks remain
-as provenance outside the new module tree; their remaining reference/diagnostic roles
-are documented, not mislabeled as all dead code.
+New production code never reads, executes or imports notebooks. Historical notebooks
+remain only in the separate original EHT_ZC worktree and Git history; they were removed
+from this cleaned code checkout. This report records the earlier validation history;
+current cleanup/test results are in CLEANUP.md.
 
 ## Actual scientific-data execution
 
@@ -138,7 +144,7 @@ The observed plots are exploratory outputs, not robust bound-independent constra
 
 The upstream GRMHD simulation, RAPTOR transfer configuration and EHT visibility imaging
 are not reconstructed here. Input archives begin at simulated/reconstructed images.
-Constant sources and unresolved conversions: [M87_CONSTANTS_AUDIT.md](../../M87_CONSTANTS_AUDIT.md).
+Constant sources and unresolved conversions: [M87_CONSTANTS_AUDIT.md](../../docs/M87_CONSTANTS_AUDIT.md).
 
 ## How to inspect or continue
 

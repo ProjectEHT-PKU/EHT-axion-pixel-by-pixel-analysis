@@ -30,9 +30,10 @@ eht_axion/
 tests/test_pipeline_*.py      synthetic scientific and failure-mode tests
 ```
 
-The old `scripts/`, notebooks and `utils/` are retained for regression/source comparison.
-They are not part of the new runtime chain. Once definitions stabilize, archival cleanup
-can be done as a separate change without losing provenance.
+Old notebooks, utility libraries, audit outputs and data archives are not copied into
+this cleaned worktree. They remain intact in the separate original `EHT_ZC` worktree
+(branch `data/analysis-inputs-draft`, baseline `74ebae1`) and its Git history.
+Only active comparison/regression entrypoints and tested compatibility loaders remain.
 
 ## Run with Pixi (recommended; no Nix or system Python required)
 
@@ -57,12 +58,8 @@ macOS Intel/Apple Silicon and Windows x86-64. The actual execution validation re
 here is Linux x86-64; a solved lockfile for another platform is not an execution test.
 
 No copying of raw cubes into the repository is necessary. Inputs are opened read-only.
-The default environment does not need statsmodels. For historical utility tests:
-
-```bash
-pixi install --locked -e legacy
-pixi run -e legacy test
-```
+One default Pixi environment runs all current tests. The removed historical utility
+library needed statsmodels; current processing and regression do not.
 
 Pixi activation sets Agg rendering and two BLAS/OpenMP threads. Run long computations
 in tmux on Linux/macOS or a suitable persistent terminal/job scheduler. Windows users
@@ -215,9 +212,9 @@ Inference checks upstream lineage and effective configuration, not just array re
 
 ## Constant/provenance references
 
-- [`../M87_CONSTANTS_AUDIT.md`](../M87_CONSTANTS_AUDIT.md)
-- [`../PIPELINE_RUN_CHAIN.md`](../PIPELINE_RUN_CHAIN.md)
-- [`../CODE_CLASSIFICATION.md`](../CODE_CLASSIFICATION.md)
+- [M87* constant and calibration audit](M87_CONSTANTS_AUDIT.md)
+- Original code and earlier classification/run-chain records: separate `EHT_ZC` worktree,
+  not runtime files in this cleaned checkout.
 - EHT-I https://arxiv.org/abs/1906.11238
 - EHT-VII https://arxiv.org/abs/2105.01169
 - EHT-VIII https://arxiv.org/abs/2105.01173
