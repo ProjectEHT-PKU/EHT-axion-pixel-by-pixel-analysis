@@ -24,7 +24,6 @@ from .statistics import normalized_posterior_cdf, posterior_upper_limit
 @dataclass(frozen=True)
 class LimitOptions:
     legacy: bool = False
-    observed: bool = False
     prior: str = "log-uniform"
     coupling_points: int = 60
     coupling_min: float = 1 / 137
@@ -100,9 +99,11 @@ def calculate_from_products(
 ) -> tuple[NDArray, NDArray, dict]:
     """Compute log10(c95) without loading, printing, or saving anything.
 
-    Pair differences and covariance blocks are already selected, in radians
-    and radians squared; selected_indices index the *full* fit-product grid.
-    This function does not recenter or reinterpret supplied observations.
+    Inference always assumes zero observed EVPA day differences (null).
+    Selected pair differences, in radians, are diagnostic-only: their schema
+    and shape are validated for compatibility but they never enter the likelihood.
+    Selected observation covariance blocks, in radians squared, are retained;
+    selected_indices index the *full* fit-product grid.
 
     cor_grmhd uses C_epoch + diag(sigma_GRMHD**2 + (g*b*sigma_model)**2).
     Model errors are assumed spatially diagonal and independent between the
@@ -129,8 +130,9 @@ def calculate_from_products(
     size = indices.size
     if len(observations.pair_differences) != 2 or len(observations.pair_covariances) != 2:
         raise ValueError("exactly two epoch pairs are required")
-    data = np.asarray(observations.pair_differences, dtype=float)
-    if data.shape != (2, size) or not np.all(np.isfinite(data)):
+    # Compatibility validation only; measured differences do not set the center.
+    pair_differences = np.asarray(observations.pair_differences, dtype=float)
+    if pair_differences.shape != (2, size) or not np.all(np.isfinite(pair_differences)):
         raise ValueError("pair differences must be finite with shape (2, selected size)")
     covariances = tuple(np.asarray(c, dtype=float) for c in observations.pair_covariances)
     for covariance in covariances:
@@ -184,7 +186,6 @@ def calculate_from_products(
     include_logdet = (not options.legacy if options.include_parameter_logdet is None
                       else options.include_parameter_logdet)
     posterior_method = options.posterior_method or ("legacy" if options.legacy else "trapezoid")
-    observed = data if options.observed else np.zeros_like(data)
     cuts, loglikes, densities, cdfs, boundaries = [], [], [], [], []
     resolved_phase_count = None
     # Select before model validation: excluded zero-response/NaN pixels are not data.
@@ -224,21 +225,19 @@ def calculate_from_products(
         signal_std = signal_std * scale
         resolved_phase_count = signal.shape[0]
         if mode != "cor_grmhd":
-            # r=g*t-d -> g²*a - 2*g*b + c. Solve all phase RHS together.
+            # Null residual r=g*t: only the g² coefficient is needed.
+            # Solve all phase RHS together using the observation covariance.
             coefficients = []
             for epoch in range(2):
                 template = signal[:, epoch]
                 if diagonal:
                     solved_template = template / variances[epoch]
-                    solved_data = observed[epoch] / variances[epoch]
                 else:
                     solved_template = cho_solve(factors[epoch], template.T, check_finite=False).T
-                    solved_data = cho_solve(factors[epoch], observed[epoch], check_finite=False)
-                coefficients.append((np.sum(template * solved_template, axis=1),
-                                     template @ solved_data, observed[epoch] @ solved_data))
+                coefficients.append(np.sum(template * solved_template, axis=1))
             epoch_loglikes = np.stack([
-                -0.5 * (couplings[:, None] ** 2 * a - 2 * couplings[:, None] * b + c)
-                for a, b, c in coefficients
+                -0.5 * couplings[:, None] ** 2 * coefficient
+                for coefficient in coefficients
             ], axis=-1)
             # Fixed-C log determinants are constant in g and phase, so omitted
             # in both paths, matching historical likelihood normalization.
@@ -248,14 +247,12 @@ def calculate_from_products(
                 if not diagonal:
                     inverse_lower, background_logdet = whiteners[epoch]
                     white_signal = signal[:, epoch] @ inverse_lower.T
-                    white_data = inverse_lower @ observed[epoch]
                 for phase_index in range(resolved_phase_count):
                     model_variance = signal_std[phase_index, epoch] ** 2
                     if diagonal:
                         variance = (variances[epoch] + grmhd_variance
                                     + couplings[:, None] ** 2 * model_variance)
-                        residual = (couplings[:, None] * signal[phase_index, epoch]
-                                    - observed[epoch])
+                        residual = couplings[:, None] * signal[phase_index, epoch]
                         quadratic = np.sum(residual**2 / variance, axis=1)
                         logdet = np.log(variance).sum(axis=1)
                     else:
@@ -273,9 +270,8 @@ def calculate_from_products(
                         nullity = size - np.count_nonzero(model_variance)
                         eigenvalues[:nullity] = 0
                         template = white_signal[phase_index] @ eigenvectors
-                        datum = white_data @ eigenvectors
                         addition = couplings[:, None] ** 2 * eigenvalues
-                        residual = couplings[:, None] * template - datum
+                        residual = couplings[:, None] * template
                         quadratic = np.sum(residual**2 / (1 + addition), axis=1)
                         logdet = background_logdet + np.log1p(addition).sum(axis=1)
                     epoch_loglikes[:, phase_index, epoch] = -0.5 * (

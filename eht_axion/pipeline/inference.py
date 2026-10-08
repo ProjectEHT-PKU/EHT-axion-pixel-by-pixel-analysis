@@ -39,8 +39,9 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
     background = json.loads((background_dir / "summary.json").read_text())
     if background["units"] != "rad":
         raise ValueError("Background product must be in radians")
+    if "observation" in settings or "observed" in settings:
+        raise ValueError("Only zero EVPA day differences are supported; remove observation/observed settings")
     options = LimitOptions(
-        observed=settings["observation"] == "observed",
         prior=settings["prior"],
         phase_count=settings["phase_count"],
         coupling_points=settings["coupling_points"],
@@ -54,8 +55,6 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
         n_principal=settings["principal_n"],
         std_covariance="covariance",
     )
-    if settings["observation"] not in ("null", "observed"):
-        raise ValueError("observation must be null or observed")
     inputs = [manifest_path(background_dir), background_dir / "summary.json"]
     for dim in ("1d", "2d"):
         for stage in [layout.observations(dim), layout.templates(dim)]:
@@ -206,7 +205,7 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
                 modes=np.asarray(modes),
                 cuts=np.stack(dimension_cuts),
                 variant="script-pipeline",
-                observation=settings["observation"],
+                observation="null",  # Fixed provenance marker, not a selectable mode.
                 prior=options.prior,
             )
         (temporary / "run.json").write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")

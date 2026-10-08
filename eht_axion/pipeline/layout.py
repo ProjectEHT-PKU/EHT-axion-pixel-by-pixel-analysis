@@ -118,6 +118,8 @@ def load_curves(directory, dimension):
                 raise ValueError("Unexpected limit-mode order")
             alpha, cuts = z["alphas"].copy(), z["cuts"].copy()
             identity = {k: str(z[k].item()) for k in ("variant", "observation", "prior")}
+        if identity["observation"] not in {"null", "expected"}:
+            raise ValueError("Only zero-day-difference results are supported")
         if cuts.shape != (3, len(alpha)):
             raise ValueError("Limit array must have shape (mode, alpha)")
         return alpha, cuts, identity
@@ -126,6 +128,8 @@ def load_curves(directory, dimension):
         with np.load(directory / f"{mode}_{dimension}.npz", allow_pickle=False) as z:
             alpha, cuts = z["alphas"].copy(), z["cuts"].copy()
             current = {k: str(z[k].item()) for k in ("variant", "observation", "prior")}
+        if current["observation"] not in {"null", "expected"}:
+            raise ValueError("Only zero-day-difference results are supported")
         if reference is not None and (not np.array_equal(reference, alpha) or identity != current):
             raise ValueError("Incompatible legacy curve files")
         reference, identity = alpha, current

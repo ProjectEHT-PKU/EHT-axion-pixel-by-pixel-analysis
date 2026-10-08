@@ -87,6 +87,8 @@ def migrate_run(source, destination):
     if destination == source or source.is_relative_to(destination) or destination.is_relative_to(source):
         raise ValueError("Source and destination must be separate directory trees")
     old_run = json.loads((source / "07_inference/run.json").read_text())
+    if old_run.get("options", {}).get("observed", False) is not False:
+        raise ValueError("Measured-day-difference runs are not supported")
     alphas = next(iter(old_run["results"].values()))["alphas"]
     layout = RunLayout(destination)
     stages = []
@@ -245,6 +247,8 @@ def migrate_run(source, destination):
             for mode in modes:
                 with np.load(src / f"{mode}_{dim}.npz", allow_pickle=False) as z:
                     current = {k: z[k].copy() for k in ("alphas", "cuts", "variant", "observation", "prior")}
+                if str(current["observation"].item()) not in {"null", "expected"}:
+                    raise ValueError("Only zero-day-difference results can be migrated")
                 if reference is not None:
                     for key in ("alphas", "variant", "observation", "prior"):
                         np.testing.assert_array_equal(reference[key], current[key])

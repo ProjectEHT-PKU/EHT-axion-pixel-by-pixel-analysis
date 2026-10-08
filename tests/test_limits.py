@@ -41,8 +41,8 @@ def observations(diagonal=False):
     )
 
 
-def direct_loglikes(obs, amplitude, phase, dimension, mode, options, grid):
-    """Independent scalar residual/Cholesky oracle, never the fast quadratic/eigensolver."""
+def direct_null_loglikes(obs, amplitude, phase, dimension, mode, options, grid):
+    """Independent null residual/Cholesky oracle, never the fast quadratic/eigensolver."""
     signal, error = evpa_templates(
         0.1, amplitude, phase, legacy=options.legacy, phase_count=options.phase_count,
         time_conversion=options.time_conversion, exposure_hours=options.exposure_hours,
@@ -71,8 +71,6 @@ def direct_loglikes(obs, amplitude, phase, dimension, mode, options, grid):
                         + (error[p, epoch] * coupling * scale)**2
                     )
                 residual = signal[p, epoch] * coupling * scale
-                if options.observed:
-                    residual -= obs.pair_differences[epoch]
                 include = (not options.legacy if options.include_parameter_logdet is None
                            else options.include_parameter_logdet)
                 epoch_likes.append(gaussian_log_likelihood(
@@ -86,16 +84,15 @@ def direct_loglikes(obs, amplitude, phase, dimension, mode, options, grid):
 @pytest.mark.parametrize("dimension", ["1d", "2d"])
 @pytest.mark.parametrize("mode", ["std", "cor", "cor_grmhd"])
 @pytest.mark.parametrize("legacy", [False, True])
-@pytest.mark.parametrize("observed", [False, True])
-def test_new_api_likelihood_and_limits_match_direct_gaussian(dimension, mode, legacy, observed):
+def test_new_api_likelihood_and_limits_match_direct_null_gaussian(dimension, mode, legacy):
     obs = observations()
     amplitude, phase = products(dimension)
-    options = LimitOptions(legacy=legacy, observed=observed, coupling_points=19,
+    options = LimitOptions(legacy=legacy, coupling_points=19,
                            coupling_min=0.01, coupling_max=30, phase_count=7)
     alphas, cuts, diagnostics = calculate_from_products(
         obs, amplitude, phase, [0.1], dimension, mode, options,
     )
-    expected = direct_loglikes(obs, amplitude, phase, dimension, mode, options,
+    expected = direct_null_loglikes(obs, amplitude, phase, dimension, mode, options,
                                diagnostics["couplings"])
     np.testing.assert_allclose(diagnostics["log_likelihood"][0], expected, atol=2e-11, rtol=2e-12)
     if legacy:
@@ -117,12 +114,12 @@ def test_new_api_likelihood_and_limits_match_direct_gaussian(dimension, mode, le
 def test_exact_heteroscedastic_eigen_oracle_zero_eigenvalues(diagonal, zero_errors, include_logdet):
     obs = observations(diagonal)
     amplitude, phase = products(zero_errors=zero_errors)
-    options = LimitOptions(observed=True, phase_count=8, coupling_points=31,
+    options = LimitOptions(phase_count=8, coupling_points=31,
                            coupling_min=1e-4, coupling_max=1e3, grmhd_sigma_degrees=0.8,
                            include_parameter_logdet=include_logdet)
     _, _, diagnostic = calculate_from_products(obs, amplitude, phase, [0.1],
                                                "1d", "cor_grmhd", options)
-    expected = direct_loglikes(obs, amplitude, phase, "1d", "cor_grmhd", options,
+    expected = direct_null_loglikes(obs, amplitude, phase, "1d", "cor_grmhd", options,
                                diagnostic["couplings"])
     np.testing.assert_allclose(diagnostic["log_likelihood"][0], expected, rtol=3e-12, atol=2e-9)
 
@@ -132,16 +129,41 @@ def test_new_api_synthetic_analytic_constant_likelihood(mode):
     obs = observations()
     amplitude, phase = products(zero_signal=True)
     options = LimitOptions(prior="uniform", coupling_min=1, coupling_max=101,
-                           coupling_points=9, observed=True)
+                           coupling_points=9)
     _, cuts, diagnostic = calculate_from_products(obs, amplitude, phase, [0.1],
                                                  "1d", mode, options)
     # With a zero template and zero propagated model errors, the uniform-prior
-    # posterior is exactly constant, even with observed nonzero differences.
+    # posterior is exactly constant; diagnostic nonzero differences are ignored.
     assert cuts[0] == pytest.approx(np.log10(96.0), abs=1e-14)
     assert diagnostic["phase_count"] == 64
     np.testing.assert_allclose(diagnostic["cdf"][0], (np.array(diagnostic["couplings"]) - 1) / 100)
     np.testing.assert_allclose(diagnostic["log_likelihood"][0],
                                diagnostic["log_likelihood"][0][0], atol=1e-14)
+
+
+@pytest.mark.parametrize("dimension", ["1d", "2d"])
+@pytest.mark.parametrize("mode", ["std", "cor", "cor_grmhd"])
+@pytest.mark.parametrize("legacy", [False, True])
+@pytest.mark.parametrize("diagonal", [False, True])
+def test_nonzero_pair_differences_do_not_affect_null_inference(dimension, mode, legacy, diagonal):
+    obs = observations(diagonal)
+    amplitude, phase = products(dimension)
+    options = LimitOptions(legacy=legacy, phase_count=7, coupling_points=19)
+    _, cuts, diagnostic = calculate_from_products(
+        obs, amplitude, phase, [0.1], dimension, mode, options,
+    )
+    zero_obs = replace(obs, pair_differences=(np.zeros(3), np.zeros(3)))
+    _, null_cuts, null_diagnostic = calculate_from_products(
+        zero_obs, amplitude, phase, [0.1], dimension, mode, options,
+    )
+    np.testing.assert_array_equal(cuts, null_cuts)
+    np.testing.assert_array_equal(diagnostic["log_likelihood"], null_diagnostic["log_likelihood"])
+    assert diagnostic == null_diagnostic
+
+
+def test_observed_option_is_removed():
+    with pytest.raises(TypeError, match="observed"):
+        LimitOptions(observed=True)
 
 
 def test_std_defaults_to_diagonal_of_same_cor_covariance():
@@ -181,7 +203,7 @@ def test_compatibility_loader_keeps_legacy_sigma_and_return_pair(monkeypatch, mo
 def test_legacy_templates_and_posterior_strict_notebook_regression():
     obs = observations()
     amplitude, phase = products()
-    options = LimitOptions(legacy=True, observed=True, std_covariance="legacy-sigma")
+    options = LimitOptions(legacy=True, std_covariance="legacy-sigma")
     _, cuts, diagnostics = calculate_from_products(obs, amplitude, phase, [0.1], options=options)
     # Independent notebook expression, including duplicate endpoint, omega4,
     # half-speed five-day shift, likelihood addition and discrete log-grid CDF.
@@ -197,8 +219,7 @@ def test_legacy_templates_and_posterior_strict_notebook_regression():
                 template = constant * amplitude[0.1][0] * np.sin(
                     p + phase[0.1][0] + epoch * frequency / 2 * 24 * 5
                 )
-                residual = (g * cloud_amplitude_scaling(0.1) * template[obs.selected_indices]
-                            - obs.pair_differences[epoch])
+                residual = g * cloud_amplitude_scaling(0.1) * template[obs.selected_indices]
                 epoch_likes.append(-0.5 * np.sum(residual**2 / 0.32))
             phase_likes.append(logsumexp(epoch_likes))
         logs.append(logsumexp(phase_likes) - np.log(16))
@@ -225,6 +246,8 @@ def test_option_guards(change):
     {"selected_indices": np.array([])}, {"selected_indices": np.array([0.5, 1.5])},
     {"selected_indices": np.array([0, 0, 1])}, {"selected_indices": np.array([0, 1, 4])},
     {"pair_differences": (np.array([np.nan, 0, 0]), np.zeros(3))},
+    {"pair_differences": (np.zeros(2), np.zeros(2))},
+    {"pair_differences": (np.zeros(3),)},
     {"pair_covariances": (np.eye(2), np.eye(2))},
     {"pair_covariances": (np.array([[1, 0.1, 0], [0, 1, 0], [0, 0, 1]]), np.eye(3))},
     {"pair_covariances": (np.full((3, 3), np.inf), np.eye(3))},

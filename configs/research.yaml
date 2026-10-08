@@ -42,7 +42,7 @@ inference:
   coupling_min: 0.0072992700729927005  # 1/137
   coupling_max: 1000.0
   prior: log-uniform
-  observation: "null"  # 必须加引号：这是字符串模式名，不是 YAML 空值。
+  # 观测EVPA日差固定为0；观测不确定度/协方差仍参与推断。
   principal_n: 4  # 保留旧频率约定；与模拟模板态的对应仍需确认。
   exposure_hours: 6.0
   day_gap_hours: 24.0

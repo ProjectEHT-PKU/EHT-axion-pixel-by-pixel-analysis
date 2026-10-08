@@ -72,9 +72,10 @@ fields without pickle. Imported older products require explicit `--reuse-importe
 | `cor_grmhd` | full covariance | yes | yes |
 
 Scientific settings are YAML, separate from machine-local `.env` paths/options.
-Use the quoted string `observation: "null"` in YAML, not an unquoted null value.
-`configs/research.yaml` uses null (zero day difference) data; `configs/observed.yaml`
-uses measured differences. Null is not automatically a median expected limit.
+`configs/research.yaml` is the only scientific profile. Observed EVPA day differences
+are always fixed at zero; observation uncertainties and covariance are retained.
+There is no measured-day-difference mode or `observation` selector. This null scenario
+is not automatically a median expected limit.
 The profile uses intensity-weighted coherent 1D EVPA and ensemble-based statistics.
 It is a documented research profile, not a frozen publication result.
 

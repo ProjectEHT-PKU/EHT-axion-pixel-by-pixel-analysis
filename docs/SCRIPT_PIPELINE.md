@@ -103,6 +103,12 @@ pixi run figures
 pixi run verify /path/to/run-name/eht
 ```
 
+Only zero observed EVPA day differences are supported. Observation variances and
+covariance remain in all appropriate noise modes; they are not set to zero.
+There is no observed-data selector, and the single scientific profile has no
+`observation` key. Saved results retain a fixed `null` provenance tag so historical
+measured-day-difference files can be rejected, not selected or recomputed.
+
 Use explicit config/input/output arguments only for temporary overrides.
 Expert standalone tools (conversion, migration, direct plotting) keep their own explicit
 arguments; `.env` defaults apply to the six main stages and `run_all.py`.

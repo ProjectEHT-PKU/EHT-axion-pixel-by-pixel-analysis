@@ -44,9 +44,10 @@ def read_config(path):
     for section in ("physical", "data", "image", "aperture", "eht", "background", "inference"):
         if not isinstance(config.get(section), dict):
             raise ValueError(f"Missing or invalid scientific configuration section: {section}")
-    observation = config["inference"].get("observation")
-    if not isinstance(observation, str) or observation not in {"null", "observed"}:
-        raise ValueError('observation must be the string "null" (quoted in YAML) or observed')
+    if "observation" in config["inference"] or "observed" in config["inference"]:
+        raise ValueError(
+            "Only zero EVPA day differences are supported; remove observation/observed from YAML"
+        )
     # The published angle conventions/offset4 are defined on a one-degree grid.
     if config["aperture"].get("angular_bins") != 360:
         raise ValueError("Research profile requires 360 angular bins (one-degree grid)")

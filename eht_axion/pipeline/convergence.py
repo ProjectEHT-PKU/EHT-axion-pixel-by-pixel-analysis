@@ -24,7 +24,11 @@ def check_convergence(
     layout = RunLayout(run_root)
     verify_stage(layout.inference)
     saved = json.loads((layout.inference / "run.json").read_text())
-    base = LimitOptions(**saved["options"])
+    recorded = dict(saved["options"])
+    legacy_flag = recorded.pop("observed", False)
+    if legacy_flag is not False:
+        raise ValueError("Measured-day-difference runs are not supported")
+    base = LimitOptions(**recorded)
     report = {"reference": str(layout.inference.resolve()), "checks": {}}
     reference, identity = None, None
     for dim in dimensions:
@@ -36,7 +40,7 @@ def check_convergence(
         ):
             raise ValueError("Alpha grid mismatch between inference and template products")
         if (
-            metadata["observation"] != ("observed" if base.observed else "null")
+            metadata["observation"] not in {"null", "expected"}
             or metadata["prior"] != base.prior
             or (identity is not None and identity != metadata)
         ):

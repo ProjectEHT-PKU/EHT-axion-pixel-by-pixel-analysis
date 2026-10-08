@@ -44,8 +44,9 @@ def build_observations(
     """Center and scatter from the same local unwrapped ensemble.
 
     Std is exactly diag(cor), so mode comparisons isolate spatial association.
-    Observed pair difference is later minus earlier. Cross-day covariance is
-    assumed zero, not inferred from common hyperparameter labels.
+    Measured pair differences (later minus earlier) are diagnostic metadata only;
+    inference always uses zero day differences. Cross-day covariance is assumed
+    zero, not inferred from common hyperparameter labels.
     eht_dir is the EHT product directory, not a run root. Read canonical
     per-date summaries/ensembles or legacy stacked summaries/flat ensembles;
     never resample or recenter the saved circular branch.
@@ -146,6 +147,7 @@ def build_observations(
         "covariance_definition": "centered local ensemble population moment (ddof=0)",
         "std_definition": "diagonal of the same covariance used by cor",
         "cross_day_observation_covariance": "zero (assumed)",
+        "inference_day_difference": "fixed zero; measured pair_differences are diagnostic only",
         "ridge_fraction_of_median_variance": covariance_ridge,
         "max_recenter_degrees": float(np.rad2deg(np.max(np.abs(biases)))),
         "pair_covariance_condition_numbers": [float(np.linalg.cond(c)) for c in pair_cov],
