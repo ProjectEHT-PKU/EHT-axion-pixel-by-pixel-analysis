@@ -6,7 +6,13 @@ execute, or require any notebook; it does not import `utils.libanaly.ImageS`.
 This is an independent diagnostic stage, not an extra time-series inference stage.
 The four input variants are calculated separately, not synthesized from one curve.
 
-## Parent API and production CLI
+## Reusable API and production script
+
+`eht_axion.pipeline.transport` contains reusable functions only, without
+`argparse`, `main`, or a module execution entry point. Argument parsing lives in
+`scripts/transport_diagnostics.py`; `main(argv=None) -> int` calls
+`run_transport_diagnostics` with unchanged defaults and prints product-path JSON.
+This is a source-tree script, not an installed or unified CLI.
 
 ```python
 from eht_axion.pipeline.transport import run_transport_diagnostics
@@ -27,7 +33,7 @@ Run from the project environment with NumPy, SciPy and Matplotlib installed:
 
 ```bash
 cd /home/canoziia/MyProject/PHYS/eht-script-pipeline
-pixi run transport \
+pixi run python scripts/transport_diagnostics.py \
   data/inputs/transport/snapshot-2110-res-400 \
   --output-dir /tmp/eht-transport-snapshot2110 \
   --radii 4 5 6 7 8 9 10 --r-width 0.5 \
@@ -39,9 +45,12 @@ pixi run transport \
 ```
 
 Use a fresh output directory: existing products are never overwritten. CLI prints
-only the product-path JSON on success. It also works outside the checkout when
-this package is installed or the checkout is on `PYTHONPATH`. No Jupyter, TeX,
-external fonts, or interactive display is needed.
+only the product-path JSON on success. With the project Python environment active,
+`python /path/to/checkout/scripts/transport_diagnostics.py --help` works from any
+cwd: `import _bootstrap` uses the parent's `scripts/_bootstrap.py` to import local
+source, without package installation or `PYTHONPATH`. Relative input/output paths
+remain relative to the caller's cwd. No Jupyter, TeX, external fonts, or interactive
+display is needed. Reusable computation and parent-owned caching are unchanged.
 
 Inputs must be **materialized** NPY files, not Git LFS pointer text. The cleaned checkout
 uses its provided `data/inputs` links to the external archive; this stage does not fetch or
@@ -213,14 +222,14 @@ summary, not a claim of verified producer switches or a content-hash cache.
 ## Validation performed
 
 ```bash
-python -m pytest -q -p no:cacheprovider tests/test_pipeline_transport.py
-ruff check --no-cache eht_axion/pipeline/transport.py tests/test_pipeline_transport.py
+pixi run test tests/test_pipeline_transport.py
 ```
 
-Ten synthetic tests cover bilinear crossing residuals and cardinal orientation,
+Synthetic tests cover bilinear crossing residuals and cardinal orientation,
 multiple/missing crossings, all-channel mask and order noncommutation, exact old
 RMS versus harmonic DFT, analytical Stokes reconstruction, wrapped phase sign and
 state0 exclusion, native Q/U sampling and active rotation, periodic EVPA branch
-handling, readonly input hashes/NPZ/PNG/JSON, outside-checkout CLI and actionable
-LFS-pointer failure. No shared-data computation or notebook execution is part of
+handling, readonly input hashes/NPZ/PNG/JSON, outside-checkout absolute script
+execution without `PYTHONPATH`, direct script `main(argv)` defaults/JSON/error
+translation, and actionable LFS-pointer failure. No shared-data computation or notebook execution is part of
 these tests. The real production command is for the parent to execute.

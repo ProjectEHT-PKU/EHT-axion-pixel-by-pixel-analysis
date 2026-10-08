@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Compare original saved six curves with the script pipeline (no recomputation)."""
 
+import _bootstrap  # noqa: F401
 from pathlib import Path
 import argparse
 import csv

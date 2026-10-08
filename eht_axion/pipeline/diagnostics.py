@@ -55,17 +55,3 @@ def plot_diagnostics(run_root, output_dir):
     ax.spines[["top", "right"]].set_visible(False)
     fig.savefig(output / "grmhd_background.png", dpi=180)
     plt.close(fig)
-
-
-def main():
-    import argparse
-
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run-root", type=Path, required=True)
-    parser.add_argument("--output-dir", type=Path, required=True)
-    args = parser.parse_args()
-    plot_diagnostics(args.run_root, args.output_dir)
-
-
-if __name__ == "__main__":
-    main()

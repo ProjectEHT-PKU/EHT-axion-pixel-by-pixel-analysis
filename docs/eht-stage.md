@@ -4,17 +4,27 @@
 operator；不导入 notebook、`utils.libanaly` 或 statsmodels，不调用历史 Gaussian
 histogram fit，也不读取历史输出做 mandatory 对照或静默 fallback。
 
-## CLI 与 transaction 集成
+## 脚本入口与 transaction 集成
+
+`eht_axion/pipeline/eht.py` 只保留可复用函数，不依赖 `argparse`，也不再有
+`main` 或 `if __name__ == "__main__"` 入口。参数解析位于
+`scripts/process_eht_ensemble.py`，其 `main(argv=None) -> int` 调用
+`run_eht_stage` 并输出原有 report JSON。它不是安装注册的统一 CLI。
 
 ```bash
-python -m eht_axion.pipeline.eht \
+pixi run python scripts/process_eht_ensemble.py \
   --input-dir data/inputs/eht \
   --output-dir /path/to/new/run/eht \
   --topset-size 1572 \
   --trust-pickle
 ```
 
-**pickle 可执行任意代码。** CLI 必须显式传 `--trust-pickle`；函数调用必须传
+使用项目 Python 环境时，可从任意 cwd 运行
+`python /path/to/checkout/scripts/process_eht_ensemble.py --help`。
+脚本头的 `import _bootstrap` 使用父侧 `scripts/_bootstrap.py` 导入本地源码，
+不需要安装包或设置 `PYTHONPATH`；相对输入/输出路径仍以调用者 cwd 为基准。
+
+**pickle 可执行任意代码。** 脚本必须显式传 `--trust-pickle`；函数调用必须传
 `trust_pickle=True`。仅对可信来源输入使用此开关；它不是安全沙箱。
 
 直接 CLI 的输出目录必须为空或不存在，拒绝覆盖已有结果。直接运行不提供原子
@@ -312,7 +322,7 @@ pickle 内部对象和 OS 文件缓存使精确 RSS 依赖环境；本文不声�
 mmap（600 MiB），另需最终 Stokes、EVPA、summary 和 transaction 备份空间。
 
 ```bash
-pixi run python -m pytest tests/test_pipeline_eht.py tests/test_pipeline_products.py -q
+pixi run test tests/test_pipeline_eht.py
 ```
 
 测试覆盖：translation 方向与 NaN 边界、I/Q/U 变换符号、metadata set 不匹配/重复/
@@ -320,7 +330,9 @@ pixi run python -m pytest tests/test_pipeline_eht.py tests/test_pipeline_product
 covariance diagonal、zero polarization、不完整 features、历史及 tiny mask bounds、
 四天 mini 全流程对齐 score 与 selection、固定两组 offsets、mmap 输出、-90 roll、
 显式 flux/mask inheritance、拒绝未授权 pickle，以及真实父侧 aperture 的 tiny CLI
-流程。新增覆盖 canonical/legacy pickle 输入、逐日期目录与全部 named summary keys、
+流程（使用新脚本绝对路径、外部 cwd 且清除 `PYTHONPATH`）。直接调用脚本
+`main(argv)` 检查默认参数委派、JSON 输出及 pickle 信任守卫。
+新增覆盖 canonical/legacy pickle 输入、逐日期目录与全部 named summary keys、
 不写旧顶层 summary、两种 observations 维度的新/旧/混合布局、保存 branch 下的
 mean/std/covariance/pair 契约、只读 mmap ensemble 与不改写旧输入。
 不会访问真实 4800 图数据、执行 notebook 或进行昂贵历史对照。

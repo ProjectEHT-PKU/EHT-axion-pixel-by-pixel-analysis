@@ -1,6 +1,7 @@
 """Synthetic-only tests: no notebook execution and no repository data cubes."""
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ from scipy.ndimage import gaussian_filter
 from scipy.sparse import csr_matrix
 
 from eht_axion.pipeline import raptor
+from scripts import raptor_tools
 
 
 def digest(path):
@@ -525,12 +527,14 @@ def test_existing_products_are_not_overwritten(tmp_path):
     assert digest(result["stokes"]) == before
 
 
-def test_cli_subcommands_small_end_to_end(tmp_path):
-    root = Path(__file__).resolve().parents[1]
+def test_script_subcommands_small_end_to_end(tmp_path):
+    script = Path(__file__).resolve().parents[1] / "scripts" / "raptor_tools.py"
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
 
     def run(*args):
-        process = subprocess.run([sys.executable, "-m", "eht_axion.pipeline.raptor", *map(str, args)],
-                                 cwd=root, capture_output=True, text=True, check=True)
+        process = subprocess.run([sys.executable, str(script), *map(str, args)],
+                                 cwd=tmp_path, env=env, capture_output=True, text=True, check=True)
         return json.loads(process.stdout)
 
     path = save(tmp_path / "input.npy", phase_cube(times=4, n=2))
@@ -552,3 +556,29 @@ def test_cli_subcommands_small_end_to_end(tmp_path):
     mapping.write_text(json.dumps({"datasets": {c: c for c in "IQUV"}, "image_shape": [2, 2]}))
     assert "stokes" in run("convert", hdf, "--output-dir", tmp_path / "converted",
                             "--mapping", mapping, "--states-per-time", 1)
+
+
+def test_script_main_background_defaults_and_validation(tmp_path, monkeypatch, capsys):
+    seen = {}
+
+    def background(**kwargs):
+        seen.update(kwargs)
+        return {"metadata": tmp_path / "summary.json"}
+
+    monkeypatch.setattr(raptor_tools, "estimate_background", background)
+    args = ["background", "input.npy", "--output-dir", str(tmp_path)]
+    assert raptor_tools.main(args) == 0
+    assert json.loads(capsys.readouterr().out) == {"metadata": str(tmp_path / "summary.json")}
+    assert seen == dict(
+        inputs=[Path("input.npy")], output_dir=tmp_path, lag=3, cadence_hours=26.68 / 3,
+        noaxion_state=0, mask=None, difference="angular", method="mle", bins=100,
+        minimum_samples=2, domain="2d", fov=None, weighting="intensity", radial_max=None,
+        window_degrees=10, angular_bins=360, legacy_threshold=0.2,
+    )
+    assert raptor_tools.main([*args, "--noaxion-state", "none"]) == 0
+    assert seen["noaxion_state"] is None
+    with pytest.raises(SystemExit) as error:
+        raptor_tools.main([*args, "--noaxion-state", "invalid"])
+    assert error.value.code == 2
+    assert not hasattr(raptor, "main")
+    assert not hasattr(raptor, "argparse")

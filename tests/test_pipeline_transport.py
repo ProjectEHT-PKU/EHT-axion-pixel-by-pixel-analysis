@@ -12,6 +12,7 @@ from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage import gaussian_filter
 
 from eht_axion.pipeline import transport as t
+from scripts import transport_diagnostics
 
 
 def grid(n, fov):
@@ -204,12 +205,13 @@ def test_stage_products_readonly_inputs_and_no_runtime_notebook(tmp_path, monkey
         t.run_transport_diagnostics(root, tmp_path / "out", fov=fov, radii=(4, 9), angular_bins=8)
 
 
-def test_cli_outside_checkout_and_pointer_error(tmp_path):
+def test_script_outside_checkout_and_pointer_error(tmp_path):
     root = Path(__file__).resolve().parents[1]
     source = tmp_path / "inputs"
     fov, _, _ = make_inputs(source, n=21)
-    env = {**os.environ, "PYTHONPATH": str(root)}
-    command = [sys.executable, "-m", "eht_axion.pipeline.transport", str(source),
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    command = [sys.executable, str(root / "scripts" / "transport_diagnostics.py"), str(source),
                "--output-dir", str(tmp_path / "out"), "--fov", str(fov), "--sigma", "0.5",
                "--radii", "4", "9", "--r-width", "3", "--angular-bins", "8"]
     run = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True)
@@ -219,6 +221,37 @@ def test_cli_outside_checkout_and_pointer_error(tmp_path):
     run = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True)
     assert run.returncode != 0
     assert "Git LFS pointer" in run.stderr
+
+
+def test_script_main_defaults_and_error_translation(tmp_path, monkeypatch, capsys):
+    seen = {}
+
+    def stage(**kwargs):
+        seen.update(kwargs)
+        return {"metadata": tmp_path / "transport.json"}
+
+    monkeypatch.setattr(transport_diagnostics, "run_transport_diagnostics", stage)
+    args = ["input", "--output-dir", str(tmp_path)]
+    assert transport_diagnostics.main(args) == 0
+    assert json.loads(capsys.readouterr().out) == {"metadata": str(tmp_path / "transport.json")}
+    assert seen == dict(
+        input_dir=Path("input"), output_dir=tmp_path, radii=[4, 5, 6, 7, 8, 9, 10],
+        r_width=0.5, fov=46.2262, sigma=2.16871, rotation_angle=0, angular_bins=360,
+        mask_order="mask-before-blur", amplitude_method="legacy-rms",
+        angular_interpolation="spin2-periodic", crossing="first-outward", spin=0.9375,
+        denominator_floor=1e-12,
+    )
+
+    def fail(**kwargs):
+        raise ValueError("invalid synthetic input")
+
+    monkeypatch.setattr(transport_diagnostics, "run_transport_diagnostics", fail)
+    with pytest.raises(SystemExit) as error:
+        transport_diagnostics.main(args)
+    assert error.value.code == 2
+    assert "invalid synthetic input" in capsys.readouterr().err
+    assert not hasattr(t, "main")
+    assert not hasattr(t, "argparse")
 
 
 def test_missing_polarization_crossings_and_validation():

@@ -1,8 +1,10 @@
 # Script-only pipeline: implementation and real-data validation
 
-**Current checkout:** old notebooks/data-pointer copies and utility-only dependencies
-have been removed. See [CLEANUP.md](CLEANUP.md) for source-preservation checks and the
-current single-environment test gate. Earlier measurements below are retained history.
+**Current checkout:** direct research scripts call reusable local modules, with no
+installable distribution or unified CLI. See [DIRECT_SCRIPTS.md](DIRECT_SCRIPTS.md).
+Old notebooks/data-pointer copies and utility-only dependencies have been removed;
+[CLEANUP.md](CLEANUP.md) records source-preservation checks. Earlier environment and
+installation measurements below are retained history, not current requirements.
 
 ## Delivery locations
 

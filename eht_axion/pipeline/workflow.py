@@ -1,7 +1,6 @@
-"""Orchestrate the script-first pipeline with reusable physical stage products."""
+"""Research-specific stage orchestration; no installed command or argument parser."""
 
 from __future__ import annotations
-import argparse
 import json
 from pathlib import Path
 import numpy as np
@@ -29,7 +28,34 @@ def stage_inputs(directory):
     return [manifest_path(directory)] + [Path(directory) / p["path"] for p in manifest["outputs"]]
 
 
-def run(args):
+def run_stage(
+    config,
+    output_root,
+    *,
+    input_root=None,
+    stage="all",
+    trust_pickle=False,
+    rebuild=False,
+    reuse_imported=False,
+):
+    """Execute a research stage using explicit paths and verified caches.
+
+    Shared orchestration for the direct scripts; not a general public pipeline API.
+    Numerical functions remain independently reusable in their own modules.
+    """
+    from types import SimpleNamespace
+
+    if stage not in {"all", "raptor", "eht", "background", "observations", "inference", "figures"}:
+        raise ValueError(f"Unknown research stage: {stage}")
+    args = SimpleNamespace(
+        config=Path(config),
+        output_root=Path(output_root),
+        input_root=Path(input_root) if input_root is not None else None,
+        stage=stage,
+        trust_pickle=trust_pickle,
+        rebuild=rebuild,
+        reuse_imported=reuse_imported,
+    )
     from .raptor import preprocess_cube, fit_processed, summarize_fits, estimate_background
     from .eht import run_eht_stage
     from .products import build_observations
@@ -256,37 +282,3 @@ def run(args):
             + "\n"
         )
     return output
-
-
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    sub = parser.add_subparsers(dest="command", required=True)
-    execute = sub.add_parser("run", help="run one physical stage or the whole chain")
-    execute.add_argument("--config", type=Path, required=True)
-    execute.add_argument(
-        "--input-root", type=Path, help="Canonical inputs or legacy analysis-inputs directory"
-    )
-    execute.add_argument("--output-root", type=Path, required=True)
-    execute.add_argument(
-        "--stage",
-        choices=["all", "raptor", "eht", "background", "observations", "inference", "figures"],
-        default="all",
-    )
-    execute.add_argument("--trust-pickle", action="store_true", help="allow trusted EHT pickle inputs")
-    execute.add_argument("--rebuild", action="store_true", help="replace stages transactionally")
-    execute.add_argument(
-        "--reuse-imported",
-        action="store_true",
-        help="Explicitly reuse byte-verified migrated products without recomputing",
-    )
-    verify = sub.add_parser("verify", help="verify a completed stage checksum manifest")
-    verify.add_argument("directory", type=Path)
-    args = parser.parse_args(argv)
-    if args.command == "verify":
-        print(json.dumps(verify_stage(args.directory), indent=2))
-    else:
-        print(f"Pipeline output: {run(args)}")
-
-
-if __name__ == "__main__":
-    main()

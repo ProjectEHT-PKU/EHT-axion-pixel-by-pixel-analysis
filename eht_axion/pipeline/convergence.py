@@ -2,7 +2,6 @@
 
 from dataclasses import replace
 from pathlib import Path
-import argparse
 import json
 import time
 import numpy as np
@@ -65,17 +64,3 @@ def check_convergence(
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
     return report
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run-root", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--modes", nargs="+", choices=["std", "cor", "cor_grmhd"], default=["std", "cor"])
-    parser.add_argument("--dimensions", nargs="+", choices=["1d", "2d"], default=["1d", "2d"])
-    args = parser.parse_args()
-    check_convergence(args.run_root, args.output, dimensions=args.dimensions, modes=args.modes)
-
-
-if __name__ == "__main__":
-    main()

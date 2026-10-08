@@ -1,7 +1,6 @@
 """Publication-style plots from explicit, validated numerical inputs only."""
 
 from pathlib import Path
-import argparse
 import csv
 import json
 import numpy as np
@@ -161,23 +160,9 @@ def plot_results(input_dir, output_dir):
         writer.writerows(rows)
     (output / "figure.json").write_text(
         json.dumps(
-            dict(
-                metadata[0], curves=6, points=len(reference), input_directory=str(source.resolve())
-            ),
+            dict(metadata[0], curves=6, points=len(reference), input_directory=str(source.resolve())),
             indent=2,
         )
         + "\n"
     )
     return output
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input-dir", type=Path, required=True)
-    parser.add_argument("--output-dir", type=Path, required=True)
-    args = parser.parse_args()
-    plot_results(args.input_dir, args.output_dir)
-
-
-if __name__ == "__main__":
-    main()

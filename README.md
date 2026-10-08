@@ -1,8 +1,9 @@
 # M87* EHT axion analysis — script pipeline
 
-A Python-only research pipeline from RAPTOR Stokes images and EHT image ensembles
-to six axion–photon coupling limit curves. No Notebook, Nix/NixOS, system Python,
-LaTeX or old author-local intermediate files are required.
+Research-specific Python scripts from RAPTOR Stokes images and EHT image ensembles
+to six axion–photon coupling limit curves, with reusable angle/HDF5/plotting/numerical
+modules. This workspace is **not an installable distribution or a generic CLI product**.
+No Notebook, Nix/NixOS, system Python, LaTeX or old local intermediates are required.
 
 **Start here: [Pixi 中文运行指南](docs/PIXI_QUICKSTART.md)**
 
@@ -39,7 +40,7 @@ eht_axion/
   statistics.py   numerical probability utilities
 
 tests/            synthetic physics, schemas, cache/safety and end-to-end tests
-scripts/          saved-result comparison and historical numerical regression
+scripts/          direct processing/inference/plotting scripts and regression checks
 reports/          small, versioned validation evidence; no raw arrays
 ```
 
@@ -70,6 +71,7 @@ It is a documented research profile, not a frozen publication result.
 
 - [顺序运行与常见问题](docs/PIXI_QUICKSTART.md)
 - [Pipeline design and scientific assumptions](docs/SCRIPT_PIPELINE.md)
+- [可复用模块与独立脚本](docs/REUSABLE_MODULES.md)
 - [Canonical filenames, array schema and migration](docs/DATA_LAYOUT_PLAN.md)
 - [RAPTOR stages and HDF5 conversion](docs/raptor-stage.md)
 - [EHT processing](docs/eht-stage.md)
@@ -88,3 +90,13 @@ share Git object history but have separate files and indexes; do not remove `.gi
 The compatibility loaders and regression tests still used by this pipeline are
 retained. The historical utility library and its optional statsmodels environment
 are not needed here. All current tests run in the single default Pixi environment.
+
+## Reusable modules without packaging
+
+`eht_axion/` is a local source namespace, not a separately installed library. Scripts
+import its angle, HDF5/image, plotting, statistics and cache functions directly.
+`workflow.py` holds our data-specific run order, while argument parsing is in scripts/.
+There is no `eht-pipeline` command, editable installation or package build metadata.
+`pyproject.toml` is retained solely for pytest/Ruff settings. Existing `pixi run` task
+names stay familiar; for example, `pixi run raptor` executes
+`python scripts/process_raptor.py`.

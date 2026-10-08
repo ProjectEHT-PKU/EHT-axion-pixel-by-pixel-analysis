@@ -11,7 +11,7 @@ configs/research.toml         physical scales + preserved image settings + analy
 
 eht_axion/
   pipeline/
-    cli.py                   stage orchestration, explicit paths
+    workflow.py              research-stage orchestration (no argument parser/entrypoint)
     common.py                SHA-256 identity, locks, transactional/cache manifests
     constants.py             M/D → time, angular scale, axion mass conversion
     raptor.py                HDF5 conversion, image processing, response fits, background
@@ -26,6 +26,16 @@ eht_axion/
   model.py                   exposure/day-difference templates
   limits.py                  likelihood and posterior upper limits
   statistics.py              Gaussian and quadrature utilities
+
+scripts/                     direct scripts; Pixi tasks execute these files
+  process_raptor.py           RAPTOR processing stage
+  process_eht.py              EHT processing stage
+  estimate_background.py     background stage
+  build_observations.py      observation products
+  calculate_limits.py        six limit curves
+  plot_limits.py             plot cached run results
+  run_all.py                 run these stages in sequence
+  raptor_tools.py            explicit HDF5/single-stage tools
 
 tests/test_pipeline_*.py      synthetic scientific and failure-mode tests
 ```
@@ -52,8 +62,11 @@ pixi run pipeline \
 ```
 
 `pixi.toml` defines Python, NumPy, SciPy, Matplotlib, HDF5 and test/lint dependencies.
-`pixi.lock` fixes the resolved environment. The project is installed editable by Pixi;
-no manual pip install or PYTHONPATH is needed. Platforms are Linux x86-64/ARM64,
+`pixi.lock` fixes the resolved environment. Pixi does **not** install this project.
+Tasks execute `python scripts/*.py`; scripts load the adjacent reusable source modules
+through a small repository-relative bootstrap. No pip install, editable distribution,
+console entrypoint or manual PYTHONPATH is needed. `pyproject.toml` holds pytest/Ruff
+settings only. Platforms are Linux x86-64/ARM64,
 macOS Intel/Apple Silicon and Windows x86-64. The actual execution validation reported
 here is Linux x86-64; a solved lockfile for another platform is not an execution test.
 
@@ -182,7 +195,7 @@ selection and time-model changes are all listed above.
 
 ## HDF5 start and missing upstream inputs
 
-`python -m eht_axion.pipeline.raptor convert --help` documents explicit named Stokes
+`pixi run convert-hdf5 --help` documents explicit named Stokes
 datasets, snapshot/state association and block layout. No dependence on dictionary key
 order or absolute labels used as array indices. HDF5 attributes should be archived as
 provenance. Conversion is tested synthetically; the current local dataset begins at

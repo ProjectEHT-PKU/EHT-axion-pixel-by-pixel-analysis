@@ -7,10 +7,22 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from eht_axion.pipeline.cli import run
+from eht_axion.pipeline.workflow import run_stage
 from eht_axion.pipeline.common import verify_stage
 from eht_axion.pipeline.figures import plot_results
 from eht_axion.pipeline.products import load_observations
+
+
+def run(args):
+    return run_stage(
+        args.config,
+        args.output_root,
+        input_root=args.input_root,
+        stage=args.stage,
+        trust_pickle=args.trust_pickle,
+        rebuild=args.rebuild,
+        reuse_imported=getattr(args, "reuse_imported", False),
+    )
 
 
 def make_inputs(root):
@@ -76,7 +88,33 @@ def test_script_only_chain_and_cache(tmp_path):
         trust_pickle=True,
         rebuild=False,
     )
-    run(args)
+    # Exercise the actual direct script from outside the repository, not only a helper.
+    import os
+    import subprocess
+    import sys
+
+    script = Path(__file__).resolve().parents[1] / "scripts/run_all.py"
+    environment = dict(os.environ)
+    environment.pop("PYTHONPATH", None)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--config",
+            str(config),
+            "--input-root",
+            str(raw),
+            "--output-root",
+            str(out),
+            "--trust-pickle",
+        ],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
     curves = list((out / "inference").glob("limits-*.npz"))
     assert len(curves) == 2
     with np.load(out / "inference/limits-1d.npz", allow_pickle=False) as z:

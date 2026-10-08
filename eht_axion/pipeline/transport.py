@@ -5,10 +5,8 @@ for deliberate corrections, inferred switch semantics, and array contracts.
 """
 from __future__ import annotations
 
-import argparse
 import json
 from pathlib import Path
-from collections.abc import Sequence
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
@@ -20,7 +18,7 @@ from .raptor import fit_phase_dft
 __all__ = [
     "get_360_x_y", "get_analytical_A_1d", "get_raptor_evpa", "get_analytical_evpa",
     "analytical_stokes", "mask_and_blur_frame", "legacy_rms_amplitude",
-    "run_transport_diagnostics", "main",
+    "run_transport_diagnostics",
 ]
 VARIANTS = ("common", "jonly", "eq_jonly", "fake")
 ORDERS = ("mask-before-blur", "blur-before-mask")
@@ -521,32 +519,3 @@ def _figures(paths, data, *, primary_order, fov):
     ax.set(xlabel="x / rg", ylabel="y / rg", title="Native source coordinates; inferred variant labels",
            xlim=(-16.3434, 16.3434), ylim=(-16.3434, 16.3434), aspect="equal")
     fig.savefig(paths["source_rings"], dpi=160)
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("input_dir", type=Path, help="directory containing the seven materialized .npy files")
-    parser.add_argument("--output-dir", required=True, type=Path)
-    parser.add_argument("--radii", nargs="+", type=float, default=[4, 5, 6, 7, 8, 9, 10])
-    parser.add_argument("--r-width", type=float, default=0.5)
-    parser.add_argument("--fov", type=float, default=46.2262)
-    parser.add_argument("--sigma", type=float, default=2.16871, help="Gaussian stddev in native FOV rg units")
-    parser.add_argument("--rotation-angle", type=float, default=0, help="radians; same for all curves")
-    parser.add_argument("--angular-bins", type=int, default=360)
-    parser.add_argument("--mask-order", choices=ORDERS, default=ORDERS[0])
-    parser.add_argument("--amplitude-method", choices=("legacy-rms", "dft"), default="legacy-rms")
-    parser.add_argument("--angular-interpolation", choices=("spin2-periodic", "legacy-angle"),
-                        default="spin2-periodic")
-    parser.add_argument("--crossing", choices=("first-outward", "legacy-bracket"), default="first-outward")
-    parser.add_argument("--spin", type=float, default=0.9375)
-    parser.add_argument("--denominator-floor", type=float, default=1e-12)
-    try:
-        products = run_transport_diagnostics(**vars(parser.parse_args(argv)))
-    except (ValueError, OSError, TypeError) as error:
-        parser.error(str(error))
-    print(json.dumps({name: str(path) for name, path in products.items()}, indent=2))
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

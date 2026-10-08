@@ -277,28 +277,42 @@ is exactly zero; zero-scatter returns sigma0 without attempting a singular fit.
 There is no Lilliefors gate. Diagnostics additionally include fit histogram
 counts/edges and sigma error. Failure raises rather than silently emitting NaN.
 
-## Standalone CLI
+## Expert scripts (no installed CLI)
 
-Every subcommand is available without the parent orchestrator:
+`eht_axion.pipeline.raptor` contains reusable functions only: no `argparse`,
+`main`, or module execution entry point. Argument parsing lives in
+`scripts/raptor_tools.py`, whose `main(argv=None) -> int` delegates to the stage
+functions and prints the same JSON product paths. This is a low-level expert
+tool, not an installed `eht-pipeline` or unified CLI. The parent scientific
+script `scripts/process_raptor.py` invokes workflow stages and retains ownership
+of orchestration, transactions and caching.
+
+Run these expert subcommands from the project environment:
 
 ```sh
-python -m eht_axion.pipeline.raptor --help
-python -m eht_axion.pipeline.raptor convert img0.h5 img1.h5 \
+pixi run python scripts/raptor_tools.py --help
+pixi run python scripts/raptor_tools.py convert img0.h5 img1.h5 \
   --mapping mapping.json --states-per-time 1 --output-dir converted
-python -m eht_axion.pipeline.raptor preprocess cube.npy --output-dir processed \
+pixi run python scripts/raptor_tools.py preprocess cube.npy --output-dir processed \
   --sigma 2.16871 --init-fov 46.2262 --final-fov 32.6868 \
   --rotation-angle 1.8849555921538759 --final-shape 64
-python -m eht_axion.pipeline.raptor fit processed/stokes.npy --output-dir fitted \
+pixi run python scripts/raptor_tools.py fit processed/stokes.npy --output-dir fitted \
   --fov 32.6868 --weighting intensity
-python -m eht_axion.pipeline.raptor summarize \
+pixi run python scripts/raptor_tools.py summarize \
   --fit 0.1=alpha-0.10/response-1d.npz --fit 0.3=alpha-0.30/response-1d.npz \
   --output-dir templates1d
-python -m eht_axion.pipeline.raptor preprocess shard1.npy shard2.npy \
+pixi run python scripts/raptor_tools.py preprocess shard1.npy shard2.npy \
   --output-dir bg_processed --state-indices 0 --sigma 2.16871 \
   --init-fov 46.2262 --final-fov 32.6868 --rotation-angle 1.8849555921538759
-python -m eht_axion.pipeline.raptor background bg_processed/stokes.npy \
+pixi run python scripts/raptor_tools.py background bg_processed/stokes.npy \
   --output-dir background --lag 3 --cadence-hours 8.893333333333333
 ```
+
+With the project Python environment active, an absolute script path also works
+from any cwd, e.g. `python /path/to/checkout/scripts/raptor_tools.py --help`.
+The script imports the parent's `scripts/_bootstrap.py` to locate local source;
+no package installation or `PYTHONPATH` is required. Relative data/output paths
+remain relative to the caller's cwd.
 
 `mapping.json` has `datasets`, `image_shape`, and optional `block_origins` and
 `pixel_shape` keys matching conversion kwargs. CLI `--states-per-time` groups
@@ -309,8 +323,7 @@ an instruction to run large data**.
 
 ## Validation performed
 
-`pixi run test tests/test_pipeline_raptor.py`: **49 synthetic-only tests passed**,
-including
+`pixi run test tests/test_pipeline_raptor.py` runs synthetic-only tests, including
 spin-2 constant images, rotated coordinate ramps, legacy bilinear numerical
 comparison, wrapped phase/sign oracle with state0 excluded, exact -90 bin
 alignment, state0-only processing count, read-only mmap and source hashes,
@@ -319,5 +332,7 @@ exact correspondence to all three kernel columns (including NaNs) for float32
 and float64, default/caller labels on 141 tiny frames, malformed schema/label
 rejection, element-identical NPZ/legacy NPY/mixed-shard/in-memory summaries,
 MLE/circular summaries, zero background differences, masks/lag metadata,
-legacy histogram option, alias/dtype checks, and all five CLI subcommands.
+legacy histogram option, alias/dtype checks, all five expert-script subcommands
+via absolute paths from an external cwd without `PYTHONPATH`, and direct script
+`main(argv)` defaults, state conversion and parser errors.
 No large cube was read and no production pipeline was run by this worker.

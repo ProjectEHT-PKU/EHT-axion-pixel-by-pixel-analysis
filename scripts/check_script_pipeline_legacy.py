@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Validate the preserved legacy numerical branch against saved historical curves."""
 
+import _bootstrap  # noqa: F401
 import argparse
 import json
 from pathlib import Path

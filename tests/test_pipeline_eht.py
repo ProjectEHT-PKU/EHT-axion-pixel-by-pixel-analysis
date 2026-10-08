@@ -28,6 +28,7 @@ from eht_axion.pipeline.eht import (
     transform_stokes,
 )
 from eht_axion.polarization import integrate_stokes
+from scripts import process_eht_ensemble
 
 DATE_LABELS = dict(zip(DAYS, ("2017-04-05", "2017-04-06", "2017-04-10", "2017-04-11")))
 
@@ -350,28 +351,61 @@ def test_trust_pickle_is_required_before_any_input_or_output_access(tmp_path):
     with pytest.raises(ValueError, match="trust_pickle"):
         run_eht_stage(tmp_path / "nonexistent", tmp_path / "output")
     assert not (tmp_path / "output").exists()
-    env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1]))
+    script = Path(__file__).resolve().parents[1] / "scripts" / "process_eht_ensemble.py"
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
     result = subprocess.run(
-        [sys.executable, "-m", "eht_axion.pipeline.eht", "--input-dir", str(tmp_path / "bad"),
+        [sys.executable, str(script), "--input-dir", str(tmp_path / "bad"),
          "--output-dir", str(tmp_path / "output")],
-        env=env, capture_output=True, text=True, check=False,
+        cwd=tmp_path, env=env, capture_output=True, text=True, check=False,
     )
     assert result.returncode == 2
     assert "--trust-pickle is required" in result.stderr
     assert not (tmp_path / "output").exists()
 
 
-def test_cli_mini_stage_with_real_aperture_operator(tmp_path):
+def test_script_mini_stage_with_real_aperture_operator(tmp_path):
     synthetic_inputs(tmp_path / "input", shape=10)
-    env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1]))
+    script = Path(__file__).resolve().parents[1] / "scripts" / "process_eht_ensemble.py"
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
     # Very small radial extent makes real quadrature inexpensive. No notebooks.
     result = subprocess.run(
-        [sys.executable, "-m", "eht_axion.pipeline.eht", "--input-dir", str(tmp_path / "input"),
+        [sys.executable, str(script), "--input-dir", str(tmp_path / "input"),
          "--output-dir", str(tmp_path / "out"), "--trust-pickle", "--topset-size", "3",
          "--fov", "10", "--radial-max", "0.2", "--no-historical-mask", "--min-radius", "0",
          "--batch-size", "2"],
-        env=env, capture_output=True, text=True, check=False,
+        cwd=tmp_path, env=env, capture_output=True, text=True, check=False,
     )
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["topset_size"] == 3
     assert np.load(tmp_path / "out" / "2017-04-11" / "evpa-1d.npy").shape == (3, 360)
+
+
+def test_script_main_defaults_and_trust_guard(tmp_path, monkeypatch, capsys):
+    seen = {}
+
+    def stage(**kwargs):
+        seen.update(kwargs)
+        return {"topset_size": kwargs["topset_size"]}
+
+    monkeypatch.setattr(process_eht_ensemble, "run_eht_stage", stage)
+    args = ["--input-dir", "input", "--output-dir", str(tmp_path)]
+    with pytest.raises(SystemExit) as error:
+        process_eht_ensemble.main(args)
+    assert error.value.code == 2
+    assert not seen
+    assert "--trust-pickle is required" in capsys.readouterr().err
+    assert process_eht_ensemble.main([*args, "--trust-pickle"]) == 0
+    assert json.loads(capsys.readouterr().out) == {"topset_size": 1572}
+    assert seen == dict(
+        input_dir=Path("input"), output_dir=tmp_path, trust_pickle=True, topset_size=1572,
+        centering="ensemble", weighting="intensity", inherit_2d_mask=False, fov=32.6868,
+        radial_max=None, window_degrees=10, angular_bins=360, angle_roll=-90,
+        min_radius=2.0, intensity_fraction=0.1, historical_mask=True, exclude_columns=5,
+        batch_size=64, pixel_batch_size=128,
+    )
+    from eht_axion.pipeline import eht
+
+    assert not hasattr(eht, "main")
+    assert not hasattr(eht, "argparse")

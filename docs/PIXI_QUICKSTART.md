@@ -21,7 +21,8 @@ pixi run help
 pixi run check
 ```
 
-Pixi 会下载 Python 和依赖，并将本项目安装为 editable package。
+Pixi只下载Python和依赖，**不会安装本项目为包**。任务直接执行`scripts/`下的脚本，
+脚本调用本地可复用模块；不注册`eht-pipeline`总命令，也不要求pip install或editable安装。
 所有命令前加 `pixi run`，不需要激活另一个虚拟环境，也不要使用仓库旧的 ARM `.pixi` 环境。
 首次安装需要网络；之后不会每次重装。`--locked` 保证不擅自修改锁文件。
 
@@ -71,10 +72,10 @@ export INPUT=data/inputs
 export OUTPUT=../eht-pipeline-runs/my-pixi-run
 export CONFIG=configs/research.toml
 
-# ① RAPTOR图像处理、相位响应拟合、时间分布
+# ① 执行scripts/process_raptor.py：图像处理、相位响应拟合、时间分布
 pixi run raptor --config "$CONFIG" --input-root "$INPUT" --output-root "$OUTPUT"
 
-# ② EHT候选图匹配、topset、定位、观测统计
+# ② 执行scripts/process_eht.py：候选图匹配、topset、定位、观测统计
 pixi run eht --config "$CONFIG" --input-root "$INPUT" --output-root "$OUTPUT" --trust-pickle
 
 # ③ 无轴子时间演化背景误差
@@ -109,6 +110,10 @@ pixi run pipeline --config configs/research.toml \
   --input-root data/inputs \
   --output-root ../eht-pipeline-runs/my-pixi-run --trust-pickle
 ```
+
+`pixi run pipeline`只是`python scripts/run_all.py`的任务别名，不是安装的统一CLI。
+各步骤也可以直接运行对应脚本，例如`pixi run python scripts/process_raptor.py --help`。
+脚本参数只用于选择配置和路径；计算与缓存机制仍在可复用模块中。
 
 默认顺序就是上述①至⑥。重复执行时，配置/输入/代码一致且输出校验通过的阶段会显示
 `CACHE HIT`。只要修改了配置或代码，可能收到 `Stale cache`，不是程序故障。
