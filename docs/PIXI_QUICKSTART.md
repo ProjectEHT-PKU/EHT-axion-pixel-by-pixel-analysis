@@ -214,7 +214,7 @@ pixi run lint
 
 - 提交 `pixi.toml` 和 `pixi.lock`，不提交 `.pixi/`。
 - 改依赖后由维护者执行 `pixi install` 更新锁，合作者优先 `pixi install --locked`。
-- Python环境由Pixi管理；Git LFS仍需系统单独安装。
+- Python环境由Pixi管理；仅在数据交付使用Git LFS时才需另行安装Git LFS。
 - 可查看全部任务：`pixi task list`。
 - 停止/中断时以各阶段`manifest.json`为完成标记；run根目录manifest只是运行描述，不是阶段完成标记。
 - 旧`stage.json`可校验；新文件不再用它命名。
@@ -226,25 +226,33 @@ pixi run lint
 
 ## 附录：合作者在另一台机器首次取得数据（本机不需要）
 
-数据由我们提供，但`.pixi/`环境和`data/inputs/`本地链接视图不随Git提交。
-合作者拿到新的代码checkout后，仍需取得我们发布的数据文件，不是自行生成或整理科学数据。
+数据由我们提供，合作者不需要自行生成或整理科学数据。代码和数据分开交付；
+`.pixi/`环境和本机`data/inputs/`的链接视图不随代码Git提交。
 
-如果共享数据已经以真实文件提供，直接把`--input-root`指向收到的目录即可，旧发布结构也支持。
-如果只有Git LFS指针，则先在包含已发布共享数据的checkout中执行：
+合作者取得我们提供的**规范输入数据目录**后，在`.env`中填写该目录的位置，例如：
 
-```bash
-# 在提供数据的原项目checkout中执行，不是在这个已清理的代码worktree中：
-git lfs install
-git lfs pull --include='shared_data/analysis-inputs/draft/**'
+```dotenv
+EHT_INPUT_ROOT=/home/researcher/eht-data/inputs
 ```
 
-下载完成后，可直接使用那个`shared_data/analysis-inputs/draft`作为输入，或在代码目录中
-一次性建立规范访问入口：
+提供的数据目录应直接包含：
 
-```bash
-pixi run migrate inputs --source /path/to/downloaded/shared_data/analysis-inputs/draft --destination data/inputs
+```text
+inputs/
+  raptor/res-100/alpha-0.30/stokes.npy
+  raptor/res-400/alpha-0.30/stokes-t1600-t1690.npy
+  eht/2017-04-05/image-ensemble.pkl
+  transport/snapshot-2110-res-400/...
 ```
 
-迁移只是建链接并核对数据，不是重算，也不复制21GB数组。
-也可以不迁移，直接读取收到的旧共享目录。
+其他alpha和日期同样已由我们整理好；合作者只需填写实际路径，再按第3节加载`.env`。
+数据放在代码目录的`data/inputs/`时，可以保留模板的`EHT_INPUT_ROOT=data/inputs`。
+
+**交付注意：**本机的规范输入目前是链接到原始归档的视图，不是独立可搬运的数据包。
+向另一台机器交付时，我们需要提供真实数据文件，或在目标机器建立有效链接，不能只复制
+指向本机绝对路径的软链接。新的独立规范数据包尚未在本次文档修改中发布；实际下载地址
+和交付方式应由我们随数据另行提供，不能把代码checkout当作已经包含全部数据。
+
+如果数据通过Git LFS交付，下载指令随相应数据仓库提供，不要求合作者理解旧归档命名。
+历史路径兼容与迁移工具仅供维护者使用，不是合作者从头运行的必需步骤。
 具体命名结构见[数据命名说明](DATA_LAYOUT_PLAN.md)。
