@@ -17,18 +17,21 @@ pixi --version
 ```bash
 cd /home/canoziia/MyProject/PHYS/eht-script-pipeline
 pixi install --locked
-pixi run help
-pixi run check
+pixi run check  # 安装后可先检查一次
+pixi shell
+python scripts/run_all.py --help
 ```
 
 Pixi只下载Python和依赖，**不会安装本项目为包**。任务直接执行`scripts/`下的脚本，
 脚本调用本地可复用模块；不注册`eht-pipeline`总命令，也不要求pip install或editable安装。
-所有命令前加 `pixi run`，不需要激活另一个虚拟环境，也不要使用仓库旧的 ARM `.pixi` 环境。
+推荐用`pixi shell`一次进入项目环境，后面直接执行`python scripts/…`。
+不需要再套一层其他虚拟环境，也不要使用仓库旧的ARM `.pixi`环境。
+退出项目shell用`exit`；重新打开终端时再次进入`pixi shell`。
 首次安装需要网络；之后不会每次重装。`--locked` 保证不擅自修改锁文件。
 
-支持生成锁文件的平台：Linux x86-64/ARM64、macOS Intel/Apple Silicon、Windows x86-64。
+本文面向Linux x86-64/ARM64与macOS Intel/Apple Silicon。
 真实安装和执行验证以报告为准；其他平台锁定成功不代表已在这些机器上跑过。
-当前锁文件的系统基线为Linux glibc≥2.28、macOS≥13、Windows≥10；很旧的Linux
+当前锁文件的系统基线为Linux glibc≥2.28、macOS≥13；很旧的Linux
 服务器（如glibc2.17）不能假定可直接安装，应使用更新的计算节点或容器。
 
 ## 2. 直接使用已提供的数据，指定结果保存位置
@@ -92,9 +95,11 @@ EHT_REUSE_IMPORTED=false
 `.env`是本机配置，不进入Git；官方只提交`.env.example`。物理方法和数值参数仍放在
 `configs/research.toml`，`.env`不替代科学配置文件。
 
-### 3.2 加载到当前 shell
+### 3.2 在 Pixi shell 中加载 .env
 
-Linux/macOS Bash、Zsh（可在tmux中执行）：
+先完成第1节的`pixi shell`，然后在项目根目录加载`.env`。
+如果使用tmux，建议先进入tmux，再执行`pixi shell`和下面的加载命令。
+Bash、Zsh使用：
 
 ```bash
 set -a
@@ -102,19 +107,20 @@ source .env
 set +a
 ```
 
-`set -a`让变量自动导出给Python/Pixi子进程；仅`source .env`而不export，Python看不到普通shell变量。
+`set -a`让变量自动导出给Python子进程；仅`source .env`而不export，Python看不到普通shell变量。
+`pixi shell`只激活Python环境，不会自动加载`.env`，这两步都需要执行。
 每个新终端需要加载一次，修改`.env`后也要重新加载。关闭自动导出不会取消已有变量。
 **只source可信的本机文件**：shell会执行文件内容，Python脚本不会自动查找或执行`.env`。
 
 ### 3.3 顺序执行，不再重复填写路径
 
 ```bash
-pixi run raptor        # ① 处理RAPTOR、拟合相位响应、统计时间分布
-pixi run eht           # ② 选择EHT topset、定位、生成观测统计
-pixi run background    # ③ 无轴子背景散布
-pixi run observations  # ④ 选点、日差和协方差
-pixi run inference     # ⑤ 六条限制曲线
-pixi run figures       # ⑥ 图片与表格
+python scripts/process_raptor.py       # ① RAPTOR图像、相位响应、时间分布
+python scripts/process_eht.py          # ② EHT topset、定位、观测统计
+python scripts/estimate_background.py  # ③ 无轴子背景散布
+python scripts/build_observations.py   # ④ 选点、日差和协方差
+python scripts/calculate_limits.py     # ⑤ 六条限制曲线
+python scripts/plot_limits.py          # ⑥ 图片与表格
 ```
 
 脚本按以下优先级选择设置：**显式命令行参数 > 当前shell中的`EHT_*`环境变量**。
@@ -122,49 +128,26 @@ pixi run figures       # ⑥ 图片与表格
 参数覆盖仅影响这次命令，不会修改`.env`或shell：
 
 ```bash
-pixi run inference --config configs/observed.toml --output-root ../eht-pipeline-runs/observed-run
-pixi run figures --rebuild
-pixi run eht --no-trust-pickle
-pixi run inference --no-rebuild --no-reuse-imported
+python scripts/calculate_limits.py --config configs/observed.toml --output-root ../eht-pipeline-runs/observed-run
+python scripts/plot_limits.py --rebuild
+python scripts/process_eht.py --no-trust-pickle
+python scripts/calculate_limits.py --no-rebuild --no-reuse-imported
 ```
 
 布尔环境变量支持true/false、1/0、yes/no、on/off，不区分大小写；非法值明确报错。
 `--no-*`可以关闭环境中已设为true的选项。对同一次运行的后续步骤使用同一配置/输出，
 例如observed计算后画图也应指定相同的observed配置和输出，或统一修改`.env`并重新加载。
 
-### Windows PowerShell
-
-PowerShell没有`source`。将模板复制为`.env`、确认值后，可使用下面的简易加载方式。
-它只支持模板的`KEY=VALUE`格式（不执行shell表达式、不展开变量；外层引号可用于带空格路径）：
-
-```powershell
-Get-Content .env | ForEach-Object {
-    $line = $_.Trim()
-    if ($line -and -not $line.StartsWith('#')) {
-        if ($line -notmatch '^(EHT_[A-Z_]+)=(.*)$') { throw "Invalid .env line: $line" }
-        $key = $Matches[1]
-        $value = $Matches[2].Trim()
-        if (($value.StartsWith('"') -and $value.EndsWith('"')) -or
-            ($value.StartsWith("'") -and $value.EndsWith("'"))) {
-            $value = $value.Substring(1, $value.Length - 2)
-        }
-        [Environment]::SetEnvironmentVariable($key, $value, 'Process')
-    }
-}
-pixi run raptor
-```
-
-也可在PowerShell中用`$env:EHT_OUTPUT_ROOT="D:/EHT-runs/my-run"`临时设置，命令行依旧优先。
-
 ## 4. 一次执行整条主链
 
 ```bash
-# 已按第3节加载并确认.env后：
-pixi run pipeline
+# 已进入pixi shell，并按第3节加载和确认.env后：
+python scripts/run_all.py
 ```
 
-`pixi run pipeline`只是`python scripts/run_all.py`的任务别名，不是安装的统一CLI。
-各步骤也可以直接运行对应脚本，例如`pixi run python scripts/process_raptor.py --help`。
+在`pixi shell`里，直接执行脚本即可，不必反复加`pixi run`。
+`raptor`、`inference`等只是Pixi任务名，不是shell命令；应使用上面的脚本名。
+如果不进入交互shell，仍可用`pixi run pipeline`或`pixi run raptor`等已有任务。
 脚本参数可临时覆盖.env导出的配置/路径/安全开关；计算与缓存机制仍在可复用模块中。
 
 默认顺序就是上述①至⑥。重复执行时，配置/输入/代码一致且输出校验通过的阶段会显示
@@ -198,16 +181,16 @@ figures/limits.png/pdf/svg,limits.csv   图与表
 检查完整性与生成诊断图：
 
 ```bash
-pixi run verify ../eht-pipeline-runs/my-pixi-run/eht
-pixi run diagnostics --run-root ../eht-pipeline-runs/my-pixi-run --output-dir ../eht-pipeline-runs/my-pixi-run/diagnostics
-pixi run convergence --run-root ../eht-pipeline-runs/my-pixi-run --output ../eht-pipeline-runs/my-pixi-run/convergence.json --modes std cor cor_grmhd
+python scripts/verify_products.py ../eht-pipeline-runs/my-pixi-run/eht
+python scripts/plot_diagnostics.py --run-root ../eht-pipeline-runs/my-pixi-run --output-dir ../eht-pipeline-runs/my-pixi-run/diagnostics
+python scripts/check_convergence.py --run-root ../eht-pipeline-runs/my-pixi-run --output ../eht-pipeline-runs/my-pixi-run/convergence.json --modes std cor cor_grmhd
 ```
 
 图4诊断旁路和HDF5转换：
 
 ```bash
-pixi run transport --help
-pixi run convert-hdf5 --help
+python scripts/transport_diagnostics.py --help
+python scripts/raptor_tools.py convert --help
 ```
 
 默认 `configs/research.toml` 是零日差/null配置；实际观测日差用`configs/observed.toml`，
@@ -262,6 +245,6 @@ git lfs pull --include='shared_data/analysis-inputs/draft/**'
 pixi run migrate inputs --source /path/to/downloaded/shared_data/analysis-inputs/draft --destination data/inputs
 ```
 
-迁移只是建链接并核对数据，不是重算，也不复制21GB数组。Windows建立链接可能需要
-Developer Mode或相应权限；也可以不迁移，直接读取收到的旧共享目录。
+迁移只是建链接并核对数据，不是重算，也不复制21GB数组。
+也可以不迁移，直接读取收到的旧共享目录。
 具体命名结构见[数据命名说明](DATA_LAYOUT_PLAN.md)。

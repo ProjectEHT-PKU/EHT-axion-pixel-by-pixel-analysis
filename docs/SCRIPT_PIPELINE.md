@@ -54,12 +54,13 @@ then open a terminal in the repository root:
 pixi install --locked
 pixi run help
 pixi run check
+pixi shell
 cp .env.example .env
 # Review paths and enable EHT_TRUST_PICKLE only for trusted inputs.
 set -a
 source .env
 set +a
-pixi run pipeline
+python scripts/run_all.py
 ```
 
 `pixi.toml` defines Python, NumPy, SciPy, Matplotlib, HDF5 and test/lint dependencies.
@@ -70,7 +71,7 @@ console entrypoint or manual PYTHONPATH is needed. Dependencies and explicit pyt
 options are unified in `pixi.toml`; use `pixi run test` and `pixi run lint` rather than
 bare tool commands. No separate packaging/test/lint config files remain.
 Platforms are Linux x86-64/ARM64,
-macOS Intel/Apple Silicon and Windows x86-64. The actual execution validation reported
+macOS Intel/Apple Silicon. The actual execution validation reported
 here is Linux x86-64; a solved lockfile for another platform is not an execution test.
 
 No copying of raw cubes into the repository is necessary. Inputs are opened read-only.
@@ -78,8 +79,9 @@ One default Pixi environment runs all current tests. The removed historical util
 library needed statsmodels; current processing and regression do not.
 
 Pixi activation sets Agg rendering and two BLAS/OpenMP threads. Run long computations
-in tmux on Linux/macOS or a suitable persistent terminal/job scheduler. Windows users
-can run individual `pixi run` commands directly without Bash.
+in tmux on Linux/macOS or a suitable persistent terminal/job scheduler. Enter
+`pixi shell` once, then run `python scripts/*.py` directly. Shell activation does not
+load `.env`; export the reviewed file separately. Use `exit` to leave the Pixi shell.
 
 Pickle is executable: only enable `--trust-pickle` for inputs whose source you trust.
 SHA-256 detects corruption/changes but does not establish trust.
@@ -93,13 +95,13 @@ remain in the TOML science config, not environment variables.
 Individual stages use the same exported configuration:
 
 ```bash
-pixi run raptor
-pixi run eht
-pixi run background
-pixi run observations
-pixi run inference
-pixi run figures
-pixi run verify /path/to/run-name/eht
+python scripts/process_raptor.py
+python scripts/process_eht.py
+python scripts/estimate_background.py
+python scripts/build_observations.py
+python scripts/calculate_limits.py
+python scripts/plot_limits.py
+python scripts/verify_products.py /path/to/run-name/eht
 ```
 
 Use explicit config/input/output arguments only for temporary overrides.
