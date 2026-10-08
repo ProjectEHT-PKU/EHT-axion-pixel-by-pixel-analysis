@@ -17,16 +17,13 @@ pixi --version
 ```bash
 cd /home/canoziia/MyProject/PHYS/eht-script-pipeline
 pixi install --locked
-pixi run check  # 安装后可先检查一次
-pixi shell
-python scripts/run_all.py --help
+pixi run help
+pixi run check
 ```
 
 Pixi只下载Python和依赖，**不会安装本项目为包**。任务直接执行`scripts/`下的脚本，
 脚本调用本地可复用模块；不注册`eht-pipeline`总命令，也不要求pip install或editable安装。
-推荐用`pixi shell`一次进入项目环境，后面直接执行`python scripts/…`。
-不需要再套一层其他虚拟环境，也不要使用仓库旧的ARM `.pixi`环境。
-退出项目shell用`exit`；重新打开终端时再次进入`pixi shell`。
+通过`pixi run`执行任务，不需要额外激活交互环境，也不要使用仓库旧的ARM `.pixi`环境。
 首次安装需要网络；之后不会每次重装。`--locked` 保证不擅自修改锁文件。
 
 本文面向Linux x86-64/ARM64与macOS Intel/Apple Silicon。
@@ -95,11 +92,9 @@ EHT_REUSE_IMPORTED=false
 `.env`是本机配置，不进入Git；官方只提交`.env.example`。物理方法和数值参数仍放在
 `configs/research.toml`，`.env`不替代科学配置文件。
 
-### 3.2 在 Pixi shell 中加载 .env
+### 3.2 加载到当前 shell
 
-先完成第1节的`pixi shell`，然后在项目根目录加载`.env`。
-如果使用tmux，建议先进入tmux，再执行`pixi shell`和下面的加载命令。
-Bash、Zsh使用：
+在项目根目录中加载`.env`。Bash、Zsh使用以下命令（也可在tmux中执行）：
 
 ```bash
 set -a
@@ -107,20 +102,19 @@ source .env
 set +a
 ```
 
-`set -a`让变量自动导出给Python子进程；仅`source .env`而不export，Python看不到普通shell变量。
-`pixi shell`只激活Python环境，不会自动加载`.env`，这两步都需要执行。
+`set -a`让变量自动导出给Python/Pixi子进程；仅`source .env`而不export，Python看不到普通shell变量。
 每个新终端需要加载一次，修改`.env`后也要重新加载。关闭自动导出不会取消已有变量。
 **只source可信的本机文件**：shell会执行文件内容，Python脚本不会自动查找或执行`.env`。
 
 ### 3.3 顺序执行，不再重复填写路径
 
 ```bash
-python scripts/process_raptor.py       # ① RAPTOR图像、相位响应、时间分布
-python scripts/process_eht.py          # ② EHT topset、定位、观测统计
-python scripts/estimate_background.py  # ③ 无轴子背景散布
-python scripts/build_observations.py   # ④ 选点、日差和协方差
-python scripts/calculate_limits.py     # ⑤ 六条限制曲线
-python scripts/plot_limits.py          # ⑥ 图片与表格
+pixi run raptor        # ① RAPTOR图像、相位响应、时间分布
+pixi run eht           # ② EHT topset、定位、观测统计
+pixi run background    # ③ 无轴子背景散布
+pixi run observations  # ④ 选点、日差和协方差
+pixi run inference     # ⑤ 六条限制曲线
+pixi run figures       # ⑥ 图片与表格
 ```
 
 脚本按以下优先级选择设置：**显式命令行参数 > 当前shell中的`EHT_*`环境变量**。
@@ -128,10 +122,10 @@ python scripts/plot_limits.py          # ⑥ 图片与表格
 参数覆盖仅影响这次命令，不会修改`.env`或shell：
 
 ```bash
-python scripts/calculate_limits.py --config configs/observed.toml --output-root ../eht-pipeline-runs/observed-run
-python scripts/plot_limits.py --rebuild
-python scripts/process_eht.py --no-trust-pickle
-python scripts/calculate_limits.py --no-rebuild --no-reuse-imported
+pixi run inference --config configs/observed.toml --output-root ../eht-pipeline-runs/observed-run
+pixi run figures --rebuild
+pixi run eht --no-trust-pickle
+pixi run inference --no-rebuild --no-reuse-imported
 ```
 
 布尔环境变量支持true/false、1/0、yes/no、on/off，不区分大小写；非法值明确报错。
@@ -141,13 +135,12 @@ python scripts/calculate_limits.py --no-rebuild --no-reuse-imported
 ## 4. 一次执行整条主链
 
 ```bash
-# 已进入pixi shell，并按第3节加载和确认.env后：
-python scripts/run_all.py
+# 已按第3节加载并确认.env后：
+pixi run pipeline
 ```
 
-在`pixi shell`里，直接执行脚本即可，不必反复加`pixi run`。
-`raptor`、`inference`等只是Pixi任务名，不是shell命令；应使用上面的脚本名。
-如果不进入交互shell，仍可用`pixi run pipeline`或`pixi run raptor`等已有任务。
+`pixi run pipeline`只是`python scripts/run_all.py`的任务别名，不是安装的统一CLI。
+其他步骤同样由Pixi直接运行对应脚本，无需项目安装或交互环境激活。
 脚本参数可临时覆盖.env导出的配置/路径/安全开关；计算与缓存机制仍在可复用模块中。
 
 默认顺序就是上述①至⑥。重复执行时，配置/输入/代码一致且输出校验通过的阶段会显示
@@ -181,16 +174,16 @@ figures/limits.png/pdf/svg,limits.csv   图与表
 检查完整性与生成诊断图：
 
 ```bash
-python scripts/verify_products.py ../eht-pipeline-runs/my-pixi-run/eht
-python scripts/plot_diagnostics.py --run-root ../eht-pipeline-runs/my-pixi-run --output-dir ../eht-pipeline-runs/my-pixi-run/diagnostics
-python scripts/check_convergence.py --run-root ../eht-pipeline-runs/my-pixi-run --output ../eht-pipeline-runs/my-pixi-run/convergence.json --modes std cor cor_grmhd
+pixi run verify ../eht-pipeline-runs/my-pixi-run/eht
+pixi run diagnostics --run-root ../eht-pipeline-runs/my-pixi-run --output-dir ../eht-pipeline-runs/my-pixi-run/diagnostics
+pixi run convergence --run-root ../eht-pipeline-runs/my-pixi-run --output ../eht-pipeline-runs/my-pixi-run/convergence.json --modes std cor cor_grmhd
 ```
 
 图4诊断旁路和HDF5转换：
 
 ```bash
-python scripts/transport_diagnostics.py --help
-python scripts/raptor_tools.py convert --help
+pixi run transport --help
+pixi run convert-hdf5 --help
 ```
 
 默认 `configs/research.toml` 是零日差/null配置；实际观测日差用`configs/observed.toml`，

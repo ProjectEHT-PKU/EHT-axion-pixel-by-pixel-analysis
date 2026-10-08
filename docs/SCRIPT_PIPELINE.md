@@ -54,13 +54,12 @@ then open a terminal in the repository root:
 pixi install --locked
 pixi run help
 pixi run check
-pixi shell
 cp .env.example .env
 # Review paths and enable EHT_TRUST_PICKLE only for trusted inputs.
 set -a
 source .env
 set +a
-python scripts/run_all.py
+pixi run pipeline
 ```
 
 `pixi.toml` defines Python, NumPy, SciPy, Matplotlib, HDF5 and test/lint dependencies.
@@ -79,9 +78,9 @@ One default Pixi environment runs all current tests. The removed historical util
 library needed statsmodels; current processing and regression do not.
 
 Pixi activation sets Agg rendering and two BLAS/OpenMP threads. Run long computations
-in tmux on Linux/macOS or a suitable persistent terminal/job scheduler. Enter
-`pixi shell` once, then run `python scripts/*.py` directly. Shell activation does not
-load `.env`; export the reviewed file separately. Use `exit` to leave the Pixi shell.
+in tmux on Linux/macOS or a suitable persistent terminal/job scheduler. Use `pixi run`
+tasks; interactive environment activation is not required. Export the reviewed `.env`
+in your current shell before running the stages.
 
 Pickle is executable: only enable `--trust-pickle` for inputs whose source you trust.
 SHA-256 detects corruption/changes but does not establish trust.
@@ -95,13 +94,13 @@ remain in the TOML science config, not environment variables.
 Individual stages use the same exported configuration:
 
 ```bash
-python scripts/process_raptor.py
-python scripts/process_eht.py
-python scripts/estimate_background.py
-python scripts/build_observations.py
-python scripts/calculate_limits.py
-python scripts/plot_limits.py
-python scripts/verify_products.py /path/to/run-name/eht
+pixi run raptor
+pixi run eht
+pixi run background
+pixi run observations
+pixi run inference
+pixi run figures
+pixi run verify /path/to/run-name/eht
 ```
 
 Use explicit config/input/output arguments only for temporary overrides.

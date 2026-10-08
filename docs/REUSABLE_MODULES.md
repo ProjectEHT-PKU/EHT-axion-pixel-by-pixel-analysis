@@ -26,8 +26,7 @@
 ## 2. 在代码目录中单独调用
 
 ```bash
-pixi shell
-python
+pixi run python
 ```
 
 ```python
@@ -58,16 +57,12 @@ print(np.rad2deg(circular_mean(angles)))
 然后：
 
 ```bash
-# 已进入pixi shell后：
-python scripts/my_analysis.py
+pixi run python scripts/my_analysis.py
 ```
 
 脚本通过自身路径寻找源码，所以从其他cwd用绝对脚本路径运行也可以。
 若复用到另一个项目，可以复制经过确认的模块及对应测试，或显式管理源码路径；
 不需要为此把整个M87分析发布为可安装库。
-
-`pixi shell`激活环境后可直接运行Python脚本；Pixi任务名本身不会变成shell命令。
-如果不进入交互环境，也可以继续使用`pixi run`任务。
 
 ## 4. 各研究脚本
 
