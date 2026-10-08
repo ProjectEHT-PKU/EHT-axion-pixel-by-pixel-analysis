@@ -45,20 +45,21 @@ data/inputs/
 “推荐结构”，而是在说明我们已经提供好的输入位置。
 
 `--output-root`只是告诉程序**把本次新生成的中间量和结果存到哪里**，不是要求你准备
-另一份输入数据。例如下文统一使用：
+另一份输入数据。直接使用已有的结果目录，不额外建运行名称子目录：
 
 ```text
-../eht-pipeline-runs/my-pixi-run
+../eht-pipeline-runs
 ```
 
 从当前代码目录解析后，它是：
 
 ```text
-/home/canoziia/MyProject/PHYS/eht-pipeline-runs/my-pixi-run
+/home/canoziia/MyProject/PHYS/eht-pipeline-runs
 ```
 
-这个目录不需要手动创建，程序会自动创建。第一次从头运行选一个尚未使用的名字，
-是为了不覆盖已有的`research-001`等结果；后续同配置运行可以继续用同一目录复用缓存。
+运行后，`raptor/`、`eht/`、`inference/`、`figures/`等直接位于此目录下。
+同配置重复运行会复用校验通过的缓存；配置改变时会明确报过期缓存，不会静默覆盖。
+只有要同时保存另一套独立分析时，才按需指定其他输出位置。
 
 **你只需安装环境、直接执行下面的命令。**另一台机器首次取得数据的步骤见文末附录，
 本机使用时跳过。
@@ -78,13 +79,13 @@ cp .env.example .env
 ```dotenv
 EHT_CONFIG=configs/research.toml
 EHT_INPUT_ROOT=data/inputs
-EHT_OUTPUT_ROOT=../eht-pipeline-runs/my-pixi-run
+EHT_OUTPUT_ROOT=../eht-pipeline-runs
 EHT_TRUST_PICKLE=false
 EHT_REBUILD=false
 EHT_REUSE_IMPORTED=false
 ```
 
-本机数据已经提供，输入路径通常不需修改。输出目录选择本次运行的名字。
+本机数据已经提供，输入路径通常不需修改。输出直接保存到`eht-pipeline-runs`，无需另取运行名。
 确认使用的是我们提供的可信EHT数据后，**手动将`EHT_TRUST_PICKLE`改为`true`**。
 模板默认false，不因加载环境变量就默认授权执行pickle。
 `EHT_REBUILD`和`EHT_REUSE_IMPORTED`通常保持false；需要时用命令行临时开启。
@@ -145,7 +146,7 @@ pixi run pipeline
 
 默认顺序就是上述①至⑥。重复执行时，配置/输入/代码一致且输出校验通过的阶段会显示
 `CACHE HIT`。只要修改了配置或代码，可能收到 `Stale cache`，不是程序故障。
-初次使用建议换新的输出目录；确认影响范围后再对所需阶段使用 `--rebuild`。
+默认直接使用上述结果目录；遇到过期缓存时，确认影响范围后再对所需阶段使用`--rebuild`。
 
 不同 Python/NumPy/SciPy 环境可能有微小数值差异。不要把此前 Nix 环境的输出宣称为
 Pixi 重算结果；Pixi 验证记录将单独保留。生产stage记录输入/配置/源码，调用环境写入`invocations/`；精确依赖由
@@ -174,9 +175,9 @@ figures/limits.png/pdf/svg,limits.csv   图与表
 检查完整性与生成诊断图：
 
 ```bash
-pixi run verify ../eht-pipeline-runs/my-pixi-run/eht
-pixi run diagnostics --run-root ../eht-pipeline-runs/my-pixi-run --output-dir ../eht-pipeline-runs/my-pixi-run/diagnostics
-pixi run convergence --run-root ../eht-pipeline-runs/my-pixi-run --output ../eht-pipeline-runs/my-pixi-run/convergence.json --modes std cor cor_grmhd
+pixi run verify ../eht-pipeline-runs/eht
+pixi run diagnostics --run-root ../eht-pipeline-runs --output-dir ../eht-pipeline-runs/diagnostics
+pixi run convergence --run-root ../eht-pipeline-runs --output ../eht-pipeline-runs/convergence.json --modes std cor cor_grmhd
 ```
 
 图4诊断旁路和HDF5转换：

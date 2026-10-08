@@ -10,8 +10,9 @@ No Notebook, Nix/NixOS, system Python, LaTeX or old local intermediates are requ
 ## Run
 
 Input data are already available on this machine through `data/inputs/`.
-The output directory is created automatically; use a new name to avoid overwriting
-existing results.
+Outputs go directly into `../eht-pipeline-runs/` as configured in `.env.example`;
+no extra run-name subdirectory is required. Verified caches are reused, and stale
+configurations are rejected rather than silently overwritten.
 
 ```bash
 pixi install --locked
