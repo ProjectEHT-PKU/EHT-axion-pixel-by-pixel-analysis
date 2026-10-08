@@ -1,11 +1,41 @@
 # EHT axion pixel-by-pixel analysis
 
+## Script-first development pipeline
+
+This branch provides a complete **Python-only** image-output → inference → figure
+pipeline. No notebook execution or author-local intermediate paths are required.
+
+**Start here: [Script pipeline guide](docs/SCRIPT_PIPELINE.md)**
+
+```bash
+python -m pip install -e '.[dev]'
+eht-pipeline run --config configs/research.toml \
+  --input-root /path/to/shared_data/analysis-inputs/draft \
+  --output-root /path/to/large-disk/research-run --trust-pickle
+```
+
+Physical cache layers: processed Stokes → snapshot response fits → template moments;
+EHT identity-matched topset → observation covariance; measured GRMHD background →
+six limit curves → PNG/PDF/SVG/CSV. Completed stages are content-verified and reusable.
+
+The default profile restores explicit **intensity-weighted** 1D apertures, uses
+ensemble-centered covariance and fixes the five-day phase advance. This is a new
+research profile, **not** a one-bug replacement for previous figures. Pending
+physical choices, literature constants and provenance are documented in
+[M87_CONSTANTS_AUDIT.md](M87_CONSTANTS_AUDIT.md).
+
+The remainder below documents the previous runner/data-release workflow retained
+for reference and regression. Prefer the script pipeline above for new work.
+
+
 This repository evaluates limits on an axion-induced, time-dependent rotation of
 M87* EVPA using EHT image ensembles and GRMHD/RAPTOR signal templates.  It
 contains two analyses:
 
 - **2-D / pixel-by-pixel:** retain spatial EVPA pixels and their covariance;
-- **1-D / angular:** radially integrate Stokes Q/U and use independent angular bins.
+- **1-D / angular:** use coherent aperture EVPA and spaced angular bins (spacing alone
+  does not establish statistical independence). The previous rebuilt profile used
+  direct Q/U flux integration; the new script profile defaults to intensity weighting.
 
 Each analysis reports three uncertainty models:
 

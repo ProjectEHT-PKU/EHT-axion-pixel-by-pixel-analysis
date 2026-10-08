@@ -24,6 +24,12 @@ pixi.toml
 /audit/rebuilt_1d/
 /audit/rebuilt_2d/
 
+# Python build and local pipeline products (scientific outputs stay external).
+/build/
+/*.egg-info/
+/outputs/
+/runs/
+
 # The only published binary-data namespace; files here are managed by Git LFS.
 !.gitattributes
 !/shared_data/

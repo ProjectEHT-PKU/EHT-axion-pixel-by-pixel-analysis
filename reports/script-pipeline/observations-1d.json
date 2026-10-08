@@ -1,0 +1,19 @@
+{
+  "dimension": "1d",
+  "selected_points": 36,
+  "sample_counts": [
+    1572,
+    1572,
+    1572,
+    1572
+  ],
+  "covariance_definition": "centered local ensemble population moment (ddof=0)",
+  "std_definition": "diagonal of the same covariance used by cor",
+  "cross_day_observation_covariance": "zero (assumed)",
+  "ridge_fraction_of_median_variance": 0.0,
+  "max_recenter_degrees": 1.8918230593865437e-13,
+  "pair_covariance_condition_numbers": [
+    5476.203070014886,
+    1839.5760349334337
+  ]
+}

@@ -22,8 +22,14 @@ def gaussian_log_likelihood(
     """
     residual_array = np.asarray(residual, dtype=float)
     covariance_array = np.asarray(covariance, dtype=float)
+    if residual_array.ndim != 1 or residual_array.size == 0:
+        raise ValueError("residual must be a nonempty 1-D array")
     if covariance_array.shape != (residual_array.size, residual_array.size):
         raise ValueError("covariance shape does not match residual")
+    if not np.all(np.isfinite(residual_array)) or not np.all(np.isfinite(covariance_array)):
+        raise ValueError("residual and covariance must be finite")
+    if not np.allclose(covariance_array, covariance_array.T, rtol=1e-12, atol=1e-14):
+        raise ValueError("covariance must be symmetric")
     factor, lower = cho_factor(covariance_array, lower=True, check_finite=False)
     solved = cho_solve((factor, lower), residual_array, check_finite=False)
     value = float(residual_array @ solved)
@@ -34,13 +40,21 @@ def gaussian_log_likelihood(
 
 def combine_independent_log_likelihoods(log_likelihoods: ArrayLike) -> float:
     """Combine independent observations by multiplying their likelihoods."""
-    return float(np.asarray(log_likelihoods, dtype=float).sum())
+    values = _validated_log_likelihood(log_likelihoods)
+    return float(values.sum())
 
 
 def marginalize_log_likelihood(log_likelihoods: ArrayLike, *, axis: int = -1):
     """Average likelihood over a uniformly sampled nuisance parameter."""
-    values = np.asarray(log_likelihoods, dtype=float)
+    values = _validated_log_likelihood(log_likelihoods)
     return logsumexp(values, axis=axis) - np.log(values.shape[axis])
+
+
+def _validated_log_likelihood(values: ArrayLike) -> NDArray[np.floating]:
+    result = np.asarray(values, dtype=float)
+    if result.size == 0 or np.any(np.isnan(result)) or np.any(np.isposinf(result)):
+        raise ValueError("log likelihood must be nonempty, with no NaN or +inf")
+    return result
 
 
 def normalized_posterior_cdf(
@@ -56,11 +70,14 @@ def normalized_posterior_cdf(
     accidental consequence of a logarithmic grid.
     """
     grid_array = np.asarray(grid, dtype=float)
-    log_like = np.asarray(log_likelihood, dtype=float)
-    if grid_array.ndim != 1 or log_like.shape != grid_array.shape:
+    log_like = _validated_log_likelihood(log_likelihood)
+    if grid_array.ndim != 1 or grid_array.size < 2 or log_like.shape != grid_array.shape:
         raise ValueError("grid and log_likelihood must be matching 1-D arrays")
-    if np.any(grid_array <= 0) or np.any(np.diff(grid_array) <= 0):
-        raise ValueError("grid must be positive and strictly increasing")
+    if (not np.all(np.isfinite(grid_array)) or np.any(grid_array <= 0)
+            or np.any(np.diff(grid_array) <= 0)):
+        raise ValueError("grid must be finite, positive and strictly increasing")
+    if not np.any(np.isfinite(log_like)):
+        raise ValueError("posterior cannot be normalized from all -inf likelihoods")
     if prior == "log-uniform":
         log_prior = -np.log(grid_array)
     elif prior == "uniform":
@@ -74,7 +91,7 @@ def normalized_posterior_cdf(
     if not np.isfinite(normalization) or normalization <= 0:
         raise ValueError("posterior cannot be normalized on this grid")
     density /= normalization
-    cdf = np.concatenate(([0.0], np.cumsum(increments) / normalization))
+    cdf = np.minimum(np.concatenate(([0.0], np.cumsum(increments) / normalization)), 1.0)
     cdf[-1] = 1.0
     return density, cdf
 
@@ -86,9 +103,25 @@ def posterior_upper_limit(
     credibility: float = 0.95,
     prior: str = "log-uniform",
 ) -> float:
-    """Interpolate a posterior upper limit from its normalized CDF."""
+    """Invert the same piecewise-linear density used by trapezoidal integration.
+
+    Linear interpolation of CDF nodes instead assumes piecewise-constant
+    density and is inconsistent, particularly on a coarse logarithmic grid.
+    """
     if not 0 < credibility < 1:
         raise ValueError("credibility must lie strictly between zero and one")
     grid_array = np.asarray(grid, dtype=float)
-    _, cdf = normalized_posterior_cdf(grid_array, log_likelihood, prior=prior)
-    return float(np.interp(credibility, cdf, grid_array))
+    density, cdf = normalized_posterior_cdf(grid_array, log_likelihood, prior=prior)
+    upper = int(np.searchsorted(cdf, credibility, side="left"))
+    lower = upper - 1
+    width = grid_array[upper] - grid_array[lower]
+    # Solve d0*u + (d1-d0)*u**2/2 = local_mass/width. This
+    # rationalized root avoids cancellation for nearly constant densities.
+    d0, d1 = density[lower], density[upper]
+    local = (credibility - cdf[lower]) / width
+    scale = max(d0, d1)
+    d0, d1, local = d0 / scale, d1 / scale, local / scale
+    discriminant = max(0.0, d0**2 + 2 * (d1 - d0) * local)
+    denominator = d0 + np.sqrt(discriminant)
+    fraction = 0.0 if local == 0 else 2 * local / denominator
+    return float(grid_array[lower] + width * np.clip(fraction, 0, 1))

@@ -1,0 +1,196 @@
+# Script-only research pipeline
+
+> Development branch: `refactor/script-pipeline`. New runs do not execute or parse notebooks.
+> Previous notebooks remain as historical provenance, not runtime dependencies.
+> Scientific choices pending author confirmation are labeled, not silently declared fixed.
+
+## Structure
+
+```text
+configs/research.toml         physical scales + preserved image settings + analysis choices
+
+eht_axion/
+  pipeline/
+    cli.py                   stage orchestration, explicit paths
+    common.py                SHA-256 identity, locks, transactional/cache manifests
+    constants.py             M/D → time, angular scale, axion mass conversion
+    raptor.py                HDF5 conversion, image processing, response fits, background
+    eht.py                   candidate identity matching, ranking, relocation, summaries
+    products.py              named NPZ schema, centered observation covariance
+    inference.py             six-mode batch, effective settings, numerical diagnostics
+    figures.py               figures/tables, no fitting or hidden data paths
+    diagnostics.py           intermediate EHT/mask and GRMHD-lag visual checks
+    convergence.py           denser coupling/phase grids, reuse all physical data
+    transport.py             Figure-4 transport decomposition diagnostic branch
+  polarization.py            coherent aperture operators and integration
+  model.py                   exposure/day-difference templates
+  limits.py                  likelihood and posterior upper limits
+  statistics.py              Gaussian and quadrature utilities
+
+tests/test_pipeline_*.py      synthetic scientific and failure-mode tests
+```
+
+The old `scripts/`, notebooks and `utils/` are retained for regression/source comparison.
+They are not part of the new runtime chain. Once definitions stabilize, archival cleanup
+can be done as a separate change without losing provenance.
+
+## Run (from any directory after installation)
+
+```bash
+python -m pip install -e '.[dev]'
+eht-pipeline run \
+  --config /path/to/repo/configs/research.toml \
+  --input-root /path/to/shared_data/analysis-inputs/draft \
+  --output-root /path/to/large-disk/run-name \
+  --trust-pickle
+```
+
+Or, from the repository root:
+
+```bash
+python -m eht_axion.pipeline run --config configs/research.toml \
+  --input-root /path/to/analysis-inputs/draft \
+  --output-root /path/to/run-name --trust-pickle
+```
+
+No copying of raw cubes into the repository is necessary. Inputs are opened read-only.
+For this container use `nix-shell -p 'python312.withPackages (ps: with ps; [ numpy scipy matplotlib h5py pytest ])'`;
+the new pipeline does not import statsmodels. The legacy regression utilities still do
+and can be installed with `pip install -e '.[legacy,dev]'`. Without that extra, only the
+legacy-utils test module is explicitly skipped; pipeline tests still run.
+Run calculations in tmux and set `OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2` to avoid oversubscription.
+
+Pickle is executable: only enable `--trust-pickle` for inputs whose source you trust.
+SHA-256 detects corruption/changes but does not establish trust.
+
+Individual stages use the same configuration:
+
+```bash
+python -m eht_axion.pipeline run ... --stage raptor
+python -m eht_axion.pipeline run ... --stage eht --trust-pickle
+python -m eht_axion.pipeline run ... --stage background
+python -m eht_axion.pipeline run ... --stage observations
+python -m eht_axion.pipeline run ... --stage inference
+python -m eht_axion.pipeline run ... --stage figures
+python -m eht_axion.pipeline verify /path/to/run-name/04_eht
+```
+
+Replace `...` with explicit config/input/output arguments as above.
+The whole-chain order is RAPTOR → EHT → background → observations → inference → figures.
+RAPTOR and EHT may be computed independently, in different stage directories.
+
+## Physical cache layers
+
+| Stage directory | Scientific meaning | Main outputs | Recompute when |
+|---|---|---|---|
+| `01_raptor/alpha-*` | simulated telescope-plane Stokes after blur/rotation/crop | `stokes.npy` `(T,17,64,64,4)` | image geometry, blur or input changes |
+| `02_response/alpha-*` | response to axion phase for every GRMHD snapshot | `fits_2d.npy`, `fits_1d.npy` with `[A,phi,baseline]` | phase fitting or 1D observable changes |
+| `03_templates/{1d,2d}` | temporal distribution of responses | `templates.npz` mean/std and valid counts | response distribution model changes |
+| `04_eht` | identity-matched topset and observed EVPA ensembles | `selection.npz`, `stokes_D.npy`, `evpa_1d_D.npy`, summaries, mask | ranking, registration, apertures or inputs change |
+| `01_raptor_background` | high-resolution-origin processed Stokes | `stokes.npy` | background image preprocessing changes |
+| `05_background` | pooled no-axion EVPA difference scatter at recorded lag | `background.json`, histogram diagnostic NPZ | lag, region or fit changes |
+| `06_observations/{1d,2d}` | selected day differences and centered covariance | `observations.npz`, diagnostics JSON | mask, selected angular offset or covariance model changes |
+| `07_inference` | posterior constraints and integration diagnostics | six curve NPZs, per-curve likelihood/CDF JSON, `run.json` | timing, coupling/phase grid, prior or noise model changes |
+| `08_figures` | views of the saved numerical results | PNG/PDF/SVG, CSV, figure JSON | plot styling changes |
+
+Only raw EHT inputs use pickle. New science products are ordinary numeric NPZ/NPY,
+loadable with `allow_pickle=False`. Never infer stage completeness from the existence
+of a single array: `stage.json` is written last.
+
+The research profile currently requires 360 one-degree bins; arbitrary angular grids
+are rejected rather than silently misaligning RAPTOR and EHT angle origins.
+
+The stage signature includes input bytes, settings and relevant Python source bytes.
+A cache hit verifies output checksums. Changed inputs/config/source produce a stale-cache
+error, not silent reuse. Use a new output root or `--rebuild`. Rebuild creates a temporary
+sibling stage and replaces only after success; an ordinary failure leaves old output intact.
+A process crash between renames can leave `.previous`/`.building-*`; inspect and recover,
+never automatically treat these as completed products. Locks record PID for manual recovery.
+
+## Explicit methodological changes vs previous code
+
+These changes are separate, not a claim that all historical definitions were bugs:
+
+- **Formula fix:** second day-pair advances by omega × 120h, not omega × 60h.
+- **Numerics:** centered 10° apertures, exact radial endpoint and trapezoidal endpoint weights.
+- **Definition restored:** default `intensity` uses integral I(Q+iU), consistent with the old
+  intensity-weighted statistic and EHT-VII. `flux` is an explicit alternative, not a silent correction.
+- **Estimator choice:** new profile uses local circular lifting + Gaussian population MLE,
+  not histogram-fit main-peak estimates. Concentration/finite diagnostics are retained;
+  Gaussianity is not guaranteed merely by finite values. Topset membership can change.
+- **Coherent covariance:** observed center and covariance refer to the same ensemble lift;
+  std uses diag(cor). A std/cor comparison now isolates spatial association, not different marginals.
+- **Background choice:** re-estimated from state0, zeros retained; lag3 is about26.68h, not exact24h.
+  Gaussian MLE and historical histogram fitting are distinct explicit options in the background CLI.
+- **Statistics:** independent day-pair likelihoods multiply; parameter-dependent logdet retained;
+  prior/bounds explicit; phase endpoint unique; posterior segment inversion matches quadrature.
+- **Performance:** fixed-covariance likelihood quadratic coefficients are cached; physical
+  intermediate arrays are streamed rather than loading the res400 cube into memory.
+
+## Choices intentionally preserved, not externally certified
+
+`46.2262/32.6868 Rg`, sigma `2.16871 Rg`, rotation108°, fixed two-stage EHT offsets,
+manual exclusions, 1D angular offset4 and no inheritance of the 2D mask are retained
+and recorded. Original RAPTOR calibration/FITS headers are needed to settle angular
+FOV and Stokes basis. Mass6.5e9/distance16.8 are a declared working convention, not
+proof that the original transfer simulation used exactly that calibration.
+
+Principal quantum number4 matches the historical frequency formula but is not asserted
+to be the correct interpretation of the draft's211 mode. Axion template shape is held
+fixed when analytic temporal frequency is evaluated; changing the physical state requires
+checking the original simulated templates, not just editing a frequency.
+
+In this implementation the plotted `c` is the coefficient multiplying the unit
+response **before** `b(alpha)`; following the current code convention it is interpreted
+as `2*pi*g_agamma*f_a`. Predicted signal scales as `c*b(alpha)*A/AXION_NORM` times
+the time-difference response. The old draft sometimes defined c including b; do not
+compare those vertical axes without converting the normalization.
+
+The full noise mode assumes spatially diagonal model errors and independent model
+realizations between day-pairs. Cross-day observation noise is also assumed independent.
+These are different assumptions. GRMHD background is scalar diagonal and pooled over
+space/time. Shared latent templates would require cross-pair covariance not implemented
+by this profile. Prior/phase/coupling convergence and these assumptions need paper review.
+
+The figure is a reproducible **research-profile result**, not a frozen publication claim.
+Do not compare its shifts with old results as a one-bug effect: observable, estimator,
+selection and time-model changes are all listed above.
+
+## HDF5 start and missing upstream inputs
+
+`python -m eht_axion.pipeline.raptor convert --help` documents explicit named Stokes
+datasets, snapshot/state association and block layout. No dependence on dictionary key
+order or absolute labels used as array indices. HDF5 attributes should be archived as
+provenance. Conversion is tested synthetically; the current local dataset begins at
+NumPy cubes, so actual historical HDF5 conversion is not claimed verified against source.
+
+Raw GRMHD fluid snapshots, original RAPTOR execution configuration and EHT visibility
+reconstruction configuration remain outside this repository. “End-to-end” here means
+RAPTOR image outputs and EHT reconstructed ensembles → final numerical/graphical results.
+
+## Additional script-only checks and diagnostics
+
+```bash
+python -m pytest -q
+python -m eht_axion.pipeline.diagnostics --run-root /path/to/run-name \
+  --output-dir /path/to/run-name/09_diagnostics
+python -m eht_axion.pipeline.convergence --run-root /path/to/run-name \
+  --output /path/to/convergence.json --modes std cor cor_grmhd
+python -m eht_axion.pipeline.transport --help
+```
+
+The new observation product preserves the EHT summary's saved circular lift
+(`center` and `unwrapped_mean`); it never wraps a broad ensemble again around its
+arithmetic mean. Selected finite template pixels are validated after masking,
+so excluded undefined phases cannot invalidate useful pixels. Stage replacements
+reject input files inside the output directory, including resolved symlink aliases.
+Inference checks upstream lineage and effective configuration, not just array readability.
+
+## Constant/provenance references
+
+- [`../M87_CONSTANTS_AUDIT.md`](../M87_CONSTANTS_AUDIT.md)
+- [`../PIPELINE_RUN_CHAIN.md`](../PIPELINE_RUN_CHAIN.md)
+- [`../CODE_CLASSIFICATION.md`](../CODE_CLASSIFICATION.md)
+- EHT-I https://arxiv.org/abs/1906.11238
+- EHT-VII https://arxiv.org/abs/2105.01169
+- EHT-VIII https://arxiv.org/abs/2105.01173

@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+pytest.importorskip("statsmodels", reason="optional legacy utilities: install .[legacy]")
 from utils.libanaly import CircleCalc, ImageS, fit_gaussian2
 
 

@@ -1,0 +1,8 @@
+{
+  "processed_stokes_samples": 9,
+  "max_abs_error_vs_saved_historical": 16384.0,
+  "comparison_only": "Old saved arrays are not proof of physical coordinate correctness.",
+  "topset_overlap_with_previous_histogram_profile": 1400,
+  "max_abs_error_over_peak": 1.170949475449038e-15,
+  "max_evpa_error_rad": 1.8207657603852567e-14
+}

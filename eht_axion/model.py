@@ -13,8 +13,13 @@ AXION_NORM = 0.1
 TIME_CONVERSION = 0.112411
 
 
-def omega(alpha: float) -> float:
-    return alpha * (1 - alpha**2 / (2 * 4**2))
+def omega(alpha: float, n_principal: int = 4) -> float:
+    """Bound-state frequency; the historical n=4 is intentionally unchanged."""
+    if not np.isfinite(alpha) or alpha <= 0:
+        raise ValueError("alpha must be positive and finite")
+    if isinstance(n_principal, bool) or not isinstance(n_principal, (int, np.integer)) or n_principal < 1:
+        raise ValueError("n_principal must be a positive integer")
+    return alpha * (1 - alpha**2 / (2 * n_principal**2))
 
 
 def cloud_amplitude_scaling(alpha: float) -> float:
@@ -29,6 +34,8 @@ def _load_dictionary(path: Path) -> Mapping[float, NDArray[np.floating]]:
 
 
 def load_fit_parameters(root: Path, dimension: str, data_dir: Path | None = None):
+    if dimension not in {"1d", "2d"}:
+        raise ValueError("dimension must be '1d' or '2d'")
     suffix = "_1d" if dimension == "1d" else ""
     data_dir = data_dir or root / "GRMHD" / "data_out"
     amplitude = _load_dictionary(data_dir / f"A_params{suffix}_dict.npy")
@@ -45,7 +52,25 @@ def interpolate_fit_parameters(
     circular: bool = False,
 ) -> NDArray[np.floating]:
     """Interpolate fit products in alpha, treating phase means circularly."""
-    grid = np.array(sorted(values))
+    if not np.isfinite(alpha) or alpha <= 0:
+        raise ValueError("alpha must be positive and finite")
+    if not values:
+        raise ValueError("fit parameter grid cannot be empty")
+    grid = np.array(sorted(values), dtype=float)
+    if not np.all(np.isfinite(grid)) or np.any(grid <= 0):
+        raise ValueError("fit alpha nodes must be positive and finite")
+    arrays = [np.asarray(values[key], dtype=float) for key in sorted(values)]
+    shape = arrays[0].shape
+    if len(shape) < 2 or shape[0] != 2 or any(size == 0 for size in shape):
+        raise ValueError("fit parameters must have shape (2, spatial...)")
+    for array in arrays:
+        if array.shape != shape or not np.all(np.isfinite(array)):
+            raise ValueError("fit parameters must have matching shapes and finite values")
+        if np.any(array[1] < 0):
+            raise ValueError("fit standard deviations must be nonnegative")
+    # Exact products must survive unchanged, including phases outside [-pi, pi].
+    if alpha in values:
+        return np.array(values[alpha], dtype=float, copy=True)
     if alpha <= grid[0]:
         return np.array(values[float(grid[0])], copy=True)
     if alpha >= grid[-1]:
@@ -53,7 +78,7 @@ def interpolate_fit_parameters(
     lower_index = np.searchsorted(grid, alpha) - 1
     lower, upper = grid[lower_index : lower_index + 2]
     weight = (alpha - lower) / (upper - lower)
-    first, second = values[float(lower)], values[float(upper)]
+    first, second = arrays[lower_index], arrays[lower_index + 1]
     if not circular:
         return (1 - weight) * first + weight * second
     # The first row is a phase mean; interpolate it on the unit circle.  The
@@ -70,34 +95,70 @@ def evpa_templates(
     amplitude_parameters: Mapping[float, NDArray[np.floating]],
     phase_parameters: Mapping[float, NDArray[np.floating]],
     *,
-    phase_count: int = 16,
-    duplicate_endpoint: bool = False,
-    circular_phase_interpolation: bool = True,
-    legacy_shared_uncertainty: bool = False,
+    phase_count: int | None = None,
+    legacy: bool = False,
+    duplicate_endpoint: bool | None = None,
+    circular_phase_interpolation: bool | None = None,
+    legacy_shared_uncertainty: bool | None = None,
+    time_conversion: float = TIME_CONVERSION,
+    exposure_hours: float = 6.0,
+    day_gap_hours: float = 24.0,
+    pair_separation_hours: float = 120.0,
+    n_principal: int = 4,
 ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
     """Return two-epoch signal templates and their propagated uncertainties.
 
     Signals and propagated standard deviations have unit
     ``gagg * cloud_amplitude_scaling(alpha)`` and shape
-    ``(phase, epoch_pair, spatial...)``.
+    ``(phase, epoch_pair, spatial...)``. ``day_gap_hours`` is the within-pair
+    observation separation (one day); ``pair_separation_hours`` separates the
+    two pair midpoints (five days).
+    Corrected phases advance by omega*time; legacy retains the extra /2.
+    Exposure is a rectangular time average. The first pair midpoint is the
+    phase origin, absorbing the unobservable common cosine-to-sine shift.
     """
+    phase_count = (16 if legacy else 64) if phase_count is None else phase_count
+    if isinstance(phase_count, bool) or not isinstance(phase_count, (int, np.integer)) or phase_count < 2:
+        raise ValueError("phase_count must be an integer >= 2")
+    for name, value in (("time_conversion", time_conversion),
+                        ("day_gap_hours", day_gap_hours)):
+        if not np.isfinite(value) or value <= 0:
+            raise ValueError(f"{name} must be positive and finite")
+    for name, value in (("exposure_hours", exposure_hours),
+                        ("pair_separation_hours", pair_separation_hours)):
+        if not np.isfinite(value) or value < 0:
+            raise ValueError(f"{name} must be nonnegative and finite")
+    duplicate_endpoint = legacy if duplicate_endpoint is None else duplicate_endpoint
+    circular_phase_interpolation = (
+        not legacy if circular_phase_interpolation is None else circular_phase_interpolation
+    )
+    legacy_shared_uncertainty = (
+        legacy if legacy_shared_uncertainty is None else legacy_shared_uncertainty
+    )
+    if set(amplitude_parameters) != set(phase_parameters):
+        raise ValueError("amplitude and phase grids differ")
     amplitude = interpolate_fit_parameters(alpha, amplitude_parameters)
     phase = interpolate_fit_parameters(
         alpha, phase_parameters, circular=circular_phase_interpolation
     )
+    if amplitude.shape != phase.shape:
+        raise ValueError("amplitude and phase shapes differ")
     initial_phase = np.linspace(0, 2 * np.pi, phase_count, endpoint=duplicate_endpoint).reshape(
         (phase_count,) + (1,) * (amplitude.ndim - 1)
     )
-    angular_frequency = omega(alpha)
-    exposure = TIME_CONVERSION * angular_frequency / 2 * 6
+    angular_frequency = omega(alpha, n_principal)
+    exposure = time_conversion * angular_frequency / 2 * exposure_hours
     constant = (
         2
-        * np.sin(TIME_CONVERSION * angular_frequency / 2 * 24)
+        * np.sin(time_conversion * angular_frequency / 2 * day_gap_hours)
         * np.sinc(exposure / np.pi)
         / AXION_NORM
     )
     phase_first = initial_phase + phase[0]
-    phase_second = phase_first + TIME_CONVERSION * angular_frequency / 2 * 24 * 5
+    phase_second = (
+        phase_first + time_conversion * angular_frequency / (2 if legacy else 1)
+        * pair_separation_hours
+    )
     signal = constant * amplitude[0] * np.stack((np.sin(phase_first), np.sin(phase_second)), axis=1)
     uncertainty = np.stack(
         tuple(
@@ -111,4 +172,6 @@ def evpa_templates(
     )
     if legacy_shared_uncertainty:
         uncertainty[:, 1] = uncertainty[:, 0]
+    if not np.all(np.isfinite(signal)) or not np.all(np.isfinite(uncertainty)):
+        raise ValueError("template calculation produced nonfinite values")
     return signal, uncertainty

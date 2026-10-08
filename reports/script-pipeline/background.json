@@ -1,0 +1,44 @@
+{
+  "stage": "background",
+  "inputs": [
+    "/home/canoziia/eht-pipeline-runs/research/01_raptor_background/stokes.npy"
+  ],
+  "shape": [
+    141,
+    1,
+    64,
+    64,
+    4
+  ],
+  "input_dtype": "float64",
+  "shard_order": "explicit caller order",
+  "sigma": 0.04500637580926029,
+  "mean": 0.0006120054483386748,
+  "sigma_mle": 0.04500637580926029,
+  "mean_mle": 0.0006120054483386748,
+  "finite_count": 104052,
+  "units": "rad",
+  "lag": 3,
+  "cadence_hours": 8.893247544352288,
+  "lag_hours": 26.679742633056865,
+  "exact_day": false,
+  "noaxion_state": 0,
+  "difference": "angular",
+  "method": "mle",
+  "domain": "2d",
+  "weighting": "intensity",
+  "fov": null,
+  "radial_max": null,
+  "window_degrees": 10,
+  "angular_bins": 360,
+  "minimum_samples": 2,
+  "histogram_bins": 100,
+  "mask": {
+    "included_pixels": 754,
+    "path": "/home/canoziia/eht-pipeline-runs/research/04_eht/mask.npy"
+  },
+  "legacy_threshold": 0.2,
+  "zero_differences_retained": true,
+  "single_epoch_correction": false,
+  "angular_roll_bins": null
+}
