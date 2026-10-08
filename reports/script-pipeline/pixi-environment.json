@@ -1,0 +1,20 @@
+{
+  "platform_tested": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "python": "3.12.15 (main, Oct  6 2026, 23:50:18) [GCC 15.3.0]",
+  "pixi_version": "0.81.0",
+  "packages": {
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "matplotlib": "3.11.2",
+    "h5py": "3.16.0",
+    "pytest": "9.1.1",
+    "ruff": "0.16.10",
+    "eht-axion-analysis": "0.2.0"
+  },
+  "lock_sha256": "5097e70ff5335a9fbcf615b061d16a7e142dede024bf6fd3515ac4738f9ba06a",
+  "tested_environments": [
+    "default",
+    "legacy"
+  ],
+  "note": "Other platforms are lock-resolved, not execution-tested."
+}

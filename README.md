@@ -5,11 +5,15 @@
 This branch provides a complete **Python-only** image-output → inference → figure
 pipeline. No notebook execution or author-local intermediate paths are required.
 
-**Start here: [Script pipeline guide](docs/SCRIPT_PIPELINE.md)**
+**Start here: [Pixi quick start (中文)](docs/PIXI_QUICKSTART.md) · [Script pipeline guide](docs/SCRIPT_PIPELINE.md)**
+
+Install [Pixi](https://pixi.prefix.dev/latest/installation/) first. Nix/NixOS and a
+preinstalled Python are not required. Dependencies and platforms are locked in `pixi.lock`.
 
 ```bash
-python -m pip install -e '.[dev]'
-eht-pipeline run --config configs/research.toml \
+pixi install --locked
+pixi run check
+pixi run pipeline --config configs/research.toml \
   --input-root /path/to/shared_data/analysis-inputs/draft \
   --output-root /path/to/large-disk/research-run --trust-pickle
 ```

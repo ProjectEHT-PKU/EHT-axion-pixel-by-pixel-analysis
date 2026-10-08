@@ -34,3 +34,7 @@ pixi.toml
 !.gitattributes
 !/shared_data/
 !/shared_data/**
+
+# Portable, locked collaborator environment; keep .pixi itself ignored.
+!/pixi.toml
+!/pixi.lock

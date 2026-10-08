@@ -7,6 +7,9 @@
 - Read-only input: `/home/canoziia/MyProject/PHYS/EHT_ZC/shared_data/analysis-inputs/draft`
 - New physical intermediates/results: `/home/canoziia/eht-pipeline-runs/`
 - Main guide: [docs/SCRIPT_PIPELINE.md](../../docs/SCRIPT_PIPELINE.md)
+- Portable environment: [Pixi quick start](../../docs/PIXI_QUICKSTART.md),
+  [Pixi validation](PIXI_VALIDATION.md). The original evidence below used Nix;
+  the separate Pixi rerun is reported without overwriting those outputs.
 
 Original worktree, raw files, shared manifests, old intermediates and old figures were
 not modified. The original three uncommitted audit/planning documents remain there.
@@ -141,13 +144,13 @@ Constant sources and unresolved conversions: [M87_CONSTANTS_AUDIT.md](../../M87_
 
 ```bash
 cd /home/canoziia/eht-script-pipeline
-python -m pip install -e '.[dev]'
-python -m pytest -q
+pixi install --locked
+pixi run check
 
 # Read-only sources, all new products outside MyProject:
-python -m eht_axion.pipeline run --config configs/research.toml \
+pixi run pipeline --config configs/research.toml \
   --input-root /home/canoziia/MyProject/PHYS/EHT_ZC/shared_data/analysis-inputs/draft \
-  --output-root /home/canoziia/eht-pipeline-runs/research --trust-pickle
+  --output-root /home/canoziia/MyProject/PHYS/eht-pipeline-runs/my-pixi-run --trust-pickle
 ```
 
 Prefer reviewing physical definitions one stage at a time. Different configuration or

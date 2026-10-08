@@ -1,0 +1,18 @@
+✨ Pixi task (test in default): python -m pytest -q: (Run scientific, pipeline and failure-mode tests)
+........................................................................ [ 35%]
+........................................................................ [ 70%]
+............................................................             [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_legacy_utils.py:4: optional legacy utilities: install .[legacy]
+204 passed, 1 skipped in 25.94s
+
+✨ Pixi task (lint in default): ruff check eht_axion tests scripts/check_script_pipeline_legacy.py scripts/compare_original_limits.py: (Check active Python code style)
+All checks passed!
+✔ The legacy environment has been installed.
+✨ Pixi task (test in legacy): python -m pytest -q: (Run scientific, pipeline and failure-mode tests)
+........................................................................ [ 34%]
+........................................................................ [ 68%]
+.................................................................        [100%]
+209 passed in 31.99s
+
+EXIT_CODE=0

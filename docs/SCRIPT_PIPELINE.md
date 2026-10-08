@@ -34,31 +34,39 @@ The old `scripts/`, notebooks and `utils/` are retained for regression/source co
 They are not part of the new runtime chain. Once definitions stabilize, archival cleanup
 can be done as a separate change without losing provenance.
 
-## Run (from any directory after installation)
+## Run with Pixi (recommended; no Nix or system Python required)
+
+Install Pixi using the [official instructions](https://pixi.prefix.dev/latest/installation/),
+then open a terminal in the repository root:
 
 ```bash
-python -m pip install -e '.[dev]'
-eht-pipeline run \
-  --config /path/to/repo/configs/research.toml \
+pixi install --locked
+pixi run help
+pixi run check
+pixi run pipeline \
+  --config configs/research.toml \
   --input-root /path/to/shared_data/analysis-inputs/draft \
   --output-root /path/to/large-disk/run-name \
   --trust-pickle
 ```
 
-Or, from the repository root:
-
-```bash
-python -m eht_axion.pipeline run --config configs/research.toml \
-  --input-root /path/to/analysis-inputs/draft \
-  --output-root /path/to/run-name --trust-pickle
-```
+`pixi.toml` defines Python, NumPy, SciPy, Matplotlib, HDF5 and test/lint dependencies.
+`pixi.lock` fixes the resolved environment. The project is installed editable by Pixi;
+no manual pip install or PYTHONPATH is needed. Platforms are Linux x86-64/ARM64,
+macOS Intel/Apple Silicon and Windows x86-64. The actual execution validation reported
+here is Linux x86-64; a solved lockfile for another platform is not an execution test.
 
 No copying of raw cubes into the repository is necessary. Inputs are opened read-only.
-For this container use `nix-shell -p 'python312.withPackages (ps: with ps; [ numpy scipy matplotlib h5py pytest ])'`;
-the new pipeline does not import statsmodels. The legacy regression utilities still do
-and can be installed with `pip install -e '.[legacy,dev]'`. Without that extra, only the
-legacy-utils test module is explicitly skipped; pipeline tests still run.
-Run calculations in tmux and set `OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2` to avoid oversubscription.
+The default environment does not need statsmodels. For historical utility tests:
+
+```bash
+pixi install --locked -e legacy
+pixi run -e legacy test
+```
+
+Pixi activation sets Agg rendering and two BLAS/OpenMP threads. Run long computations
+in tmux on Linux/macOS or a suitable persistent terminal/job scheduler. Windows users
+can run individual `pixi run` commands directly without Bash.
 
 Pickle is executable: only enable `--trust-pickle` for inputs whose source you trust.
 SHA-256 detects corruption/changes but does not establish trust.
@@ -66,13 +74,13 @@ SHA-256 detects corruption/changes but does not establish trust.
 Individual stages use the same configuration:
 
 ```bash
-python -m eht_axion.pipeline run ... --stage raptor
-python -m eht_axion.pipeline run ... --stage eht --trust-pickle
-python -m eht_axion.pipeline run ... --stage background
-python -m eht_axion.pipeline run ... --stage observations
-python -m eht_axion.pipeline run ... --stage inference
-python -m eht_axion.pipeline run ... --stage figures
-python -m eht_axion.pipeline verify /path/to/run-name/04_eht
+pixi run raptor ...
+pixi run eht ... --trust-pickle
+pixi run background ...
+pixi run observations ...
+pixi run inference ...
+pixi run figures ...
+pixi run verify /path/to/run-name/04_eht
 ```
 
 Replace `...` with explicit config/input/output arguments as above.
@@ -171,12 +179,12 @@ RAPTOR image outputs and EHT reconstructed ensembles → final numerical/graphic
 ## Additional script-only checks and diagnostics
 
 ```bash
-python -m pytest -q
-python -m eht_axion.pipeline.diagnostics --run-root /path/to/run-name \
+pixi run test
+pixi run diagnostics --run-root /path/to/run-name \
   --output-dir /path/to/run-name/09_diagnostics
-python -m eht_axion.pipeline.convergence --run-root /path/to/run-name \
+pixi run convergence --run-root /path/to/run-name \
   --output /path/to/convergence.json --modes std cor cor_grmhd
-python -m eht_axion.pipeline.transport --help
+pixi run transport --help
 ```
 
 The new observation product preserves the EHT summary's saved circular lift

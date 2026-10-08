@@ -1,0 +1,52 @@
+[workspace]
+name = "eht-axion-analysis"
+version = "0.2.0"
+description = "Script-only M87* EHT axion research pipeline"
+channels = ["conda-forge"]
+platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64"]
+
+[dependencies]
+python = "3.12.*"
+numpy = ">=2.1,<3"
+scipy = ">=1.14,<2"
+matplotlib = ">=3.9,<4"
+h5py = ">=3.10,<4"
+pytest = ">=8,<10"
+ruff = ">=0.9,<1"
+setuptools = ">=69"
+pip = ">=25,<27"
+
+[pypi-dependencies]
+eht-axion-analysis = { path = ".", editable = true }
+
+[activation.env]
+MPLBACKEND = "Agg"
+OPENBLAS_NUM_THREADS = "2"
+OMP_NUM_THREADS = "2"
+PYTHONUNBUFFERED = "1"
+
+[tasks]
+help = { cmd = "python -m eht_axion.pipeline --help", description = "Show the script-only pipeline commands" }
+verify = { cmd = "python -m eht_axion.pipeline verify", description = "Verify a completed stage: pixi run verify PATH" }
+pipeline = { cmd = "python -m eht_axion.pipeline run", description = "Run all stages; append --config, --input-root, --output-root" }
+raptor = { cmd = "python -m eht_axion.pipeline run --stage raptor", description = "Preprocess RAPTOR Stokes, fit response and summarize templates" }
+eht = { cmd = "python -m eht_axion.pipeline run --stage eht", description = "Process EHT image ensembles (requires --trust-pickle)" }
+background = { cmd = "python -m eht_axion.pipeline run --stage background", description = "Estimate intrinsic GRMHD background from state0" }
+observations = { cmd = "python -m eht_axion.pipeline run --stage observations", description = "Construct selected day differences and covariance" }
+inference = { cmd = "python -m eht_axion.pipeline run --stage inference", description = "Compute six limits from cached physical products" }
+figures = { cmd = "python -m eht_axion.pipeline run --stage figures", description = "Plot six curves from numerical results" }
+diagnostics = { cmd = "python -m eht_axion.pipeline.diagnostics", description = "Plot intermediate physical diagnostics" }
+convergence = { cmd = "python -m eht_axion.pipeline.convergence", description = "Check coupling and phase grid convergence" }
+transport = { cmd = "python -m eht_axion.pipeline.transport", description = "Figure-4 transport diagnostics" }
+convert-hdf5 = { cmd = "python -m eht_axion.pipeline.raptor convert", description = "Convert explicitly mapped HDF5 Stokes datasets" }
+compare = { cmd = "python scripts/compare_original_limits.py", description = "Compare saved original and new null limit curves" }
+test = { cmd = "python -m pytest -q", description = "Run scientific, pipeline and failure-mode tests" }
+lint = { cmd = "ruff check eht_axion tests scripts/check_script_pipeline_legacy.py scripts/compare_original_limits.py", description = "Check active Python code style" }
+check = { depends-on = ["test", "lint"], description = "Run tests and lint" }
+
+[feature.legacy.dependencies]
+statsmodels = ">=0.14,<0.15"
+
+[environments]
+default = { features = [], solve-group = "research" }
+legacy = { features = ["legacy"], solve-group = "research" }
