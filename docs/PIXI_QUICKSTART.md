@@ -30,52 +30,37 @@ Pixi 会下载 Python 和依赖，并将本项目安装为 editable package。
 当前锁文件的系统基线为Linux glibc≥2.28、macOS≥13、Windows≥10；很旧的Linux
 服务器（如glibc2.17）不能假定可直接安装，应使用更新的计算节点或容器。
 
-## 2. 准备输入与新的输出目录
+## 2. 直接使用已提供的数据，指定结果保存位置
 
-推荐输入结构（与发布状态无关）：
+**本机输入已经准备好，不需要你下载、搬运、改名或重新整理数据。**
+在上一步的代码目录中，直接使用：
 
 ```text
 data/inputs/
-  raptor/res-100/alpha-0.30/stokes.npy
-  raptor/res-400/alpha-0.30/stokes-t1600-t1690.npy
-  eht/2017-04-05/image-ensemble.pkl
-  transport/snapshot-2110-res-400/...
-  manifest.json
 ```
 
-其他alpha统一保留两位小数，其他日期使用ISO格式。旧的`analysis-inputs/draft`
-仍可直接读取，作为兼容输入；`draft`不是计算要求。
+它已经包含全部八组RAPTOR图像、res400分片、四天EHT候选图和传输诊断数据的访问入口。
+其中大文件链接到原来的共享数据，因此不要删除原数据。这里不是要求用户建立一套
+“推荐结构”，而是在说明我们已经提供好的输入位置。
 
-从原共享数据生成规范输入视图（只建软链接、不复制21GB数组）：
-
-```bash
-pixi run migrate inputs --source /path/to/shared_data/analysis-inputs/draft --destination data/inputs
-```
-
-本机的`data/inputs/`已经建立。软链接视图依赖源文件继续存在；它不是独立备份。
-Windows建立symlink可能需要Developer Mode或相应权限，也可以直接读取旧共享结构。
-
-必须是真实 NumPy/pickle 文件，不是 Git LFS 的几行指针文本。
-首次从远程克隆时需额外安装 Git LFS 并下载数据：
-
-```bash
-git lfs install
-git lfs pull --include='shared_data/analysis-inputs/draft/**'
-```
-
-本机已有输入：
+`--output-root`只是告诉程序**把本次新生成的中间量和结果存到哪里**，不是要求你准备
+另一份输入数据。例如下文统一使用：
 
 ```text
-/home/canoziia/MyProject/PHYS/EHT_ZC/shared_data/analysis-inputs/draft
+../eht-pipeline-runs/my-pixi-run
 ```
 
-输出选一个新的目录，例如：
+从当前代码目录解析后，它是：
 
 ```text
 /home/canoziia/MyProject/PHYS/eht-pipeline-runs/my-pixi-run
 ```
 
-原始输入只读，不需要复制进代码目录，也不能将原始数据目录作为输出目录。
+这个目录不需要手动创建，程序会自动创建。第一次从头运行选一个尚未使用的名字，
+是为了不覆盖已有的`research-001`等结果；后续同配置运行可以继续用同一目录复用缓存。
+
+**你只需安装环境、直接执行下面的命令。**另一台机器首次取得数据的步骤见文末附录，
+本机使用时跳过。
 
 ## 3. 按科学顺序运行
 
@@ -83,7 +68,7 @@ Linux/macOS Bash 示例（可以放在 tmux 中执行）：
 
 ```bash
 export INPUT=data/inputs
-export OUTPUT=/path/to/my-pixi-run
+export OUTPUT=../eht-pipeline-runs/my-pixi-run
 export CONFIG=configs/research.toml
 
 # ① RAPTOR图像处理、相位响应拟合、时间分布
@@ -122,7 +107,7 @@ pixi run eht --config configs/research.toml --input-root "D:/EHT-data/analysis-i
 ```bash
 pixi run pipeline --config configs/research.toml \
   --input-root data/inputs \
-  --output-root /path/to/my-pixi-run --trust-pickle
+  --output-root ../eht-pipeline-runs/my-pixi-run --trust-pickle
 ```
 
 默认顺序就是上述①至⑥。重复执行时，配置/输入/代码一致且输出校验通过的阶段会显示
@@ -156,9 +141,9 @@ figures/limits.png/pdf/svg,limits.csv   图与表
 检查完整性与生成诊断图：
 
 ```bash
-pixi run verify /path/to/my-pixi-run/eht
-pixi run diagnostics --run-root /path/to/my-pixi-run --output-dir /path/to/my-pixi-run/diagnostics
-pixi run convergence --run-root /path/to/my-pixi-run --output /path/to/convergence.json --modes std cor cor_grmhd
+pixi run verify ../eht-pipeline-runs/my-pixi-run/eht
+pixi run diagnostics --run-root ../eht-pipeline-runs/my-pixi-run --output-dir ../eht-pipeline-runs/my-pixi-run/diagnostics
+pixi run convergence --run-root ../eht-pipeline-runs/my-pixi-run --output ../eht-pipeline-runs/my-pixi-run/convergence.json --modes std cor cor_grmhd
 ```
 
 图4诊断旁路和HDF5转换：
@@ -197,3 +182,27 @@ pixi run -e legacy test
 - 使用迁移产物时明确加`--reuse-imported`。它校验配置/来源/字节后复用，不冒称本版本重算。
   要验证新代码实际计算行为，请使用新的输出目录完整运行。
 - 具体科学定义与待确认假设见 [SCRIPT_PIPELINE.md](SCRIPT_PIPELINE.md)。
+
+## 附录：合作者在另一台机器首次取得数据（本机不需要）
+
+数据由我们提供，但`.pixi/`环境和`data/inputs/`本地链接视图不随Git提交。
+合作者拿到新的代码checkout后，仍需取得我们发布的数据文件，不是自行生成或整理科学数据。
+
+如果共享数据已经以真实文件提供，直接把`--input-root`指向收到的目录即可，旧发布结构也支持。
+如果只有Git LFS指针，则先在包含已发布共享数据的checkout中执行：
+
+```bash
+git lfs install
+git lfs pull --include='shared_data/analysis-inputs/draft/**'
+```
+
+下载完成后，可直接使用那个`shared_data/analysis-inputs/draft`作为输入，或在代码目录中
+一次性建立规范访问入口：
+
+```bash
+pixi run migrate inputs --source /path/to/downloaded/shared_data/analysis-inputs/draft --destination data/inputs
+```
+
+迁移只是建链接并核对数据，不是重算，也不复制21GB数组。Windows建立链接可能需要
+Developer Mode或相应权限；也可以不迁移，直接读取收到的旧共享目录。
+具体命名结构见[数据命名说明](DATA_LAYOUT_PLAN.md)。
