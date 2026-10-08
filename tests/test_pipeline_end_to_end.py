@@ -96,18 +96,17 @@ def test_script_only_chain_and_cache(tmp_path):
     script = Path(__file__).resolve().parents[1] / "scripts/run_all.py"
     environment = dict(os.environ)
     environment.pop("PYTHONPATH", None)
+    for name in list(environment):
+        if name.startswith("EHT_"):
+            environment.pop(name)
+    environment.update(
+        EHT_CONFIG=str(config),
+        EHT_INPUT_ROOT=str(raw),
+        EHT_OUTPUT_ROOT=str(tmp_path / "must-not-be-used"),
+        EHT_TRUST_PICKLE="true",
+    )
     result = subprocess.run(
-        [
-            sys.executable,
-            str(script),
-            "--config",
-            str(config),
-            "--input-root",
-            str(raw),
-            "--output-root",
-            str(out),
-            "--trust-pickle",
-        ],
+        [sys.executable, str(script), "--output-root", str(out)],
         cwd=tmp_path,
         env=environment,
         capture_output=True,
@@ -115,6 +114,7 @@ def test_script_only_chain_and_cache(tmp_path):
         timeout=90,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+    assert not (tmp_path / "must-not-be-used").exists()
     curves = list((out / "inference").glob("limits-*.npz"))
     assert len(curves) == 2
     with np.load(out / "inference/limits-1d.npz", allow_pickle=False) as z:

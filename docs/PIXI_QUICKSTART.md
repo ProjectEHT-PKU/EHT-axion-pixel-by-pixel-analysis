@@ -63,57 +63,109 @@ data/inputs/
 **你只需安装环境、直接执行下面的命令。**另一台机器首次取得数据的步骤见文末附录，
 本机使用时跳过。
 
-## 3. 按科学顺序运行
+## 3. 按科学顺序运行：推荐使用 .env
 
-Linux/macOS Bash 示例（可以放在 tmux 中执行）：
+### 3.1 一次性填写本机设置
+
+在代码根目录中复制我们提供的模板（若已有`.env`，不要覆盖它）：
 
 ```bash
-export INPUT=data/inputs
-export OUTPUT=../eht-pipeline-runs/my-pixi-run
-export CONFIG=configs/research.toml
-
-# ① 执行scripts/process_raptor.py：图像处理、相位响应拟合、时间分布
-pixi run raptor --config "$CONFIG" --input-root "$INPUT" --output-root "$OUTPUT"
-
-# ② 执行scripts/process_eht.py：候选图匹配、topset、定位、观测统计
-pixi run eht --config "$CONFIG" --input-root "$INPUT" --output-root "$OUTPUT" --trust-pickle
-
-# ③ 无轴子时间演化背景误差
-pixi run background --config "$CONFIG" --input-root "$INPUT" --output-root "$OUTPUT"
-
-# ④ 选点、日差、协方差
-pixi run observations --config "$CONFIG" --output-root "$OUTPUT"
-
-# ⑤ 1D/2D × 三种误差模式的六条限制
-pixi run inference --config "$CONFIG" --output-root "$OUTPUT"
-
-# ⑥ 结果图、CSV表
-pixi run figures --config "$CONFIG" --output-root "$OUTPUT"
+cp .env.example .env
 ```
 
-这些变量只是避免重复输入，程序不依赖它们。Windows PowerShell 可以直接写路径，例如：
+打开`.env`，确认：
+
+```dotenv
+EHT_CONFIG=configs/research.toml
+EHT_INPUT_ROOT=data/inputs
+EHT_OUTPUT_ROOT=../eht-pipeline-runs/my-pixi-run
+EHT_TRUST_PICKLE=false
+EHT_REBUILD=false
+EHT_REUSE_IMPORTED=false
+```
+
+本机数据已经提供，输入路径通常不需修改。输出目录选择本次运行的名字。
+确认使用的是我们提供的可信EHT数据后，**手动将`EHT_TRUST_PICKLE`改为`true`**。
+模板默认false，不因加载环境变量就默认授权执行pickle。
+`EHT_REBUILD`和`EHT_REUSE_IMPORTED`通常保持false；需要时用命令行临时开启。
+
+`.env`是本机配置，不进入Git；官方只提交`.env.example`。物理方法和数值参数仍放在
+`configs/research.toml`，`.env`不替代科学配置文件。
+
+### 3.2 加载到当前 shell
+
+Linux/macOS Bash、Zsh（可在tmux中执行）：
+
+```bash
+set -a
+source .env
+set +a
+```
+
+`set -a`让变量自动导出给Python/Pixi子进程；仅`source .env`而不export，Python看不到普通shell变量。
+每个新终端需要加载一次，修改`.env`后也要重新加载。关闭自动导出不会取消已有变量。
+**只source可信的本机文件**：shell会执行文件内容，Python脚本不会自动查找或执行`.env`。
+
+### 3.3 顺序执行，不再重复填写路径
+
+```bash
+pixi run raptor        # ① 处理RAPTOR、拟合相位响应、统计时间分布
+pixi run eht           # ② 选择EHT topset、定位、生成观测统计
+pixi run background    # ③ 无轴子背景散布
+pixi run observations  # ④ 选点、日差和协方差
+pixi run inference     # ⑤ 六条限制曲线
+pixi run figures       # ⑥ 图片与表格
+```
+
+脚本按以下优先级选择设置：**显式命令行参数 > 当前shell中的`EHT_*`环境变量**。
+环境变量没有值且必要参数未指定时会报出缺少的名称，而不是猜测输入或输出。
+参数覆盖仅影响这次命令，不会修改`.env`或shell：
+
+```bash
+pixi run inference --config configs/observed.toml --output-root ../eht-pipeline-runs/observed-run
+pixi run figures --rebuild
+pixi run eht --no-trust-pickle
+pixi run inference --no-rebuild --no-reuse-imported
+```
+
+布尔环境变量支持true/false、1/0、yes/no、on/off，不区分大小写；非法值明确报错。
+`--no-*`可以关闭环境中已设为true的选项。对同一次运行的后续步骤使用同一配置/输出，
+例如observed计算后画图也应指定相同的observed配置和输出，或统一修改`.env`并重新加载。
+
+### Windows PowerShell
+
+PowerShell没有`source`。将模板复制为`.env`、确认值后，可使用下面的简易加载方式。
+它只支持模板的`KEY=VALUE`格式（不执行shell表达式、不展开变量；外层引号可用于带空格路径）：
 
 ```powershell
-pixi run raptor --config configs/research.toml --input-root "D:/EHT-data/analysis-inputs/draft" --output-root "D:/EHT-runs/my-run"
-pixi run eht --config configs/research.toml --input-root "D:/EHT-data/analysis-inputs/draft" --output-root "D:/EHT-runs/my-run" --trust-pickle
+Get-Content .env | ForEach-Object {
+    $line = $_.Trim()
+    if ($line -and -not $line.StartsWith('#')) {
+        if ($line -notmatch '^(EHT_[A-Z_]+)=(.*)$') { throw "Invalid .env line: $line" }
+        $key = $Matches[1]
+        $value = $Matches[2].Trim()
+        if (($value.StartsWith('"') -and $value.EndsWith('"')) -or
+            ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+        [Environment]::SetEnvironmentVariable($key, $value, 'Process')
+    }
+}
+pixi run raptor
 ```
 
-再按同样方式依次执行 background、observations、inference、figures。
-不要使用 Bash 的 `export` 或 shell脚本作为 Windows 必需步骤。
-
-`--trust-pickle` 意味着你信任 EHT pickle 的来源；pickle可能执行代码，不要对未知输入开启。
+也可在PowerShell中用`$env:EHT_OUTPUT_ROOT="D:/EHT-runs/my-run"`临时设置，命令行依旧优先。
 
 ## 4. 一次执行整条主链
 
 ```bash
-pixi run pipeline --config configs/research.toml \
-  --input-root data/inputs \
-  --output-root ../eht-pipeline-runs/my-pixi-run --trust-pickle
+# 已按第3节加载并确认.env后：
+pixi run pipeline
 ```
 
 `pixi run pipeline`只是`python scripts/run_all.py`的任务别名，不是安装的统一CLI。
 各步骤也可以直接运行对应脚本，例如`pixi run python scripts/process_raptor.py --help`。
-脚本参数只用于选择配置和路径；计算与缓存机制仍在可复用模块中。
+脚本参数可临时覆盖.env导出的配置/路径/安全开关；计算与缓存机制仍在可复用模块中。
 
 默认顺序就是上述①至⑥。重复执行时，配置/输入/代码一致且输出校验通过的阶段会显示
 `CACHE HIT`。只要修改了配置或代码，可能收到 `Stale cache`，不是程序故障。

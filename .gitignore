@@ -25,4 +25,9 @@ runs/
 *.pdf
 *.old
 
+# Machine/user-specific shell environment; publish only the reviewed example.
+.env
+.env.*
+!.env.example
+
 # Pixi manifests and text/SVG validation evidence remain tracked.

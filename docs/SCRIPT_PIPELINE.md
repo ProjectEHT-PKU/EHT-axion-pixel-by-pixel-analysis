@@ -54,11 +54,12 @@ then open a terminal in the repository root:
 pixi install --locked
 pixi run help
 pixi run check
-pixi run pipeline \
-  --config configs/research.toml \
-  --input-root /path/to/shared_data/analysis-inputs/draft \
-  --output-root /path/to/large-disk/run-name \
-  --trust-pickle
+cp .env.example .env
+# Review paths and enable EHT_TRUST_PICKLE only for trusted inputs.
+set -a
+source .env
+set +a
+pixi run pipeline
 ```
 
 `pixi.toml` defines Python, NumPy, SciPy, Matplotlib, HDF5 and test/lint dependencies.
@@ -83,19 +84,27 @@ can run individual `pixi run` commands directly without Bash.
 Pickle is executable: only enable `--trust-pickle` for inputs whose source you trust.
 SHA-256 detects corruption/changes but does not establish trust.
 
-Individual stages use the same configuration:
+Main research-stage scripts use command-line arguments over exported `EHT_*`
+environment values. Python does not auto-load `.env`; source a trusted local file
+in the shell as shown above. Destructive/reuse options default false and can be
+explicitly disabled with `--no-rebuild`/`--no-reuse-imported`. Numerical choices
+remain in the TOML science config, not environment variables.
+
+Individual stages use the same exported configuration:
 
 ```bash
-pixi run raptor ...
-pixi run eht ... --trust-pickle
-pixi run background ...
-pixi run observations ...
-pixi run inference ...
-pixi run figures ...
+pixi run raptor
+pixi run eht
+pixi run background
+pixi run observations
+pixi run inference
+pixi run figures
 pixi run verify /path/to/run-name/eht
 ```
 
-Replace `...` with explicit config/input/output arguments as above.
+Use explicit config/input/output arguments only for temporary overrides.
+Expert standalone tools (conversion, migration, direct plotting) keep their own explicit
+arguments; `.env` defaults apply to the six main stages and `run_all.py`.
 The whole-chain order is RAPTOR → EHT → background → observations → inference → figures.
 RAPTOR and EHT may be computed independently, in different stage directories.
 

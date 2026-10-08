@@ -16,10 +16,17 @@ existing results.
 ```bash
 pixi install --locked
 pixi run check
-pixi run pipeline --config configs/research.toml \
-  --input-root data/inputs \
-  --output-root ../eht-pipeline-runs/my-run --trust-pickle
+cp .env.example .env
+# Review .env; enable EHT_TRUST_PICKLE=true only for the trusted supplied inputs.
+set -a
+source .env
+set +a
+pixi run pipeline
 ```
+
+The recommended settings live in your ignored `.env`, exported by your shell.
+Explicit script arguments override `EHT_*` variables; Python never executes `.env`.
+The official `.env.example` is tracked. See the quick-start guide for PowerShell.
 
 For another machine, obtain the provided scientific dataset first; see the
 [download appendix](docs/PIXI_QUICKSTART.md). Local data links and `.pixi/` are not
