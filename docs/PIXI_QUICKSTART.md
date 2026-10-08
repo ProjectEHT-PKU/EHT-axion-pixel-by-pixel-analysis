@@ -32,15 +32,28 @@ Pixi 会下载 Python 和依赖，并将本项目安装为 editable package。
 
 ## 2. 准备输入与新的输出目录
 
-输入结构：
+推荐输入结构（与发布状态无关）：
 
 ```text
-analysis-inputs/draft/
-  raptor-stokes/res-100/alpha-*.npy
-  raptor-stokes/res-400/alpha-0.3/stokes-t*-t*.npy
-  eht-image-ensemble/230_{95,96,100,101}.pkl
-  raptor-transport-diagnostics/...
+data/inputs/
+  raptor/res-100/alpha-0.30/stokes.npy
+  raptor/res-400/alpha-0.30/stokes-t1600-t1690.npy
+  eht/2017-04-05/image-ensemble.pkl
+  transport/snapshot-2110-res-400/...
+  manifest.json
 ```
+
+其他alpha统一保留两位小数，其他日期使用ISO格式。旧的`analysis-inputs/draft`
+仍可直接读取，作为兼容输入；`draft`不是计算要求。
+
+从原共享数据生成规范输入视图（只建软链接、不复制21GB数组）：
+
+```bash
+pixi run migrate inputs --source /path/to/shared_data/analysis-inputs/draft --destination data/inputs
+```
+
+本机的`data/inputs/`已经建立。软链接视图依赖源文件继续存在；它不是独立备份。
+Windows建立symlink可能需要Developer Mode或相应权限，也可以直接读取旧共享结构。
 
 必须是真实 NumPy/pickle 文件，不是 Git LFS 的几行指针文本。
 首次从远程克隆时需额外安装 Git LFS 并下载数据：
@@ -69,7 +82,7 @@ git lfs pull --include='shared_data/analysis-inputs/draft/**'
 Linux/macOS Bash 示例（可以放在 tmux 中执行）：
 
 ```bash
-export INPUT=/path/to/analysis-inputs/draft
+export INPUT=data/inputs
 export OUTPUT=/path/to/my-pixi-run
 export CONFIG=configs/research.toml
 
@@ -108,7 +121,7 @@ pixi run eht --config configs/research.toml --input-root "D:/EHT-data/analysis-i
 
 ```bash
 pixi run pipeline --config configs/research.toml \
-  --input-root /path/to/analysis-inputs/draft \
+  --input-root data/inputs \
   --output-root /path/to/my-pixi-run --trust-pickle
 ```
 
@@ -117,27 +130,34 @@ pixi run pipeline --config configs/research.toml \
 初次使用建议换新的输出目录；确认影响范围后再对所需阶段使用 `--rebuild`。
 
 不同 Python/NumPy/SciPy 环境可能有微小数值差异。不要把此前 Nix 环境的输出宣称为
-Pixi 重算结果；Pixi 验证记录将单独保留。生产stage目前记录输入/配置/源码，环境精确
-依赖由 `pixi.lock` 固定；切换环境时建议新输出目录。
+Pixi 重算结果；Pixi 验证记录将单独保留。生产stage记录输入/配置/源码，调用环境写入`invocations/`；精确依赖由
+`pixi.lock`固定。切换环境时建议新输出目录。
 
 ## 5. 看中间量与结果
 
 ```text
-01_raptor/           处理后的IQUV
-02_response/         每个时间片的A、φ、baseline
-03_templates/       A、φ时间分布
-04_eht/              EHT选择、IQUV、EVPA、mask
-05_background/       背景散布/直方图
-06_observations/     日差与协方差
-07_inference/        六曲线数值、likelihood/CDF、运行配置
-08_figures/          limits.png/pdf/svg、limits.csv
+config.toml                             本次配置快照
+manifest.json                           稳定的run身份说明
+invocations/*.json                      每次请求的配置与环境，追加记录
+raptor/processed/alpha-0.30/stokes.npy     处理后IQUV，可mmap
+raptor/response/alpha-0.30/response-*.npz 每时间片A/φ/baseline具名数组
+raptor/templates/{1d,2d}/templates.npz   时间分布
+raptor/background/stokes.npy            无轴子背景图像
+background/evpa-difference.npz          背景散布/直方图
+background/summary.json                 单位与真实时间差
+eht/2017-04-05/{stokes.npy,evpa-1d.npy,summary.npz}
+eht/{selection.npz,mask.npy}            EHT选择与区域
+observations/{1d,2d}/observations.npz    日差与协方差
+inference/limits-{1d,2d}.npz            每维度三模式，cuts轴为(mode,alpha)
+inference/posterior-{mode}-{dim}.json   likelihood/CDF
+figures/limits.png/pdf/svg,limits.csv   图与表
 ```
 
 检查完整性与生成诊断图：
 
 ```bash
-pixi run verify /path/to/my-pixi-run/04_eht
-pixi run diagnostics --run-root /path/to/my-pixi-run --output-dir /path/to/my-pixi-run/09_diagnostics
+pixi run verify /path/to/my-pixi-run/eht
+pixi run diagnostics --run-root /path/to/my-pixi-run --output-dir /path/to/my-pixi-run/diagnostics
 pixi run convergence --run-root /path/to/my-pixi-run --output /path/to/convergence.json --modes std cor cor_grmhd
 ```
 
@@ -170,5 +190,10 @@ pixi run -e legacy test
 - 改依赖后由维护者执行 `pixi install` 更新锁，合作者优先 `pixi install --locked`。
 - Python环境由Pixi管理；Git LFS仍需系统单独安装。
 - 可查看全部任务：`pixi task list`。
-- 停止/中断时以stage.json为完成标记，勿手动将临时目录视为有效缓存。
+- 停止/中断时以各阶段`manifest.json`为完成标记；run根目录manifest只是运行描述，不是阶段完成标记。
+- 旧`stage.json`可校验；新文件不再用它命名。
+- 迁移旧结果：`pixi run migrate run --source /path/to/old-run --destination /path/to/new-run`。
+  大NPY复用源文件，响应三列精确转为named NPZ；没有重新计算科学结果。
+- 使用迁移产物时明确加`--reuse-imported`。它校验配置/来源/字节后复用，不冒称本版本重算。
+  要验证新代码实际计算行为，请使用新的输出目录完整运行。
 - 具体科学定义与待确认假设见 [SCRIPT_PIPELINE.md](SCRIPT_PIPELINE.md)。

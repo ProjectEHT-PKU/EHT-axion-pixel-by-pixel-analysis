@@ -117,6 +117,7 @@ def test_preprocess_shards_memmap_paths_and_dtype(tmp_path, monkeypatch):
     metadata = json.loads(many["metadata"].read_text())
     assert metadata["inputs"] == [str(p) for p in shards]
     assert many["stokes"] == tmp_path / "new" / "b" / "stokes.npy"
+    assert many["metadata"].name == "processing.json"
 
 
 @pytest.mark.parametrize("states", [16, 17])
@@ -154,15 +155,68 @@ def test_fit_processed_and_fit_shards(tmp_path):
     kwargs = dict(fov=3, operator=operator(3))
     outputs = raptor.fit_processed(processed, tmp_path / "fits", **kwargs)
     sharded = raptor.fit_stokes(shards, tmp_path / "shardfits", **kwargs)
-    for name, shape in [("fits_2d", (4, 3, 3, 3)), ("fits_1d", (4, 360, 3))]:
-        data = np.load(outputs[name], allow_pickle=False)
-        assert data.shape == shape
-        assert data.dtype == np.float64
-        np.testing.assert_allclose(data, np.broadcast_to([0.12, 0.7, 1.51], shape), atol=2e-14)
-        np.testing.assert_array_equal(data, np.load(sharded[name]))
+    for name, shape in [("fits_2d", (4, 3, 3)), ("fits_1d", (4, 360))]:
+        assert outputs[name].name == name.replace("fits_", "response-") + ".npz"
+        with np.load(outputs[name], allow_pickle=False) as data, np.load(sharded[name]) as other:
+            assert set(data.files) == {"amplitude", "phase", "baseline", "snapshot_labels"}
+            for key, value in [("amplitude", 0.12), ("phase", 0.7), ("baseline", 1.51)]:
+                assert data[key].shape == shape
+                assert data[key].dtype == np.float64
+                np.testing.assert_allclose(data[key], value, atol=2e-14)
+                np.testing.assert_array_equal(data[key], other[key])
+            np.testing.assert_array_equal(data["snapshot_labels"], [1600, 1610, 1620, 1630])
+    assert outputs["metadata"].name == "response.json"
     meta = json.loads(outputs["metadata"].read_text())
     assert meta["weighting"] == "intensity"
     assert meta["state0_used"] is False
+    assert meta["snapshot_labels_source"] == "default_convention"
+    assert meta["snapshot_labels_verified"] is False
+
+
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+@pytest.mark.parametrize("provided", [False, True])
+def test_response_exact_kernel_columns_and_snapshot_labels(tmp_path, dtype, provided):
+    # 141 tiny frames exercise the production label convention, not production data.
+    cube = phase_cube(times=141, n=2)
+    cube[0, 3, 0, 0, 1:3] = 0  # Invalid phase: NaNs must also survive serialization.
+    labels = np.arange(2110, 2251) if provided else None
+    processed = tmp_path / "processed"
+    processed.mkdir()
+    path = save(processed / "stokes.npy", cube)
+    before = digest(path)
+    result = raptor.fit_processed(processed, tmp_path / "fit", fov=2,
+                                  operator=operator(2, bins=4), angular_bins=4,
+                                  dtype=dtype, snapshot_labels=labels)
+    expected_labels = labels if provided else 1600 + 10 * np.arange(141)
+    for name in ("fits_2d", "fits_1d"):
+        series = raptor._FitSeries(result[name], ndim=(3, 4), stokes=False)
+        with np.load(result[name], allow_pickle=False) as response:
+            np.testing.assert_array_equal(response["snapshot_labels"], expected_labels)
+            for t in range(141):
+                states = cube[t, -16:]
+                if name == "fits_2d":
+                    evpa = raptor._evpa(states)
+                else:
+                    evpa = raptor._integrate(states, operator(2, bins=4), "intensity")
+                expected = raptor.fit_phase_dft(evpa).astype(dtype)
+                np.testing.assert_array_equal(series.frame(t), expected)
+                for column, key in enumerate(("amplitude", "phase", "baseline")):
+                    assert response[key].dtype == np.dtype(dtype)
+                    np.testing.assert_array_equal(response[key][t], expected[..., column])
+    meta = json.loads(result["metadata"].read_text())
+    assert meta["snapshot_labels"] == expected_labels.tolist()
+    assert meta["snapshot_labels_source"] == ("caller" if provided else "default_convention")
+    assert meta["snapshot_labels_verified"] is False
+    assert digest(path) == before
+    assert not (tmp_path / "fit" / "fits_2d.npy").exists()
+
+
+@pytest.mark.parametrize("labels", [[1600], [1600.0, 1610.0], [[1600, 1610]], [True, False]])
+def test_fit_rejects_invalid_snapshot_labels_before_writing(tmp_path, labels):
+    with pytest.raises(ValueError, match="snapshot_labels"):
+        raptor.fit_stokes(phase_cube(times=2, n=2), tmp_path / "bad", fov=2,
+                          operator=operator(2, bins=4), angular_bins=4, snapshot_labels=labels)
+    assert not (tmp_path / "bad").exists()
 
 
 def test_preprocess_only_requested_states_retains_axis(tmp_path, monkeypatch):
@@ -196,9 +250,10 @@ def test_fit_1d_roll_minus90_matches_eht(tmp_path):
     cube[0, ..., 2] = np.sin(2 * angles)
     op = csr_matrix((np.ones(360), (np.arange(360), np.arange(360))), shape=(360, n * n))
     result = raptor.fit_stokes(cube, tmp_path / "fits", fov=4, operator=op)
-    one = np.load(result["fits_1d"])[0]
-    np.testing.assert_allclose(one[:, 0], np.roll(amplitude.ravel()[:360], -90), atol=1e-14)
-    np.testing.assert_allclose(one[:, 1], np.roll(phases.ravel()[:360], -90), atol=1e-14)
+    with np.load(result["fits_1d"], allow_pickle=False) as one:
+        np.testing.assert_allclose(one["amplitude"][0], np.roll(amplitude.ravel()[:360], -90),
+                                   atol=1e-14)
+        np.testing.assert_allclose(one["phase"][0], np.roll(phases.ravel()[:360], -90), atol=1e-14)
     assert json.loads(result["metadata"].read_text())["angular_roll_bins"] == -90
 
 
@@ -211,7 +266,8 @@ def test_fit_uses_parent_weighting_and_operator(tmp_path):
     a = raptor.fit_stokes(cube, tmp_path / "intensity", fov=2, operator=op, angular_bins=4)
     b = raptor.fit_stokes(cube, tmp_path / "flux", fov=2, operator=op,
                           angular_bins=4, weighting="flux")
-    assert not np.allclose(np.load(a["fits_1d"]), np.load(b["fits_1d"]))
+    with np.load(a["fits_1d"]) as first, np.load(b["fits_1d"]) as second:
+        assert not np.allclose(first["amplitude"], second["amplitude"])
 
 
 @pytest.mark.parametrize("spatial", [(2, 2), (360,)])
@@ -224,6 +280,7 @@ def test_summary_multi_alpha_named_arrays_and_circular_phase(tmp_path, spatial):
     p = save(tmp_path / "fits.npy", fits)
     s = [save(tmp_path / "shard1.npy", fits[:1]), save(tmp_path / "shard2.npy", fits[1:])]
     result = raptor.summarize_fits({0.3: s, 0.1: p}, tmp_path / "summary")
+    assert result["metadata"].name == "summary.json"
     with np.load(result["templates"], allow_pickle=False) as templates:
         for name in ("alphas", "amplitude_mean", "amplitude_std", "phase_mean", "phase_std"):
             assert name in templates
@@ -235,6 +292,64 @@ def test_summary_multi_alpha_named_arrays_and_circular_phase(tmp_path, spatial):
         np.testing.assert_allclose(np.abs(templates["phase_mean"]), np.pi)
         np.testing.assert_allclose(templates["phase_std"], np.sqrt(0.025))
         np.testing.assert_array_equal(templates["phase_count"], 4)
+
+
+@pytest.mark.parametrize("spatial", [(2, 2), (4,)])
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+def test_summary_npz_legacy_and_mixed_shards_element_identical(tmp_path, spatial, dtype):
+    rng = np.random.default_rng(174)
+    fits = rng.normal(size=(5,) + spatial + (3,)).astype(dtype)
+    fits[0, ..., 1] = np.nan
+    fits[2, ..., 0] = np.nan
+    fits[-1, ..., 2] = np.nan  # Baseline is loaded faithfully, not used by summaries.
+    legacy = save(tmp_path / "fits.npy", fits)
+
+    def response(path, values, labels):
+        np.savez(path, amplitude=values[..., 0], phase=values[..., 1],
+                 baseline=values[..., 2], snapshot_labels=labels)
+        return path
+
+    named = response(tmp_path / "response.npz", fits, np.arange(5))
+    first = response(tmp_path / "first.npz", fits[:2], [42, 43])
+    last = save(tmp_path / "last.npy", fits[2:])
+    before = {p: digest(p) for p in (legacy, named, first, last)}
+    for path in (legacy, named):
+        series = raptor._FitSeries(path, ndim=(3, 4), stokes=False)
+        for t in range(5):
+            np.testing.assert_array_equal(series.frame(t), fits[t])
+        if path == legacy:
+            assert isinstance(series.arrays[0], np.memmap)
+            assert not series.arrays[0].flags.writeable
+    outputs = [raptor.summarize_fits({0.3: source}, tmp_path / str(i))
+               for i, source in enumerate((legacy, named, [first, last], fits))]
+    with np.load(outputs[0]["templates"], allow_pickle=False) as expected:
+        for output in outputs[1:]:
+            with np.load(output["templates"], allow_pickle=False) as actual:
+                assert set(actual.files) == set(expected.files)
+                for key in expected.files:
+                    np.testing.assert_array_equal(actual[key], expected[key])
+    assert {p: digest(p) for p in before} == before
+
+
+@pytest.mark.parametrize("problem", ["missing", "shape", "dtype", "labels", "object"])
+def test_summary_rejects_malformed_responses(tmp_path, problem):
+    values = {key: np.ones((3, 4)) for key in ("amplitude", "phase", "baseline")}
+    values["snapshot_labels"] = np.array([1600, 1610, 1620])
+    if problem == "missing":
+        del values["baseline"]
+    elif problem == "shape":
+        values["phase"] = np.ones((3, 5))
+    elif problem == "dtype":
+        values["phase"] = values["phase"].astype("float32")
+    elif problem == "labels":
+        values["snapshot_labels"] = np.array([1600])
+    else:
+        values["baseline"] = values["baseline"].astype(object)
+    path = tmp_path / "bad.npz"
+    np.savez(path, **values)
+    with pytest.raises(ValueError):
+        raptor.summarize_fits({0.3: path}, tmp_path / "summary")
+    assert not (tmp_path / "summary").exists()
 
 
 def test_summary_missing_samples(tmp_path):
@@ -263,6 +378,8 @@ def test_background_angular_mle_and_diagnostics(tmp_path):
     cube[:, :, 0, 0, 1:3] = 0
     paths = [save(tmp_path / "a.npy", cube[:2]), save(tmp_path / "b.npy", cube[2:])]
     result = raptor.estimate_background(paths, tmp_path / "bg", lag=1, bins=9)
+    assert result["metadata"].name == "summary.json"
+    assert result["diagnostics"].name == "evpa-difference.npz"
     differences = (np.diff(angles) + np.pi / 2) % np.pi - np.pi / 2
     meta = json.loads(result["metadata"].read_text())
     assert isinstance(meta["sigma"], float)
@@ -271,6 +388,8 @@ def test_background_angular_mle_and_diagnostics(tmp_path):
     assert meta["finite_count"] == 15
     assert meta["zero_differences_retained"] is True
     with np.load(result["diagnostics"], allow_pickle=False) as data:
+        assert set(data.files) == {"hist_counts", "hist_edges", "count", "mean", "sigma",
+                                   "mean_mle", "sigma_mle"}
         assert data["hist_counts"].sum() == 15
         assert data["hist_edges"].shape == (10,)
         assert data["sigma"].shape == ()
@@ -421,7 +540,7 @@ def test_cli_subcommands_small_end_to_end(tmp_path):
                             "--final-shape", 2)
     assert "fits_1d" in run("fit", processed / "stokes.npy", "--output-dir", fitted,
                              "--fov", 2, "--angular-bins", 4)
-    assert "templates" in run("summarize", "--fit", f"0.3={fitted / 'fits_1d.npy'}",
+    assert "templates" in run("summarize", "--fit", f"0.3={fitted / 'response-1d.npz'}",
                               "--output-dir", summary)
     assert "diagnostics" in run("background", processed / "stokes.npy", "--output-dir", bg)
     h5py = pytest.importorskip("h5py")

@@ -13,6 +13,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import numpy as np
+from eht_axion.pipeline.layout import load_curves
 
 MODES = ("std", "cor", "cor_grmhd")
 COLORS = {"std": "#2679b5", "cor": "#e58f24", "cor_grmhd": "#8458a5"}
@@ -43,12 +44,18 @@ def compare(original_dir, pipeline_dir, output_dir):
             old_path = original / f"{mode}{'_1d' if dimension == '1d' else ''}.npz"
             new_path = pipeline / f"{mode}_{dimension}.npz"
             a, old = load_curve(old_path)
-            b, new = load_curve(new_path)
+            if (pipeline / f"limits-{dimension}.npz").is_file():
+                b, all_cuts, identity = load_curves(pipeline, dimension)
+                new = all_cuts[MODES.index(mode)]
+                new_path = pipeline / f"limits-{dimension}.npz"
+            else:
+                b, new = load_curve(new_path)
+                with np.load(new_path, allow_pickle=False) as data:
+                    identity = {"observation": str(data["observation"].item())}
             if a.shape != b.shape or not np.allclose(a, b, rtol=0, atol=1e-14):
                 raise ValueError(f"Alpha grids differ: {old_path}, {new_path}")
-            with np.load(new_path, allow_pickle=False) as data:
-                if str(data["observation"].item()) not in ("null", "expected"):
-                    raise ValueError("Original null curves must not be compared with observed data")
+            if identity["observation"] not in ("null", "expected"):
+                raise ValueError("Original null curves must not be compared with observed data")
             difference, ratio = new - old, 10 ** (new - old)
             curves[dimension, mode] = (a, old, new)
             for alpha, previous, current, delta, factor in zip(a, old, new, difference, ratio):

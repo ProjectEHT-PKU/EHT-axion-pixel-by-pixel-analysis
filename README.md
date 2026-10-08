@@ -14,9 +14,19 @@ preinstalled Python are not required. Dependencies and platforms are locked in `
 pixi install --locked
 pixi run check
 pixi run pipeline --config configs/research.toml \
-  --input-root /path/to/shared_data/analysis-inputs/draft \
+  --input-root data/inputs \
   --output-root /path/to/large-disk/research-run --trust-pickle
 ```
+
+Create `data/inputs` from the published archive without copying large arrays:
+
+```bash
+pixi run migrate inputs --source /path/to/shared_data/analysis-inputs/draft --destination data/inputs
+```
+
+Dates use `2017-04-05`, alpha identities use `alpha-0.30`, response/limit products
+use named NPZ fields. `draft` is publication status only, not a runtime requirement.
+See [data naming and migration](docs/DATA_LAYOUT_PLAN.md).
 
 Physical cache layers: processed Stokes → snapshot response fits → template moments;
 EHT identity-matched topset → observation covariance; measured GRMHD background →

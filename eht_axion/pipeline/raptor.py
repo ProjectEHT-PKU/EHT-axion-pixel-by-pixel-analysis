@@ -79,9 +79,7 @@ class _Series:
                 raise ValueError("duplicate input shards")
             self.arrays = []
             for path in self.paths:
-                if path.suffix != ".npy":
-                    raise ValueError(f"expected a .npy input: {path}")
-                array = np.load(path, mmap_mode="r", allow_pickle=False)
+                array = self._load(path)
                 _real_dtype(array.dtype)
                 self.arrays.append(array)
         first = self.arrays[0]
@@ -101,6 +99,11 @@ class _Series:
         self.shape = (int(self.ends[-1]),) + first.shape[1:]
         self.dtype = first.dtype
 
+    def _load(self, path):
+        if path.suffix != ".npy":
+            raise ValueError(f"expected a .npy input: {path}")
+        return np.load(path, mmap_mode="r", allow_pickle=False)
+
     def frame(self, index):
         shard = int(np.searchsorted(self.ends, index, side="right"))
         start = 0 if shard == 0 else int(self.ends[shard - 1])
@@ -109,6 +112,40 @@ class _Series:
     def describe(self):
         return {"inputs": [str(p) for p in self.paths], "shape": list(self.shape),
                 "input_dtype": str(self.dtype), "shard_order": "explicit caller order"}
+
+
+def _snapshot_labels(labels, length):
+    if labels is None:
+        return 1600 + 10 * np.arange(length, dtype=np.int64)
+    labels = np.asarray(labels)
+    if labels.shape != (length,) or labels.dtype.kind not in "iu":
+        raise ValueError("snapshot_labels must be a one-dimensional integer array of length T")
+    return labels
+
+
+class _FitSeries(_Series):
+    """Read named responses or legacy columns with identical frame semantics."""
+
+    def _load(self, path):
+        if path.suffix == ".npy":
+            return super()._load(path)
+        if path.suffix != ".npz":
+            raise ValueError(f"expected a .npy or .npz fit input: {path}")
+        with np.load(path, allow_pickle=False) as response:
+            keys = ("amplitude", "phase", "baseline")
+            if not set((*keys, "snapshot_labels")).issubset(response.files):
+                raise ValueError(f"response requires amplitude, phase, baseline, snapshot_labels: {path}")
+            arrays = [response[key] for key in keys]
+            first = arrays[0]
+            if first.ndim not in (2, 3) or first.shape[0] == 0:
+                raise ValueError(f"invalid response shape: {first.shape}")
+            for array in arrays:
+                _real_dtype(array.dtype)
+                if array.shape != first.shape or array.dtype != first.dtype:
+                    raise ValueError("response arrays must have identical shape and dtype")
+            _snapshot_labels(response["snapshot_labels"], first.shape[0])
+            # Moderate products only; stacking preserves each legacy column exactly.
+            return np.stack(arrays, axis=-1)
 
 
 def _hdf_sources(sources):
@@ -268,7 +305,7 @@ def preprocess_stokes(
               ) if len(series.shape) == 5 else None
     leading = (series.shape[0], len(states)) if states is not None else (series.shape[0],)
     shape = leading + (final_shape, final_shape, 4)
-    result = _outputs(output_dir, {"stokes": "stokes.npy", "metadata": "preprocess.json"},
+    result = _outputs(output_dir, {"stokes": "stokes.npy", "metadata": "processing.json"},
                       series.paths)
     output = open_memmap(result["stokes"], mode="w+", dtype=dtype, shape=shape)
     for t in range(series.shape[0]):
@@ -369,11 +406,13 @@ def _integrate(stokes, operator, weighting):
 def fit_stokes(
     inputs, output_dir, *, fov: float, operator=None, weighting="intensity",
     radial_max=None, window_degrees=10, angular_bins=360, dtype="float64",
+    snapshot_labels=None,
 ) -> dict[str, Path]:
     """Fit processed (T,16|17,N,N,4) Stokes, streaming one time frame.
 
-    Products: fits_2d.npy (T,N,N,3), fits_1d.npy (T,angular_bins,3).
-    Default 360 bins; columns are amplitude, phase, mean EVPA, all radians.
+    response-{2d,1d}.npz keys: amplitude, phase, baseline (all radians),
+    snapshot_labels. Labels are caller-provided or the unverified convention
+    1600+10*i, even for short synthetic inputs; they are not inferred from data.
     """
     series = _Series(inputs, ndim=(5,))
     if series.shape[1] not in (16, 17):
@@ -381,27 +420,31 @@ def fit_stokes(
     if weighting not in ("intensity", "flux"):
         raise ValueError("weighting must be intensity or flux")
     dtype = _real_dtype(dtype, output=True)
+    labels = _snapshot_labels(snapshot_labels, series.shape[0])
     n = series.shape[-2]
     operator = _operator(n, fov, operator, radial_max, window_degrees, angular_bins)
-    result = _outputs(output_dir, {"fits_2d": "fits_2d.npy", "fits_1d": "fits_1d.npy",
-                                  "metadata": "fit.json"}, series.paths)
-    two = open_memmap(result["fits_2d"], mode="w+", dtype=dtype,
-                      shape=(series.shape[0], n, n, 3))
-    one = open_memmap(result["fits_1d"], mode="w+", dtype=dtype,
-                      shape=(series.shape[0], angular_bins, 3))
+    result = _outputs(output_dir, {"fits_2d": "response-2d.npz", "fits_1d": "response-1d.npz",
+                                  "metadata": "response.json"}, series.paths)
+    two = np.empty((series.shape[0], n, n, 3), dtype=dtype)
+    one = np.empty((series.shape[0], angular_bins, 3), dtype=dtype)
     for t in range(series.shape[0]):
         # Exclude noaxion before any integration or circular statistics.
         states = series.frame(t)[-16:]
         two[t] = fit_phase_dft(_evpa(states))
         one[t] = fit_phase_dft(_integrate(states, operator, weighting))
-    two.flush()
-    one.flush()
+    for name, data in (("fits_2d", two), ("fits_1d", one)):
+        np.savez(result[name], amplitude=data[..., 0], phase=data[..., 1],
+                 baseline=data[..., 2], snapshot_labels=labels)
     del two, one
     _metadata(result["metadata"], stage="fit", **series.describe(), dtype=str(dtype), fov=fov,
               weighting=weighting, radial_max=radial_max, window_degrees=window_degrees,
               angular_bins=angular_bins, state0_used=False, phase_count=16,
               phase_convention="mean + amplitude*cos(2*pi*k/16 + phi)", units="rad",
-              columns=["amplitude", "phase", "mean_evpa"],
+              response_keys=["amplitude", "phase", "baseline", "snapshot_labels"],
+              baseline_convention="mean EVPA on fitted circular branch",
+              snapshot_labels=labels.tolist(),
+              snapshot_labels_source="default_convention" if snapshot_labels is None else "caller",
+              snapshot_labels_verified=False,
               angular_alignment="EHT: np.roll(aperture_evpa, -angular_bins//4, axis=-1)",
               angular_roll_bins=-angular_bins // 4,
               operator_source="caller or polarization.aperture_operator")
@@ -411,11 +454,12 @@ def fit_stokes(
 def fit_processed(
     input_dir, output_dir, *, fov: float, operator=None, weighting="intensity",
     radial_max=None, window_degrees=10, angular_bins=360, dtype="float64",
+    snapshot_labels=None,
 ) -> dict[str, Path]:
     """Fit input_dir/stokes.npy; parent owns transactions and cache handling."""
     return fit_stokes(Path(input_dir) / "stokes.npy", output_dir, fov=fov, operator=operator,
                       weighting=weighting, radial_max=radial_max, window_degrees=window_degrees,
-                      angular_bins=angular_bins, dtype=dtype)
+                      angular_bins=angular_bins, dtype=dtype, snapshot_labels=snapshot_labels)
 
 
 def _moments_update(count, mean, m2, values):
@@ -432,8 +476,9 @@ def summarize_fits(
 ) -> dict[str, Path]:
     """Gaussian MLE time distributions; circularly lift phases before fitting.
 
-    Supply one dimension at a time: {alpha: fits_2d_path} or fits_1d paths (or
-    ordered fit shards). templates.npz arrays have shape (alpha, spatial...).
+    Supply one dimension at a time: {alpha: response_path}, legacy 3-column
+    NPY/arrays, or ordered mixed-format shards. Labels do not enter statistics.
+    templates.npz arrays have shape (alpha, spatial...).
     No pickle, normality gate, or histogram-fit rejection is used.
     """
     minimum_samples = _integer(minimum_samples, "minimum_samples")
@@ -442,11 +487,11 @@ def summarize_fits(
     alphas = sorted(fits_by_alpha)
     if not np.all(np.isfinite(alphas)):
         raise ValueError("alphas must be finite numeric values")
-    series_list = [_Series(fits_by_alpha[a], ndim=(3, 4), stokes=False) for a in alphas]
+    series_list = [_FitSeries(fits_by_alpha[a], ndim=(3, 4), stokes=False) for a in alphas]
     spatial = series_list[0].shape[1:-1]
     if any(s.shape[-1] != 3 or s.shape[1:-1] != spatial for s in series_list):
         raise ValueError("fit products must have matching spatial shape and 3 columns")
-    result = _outputs(output_dir, {"templates": "templates.npz", "metadata": "summarize.json"},
+    result = _outputs(output_dir, {"templates": "templates.npz", "metadata": "summary.json"},
                       [p for s in series_list for p in s.paths])
     products = {name: np.full((len(alphas),) + spatial, np.nan) for name in (
         "amplitude_mean", "amplitude_std", "phase_mean", "phase_std",
@@ -596,8 +641,8 @@ def estimate_background(
             raise ValueError("legacy histogram fit failed sigma uncertainty threshold")
         extra = {"fit_hist_counts": fit_counts, "fit_hist_edges": fit_edges,
                  "fit_sigma_error": np.asarray(error)}
-    result = _outputs(output_dir, {"metadata": "background.json",
-                                  "diagnostics": "background_diagnostics.npz"},
+    result = _outputs(output_dir, {"metadata": "summary.json",
+                                  "diagnostics": "evpa-difference.npz"},
                       series.paths + mask_paths)
     np.savez(result["diagnostics"], hist_counts=hist, hist_edges=edges,
              count=np.asarray(count), mean=np.asarray(fitted_mean), sigma=np.asarray(sigma),

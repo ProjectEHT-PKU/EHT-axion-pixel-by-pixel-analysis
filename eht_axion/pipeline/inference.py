@@ -7,14 +7,15 @@ import time
 import numpy as np
 from ..limits import LimitOptions, calculate_from_products
 from .constants import PhysicalScale
-from .common import stage_directory, verify_stage, sha256
+from .common import stage_directory, verify_stage, sha256, manifest_path
+from .layout import RunLayout
 from .products import load_templates, load_observations
 
 
 def _stage_files(directory):
     directory = Path(directory)
     manifest = verify_stage(directory)
-    return [directory / "stage.json"] + [directory / x["path"] for x in manifest["outputs"]]
+    return [manifest_path(directory)] + [directory / x["path"] for x in manifest["outputs"]]
 
 
 def _check_lineage(manifest, expected):
@@ -29,13 +30,13 @@ def _check_lineage(manifest, expected):
             raise ValueError(f"Stale upstream lineage: {path}")
 
 
-def run_inference(output_root, config, *, rebuild=False):
-    output = Path(output_root)
+def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
+    layout = RunLayout(output_root)
     settings = config["inference"]
     physical = PhysicalScale(**config["physical"])
-    background_dir = output / "05_background"
-    verify_stage(background_dir)
-    background = json.loads((background_dir / "background.json").read_text())
+    background_dir = layout.background
+    verify_stage(background_dir, recursive=True, allow_imported=reuse_imported)
+    background = json.loads((background_dir / "summary.json").read_text())
     if background["units"] != "rad":
         raise ValueError("Background product must be in radians")
     options = LimitOptions(
@@ -55,17 +56,17 @@ def run_inference(output_root, config, *, rebuild=False):
     )
     if settings["observation"] not in ("null", "observed"):
         raise ValueError("observation must be null or observed")
-    inputs = [background_dir / "stage.json", background_dir / "background.json"]
+    inputs = [manifest_path(background_dir), background_dir / "summary.json"]
     for dim in ("1d", "2d"):
-        for stage in [output / "06_observations" / dim, output / "03_templates" / dim]:
-            verify_stage(stage)
-            inputs.append(stage / "stage.json")
+        for stage in [layout.observations(dim), layout.templates(dim)]:
+            verify_stage(stage, recursive=True, allow_imported=reuse_imported)
+            inputs.append(manifest_path(stage))
         inputs += [
-            output / "06_observations" / dim / "observations.npz",
-            output / "03_templates" / dim / "templates.npz",
+            layout.observations(dim) / "observations.npz",
+            layout.templates(dim) / "templates.npz",
         ]
     # Refuse intact-but-stale products or claims about settings not used upstream.
-    eht_manifest = verify_stage(output / "04_eht")
+    eht_manifest = verify_stage(layout.eht)
     expected_eht = {
         "topset_size": config["eht"]["topset_size"],
         "weighting": config["aperture"]["weighting"],
@@ -95,13 +96,13 @@ def run_inference(output_root, config, *, rebuild=False):
         angular_bins=360,
     )
     for alpha in config["data"]["alphas"]:
-        processed = verify_stage(output / "01_raptor" / f"alpha-{alpha}")
+        processed = verify_stage(layout.processed(alpha))
         if processed["config"] != expected_preprocess:
             raise ValueError("Current image config differs from RAPTOR preprocessing")
-        fitted = verify_stage(output / "02_response" / f"alpha-{alpha}")
+        fitted = verify_stage(layout.response(alpha))
         if fitted["config"] != expected_fit:
             raise ValueError("Current aperture config differs from RAPTOR response fits")
-        _check_lineage(fitted, _stage_files(output / "01_raptor" / f"alpha-{alpha}"))
+        _check_lineage(fitted, _stage_files(layout.processed(alpha)))
     if (
         background["lag"] != config["background"]["lag_frames"]
         or background["method"] != config["background"]["method"]
@@ -115,14 +116,12 @@ def run_inference(output_root, config, *, rebuild=False):
         or background_config.get("source_resolution") != config["background"]["source_resolution"]
     ):
         raise ValueError("Current background source differs from completed stage")
-    bg_processed = verify_stage(output / "01_raptor_background")
+    bg_processed = verify_stage(layout.background_processed)
     if bg_processed["config"] != dict(expected_preprocess, state_indices=[0]):
         raise ValueError("Current image config differs from background preprocessing")
-    _check_lineage(
-        background_manifest, _stage_files(output / "01_raptor_background") + [output / "04_eht" / "mask.npy"]
-    )
+    _check_lineage(background_manifest, _stage_files(layout.background_processed) + [layout.eht / "mask.npy"])
     for dim in ("1d", "2d"):
-        observations_manifest = verify_stage(output / "06_observations" / dim)
+        observations_manifest = verify_stage(layout.observations(dim))
         if (
             observations_manifest["config"]["angular_offset"] != config["eht"]["angular_offset"]
             or observations_manifest["config"]["covariance_ridge"] != config["eht"]["covariance_ridge"]
@@ -130,13 +129,13 @@ def run_inference(output_root, config, *, rebuild=False):
             raise ValueError("Current config differs from observation selection/covariance")
         _check_lineage(
             observations_manifest,
-            _stage_files(output / "04_eht") + [output / "03_templates" / dim / "templates.npz"],
+            _stage_files(layout.eht) + [layout.templates(dim) / "templates.npz"],
         )
         _check_lineage(
-            verify_stage(output / "03_templates" / dim),
-            [output / "02_response" / f"alpha-{a}" / f"fits_{dim}.npy" for a in config["data"]["alphas"]],
+            verify_stage(layout.templates(dim)),
+            [layout.response(a) / f"response-{dim}.npz" for a in config["data"]["alphas"]],
         )
-        template_alphas, _, _, _ = load_templates(output / "03_templates" / dim / "templates.npz", dim)
+        template_alphas, _, _, _ = load_templates(layout.templates(dim) / "templates.npz", dim)
         if not np.array_equal(template_alphas, config["data"]["alphas"]):
             raise ValueError("Current alpha grid differs from template products")
     effective = {
@@ -148,10 +147,15 @@ def run_inference(output_root, config, *, rebuild=False):
         "alphas": config["data"]["alphas"],
     }
     with stage_directory(
-        output / "07_inference", "inference:six-curves", effective, inputs, rebuild=rebuild
+        layout.inference,
+        "inference:six-curves",
+        effective,
+        inputs,
+        rebuild=rebuild,
+        reuse_imported=reuse_imported,
     ) as temporary:
         if temporary is None:
-            return output / "07_inference"
+            return layout.inference
         report = dict(
             effective,
             results={},
@@ -164,11 +168,13 @@ def run_inference(output_root, config, *, rebuild=False):
             ],
         )
         for dim in ("1d", "2d"):
-            alphas, amplitude, phase, _ = load_templates(output / "03_templates" / dim / "templates.npz", dim)
+            alphas, amplitude, phase, _ = load_templates(layout.templates(dim) / "templates.npz", dim)
             if not np.array_equal(alphas, config["data"]["alphas"]):
                 raise ValueError("Current alpha grid differs from template products")
-            observations = load_observations(output / "06_observations" / dim / "observations.npz")
-            for mode in ("std", "cor", "cor_grmhd"):
+            observations = load_observations(layout.observations(dim) / "observations.npz")
+            modes = ("std", "cor", "cor_grmhd")
+            dimension_cuts = []
+            for mode in modes:
                 started = time.perf_counter()
                 alpha, cuts, diagnostics = calculate_from_products(
                     observations,
@@ -180,16 +186,11 @@ def run_inference(output_root, config, *, rebuild=False):
                     options=options,
                 )
                 stem = f"{mode}_{dim}"
-                np.savez(
-                    temporary / f"{stem}.npz",
-                    alphas=alpha,
-                    cuts=cuts,
-                    variant="script-pipeline",
-                    observation=settings["observation"],
-                    prior=options.prior,
-                )
+                if not np.array_equal(alpha, alphas) or np.shape(cuts) != alphas.shape:
+                    raise ValueError(f"Inference alpha grid/curve mismatch: {stem}")
+                dimension_cuts.append(cuts)
                 # Full numerical diagnostics allow grid/phase/truncation review without reruns.
-                (temporary / f"{stem}.json").write_text(
+                (temporary / f"posterior-{mode}-{dim}.json").write_text(
                     json.dumps(diagnostics, indent=2, allow_nan=False) + "\n"
                 )
                 report["results"][stem] = dict(
@@ -199,5 +200,14 @@ def run_inference(output_root, config, *, rebuild=False):
                     selected_points=len(observations.selected_indices),
                 )
                 print(stem, cuts, flush=True)
+            np.savez(
+                temporary / f"limits-{dim}.npz",
+                alphas=alphas,
+                modes=np.asarray(modes),
+                cuts=np.stack(dimension_cuts),
+                variant="script-pipeline",
+                observation=settings["observation"],
+                prior=options.prior,
+            )
         (temporary / "run.json").write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
-    return output / "07_inference"
+    return layout.inference

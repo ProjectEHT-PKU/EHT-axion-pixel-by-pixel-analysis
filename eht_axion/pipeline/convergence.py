@@ -9,6 +9,8 @@ import numpy as np
 from ..limits import LimitOptions, calculate_from_products
 from .products import load_observations, load_templates
 from .common import verify_stage
+from .layout import RunLayout
+from .figures import MODES, load_limits
 
 
 def check_convergence(
@@ -20,17 +22,30 @@ def check_convergence(
     phase_multiplier=2,
     grid_multiplier=2,
 ):
-    root = Path(run_root)
-    verify_stage(root / "07_inference")
-    saved = json.loads((root / "07_inference" / "run.json").read_text())
+    layout = RunLayout(run_root)
+    verify_stage(layout.inference)
+    saved = json.loads((layout.inference / "run.json").read_text())
     base = LimitOptions(**saved["options"])
-    report = {"reference": str((root / "07_inference").resolve()), "checks": {}}
+    report = {"reference": str(layout.inference.resolve()), "checks": {}}
+    reference, identity = None, None
     for dim in dimensions:
-        alphas, amplitude, phase, _ = load_templates(root / "03_templates" / dim / "templates.npz", dim)
-        obs = load_observations(root / "06_observations" / dim / "observations.npz")
+        alphas, amplitude, phase, _ = load_templates(layout.templates(dim) / "templates.npz", dim)
+        obs = load_observations(layout.observations(dim) / "observations.npz")
+        old_alphas, old_cuts, metadata = load_limits(layout.inference, dim)
+        if not np.array_equal(alphas, old_alphas) or (
+            reference is not None and not np.array_equal(reference, old_alphas)
+        ):
+            raise ValueError("Alpha grid mismatch between inference and template products")
+        if (
+            metadata["observation"] != ("observed" if base.observed else "null")
+            or metadata["prior"] != base.prior
+            or (identity is not None and identity != metadata)
+        ):
+            raise ValueError("Mixed observations, priors or algorithm variants")
+        reference, identity = old_alphas, metadata
         for mode in modes:
             stem = f"{mode}_{dim}"
-            old = np.array(saved["results"][stem]["cuts"])
+            old = old_cuts[MODES.index(mode)]
             entry = {}
             for name, options in [
                 ("coupling", replace(base, coupling_points=base.coupling_points * grid_multiplier)),

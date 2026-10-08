@@ -29,6 +29,7 @@ pixi.toml
 /*.egg-info/
 /outputs/
 /runs/
+/data/
 
 # The only published binary-data namespace; files here are managed by Git LFS.
 !.gitattributes

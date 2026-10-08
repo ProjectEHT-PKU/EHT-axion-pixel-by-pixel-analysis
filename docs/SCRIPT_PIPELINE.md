@@ -80,30 +80,49 @@ pixi run background ...
 pixi run observations ...
 pixi run inference ...
 pixi run figures ...
-pixi run verify /path/to/run-name/04_eht
+pixi run verify /path/to/run-name/eht
 ```
 
 Replace `...` with explicit config/input/output arguments as above.
 The whole-chain order is RAPTOR → EHT → background → observations → inference → figures.
 RAPTOR and EHT may be computed independently, in different stage directories.
 
+## Naming and migration
+
+The canonical input root is `data/inputs`, not a publication-status path:
+`raptor/res-100/alpha-0.30/stokes.npy`, `eht/2017-04-05/image-ensemble.pkl`.
+Original shared `analysis-inputs/draft` is supported as a legacy read adapter.
+See [DATA_LAYOUT_PLAN.md](DATA_LAYOUT_PLAN.md) for the complete schema.
+
+```bash
+pixi run migrate inputs --source /path/to/analysis-inputs/draft --destination data/inputs
+pixi run migrate run --source /path/to/old-run --destination /path/to/canonical-run
+```
+
+Large arrays are linked, not duplicated. Imported manifests preserve original code
+identity and mark scientific_recomputation=false. Explicit `--reuse-imported` is required
+to reuse these stages. Config/input changes still fail validation. Do not delete source
+archives that a migrated symlink view depends on. New science runs use the canonical
+names directly and do not require migration.
+
 ## Physical cache layers
 
 | Stage directory | Scientific meaning | Main outputs | Recompute when |
 |---|---|---|---|
-| `01_raptor/alpha-*` | simulated telescope-plane Stokes after blur/rotation/crop | `stokes.npy` `(T,17,64,64,4)` | image geometry, blur or input changes |
-| `02_response/alpha-*` | response to axion phase for every GRMHD snapshot | `fits_2d.npy`, `fits_1d.npy` with `[A,phi,baseline]` | phase fitting or 1D observable changes |
-| `03_templates/{1d,2d}` | temporal distribution of responses | `templates.npz` mean/std and valid counts | response distribution model changes |
-| `04_eht` | identity-matched topset and observed EVPA ensembles | `selection.npz`, `stokes_D.npy`, `evpa_1d_D.npy`, summaries, mask | ranking, registration, apertures or inputs change |
-| `01_raptor_background` | high-resolution-origin processed Stokes | `stokes.npy` | background image preprocessing changes |
-| `05_background` | pooled no-axion EVPA difference scatter at recorded lag | `background.json`, histogram diagnostic NPZ | lag, region or fit changes |
-| `06_observations/{1d,2d}` | selected day differences and centered covariance | `observations.npz`, diagnostics JSON | mask, selected angular offset or covariance model changes |
-| `07_inference` | posterior constraints and integration diagnostics | six curve NPZs, per-curve likelihood/CDF JSON, `run.json` | timing, coupling/phase grid, prior or noise model changes |
-| `08_figures` | views of the saved numerical results | PNG/PDF/SVG, CSV, figure JSON | plot styling changes |
+| `raptor/processed/alpha-*` | simulated telescope-plane Stokes after blur/rotation/crop | `stokes.npy` `(T,17,64,64,4)` | image geometry, blur or input changes |
+| `raptor/response/alpha-*` | response to axion phase for every GRMHD snapshot | `response-2d.npz`, `response-1d.npz` with named amplitude/phase/baseline/snapshot_labels | phase fitting or 1D observable changes |
+| `raptor/templates/{1d,2d}` | temporal distribution of responses | `templates.npz` mean/std and valid counts | response distribution model changes |
+| `eht/` (ISO date subdirectories) | identity-matched topset and observed EVPA ensembles | `selection.npz`, `YYYY-MM-DD/{stokes.npy,evpa-1d.npy,summary.npz}`, mask | ranking, registration, apertures or inputs change |
+| `raptor/background` | high-resolution-origin processed Stokes | `stokes.npy` | background image preprocessing changes |
+| `background` | pooled no-axion EVPA difference scatter at recorded lag | `summary.json`, `evpa-difference.npz` | lag, region or fit changes |
+| `observations/{1d,2d}` | selected day differences and centered covariance | `observations.npz`, diagnostics JSON | mask, selected angular offset or covariance model changes |
+| `inference` | posterior constraints and integration diagnostics | `limits-{1d,2d}.npz` with mode axis, `posterior-{mode}-{dim}.json`, `run.json` | timing, coupling/phase grid, prior or noise model changes |
+| `figures` | views of the saved numerical results | PNG/PDF/SVG, CSV, figure JSON | plot styling changes |
 
 Only raw EHT inputs use pickle. New science products are ordinary numeric NPZ/NPY,
 loadable with `allow_pickle=False`. Never infer stage completeness from the existence
-of a single array: `stage.json` is written last.
+of a single array: each stage's `manifest.json` is written last. Old `stage.json`
+is accepted for read-only compatibility. Root run manifests are descriptive, not completion markers.
 
 The research profile currently requires 360 one-degree bins; arbitrary angular grids
 are rejected rather than silently misaligning RAPTOR and EHT angle origins.
@@ -181,7 +200,7 @@ RAPTOR image outputs and EHT reconstructed ensembles → final numerical/graphic
 ```bash
 pixi run test
 pixi run diagnostics --run-root /path/to/run-name \
-  --output-dir /path/to/run-name/09_diagnostics
+  --output-dir /path/to/run-name/diagnostics
 pixi run convergence --run-root /path/to/run-name \
   --output /path/to/convergence.json --modes std cor cor_grmhd
 pixi run transport --help

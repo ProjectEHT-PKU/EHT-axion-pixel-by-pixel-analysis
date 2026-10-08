@@ -10,7 +10,8 @@ try:
     import tomllib
 except ImportError:  # Python 3.10
     import tomli as tomllib
-from .common import stage_directory, verify_stage
+from .common import stage_directory, verify_stage, manifest_path
+from .layout import RunLayout, input_raptor_files, input_eht_file
 from .constants import PhysicalScale
 
 
@@ -25,7 +26,7 @@ def read_config(path):
 
 def stage_inputs(directory):
     manifest = verify_stage(directory)
-    return [Path(directory) / "stage.json"] + [Path(directory) / p["path"] for p in manifest["outputs"]]
+    return [manifest_path(directory)] + [Path(directory) / p["path"] for p in manifest["outputs"]]
 
 
 def run(args):
@@ -37,6 +38,20 @@ def run(args):
     scale = PhysicalScale(**config["physical"])
     image, aperture = config["image"], config["aperture"]
     output = args.output_root.resolve()
+    layout = RunLayout(output)
+    reuse = getattr(args, "reuse_imported", False)
+    validated_lineage = set()
+
+    def stage(*values, **keywords):
+        inputs = values[3] if len(values) > 3 else keywords.get("input_paths", ())
+        for path in inputs:
+            path = Path(path)
+            if path.name in {"stage.json", "manifest.json"}:
+                record = json.loads(path.read_text())
+                if record.get("complete"):
+                    verify_stage(path.parent, recursive=True, allow_imported=reuse, _seen=validated_lineage)
+        return stage_directory(*values, reuse_imported=reuse, **keywords)
+
     source = args.input_root.resolve() if args.input_root else None
     if source is not None and (source == output or source.is_relative_to(output)):
         raise ValueError("Output root must not contain the raw input root")
@@ -48,12 +63,12 @@ def run(args):
 
     if args.rebuild:
         targets = {
-            "raptor": ["01_raptor", "02_response", "03_templates"],
-            "eht": ["04_eht"],
-            "background": ["01_raptor_background", "05_background"],
-            "observations": ["06_observations"],
-            "inference": ["07_inference"],
-            "figures": ["08_figures"],
+            "raptor": ["raptor/processed", "raptor/response", "raptor/templates"],
+            "eht": ["eht"],
+            "background": ["raptor/background", "background"],
+            "observations": ["observations"],
+            "inference": ["inference"],
+            "figures": ["figures"],
         }
         for name, directories in targets.items():
             if do(name) and any((output / d).is_symlink() for d in directories):
@@ -77,23 +92,23 @@ def run(args):
         if source is None:
             raise ValueError("--input-root required for RAPTOR stages")
         for alpha in alphas:
-            inputs = [source / "raptor-stokes" / "res-100" / f"alpha-{alpha}.npy"]
-            processed = output / "01_raptor" / f"alpha-{alpha}"
-            with stage_directory(
+            inputs = input_raptor_files(source, alpha, 100)
+            processed = layout.processed(alpha)
+            with stage(
                 processed, "raptor:preprocess", process_params, inputs, rebuild=args.rebuild
             ) as temporary:
                 if temporary is not None:
                     preprocess_cube(inputs, temporary, **process_params)
-            fitted = output / "02_response" / f"alpha-{alpha}"
-            with stage_directory(
+            fitted = layout.response(alpha)
+            with stage(
                 fitted, "raptor:fit", fit_params, stage_inputs(processed), rebuild=args.rebuild
             ) as temporary:
                 if temporary is not None:
                     fit_processed(processed, temporary, **fit_params)
         for dim in ("1d", "2d"):
-            fits = {a: output / "02_response" / f"alpha-{a}" / f"fits_{dim}.npy" for a in alphas}
-            dest = output / "03_templates" / dim
-            with stage_directory(
+            fits = {a: layout.response(a) / f"response-{dim}.npz" for a in alphas}
+            dest = layout.templates(dim)
+            with stage(
                 dest,
                 "raptor:summarize",
                 {"dimension": dim, "method": "mle"},
@@ -118,12 +133,12 @@ def run(args):
             intensity_fraction=config["eht"]["intensity_fraction"],
             historical_mask=config["eht"]["historical_mask"],
         )
-        raw = source / "eht-image-ensemble"
-        with stage_directory(
-            output / "04_eht",
+        raw = source
+        with stage(
+            layout.eht,
             "eht:ensemble",
             params,
-            [raw / f"230_{d}.pkl" for d in (95, 96, 100, 101)],
+            [input_eht_file(raw, d) for d in (95, 96, 100, 101)],
             rebuild=args.rebuild,
         ) as temporary:
             if temporary is not None:
@@ -133,14 +148,9 @@ def run(args):
             raise ValueError("--input-root required for background stage")
         cfg = config["background"]
         alpha, res = cfg["alpha"], cfg["source_resolution"]
-        if res == 400:
-            inputs = sorted((source / "raptor-stokes" / "res-400" / f"alpha-{alpha}").glob("stokes-*.npy"))
-        else:
-            inputs = [source / "raptor-stokes" / "res-100" / f"alpha-{alpha}.npy"]
-        if not inputs:
-            raise ValueError("No background Stokes input found")
-        processed = output / "01_raptor_background"
-        with stage_directory(
+        inputs = input_raptor_files(source, alpha, res)
+        processed = layout.background_processed
+        with stage(
             processed,
             "raptor:background-preprocess",
             dict(process_params, state_indices=[0]),
@@ -149,14 +159,14 @@ def run(args):
         ) as temporary:
             if temporary is not None:
                 preprocess_cube(inputs, temporary, state_indices=[0], **process_params)
-        mask = output / "04_eht" / "mask.npy"
+        mask = layout.eht / "mask.npy"
         params = dict(
             lag=cfg["lag_frames"],
             cadence_hours=10 * scale.label_step_tg * scale.tg_hours,
             method=cfg["method"],
         )
-        with stage_directory(
-            output / "05_background",
+        with stage(
+            layout.background,
             "raptor:background",
             dict(params, physical=scale.metadata(), source_alpha=alpha, source_resolution=res),
             stage_inputs(processed) + [mask],
@@ -166,14 +176,14 @@ def run(args):
                 estimate_background(processed / "stokes.npy", temporary, mask=mask, **params)
     if do("observations"):
         for dim in ("1d", "2d"):
-            templates = output / "03_templates" / dim / "templates.npz"
-            eht_dir = output / "04_eht"
+            templates = layout.templates(dim) / "templates.npz"
+            eht_dir = layout.eht
             params = dict(
                 angular_offset=config["eht"]["angular_offset"],
                 covariance_ridge=config["eht"]["covariance_ridge"],
             )
-            with stage_directory(
-                output / "06_observations" / dim,
+            with stage(
+                layout.observations(dim),
                 "observations:covariance",
                 dict(params, dimension=dim),
                 stage_inputs(eht_dir) + [templates],
@@ -184,13 +194,13 @@ def run(args):
     if do("inference"):
         from .inference import run_inference
 
-        run_inference(output, config, rebuild=args.rebuild)
+        run_inference(output, config, rebuild=args.rebuild, reuse_imported=reuse)
     if do("figures"):
         from .figures import plot_results
 
-        inference_dir = output / "07_inference"
-        with stage_directory(
-            output / "08_figures",
+        inference_dir = layout.inference
+        with stage(
+            layout.figures,
             "figures:limits",
             {},
             stage_inputs(inference_dir),
@@ -198,6 +208,53 @@ def run(args):
         ) as temporary:
             if temporary is not None:
                 plot_results(inference_dir, temporary)
+    output.mkdir(parents=True, exist_ok=True)
+    snapshot = output / "config.toml"
+    if snapshot.exists() and snapshot.read_bytes() != args.config.read_bytes():
+        import hashlib
+
+        digest = hashlib.sha256(args.config.read_bytes()).hexdigest()[:12]
+        snapshot = output / "configs" / f"{digest}.toml"
+        snapshot.parent.mkdir(exist_ok=True)
+    snapshot.write_bytes(args.config.read_bytes())
+    import platform
+    from importlib.metadata import version
+
+    root_record = {
+        "layout": "canonical-run-v1",
+        "requested_config_path": str(snapshot.relative_to(output)),
+        "requested_config": config,
+        "last_requested_stage": args.stage,
+        "reuse_imported_requested": reuse,
+        "completion": "See individual stage manifests; this is not a completion marker",
+        "source_root": str(source) if source else None,
+        "environment": {
+            "python": platform.python_version(),
+            "numpy": version("numpy"),
+            "scipy": version("scipy"),
+        },
+    }
+    import uuid
+
+    invocations = output / "invocations"
+    invocations.mkdir(exist_ok=True)
+    invocation = invocations / f"{uuid.uuid4().hex}.json"
+    invocation.write_text(json.dumps(root_record, indent=2) + "\n")
+    root_manifest = output / "manifest.json"
+    if not root_manifest.exists():
+        root_manifest.write_text(
+            json.dumps(
+                {
+                    "layout": "canonical-run-v1",
+                    "initial_config": str(snapshot.relative_to(output)),
+                    "source_root": str(source) if source else None,
+                    "completion": "See individual stage manifests",
+                    "invocations": "Append-only records in invocations/",
+                },
+                indent=2,
+            )
+            + "\n"
+        )
     return output
 
 
@@ -206,7 +263,9 @@ def main(argv=None):
     sub = parser.add_subparsers(dest="command", required=True)
     execute = sub.add_parser("run", help="run one physical stage or the whole chain")
     execute.add_argument("--config", type=Path, required=True)
-    execute.add_argument("--input-root", type=Path, help="analysis-inputs/draft (read-only)")
+    execute.add_argument(
+        "--input-root", type=Path, help="Canonical inputs or legacy analysis-inputs directory"
+    )
     execute.add_argument("--output-root", type=Path, required=True)
     execute.add_argument(
         "--stage",
@@ -215,6 +274,11 @@ def main(argv=None):
     )
     execute.add_argument("--trust-pickle", action="store_true", help="allow trusted EHT pickle inputs")
     execute.add_argument("--rebuild", action="store_true", help="replace stages transactionally")
+    execute.add_argument(
+        "--reuse-imported",
+        action="store_true",
+        help="Explicitly reuse byte-verified migrated products without recomputing",
+    )
     verify = sub.add_parser("verify", help="verify a completed stage checksum manifest")
     verify.add_argument("directory", type=Path)
     args = parser.parse_args(argv)

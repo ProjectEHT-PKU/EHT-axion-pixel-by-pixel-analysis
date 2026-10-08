@@ -27,6 +27,7 @@ PYTHONUNBUFFERED = "1"
 
 [tasks]
 help = { cmd = "python -m eht_axion.pipeline --help", description = "Show the script-only pipeline commands" }
+migrate = { cmd = "python -m eht_axion.pipeline.migrate", description = "Create canonical input/run layout without modifying original data" }
 verify = { cmd = "python -m eht_axion.pipeline verify", description = "Verify a completed stage: pixi run verify PATH" }
 pipeline = { cmd = "python -m eht_axion.pipeline run", description = "Run all stages; append --config, --input-root, --output-root" }
 raptor = { cmd = "python -m eht_axion.pipeline run --stage raptor", description = "Preprocess RAPTOR Stokes, fit response and summarize templates" }

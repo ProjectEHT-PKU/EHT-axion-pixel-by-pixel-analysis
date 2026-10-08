@@ -29,10 +29,10 @@ preprocess_cube(
 fit_processed(
     input_dir, output_dir, fov=32.6868, operator=None,
     weighting="intensity", radial_max=None, window_degrees=10,
-    angular_bins=360, dtype="float64",
+    angular_bins=360, dtype="float64", snapshot_labels=None,
 )
 summarize_fits(
-    {0.1: "alpha-0.1/fits_2d.npy", 0.3: "alpha-0.3/fits_2d.npy"},
+    {0.1: "alpha-0.10/response-2d.npz", 0.3: "alpha-0.30/response-2d.npz"},
     output_dir, minimum_samples=2,
 )
 ```
@@ -53,9 +53,12 @@ contracts above. `preprocess_frame(stokes, ...)` and
   They are never written, copied wholesale, or concatenated. Shards must have
   the same dtype and non-time shape; repeated paths are rejected. **Caller owns
   chronological order and continuity**; it is not inferred from filenames.
-- Preprocessing holds one image's working arrays, fitting one time/state stack.
-  Summary holds spatial accumulators, not a time cube. Background iterates
-  time pairs for moments and again for histogram counts, not a copied cube.
+- Preprocessing holds one image's working arrays; fitting reads one time/state
+  stack at a time and retains the moderate response arrays in memory before
+  `np.savez` (about 15 MB combined per alpha for the usual products). Response
+  NPZs are loaded in memory for summary; legacy NPY fits remain read-only
+  memmaps. Summary statistics use spatial accumulators. Background iterates
+  time pairs for moments and again for histogram counts, not a copied Stokes cube.
 - Real integer/floating inputs are accepted; complex/object/bool arrays are
   rejected. Output cubes/fits are explicitly float32 or float64 (default float64);
   arithmetic and summary arrays use float64. No pickled outputs.
@@ -89,7 +92,7 @@ Products: `stokes.npy`, `convert.json`.
 
 ## Preprocessing and scientific conventions
 
-Products: `stokes.npy`, `preprocess.json`.
+Products: `stokes.npy`, `processing.json`.
 
 1. Blur each IQUV channel with a Gaussian, nearest boundary extension.
 2. Inverse spatial rotation and bilinear resampling onto centered output pixel
@@ -114,11 +117,31 @@ in preprocessing.
 
 Products:
 
-| File | Shape | Columns / units |
+| File | Named arrays / shapes | Units |
 |---|---|---|
-| `fits_2d.npy` | `(T,H,W,3)` | amplitude, phi, mean EVPA; radians |
-| `fits_1d.npy` | `(T,360,3)` | amplitude, phi, mean EVPA; radians |
-| `fit.json` | JSON | geometry, dtype, weighting, phase and alignment conventions |
+| `response-2d.npz` | `amplitude`, `phase`, `baseline`: `(T,H,W)`; `snapshot_labels`: `(T,)` | response values in radians; labels are snapshot identifiers |
+| `response-1d.npz` | `amplitude`, `phase`, `baseline`: `(T,angular_bins)`; `snapshot_labels`: `(T,)` | same; default `angular_bins=360` |
+| `response.json` | geometry, dtype, weighting, phase/alignment conventions, label provenance | JSON |
+
+The return mapping retains `fits_2d`, `fits_1d`, and `metadata` for API
+compatibility, but their values point to these new files. New fits do **not**
+write legacy `fits_2d.npy` / `fits_1d.npy` files. `baseline` is exactly the old
+third column (mean EVPA on the fitted circular branch), **not** the noaxion EVPA;
+`amplitude` and `phase` are exactly the old first and second columns. The
+numerical kernel `fit_phase_dft` still returns a three-column array unchanged.
+Float32/float64 output casts, NaNs, and physical formulas are unchanged.
+
+Both `fit_stokes` and `fit_processed` accept keyword `snapshot_labels`: an
+integer vector of length T in explicit input/shard order (bools, floats, wrong
+lengths and non-vector shapes are rejected before writing). Supplied integers
+are preserved, not sorted or checked against simulation data. With `None`, the
+convention is `1600 + 10*np.arange(T)` (int64): 141 frames give 1600 through 3000.
+The same convention applies to short synthetic inputs, **not** an inferred or
+verified snapshot identity. For subsets or other time ranges, callers should
+supply actual labels. `response.json` records the labels,
+`snapshot_labels_source="caller"` or `"default_convention"`, and always
+`snapshot_labels_verified=false`; this writer does not verify labels, even when
+caller-provided. Labels do not change fitting or weighting.
 
 The fit accepts S=16 phase states or S=17 with noaxion state0. Only the **last
 16 phase states** enter fitting, including branch selection; state0 is entirely
@@ -163,7 +186,21 @@ older flux-only radial helper. Callers may inject a compatible operator
 
 `summarize_fits` processes **one spatial dimensionality per invocation**. Use
 separate output directories for 2D and 1D. Alpha keys are sorted numerically;
-values may be fit paths, explicitly ordered fit shards, or arrays.
+values may be response NPZ paths, legacy three-column NPY paths/NumPy arrays,
+or explicitly ordered path shards mixing NPZ and NPY. The legacy final axis
+must have three columns in the order amplitude, phase, mean EVPA. NPZ inputs
+must contain `amplitude`, `phase`, `baseline`, and integer `snapshot_labels` of
+length T. The three response arrays must share shape and dtype; additional
+named keys are ignored. Arrays have shape `(T,H,W)` or `(T,angular_bins)`.
+Shards must still have identical non-time shape and dtype; repeated paths are
+rejected. NPZ reading restores the three legacy columns element-for-element,
+including NaNs, and produces element-identical summaries for equivalent NPZ,
+NPY, in-memory arrays, and mixed shards. No legacy files are rewritten.
+
+Snapshot labels are schema-checked but **not** used to sort, deduplicate, select,
+or weight samples, and continuity/chronological order is not verified. Legacy
+NPY inputs need no labels and are not assigned a verified identity. Caller
+order remains authoritative for all formats.
 
 `templates.npz` contains named, non-pickled arrays:
 
@@ -178,7 +215,7 @@ with the same Gaussian moments; it is **not** the alternative circular standard
 deviation `sqrt(-2*log(R))`. Means are wrapped to `[-pi,pi)`; fewer than
 `minimum_samples` finite values or a degenerate phase mean produces NaN. Zero
 amplitude samples contribute to amplitude statistics but their undefined phase
-does not contribute to phase statistics. `summarize.json` records the method.
+does not contribute to phase statistics. `summary.json` records the method.
 
 **Scientific change from older utilities:** no Lilliefors/statsmodels normality
 acceptance gate or histogram-based rejection is applied to template summaries.
@@ -221,10 +258,16 @@ Default `method="mle"` estimates a free global mean and Gaussian MLE sigma
 (`ddof=0`) across all finite differences. This intentionally replaces the old
 histogram-fit/rejection behavior. Products:
 
-- `background.json`: numeric `sigma`, `mean`, `sigma_mle`, `mean_mle`, units `rad`,
+- `summary.json`: numeric `sigma`, `mean`, `sigma_mle`, `mean_mle`, units `rad`,
   finite sample count, method, lag hours, mask and scientific conventions.
-- `background_diagnostics.npz`: `hist_counts`, `hist_edges` (full finite range),
+- `evpa-difference.npz`: `hist_counts`, `hist_edges` (full finite range),
   scalar `count`, `mean`, `sigma`, `mean_mle`, `sigma_mle`.
+
+Return keys remain `metadata` and `diagnostics`; only the filenames changed.
+All JSON/NPZ keys and the background physical algorithms are unchanged. Use
+separate output directories for background and template summaries, since both
+now use `summary.json`. Descriptive stage JSONs are not the orchestrator's
+completed-stage `manifest.json`; the parent still owns that manifest.
 
 Optional `method="legacy_hist"` reproduces the old normalized Gaussian PDF fit
 with no free amplitude: density histogram over MLE mean +/-5 sigma, free mean
@@ -248,7 +291,8 @@ python -m eht_axion.pipeline.raptor preprocess cube.npy --output-dir processed \
 python -m eht_axion.pipeline.raptor fit processed/stokes.npy --output-dir fitted \
   --fov 32.6868 --weighting intensity
 python -m eht_axion.pipeline.raptor summarize \
-  --fit 0.1=alpha01/fits_1d.npy --fit 0.3=alpha03/fits_1d.npy --output-dir templates1d
+  --fit 0.1=alpha-0.10/response-1d.npz --fit 0.3=alpha-0.30/response-1d.npz \
+  --output-dir templates1d
 python -m eht_axion.pipeline.raptor preprocess shard1.npy shard2.npy \
   --output-dir bg_processed --state-indices 0 --sigma 2.16871 \
   --init-fov 46.2262 --final-fov 32.6868 --rotation-angle 1.8849555921538759
@@ -265,11 +309,15 @@ an instruction to run large data**.
 
 ## Validation performed
 
-`tests/test_pipeline_raptor.py`: 32 synthetic-only tests passed, including
+`pixi run test tests/test_pipeline_raptor.py`: **49 synthetic-only tests passed**,
+including
 spin-2 constant images, rotated coordinate ramps, legacy bilinear numerical
 comparison, wrapped phase/sign oracle with state0 excluded, exact -90 bin
 alignment, state0-only processing count, read-only mmap and source hashes,
-whole-cube/shard equality, explicit HDF5 mapping, named/dtyped products,
+whole-cube/shard equality, explicit HDF5 mapping, named/dtyped NPZ responses,
+exact correspondence to all three kernel columns (including NaNs) for float32
+and float64, default/caller labels on 141 tiny frames, malformed schema/label
+rejection, element-identical NPZ/legacy NPY/mixed-shard/in-memory summaries,
 MLE/circular summaries, zero background differences, masks/lag metadata,
 legacy histogram option, alias/dtype checks, and all five CLI subcommands.
 No large cube was read and no production pipeline was run by this worker.

@@ -9,6 +9,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from .layout import load_curves
 
 MODES = ("std", "cor", "cor_grmhd")
 COLORS = {"std": "#2679b5", "cor": "#e58f24", "cor_grmhd": "#8458a5"}
@@ -19,26 +20,45 @@ LABELS = {
 }
 
 
+def load_limits(input_dir, dimension, *, allow_legacy=False):
+    """Read one dimension, preserving the fixed mode order and scalar identity.
+
+    Legacy curves are accepted only for explicit direct plotting, not as inputs
+    to a canonical run. A partial canonical result never falls back to old files.
+    """
+    source = Path(input_dir)
+    path = source / f"limits-{dimension}.npz"
+    canonical = any((source / f"limits-{dim}.npz").exists() for dim in ("1d", "2d"))
+    if (canonical or not allow_legacy) and not path.is_file():
+        raise FileNotFoundError(f"Missing canonical limits: {path}")
+    alpha, cuts, identity = load_curves(source, dimension)
+    if (
+        alpha.ndim != 1
+        or not len(alpha)
+        or not np.isfinite(alpha).all()
+        or np.any(np.diff(alpha) <= 0)
+        or cuts.shape != (len(MODES), len(alpha))
+        or not np.isfinite(cuts).all()
+    ):
+        raise ValueError(f"Invalid curves/grid: {path}")
+    return alpha, cuts, identity
+
+
 def plot_results(input_dir, output_dir):
     source, output = Path(input_dir), Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     results, reference, rows = {}, None, []
     metadata = []
     for dim in ("1d", "2d"):
-        for mode in MODES:
-            path = source / f"{mode}_{dim}.npz"
-            with np.load(path, allow_pickle=False) as z:
-                alpha, cut = z["alphas"].copy(), z["cuts"].copy()
-                identity = {k: str(z[k].item()) for k in ("observation", "prior", "variant")}
-            if alpha.ndim != 1 or cut.shape != alpha.shape or not np.isfinite(cut).all():
-                raise ValueError(f"Invalid curve {path}")
-            if reference is None:
-                reference = alpha
-            if not np.array_equal(reference, alpha):
-                raise ValueError(f"Alpha grid mismatch: {path}")
-            if metadata and identity != metadata[0]:
-                raise ValueError("Mixed observations, priors or algorithm variants")
-            metadata.append(identity)
+        alpha, cuts, identity = load_limits(source, dim, allow_legacy=True)
+        if reference is None:
+            reference = alpha
+        if not np.array_equal(reference, alpha):
+            raise ValueError(f"Alpha grid mismatch: {source / f'limits-{dim}.npz'}")
+        if metadata and identity != metadata[0]:
+            raise ValueError("Mixed observations, priors or algorithm variants")
+        metadata.append(identity)
+        for mode, cut in zip(MODES, cuts):
             results[dim, mode] = cut
             rows.extend(
                 {
@@ -133,7 +153,7 @@ def plot_results(input_dir, output_dir):
         ax.grid(color="#e5e9ee", lw=0.7)
     axes[0].set_ylabel(r"$\log_{10} c_{95}$")
     axes[1].legend(frameon=False, fontsize=8)
-    fig.savefig(output / "limits_by_dimension.png", dpi=200)
+    fig.savefig(output / "limits-by-dimension.png", dpi=200)
     plt.close(fig)
     with (output / "limits.csv").open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))

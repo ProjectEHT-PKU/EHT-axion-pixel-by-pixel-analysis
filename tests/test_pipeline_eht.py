@@ -29,6 +29,8 @@ from eht_axion.pipeline.eht import (
 )
 from eht_axion.polarization import integrate_stokes
 
+DATE_LABELS = dict(zip(DAYS, ("2017-04-05", "2017-04-06", "2017-04-10", "2017-04-11")))
+
 
 def metadata(n):
     return [dict(zip(FIELDS, (i, 1, 0, 1, 1, 1, 1))) for i in range(n)]
@@ -45,7 +47,7 @@ def raw_from_stokes(stokes, order):
     return raw
 
 
-def synthetic_inputs(directory, *, n=7, shape=10):
+def synthetic_inputs(directory, *, n=7, shape=10, layout="legacy"):
     directory.mkdir()
     canonical = {}
     for k, day in enumerate(DAYS):
@@ -59,7 +61,12 @@ def synthetic_inputs(directory, *, n=7, shape=10):
         stokes[..., 2] = np.sin(2 * theta)
         order = np.random.default_rng(day).permutation(n)
         raw = raw_from_stokes(stokes, order)
-        with (directory / f"230_{day}.pkl").open("wb") as stream:
+        if layout == "canonical":
+            path = directory / DATE_LABELS[day] / "image-ensemble.pkl"
+            path.parent.mkdir()
+        else:
+            path = directory / f"230_{day}.pkl"
+        with path.open("wb") as stream:
             pickle.dump(raw, stream)
         canonical[day] = stokes
     return canonical
@@ -178,8 +185,9 @@ def test_historical_mask_geometry_and_tiny_clipped_bounds():
     assert tiny[1, 1]
 
 
-def test_mini_full_stage_fixed_alignment_selection_outputs_and_roll(tmp_path):
-    canonical = synthetic_inputs(tmp_path / "input")
+@pytest.mark.parametrize("input_layout", ["legacy", "canonical"])
+def test_mini_full_stage_fixed_alignment_selection_outputs_and_roll(tmp_path, input_layout):
+    canonical = synthetic_inputs(tmp_path / "input", layout=input_layout)
     output = tmp_path / "output"
     operator = tiny_operator(10)
     report = run_eht_stage(tmp_path / "input", output, trust_pickle=True, topset_size=4,
@@ -191,7 +199,12 @@ def test_mini_full_stage_fixed_alignment_selection_outputs_and_roll(tmp_path):
     assert report["weighting"] == "intensity"
     assert not report["inherit_2d_mask"]
     assert report["ensemble_size"] == 7
-    assert len(list(output.iterdir())) == 13
+    assert {path.name for path in output.iterdir()} == {
+        *DATE_LABELS.values(), "selection.npz", "mask.npy", "report.json",
+    }
+    assert not list(output.glob("summary_*.npz"))
+    assert not list(output.glob("stokes_*.npy"))
+    assert not list(output.glob("evpa_1d_*.npy"))
     assert not list(output.glob(".eht-work-*"))
     # Independently score the aligned (not original-location) samples.
     summaries, intensities, aligned = [], [], []
@@ -217,25 +230,48 @@ def test_mini_full_stage_fixed_alignment_selection_outputs_and_roll(tmp_path):
         assert json.loads(selection["identity"][3]) == [3, 1, 0, 1, 1, 1, 1]
     mask = np.load(output / "mask.npy")
     assert mask.dtype == bool and mask.shape == (10, 10) and mask.any()
-    with np.load(output / "summary_2d.npz") as s2, np.load(output / "summary_1d.npz") as s1:
-        assert s2["mean"].shape == s2["std"].shape == (4, 10, 10)
-        assert s1["mean"].shape == s1["std"].shape == (4, 360)
-        assert s1["covariance"].shape == (4, 360, 360)
-        for k, day in enumerate(DAYS):
-            stokes = np.load(output / f"stokes_{day}.npy", mmap_mode="r")
-            assert isinstance(stokes, np.memmap)
-            assert stokes.shape == (4, 10, 10, 4)
-            expected = shift_spatial(canonical[day][selected].transpose(0, 3, 1, 2),
-                                     FINAL_OFFSETS[day]).transpose(0, 2, 3, 1)
-            np.testing.assert_allclose(stokes, expected, equal_nan=True)
-            evpa = np.load(output / f"evpa_1d_{day}.npy", mmap_mode="r")
-            expected_evpa = np.roll(integrate_stokes(expected, operator, weighting="intensity"),
-                                    -90, axis=-1)
-            np.testing.assert_allclose(evpa, expected_evpa, equal_nan=True)
-            summary = summarize_evpa(stokes_evpa(expected))
-            np.testing.assert_allclose(s2["std"][k], summary["std"], equal_nan=True)
-            np.testing.assert_allclose(s1["std"][k] ** 2, np.diag(s1["covariance"][k]),
+    final_summaries, final_intensities = [], []
+    for day in DAYS:
+        day_dir = output / DATE_LABELS[day]
+        assert {path.name for path in day_dir.iterdir()} == {
+            "stokes.npy", "evpa-1d.npy", "summary.npz",
+        }
+        stokes = np.load(day_dir / "stokes.npy", mmap_mode="r")
+        assert isinstance(stokes, np.memmap)
+        assert stokes.shape == (4, 10, 10, 4)
+        expected = shift_spatial(canonical[day][selected].transpose(0, 3, 1, 2),
+                                 FINAL_OFFSETS[day]).transpose(0, 2, 3, 1)
+        np.testing.assert_allclose(stokes, expected, equal_nan=True)
+        evpa = np.load(day_dir / "evpa-1d.npy", mmap_mode="r")
+        assert isinstance(evpa, np.memmap)
+        expected_evpa = np.roll(integrate_stokes(expected, operator, weighting="intensity"),
+                                -90, axis=-1)
+        np.testing.assert_allclose(evpa, expected_evpa, equal_nan=True)
+        summary_2d = summarize_evpa(stokes_evpa(expected))
+        summary_1d = summarize_evpa(expected_evpa)
+        intensity_mean = expected[..., 0].mean(axis=0)
+        final_summaries.append(summary_2d)
+        final_intensities.append(intensity_mean)
+        with np.load(day_dir / "summary.npz", allow_pickle=False) as summary:
+            assert set(summary.files) == {
+                *(f"evpa_{key}_{dim}" for key in summary_2d for dim in ("1d", "2d")),
+                "intensity_mean", "covariance_1d",
+            }
+            for dim, reference in (("2d", summary_2d), ("1d", summary_1d)):
+                for key, value in reference.items():
+                    np.testing.assert_allclose(summary[f"evpa_{key}_{dim}"], value,
+                                               atol=1e-14, equal_nan=True)
+            np.testing.assert_allclose(summary["intensity_mean"], intensity_mean, equal_nan=True)
+            np.testing.assert_allclose(summary["covariance_1d"],
+                                       ensemble_covariance(expected_evpa, summary_1d),
                                        atol=1e-14, equal_nan=True)
+            np.testing.assert_allclose(summary["evpa_std_1d"] ** 2,
+                                       np.diag(summary["covariance_1d"]),
+                                       atol=1e-14, equal_nan=True)
+    np.testing.assert_array_equal(
+        mask, build_mask(np.stack(final_intensities), np.stack([s["std"] for s in final_summaries]),
+                         min_radius=0, historical_mask=False),
+    )
     assert json.loads((output / "report.json").read_text())["ddof"] == 0
     with pytest.raises(FileExistsError, match="must be empty"):
         run_eht_stage(tmp_path / "input", output, trust_pickle=True, operator=operator)
@@ -282,7 +318,8 @@ def test_batch_sizes_do_not_change_scientific_results(tmp_path):
         run_eht_stage(tmp_path / "input", tmp_path / name, trust_pickle=True, topset_size=4,
                       historical_mask=False, min_radius=0, operator=operator,
                       batch_size=batch_size, pixel_batch_size=pixel_batch_size)
-    for filename in ("selection.npz", "summary_1d.npz", "summary_2d.npz"):
+    filenames = ["selection.npz", *(f"{date}/summary.npz" for date in DATE_LABELS.values())]
+    for filename in filenames:
         with np.load(tmp_path / "a" / filename) as a, np.load(tmp_path / "b" / filename) as b:
             assert a.files == b.files
             for key in a.files:
@@ -337,4 +374,4 @@ def test_cli_mini_stage_with_real_aperture_operator(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["topset_size"] == 3
-    assert np.load(tmp_path / "out" / "evpa_1d_101.npy").shape == (3, 360)
+    assert np.load(tmp_path / "out" / "2017-04-11" / "evpa-1d.npy").shape == (3, 360)

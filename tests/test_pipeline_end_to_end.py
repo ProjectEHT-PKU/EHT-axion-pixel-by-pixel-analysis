@@ -77,16 +77,29 @@ def test_script_only_chain_and_cache(tmp_path):
         rebuild=False,
     )
     run(args)
-    curves = list((out / "07_inference").glob("*.npz"))
-    assert len(curves) == 6
-    assert (out / "08_figures" / "limits.png").stat().st_size > 10_000
-    assert verify_stage(out / "08_figures")["complete"]
-    obs = load_observations(out / "06_observations" / "2d" / "observations.npz")
+    curves = list((out / "inference").glob("limits-*.npz"))
+    assert len(curves) == 2
+    with np.load(out / "inference/limits-1d.npz", allow_pickle=False) as z:
+        assert z["cuts"].shape == (3, 2)
+        assert z["modes"].tolist() == ["std", "cor", "cor_grmhd"]
+    assert (out / "figures/limits.png").stat().st_size > 10_000
+    assert verify_stage(out / "figures")["complete"]
+    assert (out / "eht/2017-04-05/stokes.npy").is_file()
+    assert (out / "raptor/processed/alpha-0.10/stokes.npy").is_file()
+    obs = load_observations(out / "observations/2d/observations.npz")
     for sigma, covariance in zip(obs.standard_deviations, obs.covariances):
         np.testing.assert_allclose(sigma**2, np.diag(covariance))
-    stamp = (out / "07_inference" / "std_1d.npz").stat().st_mtime_ns
+    stamp = (out / "inference/limits-1d.npz").stat().st_mtime_ns
     run(args)
-    assert (out / "07_inference" / "std_1d.npz").stat().st_mtime_ns == stamp
+    assert (out / "inference/limits-1d.npz").stat().st_mtime_ns == stamp
+    root_identity = (out / "manifest.json").read_bytes()
+    config.write_text(text.replace('prior = "log-uniform"', 'prior = "uniform"'))
+    args.stage = "figures"
+    run(args)
+    assert (out / "manifest.json").read_bytes() == root_identity
+    assert len(list((out / "invocations").glob("*.json"))) == 3
+    config.write_text(text)
+    args.stage = "all"
     config.write_text(text.replace('weighting = "intensity"', 'weighting = "flux"'))
     args.stage = "inference"
     args.rebuild = True
@@ -101,11 +114,11 @@ def test_script_only_chain_and_cache(tmp_path):
         run(args)
     args.rebuild = True
     config.write_text(text)
-    with np.load(out / "07_inference" / "cor_2d.npz") as z:
+    with np.load(out / "inference/limits-2d.npz") as z:
         values = {k: z[k] for k in z.files}
     values["prior"] = np.asarray("uniform")
-    np.savez(out / "07_inference" / "cor_2d.npz", **values)
+    np.savez(out / "inference/limits-2d.npz", **values)
     with pytest.raises(ValueError, match="Mixed"):
-        plot_results(out / "07_inference", tmp_path / "bad-figures")
+        plot_results(out / "inference", tmp_path / "bad-figures")
     with pytest.raises(ValueError, match="checksum"):
-        verify_stage(out / "07_inference")
+        verify_stage(out / "inference")

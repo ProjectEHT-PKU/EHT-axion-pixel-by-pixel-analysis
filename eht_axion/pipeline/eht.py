@@ -18,6 +18,8 @@ from numpy.lib.format import open_memmap
 
 from eht_axion.angles import circular_difference
 
+from .layout import date_label, input_eht_file
+
 DAYS = (95, 96, 100, 101)
 FIELDS = ("zbl", "prior_fwhm", "sys_noise", "MEM", "TV", "T2V", "l1")
 RANK_OFFSETS = {95: (2, 0), 96: (1, 1), 100: (-4, 4), 101: (-1, 1)}
@@ -255,10 +257,6 @@ def _load_day(path: Path) -> dict:
     return raw
 
 
-def _stack(summaries: list[dict[str, np.ndarray]]) -> dict[str, np.ndarray]:
-    return {key: np.stack([summary[key] for summary in summaries]) for key in summaries[0]}
-
-
 def _diagnostics(summary: Mapping[str, np.ndarray]) -> dict:
     result = {"finite_features": int(np.isfinite(summary["mean"]).sum())}
     for key in ("std", "concentration", "circular_std"):
@@ -294,7 +292,10 @@ def run_eht_stage(
     operator=None,
     integrator: Callable | None = None,
 ) -> dict:
-    """Run four-day identity-matched ranking and write products to an empty dir.
+    """Run four-day identity-matched ranking into the supplied empty EHT dir.
+
+    Each ISO-date directory contains stokes.npy, evpa-1d.npy and summary.npz.
+    The caller locates the EHT directory; this function does not resolve run roots.
 
     Injecting an operator/integrator is an explicit API for tests/alternate
     quadrature.  Otherwise use polarization.aperture_operator/integrate_stokes;
@@ -344,7 +345,7 @@ def run_eht_stage(
         orders, rank_summaries, rank_intensity = [], [], []
         shape = n = None
         for day in DAYS:
-            raw = _load_day(input_dir / f"230_{day}.pkl")
+            raw = _load_day(input_eht_file(input_dir, day))
             common, order = align_metadata(raw["meta_data"], common)
             current_shape = raw["I_data"].shape[0]
             if shape is not None and current_shape != shape:
@@ -402,12 +403,14 @@ def run_eht_stage(
             raise ValueError("aperture operator shape must be (angular_bins, H*H)")
         summaries_2d, final_intensity = [], []
         for day, order in zip(DAYS, orders):
-            raw = _load_day(input_dir / f"230_{day}.pkl")
+            raw = _load_day(input_eht_file(input_dir, day))
             # Detect metadata changes between ranking and final-product passes.
             _, checked_order = align_metadata(raw["meta_data"], common)
             if not np.array_equal(order, checked_order) or raw["I_data"].shape[:2] != (shape, shape):
                 raise ValueError("input changed between ranking and final-product passes")
-            stokes_out = open_memmap(output_dir / f"stokes_{day}.npy", mode="w+",
+            day_dir = output_dir / date_label(day)
+            day_dir.mkdir()
+            stokes_out = open_memmap(day_dir / "stokes.npy", mode="w+",
                                      dtype="float64", shape=(topset_size, shape, shape, 4))
             theta = open_memmap(work / f"final_{day}.npy", mode="w+", dtype="float64",
                                 shape=(topset_size, shape, shape))
@@ -433,12 +436,10 @@ def run_eht_stage(
         mask = build_mask(np.stack(final_intensity),
                           np.stack([s["std"] for s in summaries_2d]), **mask_options)
         np.save(output_dir / "mask.npy", mask)
-        np.savez(output_dir / "summary_2d.npz", **_stack(summaries_2d),
-                 intensity_mean=np.stack(final_intensity), days=np.asarray(DAYS))
-        summaries_1d, covariances = [], []
-        for day in DAYS:
-            stokes_out = np.load(output_dir / f"stokes_{day}.npy", mmap_mode="r")
-            evpa = open_memmap(output_dir / f"evpa_1d_{day}.npy", mode="w+", dtype="float64",
+        for k, day in enumerate(DAYS):
+            day_dir = output_dir / date_label(day)
+            stokes_out = np.load(day_dir / "stokes.npy", mmap_mode="r")
+            evpa = open_memmap(day_dir / "evpa-1d.npy", mode="w+", dtype="float64",
                                shape=(topset_size, angular_bins))
             for start in range(0, topset_size, batch_size):
                 # Padding contributes zero flux, not NaNs to the sparse integral.
@@ -451,12 +452,15 @@ def run_eht_stage(
                 evpa[start:start + len(batch)] = np.roll(integrated, angle_roll, axis=-1)
             evpa.flush()
             summary = summarize_evpa(evpa, centering=centering, pixel_batch_size=pixel_batch_size)
-            summaries_1d.append(summary)
-            covariances.append(ensemble_covariance(evpa, summary, batch_size=batch_size))
+            covariance = ensemble_covariance(evpa, summary, batch_size=batch_size)
+            np.savez(
+                day_dir / "summary.npz",
+                **{f"evpa_{key}_2d": value for key, value in summaries_2d[k].items()},
+                **{f"evpa_{key}_1d": value for key, value in summary.items()},
+                intensity_mean=final_intensity[k], covariance_1d=covariance,
+            )
             report["per_day"][str(day)]["summary_1d"] = _diagnostics(summary)
             del stokes_out, evpa
-        np.savez(output_dir / "summary_1d.npz", **_stack(summaries_1d),
-                 covariance=np.stack(covariances), days=np.asarray(DAYS))
         report.update(ensemble_size=n, shape=shape, rank_pixels=int(rank_mask.sum()),
                       mask_pixels=int(mask.sum()), score_min=float(score.min()),
                       score_max=float(score.max()), batch_size=batch_size,

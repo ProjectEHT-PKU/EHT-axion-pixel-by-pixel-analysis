@@ -8,8 +8,8 @@ histogram fit，也不读取历史输出做 mandatory 对照或静默 fallback�
 
 ```bash
 python -m eht_axion.pipeline.eht \
-  --input-dir EHT-Imaging/data_in \
-  --output-dir /path/to/new/eht-stage \
+  --input-dir data/inputs/eht \
+  --output-dir /path/to/new/run/eht \
   --topset-size 1572 \
   --trust-pickle
 ```
@@ -19,7 +19,9 @@ python -m eht_axion.pipeline.eht \
 
 直接 CLI 的输出目录必须为空或不存在，拒绝覆盖已有结果。直接运行不提供原子
 transaction/cache：失败时可能留下部分产品，但不会写 `report.json`，临时角度文件
-会清理。`report.json` 最后写入，但不能替代父侧校验后的 `stage.json`。
+会清理。`report.json` 最后写入，但不能替代父侧校验后的 `manifest.json`。
+命名总约定见 [DATA_LAYOUT_PLAN.md](DATA_LAYOUT_PLAN.md)。函数接收调用者指定的
+EHT 产品目录，不自行查找 run root 或追加 `eht/`；observations 维度目录也由父侧定位。
 
 父侧可用 `common.stage_directory` 包装同一函数，传入其空暂存目录：
 
@@ -27,13 +29,14 @@ transaction/cache：失败时可能留下部分产品，但不会写 `report.jso
 from pathlib import Path
 from eht_axion.pipeline.common import stage_directory
 from eht_axion.pipeline.eht import DAYS, run_eht_stage
+from eht_axion.pipeline.layout import input_eht_file
 
-inputs = Path("EHT-Imaging/data_in")
+inputs = Path("data/inputs/eht")
 config = dict(trust_pickle=True, topset_size=1572,
               centering="ensemble", weighting="intensity")
 with stage_directory(
     Path("runs/example/eht"), "eht", config,
-    [inputs / f"230_{day}.pkl" for day in DAYS],
+    [input_eht_file(inputs, day) for day in DAYS],
 ) as temporary:
     if temporary is not None:
         report = run_eht_stage(inputs, temporary, **config)
@@ -98,7 +101,12 @@ evpa = polarization.integrate_stokes(stokes, operator, weighting=weighting)
 
 ## 输入与 identity 对齐
 
-固定四天顺序：`(95, 96, 100, 101)`。每个文件 `230_{day}.pkl` 包含：
+固定四天顺序：`(95, 96, 100, 101)`，对应 ISO 日期
+`(2017-04-05, 2017-04-06, 2017-04-10, 2017-04-11)`。
+日期标签统一使用 `layout.date_label(day)`；输入由
+`layout.input_eht_file(input_dir, day)` 解析，支持 canonical
+`{date}/image-ensemble.pkl` 和旧 `230_{day}.pkl`，也可传父侧支持的输入根目录。
+只读取原数据，不重命名、复制或写回历史 pickle。每个 pickle 包含：
 
 - `meta_data`：长度 N 的 mapping 序列；
 - `I_data`、`Q_data`、`U_data`：相同形状 `(H, H, N)`；H≥2；
@@ -196,16 +204,26 @@ std>0；需要正定噪声的 inference 还必须显式拒绝零 variance 或采
 residual 再做 circular wrap，也不能用某个 batch 的 center 替代全 ensemble center。
 `ensemble_covariance(theta, summary, batch_size=...)` 为相同分支 residual 的
 `R.T @ R / N`，不使用 pairwise deletion；不完整 feature 对应整行整列 NaN。
-`summary_1d.npz` 直接保存该 covariance，其 diagonal 与保存的 std² 一致。
+每个日期的 `summary.npz` 以 `covariance_1d` 保存该 covariance，其 diagonal
+与 `evpa_std_1d`² 一致。
 不默认生成全部 4096 像素的巨大 2D covariance；父侧可用选中像素和保存的 center/
 unwrapped_mean 构造所需 covariance。
 
-**父侧 observations 集成注意：** 若 `products.build_observations` 另行围绕输出 mean
-unwrap/recenter，则宽分布越过新 branch 时可得到不同的 covariance/std。其结果属于
-一个额外的、需记录 recenter diagnostics 的下游估计步骤，不保证与本 stage 保存的
-std/covariance 相同。要严格保持同一 ensemble 分支，应读取保存的 `center` 和
-`unwrapped_mean`，并使用上述 `ensemble_residuals`。窄分布可能等价，但不应无条件
-假定只存在舍入误差。
+**observations 集成：** `products.build_observations` 读取保存的 `center` 与
+`unwrapped_mean`，严格按上述分支构造 residual，不围绕输出 mean 重新 unwrap，
+不新增 resample。宽分布越过 branch 时，重新居中会改变 covariance，不能视为
+舍入误差。函数继续从 mmap ensemble 提取选中的 features 计算 covariance，并
+检查 residual mean 接近零；不会改写输入或复制旧 NPY。
+
+读取按 day 支持两种布局：优先使用 `{date}/summary.npz` 和同目录
+`stokes.npy` / `evpa-1d.npy`；没有该 summary 时使用旧
+`summary_{1d,2d}.npz`（四天 stacked named keys）和
+`stokes_{day}.npy` / `evpa_1d_{day}.npy`，允许逐日迁移。canonical summary
+存在但 ensemble 缺失或 key 错误时显式失败，不静默换用旧 ensemble。
+2D 的 `mask.npy` 在两种布局中都位于 EHT 顶层。
+`load_templates` 与 `load_observations` 保持现有 named-key schema；父侧传入
+`raptor/templates/{dimension}/templates.npz` 与
+`observations/{dimension}/observations.npz` 的具体路径。
 
 ## 2D mask 与 1D aperture
 
@@ -238,18 +256,31 @@ Stokes 保持 NaN padding，不污染其他像素。
 
 ## 产品契约
 
-生产 H=64、K=1572、A=360；四天轴顺序始终为 `(95,96,100,101)`。
+生产 H=64、K=1572、A=360；selection 四天轴顺序始终为 `(95,96,100,101)`。
 浮点为 float64；indices/count 为 int64；文件均无 Python object arrays。
+以下路径均相对于传入的 `output_dir`（通常为 `run/eht`），`{date}` 为上列四个日期。
+不再新写顶层 `summary_1d.npz` / `summary_2d.npz` 或旧 flat ensemble 文件。
 
 | 文件 | 内容 |
 | --- | --- |
-| `stokes_{day}.npy` | `(K,H,H,4)`，通道 I,Q,U,V；`open_memmap` 写入，可 mmap 读取 |
-| `evpa_1d_{day}.npy` | `(K,A)`，积分后已 roll 的 EVPA radians；mmap |
-| `summary_2d.npz` | `mean/std/center/unwrapped_mean/concentration/circular_std/count` 各 `(4,H,H)`；另有 `intensity_mean (4,H,H)`、`days (4,)` |
-| `summary_1d.npz` | 上述七项各 `(4,A)`；另有 `covariance (4,A,A)`、`days (4,)` |
+| `{date}/stokes.npy` | `(K,H,H,4)`，通道 I,Q,U,V；`open_memmap` 写入，可 mmap 读取 |
+| `{date}/evpa-1d.npy` | `(K,A)`，积分后已 roll 的 EVPA radians；mmap |
+| `{date}/summary.npz` | 当日 1D/2D named summaries、mean I、1D covariance，keys 见下表；无 day 轴 |
 | `mask.npy` | `(H,H)` bool，最终 2D 共同 mask |
 | `selection.npz` | 见下表；可 `allow_pickle=False` 读取 |
 | `report.json` | 参数、fixed offsets、输入位置、变换约定、mask 像素数、score 范围、每 day 的 spread/concentration 聚合诊断 |
+
+每个 `{date}/summary.npz` 含完整 16 个 named keys：
+
+| keys | shape / 含义 |
+| --- | --- |
+| `evpa_mean_2d`, `evpa_std_2d`, `evpa_center_2d`, `evpa_unwrapped_mean_2d`, `evpa_concentration_2d`, `evpa_circular_std_2d`, `evpa_count_2d` | 各 `(H,H)`，以上 ensemble 统计 |
+| `evpa_mean_1d`, `evpa_std_1d`, `evpa_center_1d`, `evpa_unwrapped_mean_1d`, `evpa_concentration_1d`, `evpa_circular_std_1d`, `evpa_count_1d` | 各 `(A,)`，同一统计定义 |
+| `intensity_mean` | `(H,H)`，final relocated topset 的 ordinary mean I，保留 NaN borders |
+| `covariance_1d` | `(A,A)`，保存的 full-ensemble branch population covariance |
+
+四天 2D 小型 summaries 暂存内存，在最终 mask 确定、当日 1D summary 生成后合写
+当日 NPZ；Stokes/EVPA 大数组仍逐批写入 mmap-capable NPY。
 
 `selection.npz`：
 
@@ -281,7 +312,7 @@ pickle 内部对象和 OS 文件缓存使精确 RSS 依赖环境；本文不声�
 mmap（600 MiB），另需最终 Stokes、EVPA、summary 和 transaction 备份空间。
 
 ```bash
-python -m pytest tests/test_pipeline_eht.py -q
+pixi run python -m pytest tests/test_pipeline_eht.py tests/test_pipeline_products.py -q
 ```
 
 测试覆盖：translation 方向与 NaN 边界、I/Q/U 变换符号、metadata set 不匹配/重复/
@@ -289,4 +320,7 @@ python -m pytest tests/test_pipeline_eht.py -q
 covariance diagonal、zero polarization、不完整 features、历史及 tiny mask bounds、
 四天 mini 全流程对齐 score 与 selection、固定两组 offsets、mmap 输出、-90 roll、
 显式 flux/mask inheritance、拒绝未授权 pickle，以及真实父侧 aperture 的 tiny CLI
-流程。不会访问真实 4800 图数据、执行 notebook 或进行昂贵历史对照。
+流程。新增覆盖 canonical/legacy pickle 输入、逐日期目录与全部 named summary keys、
+不写旧顶层 summary、两种 observations 维度的新/旧/混合布局、保存 branch 下的
+mean/std/covariance/pair 契约、只读 mmap ensemble 与不改写旧输入。
+不会访问真实 4800 图数据、执行 notebook 或进行昂贵历史对照。

@@ -5,6 +5,7 @@ import json
 import numpy as np
 from ..angles import circular_difference
 from ..observations import ObservationData, DAYS, DAY_PAIRS
+from .layout import date_label
 
 
 def load_templates(path, dimension):
@@ -45,14 +46,31 @@ def build_observations(
     Std is exactly diag(cor), so mode comparisons isolate spatial association.
     Observed pair difference is later minus earlier. Cross-day covariance is
     assumed zero, not inferred from common hyperparameter labels.
+    eht_dir is the EHT product directory, not a run root. Read canonical
+    per-date summaries/ensembles or legacy stacked summaries/flat ensembles;
+    never resample or recenter the saved circular branch.
     """
     directory = Path(eht_dir)
     _, _, _, template_valid = load_templates(template_path, dimension)
-    with np.load(directory / f"summary_{dimension}.npz", allow_pickle=False) as summary:
-        means = summary["mean"].copy()
-        stds = summary["std"].copy()
-        centers = summary["center"].copy()
-        unwrapped_means = summary["unwrapped_mean"].copy()
+    keys = ("mean", "std", "center", "unwrapped_mean")
+    daily_summaries, ensemble_paths = [], []
+    legacy = None
+    for k, day in enumerate(DAYS):
+        day_dir = directory / date_label(day)
+        if (day_dir / "summary.npz").is_file():
+            with np.load(day_dir / "summary.npz", allow_pickle=False) as summary:
+                daily_summaries.append([summary[f"evpa_{key}_{dimension}"] for key in keys])
+            ensemble_paths.append(day_dir / ("stokes.npy" if dimension == "2d" else "evpa-1d.npy"))
+        else:
+            if legacy is None:
+                with np.load(directory / f"summary_{dimension}.npz", allow_pickle=False) as summary:
+                    legacy = [summary[key] for key in keys]
+            daily_summaries.append([value[k] for value in legacy])
+            filename = f"stokes_{day}.npy" if dimension == "2d" else f"evpa_1d_{day}.npy"
+            ensemble_paths.append(directory / filename)
+    means, stds, centers, unwrapped_means = (
+        np.stack([summary[k] for summary in daily_summaries]) for k in range(len(keys))
+    )
     if centers.shape != means.shape or unwrapped_means.shape != means.shape:
         raise ValueError("Missing or incompatible circular branch metadata")
     if means.shape != stds.shape or means.shape[0] != 4 or means.shape[1:] != template_valid.shape:
@@ -75,7 +93,7 @@ def build_observations(
     covariances, fitted_means, biases, n = [], [], [], []
     for k, day in enumerate(DAYS):
         if dimension == "2d":
-            data = np.load(directory / f"stokes_{day}.npy", mmap_mode="r", allow_pickle=False)
+            data = np.load(ensemble_paths[k], mmap_mode="r", allow_pickle=False)
             if data.ndim != 4 or data.shape[1:3] != means.shape[1:] or data.shape[-1] != 4:
                 raise ValueError("Stokes shape does not match summary")
             q = data[..., 1].reshape(len(data), -1)[:, selected]
@@ -84,7 +102,7 @@ def build_observations(
             if np.any((q == 0) & (u == 0)):
                 raise ValueError("Selected pixel has undefined zero polarization")
         else:
-            data = np.load(directory / f"evpa_1d_{day}.npy", mmap_mode="r", allow_pickle=False)
+            data = np.load(ensemble_paths[k], mmap_mode="r", allow_pickle=False)
             if data.ndim != 2 or data.shape[1:] != means.shape[1:]:
                 raise ValueError("1D ensemble shape mismatch")
             theta = data[:, selected]
