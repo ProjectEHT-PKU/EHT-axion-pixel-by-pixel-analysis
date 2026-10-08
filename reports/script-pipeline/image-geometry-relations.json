@@ -1,0 +1,47 @@
+{
+  "parameters": {
+    "initial_fov_rg": 46.2262,
+    "final_fov_rg": 32.6868,
+    "sigma_rg": 2.16871
+  },
+  "relationships": {
+    "initial_div_final": 1.414216136177295,
+    "sqrt2": 1.4142135623730951,
+    "initial_div_final_relative_to_sqrt2": 1.8199544031816117e-06,
+    "sigma_from_128fov_20beam_2p355": 2.1687101910828024,
+    "sigma_from_128fov_20beam_exact": 2.1688759235667514,
+    "beam_final_pixels_exact": 9.999234978981745,
+    "required_min_fov_ratio_rotation108": 1.260073510670101
+  },
+  "candidate_theta_uas_per_rg_128fov": 3.9159538406941032,
+  "scenarios": [
+    {
+      "name": "128uas identity",
+      "theta_uas_per_rg": 3.9159538406941032,
+      "initial_fov_uas": 181.01966543069375,
+      "final_fov_uas": 128.0,
+      "gaussian_fwhm_uas": 19.99846995796349
+    },
+    {
+      "name": "120uas identity",
+      "theta_uas_per_rg": 3.6712067256507215,
+      "initial_fov_uas": 169.7059363412754,
+      "final_fov_uas": 120.0,
+      "gaussian_fwhm_uas": 18.748565585590768
+    },
+    {
+      "name": "current M6.5e9 D16.8",
+      "theta_uas_per_rg": 3.818993252351109,
+      "initial_fov_uas": 176.53754588183284,
+      "final_fov_uas": 124.83066864095022,
+      "gaussian_fwhm_uas": 19.503299817566703
+    },
+    {
+      "name": "historical raw output",
+      "theta_uas_per_rg": 3.6432720895784816,
+      "initial_fov_uas": 168.4146242672728,
+      "final_fov_uas": 119.0869061376339,
+      "gaussian_fwhm_uas": 18.60590558422101
+    }
+  ]
+}
