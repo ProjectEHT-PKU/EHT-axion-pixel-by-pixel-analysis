@@ -86,6 +86,9 @@ def _validate_request(dimension: str, mode: str, options: LimitOptions) -> None:
         raise ValueError("prior must be 'uniform' or 'log-uniform'")
     if options.posterior_method not in {None, "legacy", "trapezoid"}:
         raise ValueError("posterior_method must be 'legacy' or 'trapezoid'")
+    posterior_method = options.posterior_method or ("legacy" if options.legacy else "trapezoid")
+    if posterior_method == "legacy" and options.prior != "log-uniform":
+        raise ValueError("legacy posterior_method requires prior='log-uniform' (equal-log-grid CDF)")
 
 
 def calculate_from_products(
@@ -308,7 +311,7 @@ def calculate_from_products(
         "log_likelihood": np.asarray(loglikes).tolist(),
         "posterior_density": np.asarray(densities).tolist(),
         "cdf": np.asarray(cdfs).tolist(), "boundaries": boundaries,
-        "posterior_method": posterior_method,
+        "posterior_method": posterior_method, "prior": options.prior,
         "density_measure": "discrete-log-grid-mass" if posterior_method == "legacy" else "dg",
         "phase_count": resolved_phase_count, "legacy": options.legacy,
         "model_error_assumption": "spatially diagonal, independent between epochs",

@@ -11,8 +11,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-root", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--reuse-imported", action="store_true")
     args = parser.parse_args(argv)
-    plot_diagnostics(args.run_root, args.output_dir)
+    plot_diagnostics(args.run_root, args.output_dir, reuse_imported=args.reuse_imported)
 
 
 if __name__ == "__main__":

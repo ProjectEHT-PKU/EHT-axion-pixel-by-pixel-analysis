@@ -5,7 +5,9 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+from importlib.metadata import PackageNotFoundError, version
 import os
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -61,7 +63,11 @@ def revision(stage=None):
     group = str(stage).split(":")[0]
     files = dependencies.get(group)
     paths = [root / "eht_axion" / p for p in files] if files else list((root / "eht_axion").rglob("*.py"))
-    paths.extend([Path(__file__).resolve(), root / "eht_axion/pipeline/layout.py"])
+    paths.extend([
+        Path(__file__).resolve(), root / "eht_axion/pipeline/layout.py",
+        root / "eht_axion/pipeline/workflow.py", root / "eht_axion/pipeline/config.py",
+        root / "eht_axion/stokes.py",
+    ])
     for path in sorted(set(paths)):
         if path.is_file():
             h.update(str(path.relative_to(root)).encode())
@@ -92,6 +98,23 @@ def product_schema(path):
     return {}
 
 
+def runtime_identity():
+    """Bind stage reuse to the resolved software environment, not only source."""
+    root = Path(__file__).resolve().parents[2]
+    packages = {}
+    for name in ("numpy", "scipy", "h5py", "matplotlib", "PyYAML"):
+        try:
+            packages[name] = version(name)
+        except PackageNotFoundError:
+            packages[name] = "not-installed"
+    lock = root / "pixi.lock"
+    return {
+        "python": platform.python_version(), "implementation": platform.python_implementation(),
+        "platform": platform.system(), "machine": platform.machine(), "packages": packages,
+        "pixi_lock_sha256": sha256(lock) if lock.is_file() else None,
+    }
+
+
 def signature(stage, config, inputs):
     payload = {
         "stage": stage,
@@ -99,6 +122,7 @@ def signature(stage, config, inputs):
         "config": config,
         "inputs": inputs,
         "implementation": revision(stage),
+        "runtime": runtime_identity(),
     }
     identity = dict(payload, implementation=payload["implementation"]["python_source_sha256"])
     encoded = json.dumps(identity, sort_keys=True, separators=(",", ":"), allow_nan=False)
@@ -128,6 +152,16 @@ def complete_manifest(directory):
 def verify_stage(directory, *, recursive=False, allow_imported=True, _seen=None):
     directory = Path(directory).resolve(strict=True)
     manifest = complete_manifest(directory)
+    origin = manifest.get("imported_from") or {}
+    if "manifest_sha256" in origin:
+        # Earlier migrations kept only a receipt. Do not silently promote that
+        # receipt to the new live-verified provenance contract.
+        origin_directory = Path(origin["path"]).resolve(strict=True)
+        expected_manifest = manifest_path(origin_directory).resolve()
+        records = [entry for entry in manifest.get("origin_inputs", [])
+                   if Path(entry["path"]).resolve() == expected_manifest]
+        if len(records) != 1 or records[0]["sha256"] != origin["manifest_sha256"]:
+            raise ValueError("Unverifiable legacy migration origin; migrate again to a new destination")
     if (manifest.get("imported_from") or manifest.get("imported_ancestors")) and not allow_imported:
         raise ValueError("Consuming imported products requires explicit --reuse-imported")
     if recursive:
@@ -136,7 +170,7 @@ def verify_stage(directory, *, recursive=False, allow_imported=True, _seen=None)
         if identity in seen:
             return manifest
         seen.add(identity)
-        for entry in manifest["inputs"]:
+        for entry in manifest["inputs"] + manifest.get("origin_inputs", []):
             path = Path(entry["path"])
             if not path.is_file() or path.stat().st_size != entry["size"] or sha256(path) != entry["sha256"]:
                 raise ValueError(f"Stale upstream lineage: {path}")
@@ -167,15 +201,70 @@ def verify_stage(directory, *, recursive=False, allow_imported=True, _seen=None)
     return manifest
 
 
+def require_declared_outputs(directory, paths):
+    """A verified stage covers declared outputs, never arbitrary extra files."""
+    directory = Path(directory).absolute()
+    record = complete_manifest(directory)
+    declared = {entry["path"] for entry in record["outputs"]}
+    for value in paths:
+        path = Path(value).absolute()
+        try:
+            relative = str(path.relative_to(directory))
+        except ValueError as exc:
+            raise ValueError(f"Consumed product outside its stage: {path}") from exc
+        if relative not in declared:
+            raise ValueError(f"Consumed product is not a declared stage output: {path}")
+
+
+def source_closure(paths):
+    """Enumerate all declared source bytes before replacing any output tree."""
+    pending, seen = list(paths), set()
+    while pending:
+        path = Path(pending.pop()).resolve(strict=True)
+        if path in seen:
+            continue
+        seen.add(path)
+        yield path
+        if path.name in {"manifest.json", "stage.json"}:
+            record = json.loads(path.read_text())
+            if record.get("complete") and record.get("schema") == SCHEMA_VERSION:
+                pending.extend(entry["path"] for entry in record["inputs"]
+                               + record.get("origin_inputs", []))
+                pending.extend(path.parent / entry["path"] for entry in record["outputs"])
+
+
 def reject_directory_symlinks(path):
     lexical = Path(path).absolute()
     if any(p.is_symlink() for p in [lexical, *lexical.parents]):
-        raise ValueError("Refusing to rebuild through a shared directory symlink")
+        raise ValueError("Refusing to write/rebuild through a shared directory symlink")
+
+
+def require_new_output_file(path):
+    """Fail before any write through an existing or dangling output link."""
+    path = Path(path)
+    reject_directory_symlinks(path.parent)
+    if path.is_symlink():
+        raise ValueError(f"Refusing output file symlink: {path}")
+    if path.exists():
+        raise FileExistsError(f"refusing to overwrite stage output: {path}")
+    return path
+
+
+def verify_input_stages(paths, *, allow_imported=False):
+    """Verify declared stage manifests, including their full scientific ancestry."""
+    seen = set()
+    for value in paths:
+        path = Path(value)
+        if path.name in {"manifest.json", "stage.json"}:
+            record = json.loads(path.read_text())
+            if record.get("complete") and record.get("schema") == SCHEMA_VERSION:
+                verify_stage(path.parent, recursive=True, allow_imported=allow_imported, _seen=seen)
 
 
 @contextlib.contextmanager
 def stage_directory(
-    destination, stage, config, input_paths=(), *, rebuild=False, reuse_imported=False, imported_from=None
+    destination, stage, config, input_paths=(), *, rebuild=False, reuse_imported=False, imported_from=None,
+    origin_paths=(),
 ):
     """Yield temporary destination, or None for a verified cache hit.
 
@@ -183,17 +272,22 @@ def stage_directory(
     existence. Replacement preserves old data until the new directory is complete.
     No hardlinks to inputs. Failed new stages are cleaned, old stages are untouched.
     """
-    if rebuild:
-        reject_directory_symlinks(destination)
+    reject_directory_symlinks(destination)
     destination = Path(destination).resolve()
+    input_paths, origin_paths = list(input_paths), list(origin_paths)
+    verify_input_stages(
+        input_paths + origin_paths, allow_imported=reuse_imported or imported_from is not None,
+    )
     # Replacing a directory must never replace its raw inputs, including via symlinks.
-    for value in input_paths:
-        path = Path(value).resolve(strict=True)
+    for path in source_closure(input_paths + origin_paths):
         if path == destination or path.is_relative_to(destination):
             raise ValueError(f"Output stage contains an input source: {path}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     inputs = describe_inputs(input_paths)
     payload, key = signature(stage, config, inputs)
+    origins = describe_inputs(origin_paths)
+    if origins:
+        payload["origin_inputs"] = origins
     lock = destination.with_name(destination.name + ".lock")
     try:
         fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -204,11 +298,12 @@ def stage_directory(
     temporary = None
     try:
         if destination.exists() and not rebuild:
-            manifest = verify_stage(destination, allow_imported=reuse_imported)
+            manifest = verify_stage(destination, recursive=True, allow_imported=reuse_imported)
             if manifest.get("imported_from"):
                 if not reuse_imported:
                     raise ValueError("Imported products require explicit --reuse-imported or a new run")
-                if manifest["config"] != json.loads(json.dumps(config)) or manifest["inputs"] != inputs:
+                if (manifest["config"] != json.loads(json.dumps(config)) or manifest["inputs"] != inputs
+                        or (origins and manifest.get("origin_inputs", []) != origins)):
                     raise ValueError("Imported product settings/lineage differ; cannot reuse")
                 print(f"IMPORTED REUSE {stage}: {destination} (not recomputed)", flush=True)
                 yield None
@@ -247,7 +342,7 @@ def stage_directory(
             elapsed_seconds=time.perf_counter() - started,
         )
         ancestors = []
-        for entry in inputs:
+        for entry in inputs + origins:
             path = Path(entry["path"])
             if path.name in {"manifest.json", "stage.json"}:
                 upstream = json.loads(path.read_text())
@@ -267,7 +362,7 @@ def stage_directory(
             manifest["scientific_recomputation"] = False
         (temporary / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
         backup = destination.with_name(destination.name + ".previous")
-        if backup.exists():
+        if backup.exists() or backup.is_symlink():
             raise ValueError(f"Backup already exists: {backup}; inspect before rebuilding")
         if destination.exists():
             destination.rename(backup)

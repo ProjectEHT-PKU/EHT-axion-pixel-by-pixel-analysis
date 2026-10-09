@@ -51,8 +51,9 @@ def _outputs(output_dir, names, inputs=()):
             path.exists() and path.samefile(source) for source in sources
         ):
             raise ValueError(f"output aliases a read-only input: {path}")
-        if path.exists():
-            raise FileExistsError(f"refusing to overwrite stage output: {path}")
+        from .common import require_new_output_file
+
+        require_new_output_file(path)
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     return paths
 
@@ -337,8 +338,9 @@ def _wrap(angle, period):
 
 
 def _evpa(stokes):
-    q, u = stokes[..., 1], stokes[..., 2]
-    return np.where((q == 0) & (u == 0), np.nan, 0.5 * np.arctan2(u, q))
+    from ..stokes import finite_evpa
+
+    return finite_evpa(stokes[..., 1], stokes[..., 2])
 
 
 def fit_phase_dft(evpa, *, phase_axis: int = 0) -> np.ndarray:

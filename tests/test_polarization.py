@@ -24,6 +24,14 @@ def test_integrated_evpa_does_not_depend_on_total_intensity():
     assert result[0] == pytest.approx(np.pi / 8)
 
 
+def test_integrated_evpa_zero_and_nonfinite_integrals_are_undefined():
+    operator = np.array([[1, 1, 1, 1]], dtype=float)
+    for q, u in ((np.zeros((2, 2)), np.zeros((2, 2))),
+                 (np.full((2, 2), np.inf), np.ones((2, 2))),
+                 (np.ones((2, 2)), np.full((2, 2), np.nan))):
+        assert np.isnan(integrated_evpa(q, u, window_degrees=1, operator=operator)).all()
+
+
 def test_integrated_evpa_accepts_batches():
     operator = np.array([[1, 0, 0, 0], [0, 0, 0, 1]], dtype=float)
     q = np.ones((3, 2, 2))

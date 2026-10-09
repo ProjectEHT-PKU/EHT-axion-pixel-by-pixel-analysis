@@ -16,6 +16,7 @@ import numpy as np
 from numpy.lib.format import open_memmap
 
 from eht_axion.angles import circular_difference
+from eht_axion.stokes import finite_evpa
 
 from .layout import date_label, input_eht_file
 
@@ -111,9 +112,7 @@ def transform_stokes(raw: Mapping, indices: np.ndarray) -> np.ndarray:
 
 def stokes_evpa(stokes: np.ndarray) -> np.ndarray:
     """Pixel EVPA in radians; absent/zero polarization is undefined, not zero."""
-    q, u = stokes[..., 1], stokes[..., 2]
-    angle = 0.5 * np.arctan2(u, q)
-    return np.where(np.isfinite(q) & np.isfinite(u) & ((q != 0) | (u != 0)), angle, np.nan)
+    return finite_evpa(stokes[..., 1], stokes[..., 2])
 
 
 def summarize_evpa(
@@ -125,7 +124,10 @@ def summarize_evpa(
     covariance; wrapping residuals a second time around mean changes the branch.
     NaNs (translation padding / empty apertures) are excluded, with count saved.
     Incomplete features have mean/std=NaN so downstream finite checks cannot
-    silently use a different, sample-dependent ensemble.
+    silently use a different, sample-dependent ensemble. A normalized resultant
+    within eight float64 epsilons of zero has no numerically resolvable branch:
+    all branch/spread statistics are NaN, retaining concentration/count only.
+    This is a roundoff guard, not a physical concentration selection cut.
     """
     if centering != "ensemble":
         raise ValueError("only centering='ensemble' is implemented; no historical fit fallback")
@@ -141,18 +143,20 @@ def summarize_evpa(
         finite = np.isfinite(values)
         n = finite.sum(axis=0)
         denominator = np.where(n > 0, n, 1)
-        vector = np.where(finite, np.exp(2j * values), 0).sum(axis=0) / denominator
+        vector = np.where(finite, np.exp(2j * np.where(finite, values, 0)), 0).sum(axis=0) / denominator
         center = np.angle(vector) / 2
         unwrapped = center + circular_difference(values, center)
         average = np.where(finite, unwrapped, 0).sum(axis=0) / denominator
         variance = np.where(finite, (unwrapped - average) ** 2, 0).sum(axis=0) / denominator
         concentration = np.clip(np.abs(vector), 0, 1)
+        resolved = (n > 0) & (concentration > 8 * np.finfo(np.float64).eps)
         with np.errstate(divide="ignore"):
             circular_std = np.sqrt(-2 * np.log(concentration)) / 2
         parts = (circular_difference(average, 0), np.sqrt(variance), center,
                  average, concentration, circular_std)
         for key, part in zip(keys, parts):
-            result[key][start:end] = np.where(n > 0, part, np.nan)
+            valid = (n > 0) if key == "concentration" else resolved
+            result[key][start:end] = np.where(valid, part, np.nan)
         count[start:end] = n
     for key in ("mean", "std"):
         result[key][count != len(theta)] = np.nan
@@ -169,7 +173,7 @@ def ensemble_residuals(theta: np.ndarray, summary: Mapping[str, np.ndarray]) -> 
 def ensemble_covariance(
     theta: np.ndarray, summary: Mapping[str, np.ndarray], *, batch_size: int = 64
 ) -> np.ndarray:
-    """Population covariance for complete features; absent features stay NaN.
+    """Population covariance for complete, resolved features; invalid stay NaN.
 
     No pairwise/recentered estimator is used.  Intended for the 360-bin summary
     or explicitly preselected 2-D pixels, not all 4096 pixels at once.
@@ -178,6 +182,8 @@ def ensemble_covariance(
         raise ValueError("batch_size must be positive")
     features = int(np.prod(theta.shape[1:]))
     complete = np.asarray(summary["count"]).reshape(-1) == theta.shape[0]
+    for key in ("mean", "std", "center", "unwrapped_mean"):
+        complete &= np.isfinite(np.asarray(summary[key]).reshape(-1))
     indices = np.flatnonzero(complete)
     accumulated = np.zeros((len(indices), len(indices)))
     for start in range(0, len(theta), batch_size):
@@ -318,6 +324,9 @@ def run_eht_stage(
     if integrator is None:
         integrator = polarization.integrate_stokes
     input_dir, output_dir = Path(input_dir), Path(output_dir)
+    from .common import reject_directory_symlinks
+
+    reject_directory_symlinks(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     if any(output_dir.iterdir()):
         raise FileExistsError(f"output directory must be empty: {output_dir}")
@@ -334,7 +343,7 @@ def run_eht_stage(
         "relocation": "fixed; never refitted", "mask_options": mask_options,
         "stokes_channels": ["I", "Q", "U", "V"],
         "coordinate_transform": "flip raw axis 0, rot90 k=-1; negate Q/U only",
-        "covariance": "population, saved full-ensemble branch; incomplete features are NaN",
+        "covariance": "population, saved full-ensemble branch; incomplete/unresolved features are NaN",
         "per_day": {},
     }
     # Temporary angle maps bound RAM independently of the four-day ensemble size.
@@ -441,8 +450,9 @@ def run_eht_stage(
             evpa = open_memmap(day_dir / "evpa-1d.npy", mode="w+", dtype="float64",
                                shape=(topset_size, angular_bins))
             for start in range(0, topset_size, batch_size):
-                # Padding contributes zero flux, not NaNs to the sparse integral.
-                batch = np.nan_to_num(stokes_out[start:start + batch_size], copy=True)
+                # Keep all-channel padding distinct from unknown individual
+                # channels; integrate_stokes validates and zeroes padding only.
+                batch = np.array(stokes_out[start:start + batch_size], copy=True)
                 if inherit_2d_mask:
                     batch[:, ~mask, :] = 0
                 integrated = np.asarray(integrator(batch, operator, weighting=weighting))

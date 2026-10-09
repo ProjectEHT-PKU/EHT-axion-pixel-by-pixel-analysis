@@ -2,8 +2,9 @@
 
 from dataclasses import dataclass
 from datetime import date, timedelta
-from decimal import Decimal
+from decimal import Decimal, DecimalException
 from pathlib import Path
+import re
 import numpy as np
 
 DAYS = (95, 96, 100, 101)
@@ -16,28 +17,108 @@ def date_label(day):
 
 
 def alpha_label(alpha):
-    value = Decimal(str(alpha))
-    if not value.is_finite() or value <= 0 or value != value.quantize(Decimal("0.01")):
-        raise ValueError("Alpha identities require positive finite two-decimal values")
+    try:
+        value = Decimal(str(alpha))
+        if not value.is_finite() or value <= 0 or value != value.quantize(Decimal("0.01")):
+            raise ValueError("Alpha identities require positive finite two-decimal values")
+    except DecimalException as exc:
+        raise ValueError("Alpha identities require positive finite two-decimal values") from exc
     return f"alpha-{value:.2f}"
 
 
+_SHARD_NAME = re.compile(r"stokes-t([0-9]+)-t([0-9]+)\.npy")
+_LABEL_STEP = 10  # Snapshot-label convention, not a verified physical cadence.
+
+
+def _cube_header(path):
+    """Inspect only a read-only mmap/header; never scan or materialize pixels."""
+    try:
+        array = np.load(path, mmap_mode="r", allow_pickle=False)
+    except (ValueError, OSError, EOFError) as exc:
+        raise ValueError(f"Invalid RAPTOR input header: {path}: {exc}") from exc
+    try:
+        if not hasattr(array, "shape") or not hasattr(array, "dtype"):
+            # np.load can identify a ZIP archive regardless of a .npy suffix.
+            array.close()
+            raise ValueError(f"RAPTOR input must be a single NPY cube, not an archive: {path}")
+        shape, dtype = array.shape, array.dtype
+        if (len(shape) != 5 or any(n == 0 for n in shape) or shape[-1] != 4
+                or shape[-2] != shape[-3] or shape[-2] < 2):
+            raise ValueError(f"RAPTOR cube must be (T,S,N,N,4), T,S > 0, N >= 2: {path}: {shape}")
+        if dtype.kind not in "iuf":
+            raise ValueError(f"RAPTOR cube requires real numeric dtype: {path}: {dtype}")
+        return shape, dtype
+    finally:
+        # Release each mapping before opening the next (even with many shards).
+        del array
+
+
+def _ordered_shards(paths):
+    shards = []
+    for path in paths:
+        match = _SHARD_NAME.fullmatch(path.name)
+        if match is None:
+            raise ValueError(f"Invalid RAPTOR shard name; expected stokes-tSTART-tEND.npy: {path}")
+        start, end = map(int, match.groups())
+        if start > end or start % _LABEL_STEP or end % _LABEL_STEP:
+            raise ValueError(f"RAPTOR shard labels require ordered endpoints on step {_LABEL_STEP}: {path}")
+        shards.append((start, end, path))
+    shards.sort(key=lambda item: (item[0], item[1]))
+    previous_end, reference, identities = None, None, set()
+    for start, end, path in shards:
+        if previous_end is not None and start != previous_end + _LABEL_STEP:
+            raise ValueError(f"RAPTOR shards overlap or have a gap; labels must be continuous: {path}")
+        identity = path.stat().st_dev, path.stat().st_ino
+        if identity in identities:
+            raise ValueError(f"Duplicate RAPTOR input shard source: {path}")
+        identities.add(identity)
+        shape, dtype = _cube_header(path)
+        expected = (end - start) // _LABEL_STEP + 1  # Inclusive endpoints.
+        if shape[0] != expected:
+            raise ValueError(f"RAPTOR shard time length {shape[0]} != label frame count {expected}: {path}")
+        current = shape[1:], dtype
+        if reference is not None and current != reference:
+            raise ValueError(f"RAPTOR shards must have identical non-time shape and dtype: {path}")
+        reference, previous_end = current, end
+    return [path for _, _, path in shards]
+
+
 def input_raptor_files(root, alpha, resolution):
+    """Resolve automatic sources; res400 rejects ambiguity before choosing data.
+
+    Shard endpoints are inclusive snapshot labels on the current step-10 grid.
+    Neither spatial resolution nor a production time length (e.g. 141) is
+    imposed on synthetic cubes. Single files carry no filename time labels.
+    """
     root = Path(root)
     canonical = root / "raptor" / f"res-{resolution}" / alpha_label(alpha)
     legacy = root / "raptor-stokes" / f"res-{resolution}"
     if resolution == 100:
+        # Preserve the existing canonical-before-legacy identity priority.
         candidates = [canonical / "stokes.npy", legacy / f"alpha-{float(alpha):g}.npy"]
         for path in candidates:
             if path.is_file():
+                _cube_header(path)
                 return [path]
     elif resolution == 400:
+        sources = []
         for directory in (canonical, legacy / f"alpha-{float(alpha):g}"):
-            paths = sorted(directory.glob("stokes-t*-t*.npy"))
+            whole = directory / "stokes.npy"
+            if whole.is_file():
+                sources.append(("whole", [whole]))
+            # Include malformed time-like names so they cannot disappear silently.
+            paths = list(directory.glob("stokes-t*.npy"))
             if paths:
-                return paths
-        if (canonical / "stokes.npy").is_file():
-            return [canonical / "stokes.npy"]
+                sources.append(("shards", paths))
+        if len(sources) > 1:
+            locations = [str(paths[0].parent) + f" ({kind})" for kind, paths in sources]
+            raise ValueError(f"Ambiguous res400 RAPTOR input sources: {', '.join(locations)}")
+        if sources:
+            kind, paths = sources[0]
+            if kind == "shards":
+                return _ordered_shards(paths)
+            _cube_header(paths[0])
+            return paths
     raise FileNotFoundError(f"No RAPTOR input for {alpha_label(alpha)}, res={resolution}: {root}")
 
 

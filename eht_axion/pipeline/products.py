@@ -51,6 +51,10 @@ def build_observations(
     per-date summaries/ensembles or legacy stacked summaries/flat ensembles;
     never resample or recenter the saved circular branch.
     """
+    from .common import require_new_output_file
+
+    require_new_output_file(output_path)
+    require_new_output_file(Path(output_path).with_suffix(".json"))
     directory = Path(eht_dir)
     _, _, _, template_valid = load_templates(template_path, dimension)
     keys = ("mean", "std", "center", "unwrapped_mean")

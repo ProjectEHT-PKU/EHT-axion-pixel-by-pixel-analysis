@@ -8,7 +8,7 @@ def test_dataset_identity_format():
     assert alpha_label(0.3) == "alpha-0.30"
     assert date_label(95) == "2017-04-05"
     assert date_label(101) == "2017-04-11"
-    for alpha in [float("nan"), 0.305, 0, -1]:
+    for alpha in [float("nan"), float("inf"), 0.305, 0, -1, True, 1e100]:
         with pytest.raises(ValueError):
             alpha_label(alpha)
 
@@ -22,6 +22,37 @@ def test_canonical_and_legacy_input_resolution(tmp_path):
     q.parent.mkdir(parents=True)
     q.write_bytes(b"trusted-test")
     assert input_eht_file(tmp_path, 95) == q
+
+
+def test_res100_and_eht_existing_identity_priority_is_preserved(tmp_path):
+    canonical = tmp_path / "raptor/res-100/alpha-0.30/stokes.npy"
+    legacy = tmp_path / "raptor-stokes/res-100/alpha-0.3.npy"
+    for path in (canonical, legacy):
+        path.parent.mkdir(parents=True)
+        np.save(path, np.zeros((1, 17, 2, 2, 4)))
+    assert input_raptor_files(tmp_path, 0.3, 100) == [canonical]
+    canonical.unlink()
+    assert input_raptor_files(tmp_path, 0.3, 100) == [legacy]
+    candidates = [
+        tmp_path / "eht/2017-04-05/image-ensemble.pkl",
+        tmp_path / "2017-04-05/image-ensemble.pkl",
+        tmp_path / "eht-image-ensemble/230_95.pkl",
+        tmp_path / "230_95.pkl",
+    ]
+    for path in candidates:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"trusted-test")
+    for path in candidates:
+        assert input_eht_file(tmp_path, 95) == path
+        path.unlink()
+
+
+def test_res100_invalid_scientific_cube_is_not_accepted(tmp_path):
+    path = tmp_path / "raptor/res-100/alpha-0.30/stokes.npy"
+    path.parent.mkdir(parents=True)
+    np.save(path, np.arange(3))
+    with pytest.raises(ValueError, match="RAPTOR cube"):
+        input_raptor_files(tmp_path, 0.3, 100)
 
 
 def test_imported_manifest_preserves_link_target_and_requires_optin(tmp_path):

@@ -9,10 +9,24 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from .eht import DAYS
 from .layout import RunLayout, date_label
+from .common import verify_stage, require_new_output_file, manifest_path, require_declared_outputs
+from .inference import _stage_files, _check_lineage
 
 
-def plot_diagnostics(run_root, output_dir):
+def plot_diagnostics(run_root, output_dir, *, reuse_imported=False):
     layout, output = RunLayout(run_root), Path(output_dir)
+    for name in ("eht_selection.png", "grmhd_background.png", "diagnostics.json"):
+        require_new_output_file(output / name)
+    for stage in (layout.eht, layout.background):
+        verify_stage(stage, recursive=True, allow_imported=reuse_imported)
+    require_declared_outputs(layout.eht, [layout.eht / "mask.npy"]
+                             + [layout.eht / date_label(day) / "summary.npz" for day in DAYS])
+    require_declared_outputs(layout.background,
+                             [layout.background / "summary.json", layout.background / "evpa-difference.npz"])
+    _check_lineage(
+        verify_stage(layout.background),
+        _stage_files(layout.background_processed) + [manifest_path(layout.eht), layout.eht / "mask.npy"],
+    )
     output.mkdir(parents=True, exist_ok=True)
     intensity = []
     for day in DAYS:
@@ -55,3 +69,7 @@ def plot_diagnostics(run_root, output_dir):
     ax.spines[["top", "right"]].set_visible(False)
     fig.savefig(output / "grmhd_background.png", dpi=180)
     plt.close(fig)
+    (output / "diagnostics.json").write_text(json.dumps({
+        "run_root": str(layout.root.resolve()), "source_validation": "recursive stage manifests",
+        "reuse_imported": reuse_imported,
+    }, indent=2) + "\n")

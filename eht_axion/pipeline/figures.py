@@ -9,6 +9,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from .layout import load_curves
+from .common import (
+    verify_stage, reject_directory_symlinks, require_new_output_file, require_declared_outputs,
+)
 
 MODES = ("std", "cor", "cor_grmhd")
 COLORS = {"std": "#2679b5", "cor": "#e58f24", "cor_grmhd": "#8458a5"}
@@ -43,9 +46,12 @@ def load_limits(input_dir, dimension, *, allow_legacy=False):
     return alpha, cuts, identity
 
 
-def plot_results(input_dir, output_dir):
+def plot_results(input_dir, output_dir, *, reuse_imported=False):
     source, output = Path(input_dir), Path(output_dir)
-    output.mkdir(parents=True, exist_ok=True)
+    reject_directory_symlinks(output)
+    for name in ("limits.png", "limits.pdf", "limits.svg", "limits-by-dimension.png",
+                 "limits.csv", "figure.json"):
+        require_new_output_file(output / name)
     results, reference, rows = {}, None, []
     metadata = []
     for dim in ("1d", "2d"):
@@ -69,6 +75,18 @@ def plot_results(input_dir, output_dir):
                 }
                 for a, c in zip(alpha, cut)
             )
+    canonical = any((source / f"limits-{dim}.npz").is_file() for dim in ("1d", "2d"))
+    has_manifest = any((source / name).is_file() for name in ("manifest.json", "stage.json"))
+    if canonical or has_manifest:
+        record = verify_stage(source, recursive=True, allow_imported=reuse_imported)
+        consumed = ([source / f"limits-{dim}.npz" for dim in ("1d", "2d")] if canonical else
+                    [source / f"{mode}_{dim}.npz" for mode in MODES for dim in ("1d", "2d")])
+        require_declared_outputs(source, consumed)
+        if record["stage"] == "inference:six-curves" and canonical:
+            from .inference import validate_run_lineage
+
+            validate_run_lineage(source.parent, reference, allow_imported=reuse_imported)
+    output.mkdir(parents=True, exist_ok=True)
     plt.rcParams.update(
         {
             "font.family": "DejaVu Sans",
@@ -160,7 +178,9 @@ def plot_results(input_dir, output_dir):
         writer.writerows(rows)
     (output / "figure.json").write_text(
         json.dumps(
-            dict(metadata[0], curves=6, points=len(reference), input_directory=str(source.resolve())),
+            dict(metadata[0], curves=6, points=len(reference), input_directory=str(source.resolve()),
+                 source_validation="recursive stage manifest" if canonical or has_manifest
+                 else "legacy numerical files only; scientific lineage unavailable"),
             indent=2,
         )
         + "\n"

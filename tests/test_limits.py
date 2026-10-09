@@ -229,6 +229,49 @@ def test_legacy_templates_and_posterior_strict_notebook_regression():
     assert cuts[0] == pytest.approx(expected_cut, abs=1e-13)
 
 
+@pytest.mark.parametrize("legacy,method", [(True, None), (True, "legacy"), (False, "legacy")])
+def test_legacy_discrete_cdf_rejects_uniform_prior_before_loading(monkeypatch, legacy, method):
+    import eht_axion.limits as limits
+
+    def forbidden(*args):
+        pytest.fail("invalid prior must be rejected before loading products")
+
+    monkeypatch.setattr(limits, "load_1d_observations", forbidden)
+    options = LimitOptions(legacy=legacy, posterior_method=method, prior="uniform")
+    amplitude, phase = products()
+    with pytest.raises(ValueError, match="legacy posterior_method requires prior='log-uniform'"):
+        calculate_from_products(observations(), amplitude, phase, [0.1], options=options)
+    with pytest.raises(ValueError, match="legacy posterior_method requires prior='log-uniform'"):
+        calculate_limits(Path("unused"), dimension="1d", mode="std", options=options)
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_explicit_trapezoid_uniform_prior_is_valid_and_metadata_is_truthful(legacy):
+    amplitude, phase = products(zero_signal=True)
+    options = LimitOptions(legacy=legacy, posterior_method="trapezoid", prior="uniform",
+                           coupling_min=1, coupling_max=101, coupling_points=9)
+    _, cuts, diagnostic = calculate_from_products(observations(), amplitude, phase, [0.1],
+                                                 options=options)
+    assert cuts[0] == pytest.approx(np.log10(96.0), abs=1e-14)
+    assert diagnostic["prior"] == "uniform"
+    assert diagnostic["posterior_method"] == "trapezoid"
+    assert diagnostic["density_measure"] == "dg"
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_explicit_legacy_cdf_keeps_equal_log_grid_result_and_metadata(legacy):
+    amplitude, phase = products(zero_signal=True)
+    options = LimitOptions(legacy=legacy, posterior_method="legacy", coupling_points=9)
+    _, cuts, diagnostic = calculate_from_products(observations(), amplitude, phase, [0.1],
+                                                 options=options)
+    grid = np.asarray(diagnostic["couplings"])
+    assert cuts[0] == pytest.approx(_legacy_upper_limit(grid, np.ones(9)), abs=1e-14)
+    np.testing.assert_allclose(diagnostic["cdf"][0], np.arange(1, 10) / 9)
+    assert diagnostic["prior"] == "log-uniform"
+    assert diagnostic["posterior_method"] == "legacy"
+    assert diagnostic["density_measure"] == "discrete-log-grid-mass"
+
+
 @pytest.mark.parametrize("change", [
     {"coupling_points": 1}, {"coupling_points": 2.5}, {"coupling_min": 0},
     {"coupling_max": np.inf}, {"grmhd_sigma_degrees": np.nan},

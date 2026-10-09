@@ -1,5 +1,10 @@
 # Script-only research pipeline
 
+For output-path protection, strict YAML/input validation, verified lineage,
+software-aware cache reuse and atomic migration, see
+[Engineering safety](ENGINEERING_SAFETY.md). Stronger checks may reject old caches;
+they do not modify or silently re-sign existing scientific products.
+
 > Development branch: `refactor/script-pipeline`. New runs do not execute or parse notebooks.
 > Previous notebooks remain as historical provenance, not runtime dependencies.
 > Scientific choices pending author confirmation are labeled, not silently declared fixed.

@@ -7,9 +7,20 @@ import time
 import numpy as np
 from ..limits import LimitOptions, calculate_from_products
 from .constants import PhysicalScale
-from .common import stage_directory, verify_stage, sha256, manifest_path
+from .common import (
+    stage_directory, verify_stage, sha256, manifest_path, reject_directory_symlinks,
+    require_declared_outputs,
+)
 from .layout import RunLayout
 from .products import load_templates, load_observations
+
+
+def _require_inference_products(layout):
+    require_declared_outputs(layout.background, [layout.background / "summary.json"])
+    for dim in ("1d", "2d"):
+        require_declared_outputs(layout.observations(dim),
+                                 [layout.observations(dim) / "observations.npz"])
+        require_declared_outputs(layout.templates(dim), [layout.templates(dim) / "templates.npz"])
 
 
 def _stage_files(directory):
@@ -30,12 +41,63 @@ def _check_lineage(manifest, expected):
             raise ValueError(f"Stale upstream lineage: {path}")
 
 
-def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
+def validate_run_lineage(output_root, alphas, *, allow_imported=False):
+    """Require canonical dependency edges, including caches made by older code.
+
+    Recursive checks validate declared edges; this also rejects historical
+    manifests whose declarations omitted scientifically necessary ancestors.
+    """
     layout = RunLayout(output_root)
+    seen = set()
+
+    def verified(directory):
+        return verify_stage(directory, recursive=True, allow_imported=allow_imported, _seen=seen)
+
+    inference = verified(layout.inference)
+    _require_inference_products(layout)
+    required = [manifest_path(layout.background), layout.background / "summary.json"]
+    for dim in ("1d", "2d"):
+        required += [manifest_path(layout.observations(dim)), manifest_path(layout.templates(dim)),
+                     layout.observations(dim) / "observations.npz", layout.templates(dim) / "templates.npz"]
+    _check_lineage(inference, required)
+    require_declared_outputs(layout.inference,
+                             [layout.inference / f"limits-{dim}.npz" for dim in ("1d", "2d")])
+    eht_files = _stage_files(layout.eht)
+    verified(layout.eht)
+    for alpha in alphas:
+        verified(layout.processed(alpha))
+        _check_lineage(verified(layout.response(alpha)), _stage_files(layout.processed(alpha)))
+    for dim in ("1d", "2d"):
+        _check_lineage(
+            verified(layout.templates(dim)),
+            [p for alpha in alphas for p in (
+                manifest_path(layout.response(alpha)), layout.response(alpha) / f"response-{dim}.npz",
+            )],
+        )
+        _check_lineage(
+            verified(layout.observations(dim)),
+            eht_files + [manifest_path(layout.templates(dim)), layout.templates(dim) / "templates.npz"],
+        )
+    verified(layout.background_processed)
+    _check_lineage(
+        verified(layout.background),
+        _stage_files(layout.background_processed) + [manifest_path(layout.eht), layout.eht / "mask.npy"],
+    )
+
+
+def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
+    reject_directory_symlinks(output_root)
+    layout = RunLayout(output_root)
+    seen = set()
+
+    def verified(directory):
+        return verify_stage(directory, recursive=True, allow_imported=reuse_imported, _seen=seen)
+
     settings = config["inference"]
     physical = PhysicalScale(**config["physical"])
     background_dir = layout.background
-    verify_stage(background_dir, recursive=True, allow_imported=reuse_imported)
+    verified(background_dir)
+    require_declared_outputs(background_dir, [background_dir / "summary.json"])
     background = json.loads((background_dir / "summary.json").read_text())
     if background["units"] != "rad":
         raise ValueError("Background product must be in radians")
@@ -58,14 +120,15 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
     inputs = [manifest_path(background_dir), background_dir / "summary.json"]
     for dim in ("1d", "2d"):
         for stage in [layout.observations(dim), layout.templates(dim)]:
-            verify_stage(stage, recursive=True, allow_imported=reuse_imported)
+            verified(stage)
             inputs.append(manifest_path(stage))
         inputs += [
             layout.observations(dim) / "observations.npz",
             layout.templates(dim) / "templates.npz",
         ]
+    _require_inference_products(layout)
     # Refuse intact-but-stale products or claims about settings not used upstream.
-    eht_manifest = verify_stage(layout.eht)
+    eht_manifest = verified(layout.eht)
     expected_eht = {
         "topset_size": config["eht"]["topset_size"],
         "weighting": config["aperture"]["weighting"],
@@ -95,10 +158,10 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
         angular_bins=360,
     )
     for alpha in config["data"]["alphas"]:
-        processed = verify_stage(layout.processed(alpha))
+        processed = verified(layout.processed(alpha))
         if processed["config"] != expected_preprocess:
             raise ValueError("Current image config differs from RAPTOR preprocessing")
-        fitted = verify_stage(layout.response(alpha))
+        fitted = verified(layout.response(alpha))
         if fitted["config"] != expected_fit:
             raise ValueError("Current aperture config differs from RAPTOR response fits")
         _check_lineage(fitted, _stage_files(layout.processed(alpha)))
@@ -108,19 +171,22 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
         or not np.isclose(background["cadence_hours"], 10 * physical.label_step_tg * physical.tg_hours)
     ):
         raise ValueError("Background product differs from current time/model config")
-    background_manifest = verify_stage(background_dir)
+    background_manifest = verified(background_dir)
     background_config = background_manifest["config"]
     if (
         background_config.get("source_alpha") != config["background"]["alpha"]
         or background_config.get("source_resolution") != config["background"]["source_resolution"]
     ):
         raise ValueError("Current background source differs from completed stage")
-    bg_processed = verify_stage(layout.background_processed)
+    bg_processed = verified(layout.background_processed)
     if bg_processed["config"] != dict(expected_preprocess, state_indices=[0]):
         raise ValueError("Current image config differs from background preprocessing")
-    _check_lineage(background_manifest, _stage_files(layout.background_processed) + [layout.eht / "mask.npy"])
+    _check_lineage(
+        background_manifest,
+        _stage_files(layout.background_processed) + [manifest_path(layout.eht), layout.eht / "mask.npy"],
+    )
     for dim in ("1d", "2d"):
-        observations_manifest = verify_stage(layout.observations(dim))
+        observations_manifest = verified(layout.observations(dim))
         if (
             observations_manifest["config"]["angular_offset"] != config["eht"]["angular_offset"]
             or observations_manifest["config"]["covariance_ridge"] != config["eht"]["covariance_ridge"]
@@ -128,11 +194,13 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
             raise ValueError("Current config differs from observation selection/covariance")
         _check_lineage(
             observations_manifest,
-            _stage_files(layout.eht) + [layout.templates(dim) / "templates.npz"],
+            _stage_files(layout.eht)
+            + [manifest_path(layout.templates(dim)), layout.templates(dim) / "templates.npz"],
         )
         _check_lineage(
-            verify_stage(layout.templates(dim)),
-            [layout.response(a) / f"response-{dim}.npz" for a in config["data"]["alphas"]],
+            verified(layout.templates(dim)),
+            [p for a in config["data"]["alphas"]
+             for p in (manifest_path(layout.response(a)), layout.response(a) / f"response-{dim}.npz")],
         )
         template_alphas, _, _, _ = load_templates(layout.templates(dim) / "templates.npz", dim)
         if not np.array_equal(template_alphas, config["data"]["alphas"]):

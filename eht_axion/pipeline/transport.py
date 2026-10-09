@@ -217,7 +217,9 @@ def get_raptor_evpa(grmhddata, *, image_mask=None, oneD_coord, sigma=0,
         sampled = RegularGridInterpolator((grid, grid), processed, bounds_error=False,
                                           fill_value=np.nan)(coords)
         q, u = sampled[:, 1], sampled[:, 2]
-        evpa = np.where((q == 0) & (u == 0), np.nan, np.arctan2(u, q) / 2)
+        from ..stokes import finite_evpa
+
+        evpa = finite_evpa(q, u)
         result[state] = _angular_sample(evpa, rotation_angle, angular_interpolation)
     return result
 
@@ -240,8 +242,13 @@ def analytical_stokes(grmhddata, axion_field_coord):
     field = np.asarray(axion_field_coord)
     if field.shape != (16,) + baseline.shape[:2] or field.dtype.kind not in "iuf":
         raise ValueError("axion field must be real (16,N,N) matching baseline")
-    chi = 0.5 * np.arctan2(baseline[..., 2], baseline[..., 1])
+    from ..stokes import finite_evpa
+
+    chi = finite_evpa(baseline[..., 1], baseline[..., 2])
     p = np.hypot(baseline[..., 1], baseline[..., 2])
+    # A truly unpolarized source remains Q=U=0 under screen rotation. Its
+    # arbitrary phase must not turn zero flux into NaNs before spatial blur.
+    chi = np.where(p == 0, 0.0, chi)
     output = np.zeros((17,) + baseline.shape, dtype=float)
     output[..., 0] = baseline[..., 0] if data.ndim == 3 else data[..., 0]
     angles = np.concatenate([chi[None], chi[None] + field], axis=0)
@@ -334,8 +341,9 @@ def run_transport_diagnostics(
     paths.update({name: destination / "figures" / f"{name}.png"
                   for name in ("amplitudes", "analytic_ratios", "mask_order_comparison", "source_rings")})
     for path in paths.values():
-        if path.exists():
-            raise FileExistsError(f"refusing to overwrite stage output: {path}")
+        from .common import require_new_output_file
+
+        require_new_output_file(path)
         if path.resolve() in {p.resolve() for p in sources.values()}:
             raise ValueError(f"output aliases input: {path}")
     # (variant, radius, mask_order, blur, angle[, fit_column]); analytical is last.

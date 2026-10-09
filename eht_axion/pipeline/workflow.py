@@ -5,53 +5,10 @@ import json
 from pathlib import Path
 import numpy as np
 
-import yaml
-from .common import stage_directory, verify_stage, manifest_path
+from .config import read_config
+from .common import stage_directory, verify_stage, manifest_path, reject_directory_symlinks
 from .layout import RunLayout, input_raptor_files, input_eht_file
 from .constants import PhysicalScale
-
-
-class ScientificConfigLoader(yaml.SafeLoader):
-    """Safe YAML with duplicate keys rejected instead of silently overwritten."""
-
-
-def _unique_mapping(loader, node, deep=False):
-    loader.flatten_mapping(node)
-    result = {}
-    for key_node, value_node in node.value:
-        key = loader.construct_object(key_node, deep=deep)
-        if not isinstance(key, str):
-            raise ValueError("Scientific YAML configuration keys must be strings")
-        if key in result:
-            raise ValueError(f"Duplicate YAML configuration key: {key}")
-        result[key] = loader.construct_object(value_node, deep=deep)
-    return result
-
-
-ScientificConfigLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _unique_mapping)
-
-
-def read_config(path):
-    path = Path(path)
-    if path.suffix.lower() not in {".yaml", ".yml"}:
-        raise ValueError("Scientific configuration must be YAML (.yaml or .yml)")
-    try:
-        config = yaml.load(path.read_text(encoding="utf-8"), Loader=ScientificConfigLoader)
-    except yaml.YAMLError as exc:
-        raise ValueError(f"Invalid scientific YAML configuration: {path}: {exc}") from exc
-    if not isinstance(config, dict):
-        raise ValueError("Scientific YAML configuration must contain a mapping")
-    for section in ("physical", "data", "image", "aperture", "eht", "background", "inference"):
-        if not isinstance(config.get(section), dict):
-            raise ValueError(f"Missing or invalid scientific configuration section: {section}")
-    if "observation" in config["inference"] or "observed" in config["inference"]:
-        raise ValueError(
-            "Only zero EVPA day differences are supported; remove observation/observed from YAML"
-        )
-    # The published angle conventions/offset4 are defined on a one-degree grid.
-    if config["aperture"].get("angular_bins") != 360:
-        raise ValueError("Research profile requires 360 angular bins (one-degree grid)")
-    return config
 
 
 def stage_inputs(directory):
@@ -94,6 +51,7 @@ def run_stage(
     config = read_config(args.config)
     scale = PhysicalScale(**config["physical"])
     image, aperture = config["image"], config["aperture"]
+    reject_directory_symlinks(args.output_root)
     output = args.output_root.resolve()
     layout = RunLayout(output)
     reuse = getattr(args, "reuse_imported", False)
@@ -169,7 +127,7 @@ def run_stage(
                 dest,
                 "raptor:summarize",
                 {"dimension": dim, "method": "mle"},
-                list(fits.values()),
+                [p for a in alphas for p in (manifest_path(layout.response(a)), fits[a])],
                 rebuild=args.rebuild,
             ) as temporary:
                 if temporary is not None:
@@ -226,7 +184,7 @@ def run_stage(
             layout.background,
             "raptor:background",
             dict(params, physical=scale.metadata(), source_alpha=alpha, source_resolution=res),
-            stage_inputs(processed) + [mask],
+            stage_inputs(processed) + [manifest_path(layout.eht), mask],
             rebuild=args.rebuild,
         ) as temporary:
             if temporary is not None:
@@ -243,7 +201,7 @@ def run_stage(
                 layout.observations(dim),
                 "observations:covariance",
                 dict(params, dimension=dim),
-                stage_inputs(eht_dir) + [templates],
+                stage_inputs(eht_dir) + [manifest_path(layout.templates(dim)), templates],
                 rebuild=args.rebuild,
             ) as temporary:
                 if temporary is not None:
@@ -264,16 +222,22 @@ def run_stage(
             rebuild=args.rebuild,
         ) as temporary:
             if temporary is not None:
-                plot_results(inference_dir, temporary)
+                plot_results(inference_dir, temporary, reuse_imported=reuse)
     output.mkdir(parents=True, exist_ok=True)
     snapshot = output / "config.yaml"
+    reject_directory_symlinks(snapshot)
     if snapshot.exists() and snapshot.read_bytes() != args.config.read_bytes():
         import hashlib
 
         digest = hashlib.sha256(args.config.read_bytes()).hexdigest()[:12]
         snapshot = output / "configs" / f"{digest}.yaml"
+        reject_directory_symlinks(snapshot)
         snapshot.parent.mkdir(exist_ok=True)
-    snapshot.write_bytes(args.config.read_bytes())
+    if snapshot.exists():
+        if snapshot.read_bytes() != args.config.read_bytes():
+            raise ValueError(f"Config snapshot identity collision: {snapshot}")
+    else:
+        snapshot.write_bytes(args.config.read_bytes())
     import platform
     from importlib.metadata import version
 
@@ -294,10 +258,12 @@ def run_stage(
     import uuid
 
     invocations = output / "invocations"
+    reject_directory_symlinks(invocations)
     invocations.mkdir(exist_ok=True)
     invocation = invocations / f"{uuid.uuid4().hex}.json"
     invocation.write_text(json.dumps(root_record, indent=2) + "\n")
     root_manifest = output / "manifest.json"
+    reject_directory_symlinks(root_manifest)
     if not root_manifest.exists():
         root_manifest.write_text(
             json.dumps(

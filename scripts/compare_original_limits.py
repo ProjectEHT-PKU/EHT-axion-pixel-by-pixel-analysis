@@ -14,7 +14,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import numpy as np
-from eht_axion.pipeline.layout import load_curves
+from eht_axion.pipeline.figures import load_limits
+from eht_axion.pipeline.common import verify_stage, reject_directory_symlinks, require_declared_outputs
 
 MODES = ("std", "cor", "cor_grmhd")
 COLORS = {"std": "#2679b5", "cor": "#e58f24", "cor_grmhd": "#8458a5"}
@@ -35,24 +36,37 @@ def load_curve(path):
     return alpha, cuts
 
 
-def compare(original_dir, pipeline_dir, output_dir):
+def compare(original_dir, pipeline_dir, output_dir, *, reuse_imported=False):
     original, pipeline, output = map(Path, (original_dir, pipeline_dir, output_dir))
+    reject_directory_symlinks(output)
     if output.exists() and any(output.iterdir()):
         raise FileExistsError(f"Use a new empty output directory: {output}")
     curves, rows, summary, inputs = {}, [], {}, []
+    pipeline_identity = None
+    canonical = any((pipeline / f"limits-{dim}.npz").is_file() for dim in ("1d", "2d"))
+    has_manifest = any((pipeline / name).is_file() for name in ("manifest.json", "stage.json"))
+    record = None
+    if canonical or has_manifest:
+        record = verify_stage(pipeline, recursive=True, allow_imported=reuse_imported)
+        consumed = ([pipeline / f"limits-{dim}.npz" for dim in ("1d", "2d")] if canonical else
+                    [pipeline / f"{mode}_{dim}.npz" for mode in MODES for dim in ("1d", "2d")])
+        require_declared_outputs(pipeline, consumed)
     for dimension in ("1d", "2d"):
+        b, all_cuts, identity = load_limits(pipeline, dimension, allow_legacy=True)
+        if canonical and dimension == "1d" and record["stage"] == "inference:six-curves":
+            from eht_axion.pipeline.inference import validate_run_lineage
+
+            validate_run_lineage(pipeline.parent, b, allow_imported=reuse_imported)
+        if pipeline_identity is not None and identity != pipeline_identity:
+            raise ValueError("Mixed pipeline priors or algorithm variants")
+        pipeline_identity = identity
         for mode in MODES:
             old_path = original / f"{mode}{'_1d' if dimension == '1d' else ''}.npz"
             new_path = pipeline / f"{mode}_{dimension}.npz"
             a, old = load_curve(old_path)
-            if (pipeline / f"limits-{dimension}.npz").is_file():
-                b, all_cuts, identity = load_curves(pipeline, dimension)
-                new = all_cuts[MODES.index(mode)]
+            new = all_cuts[MODES.index(mode)]
+            if canonical:
                 new_path = pipeline / f"limits-{dimension}.npz"
-            else:
-                b, new = load_curve(new_path)
-                with np.load(new_path, allow_pickle=False) as data:
-                    identity = {"observation": str(data["observation"].item())}
             if a.shape != b.shape or not np.allclose(a, b, rtol=0, atol=1e-14):
                 raise ValueError(f"Alpha grids differ: {old_path}, {new_path}")
             if identity["observation"] not in ("null", "expected"):
@@ -168,6 +182,10 @@ def compare(original_dir, pipeline_dir, output_dir):
         "sign": "negative delta / ratio < 1 means a smaller numerical upper limit",
         "curves": summary,
         "inputs": inputs,
+        "pipeline_identity": pipeline_identity,
+        "pipeline_validation": "recursive stage manifest" if canonical or has_manifest
+        else "legacy numerical files only; scientific lineage unavailable",
+        "original_identity": "historical null files; full method identity not available",
     }
     (output / "comparison.json").write_text(json.dumps(report, indent=2) + "\n")
     return report
@@ -178,8 +196,10 @@ def main():
     parser.add_argument("--original-dir", type=Path, required=True)
     parser.add_argument("--pipeline-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--reuse-imported", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(compare(args.original_dir, args.pipeline_dir, args.output_dir), indent=2))
+    print(json.dumps(compare(args.original_dir, args.pipeline_dir, args.output_dir,
+                             reuse_imported=args.reuse_imported), indent=2))
 
 
 if __name__ == "__main__":

@@ -63,6 +63,14 @@ Stokes and EVPA ensembles remain mmap-capable NPY.
 
 ## Compatibility and migration
 
+**Safety update:** see [engineering safety and cache contract](ENGINEERING_SAFETY.md).
+Migration now preflights and publishes an entire run atomically. `origin_inputs`
+are independently checksummed live dependencies on original manifests/products,
+separate from new-layout `inputs`. Old hash receipts alone are not validated origins.
+Imported reuse requires opt-in and preserved source archives; new manifests bind
+necessary upstream stage manifests and the runtime/lock identity. Old caches are
+not silently re-signed to meet this stronger contract.
+
 - Input resolution accepts canonical layout or original shared analysis-inputs.
 - An explicit migration CLI creates a new canonical view from an existing complete
   run; NPY bytes are shared by read-only symlink by default. Moderate fit arrays become

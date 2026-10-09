@@ -169,6 +169,53 @@ def test_zero_polarization_and_missing_samples_are_not_finite_summaries():
     assert np.isnan(covariance[-1]).all()
 
 
+@pytest.mark.parametrize("angles", [
+    [0, np.pi / 2],
+    [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4],
+    [0, np.pi / 2 + np.finfo(float).eps],
+])
+def test_roundoff_degenerate_resultant_has_no_branch_or_covariance(angles):
+    theta = np.column_stack((angles, np.full(len(angles), 0.2)))
+    summary = summarize_evpa(theta, pixel_batch_size=1)
+    assert summary["count"][0] == len(angles)
+    assert 0 <= summary["concentration"][0] <= 8 * np.finfo(float).eps
+    for key in ("mean", "std", "center", "unwrapped_mean", "circular_std"):
+        assert np.isnan(summary[key][0]), key
+        assert np.isfinite(summary[key][1]), key
+    assert np.isnan(ensemble_residuals(theta, summary)[:, 0]).all()
+    covariance = ensemble_covariance(theta, summary, batch_size=1)
+    assert np.isnan(covariance[0]).all()
+    assert np.isnan(covariance[:, 0]).all()
+    assert covariance[1, 1] == pytest.approx(0, abs=1e-30)
+
+
+def test_small_but_resolved_concentration_is_not_a_physical_selection_cut():
+    theta = np.array([[0.0], [np.pi / 2 - 1e-10]])
+    summary = summarize_evpa(theta)
+    assert 8 * np.finfo(float).eps < summary["concentration"][0] < 1e-8
+    for key in ("mean", "std", "center", "unwrapped_mean", "circular_std"):
+        assert np.isfinite(summary[key]).all()
+    np.testing.assert_allclose(ensemble_covariance(theta, summary), [[summary["std"][0] ** 2]])
+
+
+@pytest.mark.parametrize("field", ["I_data", "Q_data", "U_data", "V_data"])
+@pytest.mark.parametrize("value", [np.nan, np.inf, -np.inf])
+def test_transform_rejects_nonfinite_raw_before_relocation_padding(field, value):
+    raw = {key: np.ones((2, 2, 1)) for key in ("I_data", "Q_data", "U_data", "V_data")}
+    raw[field][0, 0, 0] = value
+    with pytest.raises(ValueError, match=f"{field} contains nonfinite input pixels"):
+        transform_stokes(raw, np.array([0]))
+
+
+def test_pixel_evpa_requires_finite_nonzero_qu_only():
+    stokes = np.zeros((6, 4))
+    stokes[:, 1:3] = [[0, 0], [np.inf, 1], [1, -np.inf], [np.nan, 1], [1, 1], [-1, 0]]
+    stokes[:, [0, 3]] = np.nan
+    actual = stokes_evpa(stokes)
+    assert np.isnan(actual[:4]).all()
+    np.testing.assert_array_equal(actual[4:], [np.pi / 8, np.pi / 2])
+
+
 def test_historical_mask_geometry_and_tiny_clipped_bounds():
     intensity = np.ones((4, 64, 64))
     spread = np.ones_like(intensity)
@@ -291,6 +338,25 @@ def test_stage_metadata_mismatch_is_explicit_and_has_no_complete_report(tmp_path
                       historical_mask=False, min_radius=0, operator=tiny_operator(10))
     assert not (tmp_path / "out" / "report.json").exists()
     assert not list((tmp_path / "out").glob(".eht-work-*"))
+
+
+def test_stage_passes_only_validated_all_channel_padding_to_integrator(tmp_path):
+    synthetic_inputs(tmp_path / "input")
+    seen_padding = []
+
+    def observing_integrator(stokes, op, weighting):
+        missing = np.isnan(stokes)
+        padding = missing.all(axis=-1)
+        assert np.array_equal(missing.any(axis=-1), padding)
+        assert np.isfinite(stokes[~padding]).all()
+        seen_padding.append(bool(padding.any()))
+        return integrate_stokes(stokes, op, weighting)
+
+    run_eht_stage(tmp_path / "input", tmp_path / "out", trust_pickle=True, topset_size=3,
+                  historical_mask=False, min_radius=0, operator=tiny_operator(10),
+                  integrator=observing_integrator)
+    assert any(seen_padding)
+    assert (tmp_path / "out" / "report.json").is_file()
 
 
 def test_explicit_mask_inheritance_and_weighting_options(tmp_path):

@@ -7,6 +7,8 @@ from functools import lru_cache
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
+from .stokes import finite_evpa
+
 
 def _linear_pixel_weights(coordinate: NDArray, grid_min: float, spacing: float, size: int):
     # RectBivariateSpline.ev clamps out-of-domain coordinates to the boundary.
@@ -96,8 +98,8 @@ def integrated_evpa(
     Input arrays have shape ``(..., height, width)``.  Output has shape
     ``(..., 360)`` and EVPA period pi.
     """
-    q = np.asarray(stokes_q)
-    u = np.asarray(stokes_u)
+    q = np.asarray(stokes_q, dtype=np.float64)
+    u = np.asarray(stokes_u, dtype=np.float64)
     if q.shape != u.shape or q.ndim < 2 or q.shape[-1] != q.shape[-2]:
         raise ValueError("Q and U must have matching square image dimensions")
     one_degree = operator if operator is not None else radial_integration_matrix(shape=q.shape[-1])
@@ -112,7 +114,7 @@ def integrated_evpa(
     else:
         q_integrated = q_flat @ windowed.T
         u_integrated = u_flat @ windowed.T
-    evpa = 0.5 * np.arctan2(u_integrated, q_integrated)
+    evpa = finite_evpa(q_integrated, u_integrated)
     return evpa.reshape(q.shape[:-2] + (one_degree.shape[0],))
 
 
@@ -184,26 +186,33 @@ def integrate_stokes(stokes, operator, weighting: str = "intensity"):
 
     intensity: arg integral I(Q+iU)/2, EHT-VII intensity-weighted statistic.
     flux: arg integral (Q+iU)/2, total polarized flux angle.
-    Missing spatial padding is zero flux. Infinite inputs are rejected. Exactly
-    zero integrated polarization is undefined (NaN), not an EVPA of zero.
+    Only all-four-channel NaN pixels are spatial padding (zero flux). Other
+    nonfinite I/Q/U values are rejected, even in flux mode; unused V values do
+    not affect this observable. Products are float64 and must remain finite.
+    Zero or nonfinite integrated polarization is undefined (NaN), not zero EVPA.
     """
-    data = np.asarray(stokes)
+    data = np.asarray(stokes, dtype=np.float64)
     if data.ndim < 3 or data.shape[-1] != 4 or data.shape[-2] != data.shape[-3]:
         raise ValueError("Stokes must have square trailing (H,W,4) dimensions")
-    if operator.shape[1] != data.shape[-2] ** 2 or np.isinf(data).any():
-        raise ValueError("Invalid operator or infinite Stokes data")
-    q = np.nan_to_num(data[..., 1], nan=0.0)
-    u = np.nan_to_num(data[..., 2], nan=0.0)
-    if weighting == "intensity":
-        intensity = np.nan_to_num(data[..., 0], nan=0.0)
-        q = q * intensity
-        u = u * intensity
-    elif weighting != "flux":
+    if len(operator.shape) != 2 or operator.shape[1] != data.shape[-2] ** 2:
+        raise ValueError("Invalid operator shape for Stokes image")
+    if weighting not in ("intensity", "flux"):
         raise ValueError("weighting must be intensity or flux")
+    padding = np.isnan(data).all(axis=-1)
+    if np.any(~np.isfinite(data[..., :3]) & ~padding[..., None]):
+        raise ValueError("Nonfinite I/Q/U outside all-channel NaN spatial padding")
+    q = np.where(padding, 0.0, data[..., 1])
+    u = np.where(padding, 0.0, data[..., 2])
+    if weighting == "intensity":
+        intensity = np.where(padding, 0.0, data[..., 0])
+        with np.errstate(over="ignore", invalid="ignore"):
+            q = q * intensity
+            u = u * intensity
+        if not np.isfinite(q).all() or not np.isfinite(u).all():
+            raise ValueError("Nonfinite float64 intensity-weighted Stokes product")
     flat_q = q.reshape(-1, operator.shape[1])
     flat_u = u.reshape(-1, operator.shape[1])
     qi = operator.dot(flat_q.T).T
     ui = operator.dot(flat_u.T).T
-    angle = 0.5 * np.arctan2(ui, qi)
-    angle[(qi == 0) & (ui == 0)] = np.nan
+    angle = finite_evpa(qi, ui)
     return angle.reshape(data.shape[:-3] + (operator.shape[0],))
