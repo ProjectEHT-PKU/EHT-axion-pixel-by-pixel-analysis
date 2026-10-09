@@ -1,5 +1,10 @@
 # M87* 常数与分析参数核对表
 
+**挂载原运行目录后的更新：**见[生产常数重算与对照](../reports/script-pipeline/MOUNTED_CONSTANTS_COMPARISON.md)。
+八个主cube和四天pickle的SHA256已匹配原目录；实际EHT图为128µas/64²，原RAPTOR配置M6.2e9/D16.8、camera46.2261Rg。
+流体footer确认标签步长和自旋；5µas恢复处理不等于已匹配20µas有效PSF。
+当前下游M6.5、final32.6868与sigma2.16871并非同套标定，参数尚未修改。该报告优先于早期未确认状态。
+
 **图像参数专项更新：**见[视场与Gaussian来源核查](IMAGE_GEOMETRY_PROVENANCE.md)。
 现已找到历史HDF5的46.2261Rg坐标、三个参数与128μas/20μas/2.355的精确比例关系，
 以及历史raw输出不同M/D角尺度的证据。该专项报告优先于下文首轮“仅待查”的状态；

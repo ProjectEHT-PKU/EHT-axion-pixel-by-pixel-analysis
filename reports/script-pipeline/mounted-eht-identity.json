@@ -1,0 +1,178 @@
+{
+  "ensembles": [
+    {
+      "day": 95,
+      "bytes": 630542192,
+      "sha256": "49608d711da800ebdf8b3e7d5bc806522c8a70678c96d065700bf72c876d266f",
+      "reference_candidates": [
+        "49608d711da800ebdf8b3e7d5bc806522c8a70678c96d065700bf72c876d266f"
+      ],
+      "matches_curated_reference": true
+    },
+    {
+      "day": 96,
+      "bytes": 630542192,
+      "sha256": "1c7c8c4156139e135f2dc9bf2b79d039ec814d4e03d91a50e6f7a75d66b9ee8f",
+      "reference_candidates": [
+        "1c7c8c4156139e135f2dc9bf2b79d039ec814d4e03d91a50e6f7a75d66b9ee8f"
+      ],
+      "matches_curated_reference": true
+    },
+    {
+      "day": 100,
+      "bytes": 630542192,
+      "sha256": "19ad4064dcb1df2a1306034312cb911681f52e3d40707222f448018f6df748bd",
+      "reference_candidates": [
+        "19ad4064dcb1df2a1306034312cb911681f52e3d40707222f448018f6df748bd"
+      ],
+      "matches_curated_reference": true
+    },
+    {
+      "day": 101,
+      "bytes": 630542192,
+      "sha256": "19d18a54e90b2665f1d1593e2b7871a5df4f29c5873625b78308c188c51b0bc8",
+      "reference_candidates": [
+        "19d18a54e90b2665f1d1593e2b7871a5df4f29c5873625b78308c188c51b0bc8"
+      ],
+      "matches_curated_reference": true
+    }
+  ],
+  "headers": [
+    {
+      "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/M87-image/eht/poloutput/230_95/0.4_40.0_0.01_10.0_0.0_0.0_0.0.fits",
+      "fits_count_same_day": 4800,
+      "header": {
+        "NAXIS1": "64",
+        "NAXIS2": "64",
+        "OBJECT": "'M87     '",
+        "CDELT1": "-5.5555555555555E-10",
+        "CDELT2": "5.55555555555555E-10",
+        "FREQ": "226191789062.5",
+        "CRPIX1": "32.5",
+        "CRPIX2": "32.5",
+        "BUNIT": "'JY"
+      },
+      "pixel_uas": 1.99999999999998,
+      "FOV_uas": 127.99999999999872
+    },
+    {
+      "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/M87-image/eht/poloutput/230_95/0.8_50.0_0.0_100.0_10.0_100.0_1000.0.fits",
+      "fits_count_same_day": 4800,
+      "header": {
+        "NAXIS1": "64",
+        "NAXIS2": "64",
+        "OBJECT": "'M87     '",
+        "CDELT1": "-5.5555555555555E-10",
+        "CDELT2": "5.55555555555555E-10",
+        "FREQ": "226191789062.5",
+        "CRPIX1": "32.5",
+        "CRPIX2": "32.5",
+        "BUNIT": "'JY"
+      },
+      "pixel_uas": 1.99999999999998,
+      "FOV_uas": 127.99999999999872
+    },
+    {
+      "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/M87-image/eht/poloutput/230_96/0.4_40.0_0.01_10.0_0.0_0.0_0.0.fits",
+      "fits_count_same_day": 4800,
+      "header": {
+        "NAXIS1": "64",
+        "NAXIS2": "64",
+        "OBJECT": "'M87     '",
+        "CDELT1": "-5.5555555555555E-10",
+        "CDELT2": "5.55555555555555E-10",
+        "FREQ": "226191789062.5",
+        "CRPIX1": "32.5",
+        "CRPIX2": "32.5",
+        "BUNIT": "'JY"
+      },
+      "pixel_uas": 1.99999999999998,
+      "FOV_uas": 127.99999999999872
+    },
+    {
+      "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/M87-image/eht/poloutput/230_96/0.8_50.0_0.0_100.0_10.0_100.0_1000.0.fits",
+      "fits_count_same_day": 4800,
+      "header": {
+        "NAXIS1": "64",
+        "NAXIS2": "64",
+        "OBJECT": "'M87     '",
+        "CDELT1": "-5.5555555555555E-10",
+        "CDELT2": "5.55555555555555E-10",
+        "FREQ": "226191789062.5",
+        "CRPIX1": "32.5",
+        "CRPIX2": "32.5",
+        "BUNIT": "'JY"
+      },
+      "pixel_uas": 1.99999999999998,
+      "FOV_uas": 127.99999999999872
+    },
+    {
+      "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/M87-image/eht/poloutput/230_100/0.4_40.0_0.01_10.0_0.0_0.0_0.0.fits",
+      "fits_count_same_day": 4800,
+      "header": {
+        "NAXIS1": "64",
+        "NAXIS2": "64",
+        "OBJECT": "'M87     '",
+        "CDELT1": "-5.5555555555555E-10",
+        "CDELT2": "5.55555555555555E-10",
+        "FREQ": "226191789062.5",
+        "CRPIX1": "32.5",
+        "CRPIX2": "32.5",
+        "BUNIT": "'JY"
+      },
+      "pixel_uas": 1.99999999999998,
+      "FOV_uas": 127.99999999999872
+    },
+    {
+      "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/M87-image/eht/poloutput/230_100/0.8_50.0_0.0_100.0_10.0_100.0_1000.0.fits",
+      "fits_count_same_day": 4800,
+      "header": {
+        "NAXIS1": "64",
+        "NAXIS2": "64",
+        "OBJECT": "'M87     '",
+        "CDELT1": "-5.5555555555555E-10",
+        "CDELT2": "5.55555555555555E-10",
+        "FREQ": "226191789062.5",
+        "CRPIX1": "32.5",
+        "CRPIX2": "32.5",
+        "BUNIT": "'JY"
+      },
+      "pixel_uas": 1.99999999999998,
+      "FOV_uas": 127.99999999999872
+    },
+    {
+      "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/M87-image/eht/poloutput/230_101/0.4_40.0_0.01_10.0_0.0_0.0_0.0.fits",
+      "fits_count_same_day": 4800,
+      "header": {
+        "NAXIS1": "64",
+        "NAXIS2": "64",
+        "OBJECT": "'M87     '",
+        "CDELT1": "-5.5555555555555E-10",
+        "CDELT2": "5.55555555555555E-10",
+        "FREQ": "226191789062.5",
+        "CRPIX1": "32.5",
+        "CRPIX2": "32.5",
+        "BUNIT": "'JY"
+      },
+      "pixel_uas": 1.99999999999998,
+      "FOV_uas": 127.99999999999872
+    },
+    {
+      "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/M87-image/eht/poloutput/230_101/0.8_50.0_0.0_100.0_10.0_100.0_1000.0.fits",
+      "fits_count_same_day": 4800,
+      "header": {
+        "NAXIS1": "64",
+        "NAXIS2": "64",
+        "OBJECT": "'M87     '",
+        "CDELT1": "-5.5555555555555E-10",
+        "CDELT2": "5.55555555555555E-10",
+        "FREQ": "226191789062.5",
+        "CRPIX1": "32.5",
+        "CRPIX2": "32.5",
+        "BUNIT": "'JY"
+      },
+      "pixel_uas": 1.99999999999998,
+      "FOV_uas": 127.99999999999872
+    }
+  ]
+}

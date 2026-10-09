@@ -1,0 +1,82 @@
+[
+  {
+    "alpha": 0.1,
+    "filename": "GRMHD_Data_1600-3000_alpha=0.1_res=100.npy",
+    "bytes": 767040128,
+    "sha256": "4371bb9eade6e2194bd5fb111ae017655f7b8c1738b9ff0fa3f1f0a0516d4b89",
+    "reference_candidates": [
+      "4371bb9eade6e2194bd5fb111ae017655f7b8c1738b9ff0fa3f1f0a0516d4b89"
+    ],
+    "matches_curated_reference": true
+  },
+  {
+    "alpha": 0.15,
+    "filename": "GRMHD_Data_1600-3000_alpha=0.15_res=100.npy",
+    "bytes": 767040128,
+    "sha256": "a2edb5acaff208a0728bd3e6b1d443399a16e48c5ec05b271f802c8cd6efc3a2",
+    "reference_candidates": [
+      "a2edb5acaff208a0728bd3e6b1d443399a16e48c5ec05b271f802c8cd6efc3a2"
+    ],
+    "matches_curated_reference": true
+  },
+  {
+    "alpha": 0.2,
+    "filename": "GRMHD_Data_1600-3000_alpha=0.2_res=100.npy",
+    "bytes": 767040128,
+    "sha256": "38ca78435d4b236561db1726fc797ba0e1bc745011322383d967557cdc919650",
+    "reference_candidates": [
+      "38ca78435d4b236561db1726fc797ba0e1bc745011322383d967557cdc919650"
+    ],
+    "matches_curated_reference": true
+  },
+  {
+    "alpha": 0.25,
+    "filename": "GRMHD_Data_1600-3000_alpha=0.25_res=100.npy",
+    "bytes": 767040128,
+    "sha256": "c3415133d404b1f3f583b9dad36e0eeae58f70c9dfc738a5fd95084717bac1bd",
+    "reference_candidates": [
+      "c3415133d404b1f3f583b9dad36e0eeae58f70c9dfc738a5fd95084717bac1bd"
+    ],
+    "matches_curated_reference": true
+  },
+  {
+    "alpha": 0.3,
+    "filename": "GRMHD_Data_1600-3000_alpha=0.3_res=100.npy",
+    "bytes": 767040128,
+    "sha256": "948145beef61e2c8eaed194c233a2e7278dcfb9fd66b191c09ad1512f86f020e",
+    "reference_candidates": [
+      "948145beef61e2c8eaed194c233a2e7278dcfb9fd66b191c09ad1512f86f020e"
+    ],
+    "matches_curated_reference": true
+  },
+  {
+    "alpha": 0.35,
+    "filename": "GRMHD_Data_1600-3000_alpha=0.35_res=100.npy",
+    "bytes": 767040128,
+    "sha256": "34dd92815bce9f636947d138d7a6c4552840ad224fd80b6e2f198c8dfbaa859e",
+    "reference_candidates": [
+      "34dd92815bce9f636947d138d7a6c4552840ad224fd80b6e2f198c8dfbaa859e"
+    ],
+    "matches_curated_reference": true
+  },
+  {
+    "alpha": 0.4,
+    "filename": "GRMHD_Data_1600-3000_alpha=0.4_res=100.npy",
+    "bytes": 767040128,
+    "sha256": "789542d6c0c588f053e8bd58ef8e5fca179c0ee525f091fd645eff0865f7ae6d",
+    "reference_candidates": [
+      "789542d6c0c588f053e8bd58ef8e5fca179c0ee525f091fd645eff0865f7ae6d"
+    ],
+    "matches_curated_reference": true
+  },
+  {
+    "alpha": 0.44,
+    "filename": "GRMHD_Data_1600-3000_alpha=0.44_res=100.npy",
+    "bytes": 767040128,
+    "sha256": "16113d92c6e9cb4f77c762f83ceee12ea55c6dcf989abc1a5df28c95617123ef",
+    "reference_candidates": [
+      "16113d92c6e9cb4f77c762f83ceee12ea55c6dcf989abc1a5df28c95617123ef"
+    ],
+    "matches_curated_reference": true
+  }
+]

@@ -1,0 +1,92 @@
+[
+  {
+    "candidate": 0,
+    "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/M87-image/eht/poloutput/230_95/0.8_50.0_0.05_10.0_0.0_0.0_10.0.fits",
+    "hdus": [
+      {
+        "stokes": "'I       '",
+        "extname": null,
+        "shape": [
+          64,
+          64
+        ]
+      },
+      {
+        "stokes": "'Q       '",
+        "extname": "'Q       '",
+        "shape": [
+          64,
+          64
+        ]
+      },
+      {
+        "stokes": "'U       '",
+        "extname": "'U       '",
+        "shape": [
+          64,
+          64
+        ]
+      },
+      {
+        "stokes": "'V       '",
+        "extname": "'V       '",
+        "shape": [
+          64,
+          64
+        ]
+      }
+    ],
+    "IQU_exact_match": {
+      "I_data": true,
+      "Q_data": true,
+      "U_data": true
+    },
+    "theta_matches_V": true,
+    "theta_maxabs": 0.0
+  },
+  {
+    "candidate": 4799,
+    "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/M87-image/eht/poloutput/230_95/0.4_40.0_0.02_100.0_10.0_100.0_1.0.fits",
+    "hdus": [
+      {
+        "stokes": "'I       '",
+        "extname": null,
+        "shape": [
+          64,
+          64
+        ]
+      },
+      {
+        "stokes": "'Q       '",
+        "extname": "'Q       '",
+        "shape": [
+          64,
+          64
+        ]
+      },
+      {
+        "stokes": "'U       '",
+        "extname": "'U       '",
+        "shape": [
+          64,
+          64
+        ]
+      },
+      {
+        "stokes": "'V       '",
+        "extname": "'V       '",
+        "shape": [
+          64,
+          64
+        ]
+      }
+    ],
+    "IQU_exact_match": {
+      "I_data": true,
+      "Q_data": true,
+      "U_data": true
+    },
+    "theta_matches_V": true,
+    "theta_maxabs": 0.0
+  }
+]

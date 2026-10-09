@@ -1,5 +1,9 @@
 # 图像视场与 Gaussian 核：来源专项核查
 
+**后续直接证据更新：**[挂载原运行目录的常数重算](../reports/script-pipeline/MOUNTED_CONSTANTS_COMPARISON.md)。
+当前八cube/四pickle已与原目录SHA256匹配；FITS确认128µas视场，RAPTOR生产M6.2e9/D16.8、camera46.2261Rg。
+本报告早期“实际FOV未确认”的结论已更新；20µas匹配核的科学依据仍未闭环，数值参数未改。
+
 ## 结论先行
 
 本轮只核查来源，不修改配置、算法或科学结果。
