@@ -1,0 +1,47 @@
+ROOT /tmp/phys-parent-extra-8sab9upe
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/01_raptor/alpha-0.1
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/02_response/alpha-0.1
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/03_templates/1d
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/03_templates/2d
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/04_eht
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/01_raptor_background
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/05_background
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/06_observations/1d
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/06_observations/2d
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/07_inference
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/partial/raptor/processed/alpha-0.10
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/partial/raptor/response/alpha-0.10
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/partial/raptor/templates/1d
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/partial/raptor/templates/2d
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/partial/eht
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/partial/raptor/background
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/partial/background
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/partial/observations/1d
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/partial/observations/2d
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/partial/inference
+MIGRATION_LATE_FAILURE FileNotFoundError [Errno 2] No such file or directory: '/tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/08_figures'
+PARTIAL_DEST_EXISTS True STAGES 10
+MIGRATION_RETRY FileExistsError Run migration destination must be new
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/08_figures
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/raptor/processed/alpha-0.10
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/raptor/response/alpha-0.10
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/raptor/templates/1d
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/raptor/templates/2d
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/eht
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/raptor/background
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/background
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/observations/1d
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/observations/2d
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/inference
+COMPLETE test: /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/figures
+ACTUAL_MIGRATED_RESPONSE_ORIGIN_NOT_VERIFIED True
+MIGRATED_RESPONSE_INPUTS ['/tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/raptor/processed/alpha-0.10/manifest.json', '/tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/complete/raptor/processed/alpha-0.10/processing.json', '/tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0/old/01_raptor/alpha-0.1/stokes.npy']
+ROOT /tmp/phys-parent-extra-8sab9upe/migration-w7ahqab0
+EIGEN_DIRECT_24D_MAX_LOG_ERROR 3.637978807091713e-12
+PHASE_EXPECTATION 0.2597203728812867 0.3894183423086505 0.2597330040428174
+EXPOSURE_STOKES_VS_EVPA 0.5084770878587358 0.4900019823913451
+TRANSPORT_NONCOMMUTING 0.0 0.08
+CENTRAL_TRUNCATION_STD_RATIO 0.24115756133049562
+DONE /tmp/phys-parent-extra-8sab9upe
+
+EXIT=0
