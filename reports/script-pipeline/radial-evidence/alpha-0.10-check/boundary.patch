@@ -1,0 +1,22 @@
+--- original/Axion_Radial.c
++++ boundary-fixed/Axion_Radial.c
+@@ -89,7 +89,8 @@
+     {
+         ++i;
+     }
+-    --i;
++    if (i > 0)
++        --i; // At the first node, interpolate on [0,1], never [-1,0].
+ 
+     double omega_imag = ((omega_mu_ima[i + 1][1] - omega_mu_ima[i][1]) * (mu - omega_mu_ima[i][0]) / (omega_mu_ima[i + 1][0] - omega_mu_ima[i][0]) + omega_mu_ima[i][1]) * mu;
+ 
+@@ -157,7 +158,8 @@
+     {
+         ++j;
+     }
+-    --j;
++    if (j > 0)
++        --j; // Same lower-bound protection for the real-frequency table.
+ 
+     double omega_real = ((omega_mu_rea[j + 1][1] - omega_mu_rea[j][1]) * (mu - omega_mu_rea[j][0]) / (omega_mu_rea[j + 1][0] - omega_mu_rea[j][0]) + omega_mu_rea[j][1]) * mu;
+ 

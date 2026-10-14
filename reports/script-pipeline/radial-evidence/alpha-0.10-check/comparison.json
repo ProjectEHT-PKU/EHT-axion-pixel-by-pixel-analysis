@@ -1,0 +1,23 @@
+{
+  "parameters": {
+    "spin": 0.9375,
+    "alpha": 0.1,
+    "points": 2400,
+    "CIRCLE_TIMES": 1000
+  },
+  "change": "Only protect lower interpolation bracket against index -1; original real-frequency radial evaluation and normalization retained.",
+  "identical_numeric_values": false,
+  "finite_old": true,
+  "finite_new": true,
+  "max_abs_difference": 8.659739592076221e-15,
+  "max_relative_difference_nonzero": 8.949642790722247e-15,
+  "different_entries": 2374,
+  "old_peak": 1.0,
+  "new_peak": 1.0,
+  "peak_radius_old": 197.6,
+  "peak_radius_new": 197.6,
+  "source_csv_sha256_after": "0a352558f8b846f2481ab2acf35c2d6f8b30ce1f83f2e6f5196660f23433c353",
+  "identical_slice_bytes": false,
+  "old_slice_sha256": "4ba20bd485bd85197e390e56eaf4a24aae5accaafd40b1ced797f1abe5c221e0",
+  "new_slice_sha256": "fcee7839d48ebf7387c0ed458ca671ac891e5e007d2038ca6faf3400df75eadd"
+}
