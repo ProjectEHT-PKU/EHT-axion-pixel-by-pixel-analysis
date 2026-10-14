@@ -1,0 +1,21 @@
+/tmp/eht-radial-audit/archive1/Radial_function/Radial_function/Radial_function/Axion_Radial.c: In function ‘Function_R’:
+/tmp/eht-radial-audit/archive1/Radial_function/Radial_function/Radial_function/Axion_Radial.c:223:20: warning: conversion from ‘complex double’ to ‘double’ discards imaginary component [-Wconversion]
+  223 |     double omega = get_omega(mu, a);
+      |                    ^~~~~~~~~
+/tmp/eht-radial-audit/archive1/Radial_function/Radial_function/Radial_function/Axion_Radial.c:231:12: warning: conversion from ‘complex double’ to ‘double’ discards imaginary component [-Wconversion]
+  231 |     return result1;
+      |            ^~~~~~~
+/tmp/eht-radial-audit/archive1/Radial_function/Radial_function/Radial_function/Axion_Radial.c: In function ‘print_cable’:
+/tmp/eht-radial-audit/archive1/Radial_function/Radial_function/Radial_function/Axion_Radial.c:236:18: warning: conversion from ‘double’ to ‘int’ may change value [-Wfloat-conversion]
+  236 |     int mu_num = round((Mu_max - Mu_min) * 100) + 1;
+      |                  ^~~~~
+/tmp/eht-radial-audit/archive1/Radial_function/Radial_function/Radial_function/Axion_Radial.c:255:31: warning: conversion from ‘complex double’ to ‘double’ discards imaginary component [-Wconversion]
+  255 |             Result[i][j][2] = R_r;
+      |                               ^~~
+/tmp/eht-radial-audit/archive1/Radial_function/Radial_function/Radial_function/Axion_Radial.c:241:20: warning: variable ‘omega_complex’ set but not used [-Wunused-but-set-variable]
+  241 |     double complex omega_complex, R_r;
+      |                    ^~~~~~~~~~~~~
+/tmp/eht-radial-audit/archive1/Radial_function/Radial_function/Radial_function/Axion_Radial.c: In function ‘print_all_cable’:
+/tmp/eht-radial-audit/archive1/Radial_function/Radial_function/Radial_function/Axion_Radial.c:334:12: warning: unused variable ‘mu’ [-Wunused-variable]
+  334 |     double mu = 0.4;
+      |            ^~

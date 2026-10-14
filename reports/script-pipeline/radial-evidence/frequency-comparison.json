@@ -1,0 +1,134 @@
+[
+  {
+    "spin": 0.9375,
+    "alpha": 0.15,
+    "omega_re_interpolated": 0.14955229678306248,
+    "omega_im_interpolated": 1.8182642933671078e-10,
+    "omega4": 0.14989453125,
+    "omega2": 0.149578125,
+    "omega4_rel_error_percent": 0.2288393253056853,
+    "omega2_rel_error_percent": 0.017270357923693247,
+    "direct_alpha_rel_error_percent": 0.299362314433016
+  },
+  {
+    "spin": 0.9375,
+    "alpha": 0.2,
+    "omega_re_interpolated": 0.19897096166337694,
+    "omega_im_interpolated": 1.553538324235845e-09,
+    "omega4": 0.19975,
+    "omega2": 0.199,
+    "omega4_rel_error_percent": 0.3915336841669781,
+    "omega2_rel_error_percent": 0.014594258569355922,
+    "direct_alpha_rel_error_percent": 0.5171801593661707
+  },
+  {
+    "spin": 0.9375,
+    "alpha": 0.25,
+    "omega_re_interpolated": 0.24793879441281333,
+    "omega_im_interpolated": 7.535678892746121e-09,
+    "omega4": 0.24951171875,
+    "omega2": 0.248046875,
+    "omega4_rel_error_percent": 0.6344002522524983,
+    "omega2_rel_error_percent": 0.04359164020404371,
+    "direct_alpha_rel_error_percent": 0.8313364562686498
+  },
+  {
+    "spin": 0.9375,
+    "alpha": 0.3,
+    "omega_re_interpolated": 0.2963190732641458,
+    "omega_im_interpolated": 1.77955933275908e-08,
+    "omega4": 0.29915625,
+    "omega2": 0.29662499999999997,
+    "omega4_rel_error_percent": 0.9574735451892691,
+    "omega2_rel_error_percent": 0.10324233687835083,
+    "direct_alpha_rel_error_percent": 1.242217281292901
+  },
+  {
+    "spin": 0.99,
+    "alpha": 0.1,
+    "omega_re_interpolated": 0.09984820401010679,
+    "omega_im_interpolated": 7.94e-12,
+    "omega4": 0.09996875,
+    "omega2": 0.099875,
+    "omega4_rel_error_percent": 0.12072925205646179,
+    "omega2_rel_error_percent": 0.02683672696857098,
+    "direct_alpha_rel_error_percent": 0.15202676041909946
+  },
+  {
+    "spin": 0.99,
+    "alpha": 0.15,
+    "omega_re_interpolated": 0.14953206276632902,
+    "omega_im_interpolated": 1.86e-10,
+    "omega4": 0.14989453125,
+    "omega2": 0.149578125,
+    "omega4_rel_error_percent": 0.24240184811561427,
+    "omega2_rel_error_percent": 0.030804252157579093,
+    "direct_alpha_rel_error_percent": 0.312934380101626
+  },
+  {
+    "spin": 0.99,
+    "alpha": 0.2,
+    "omega_re_interpolated": 0.19891366666666668,
+    "omega_im_interpolated": 1.624e-09,
+    "omega4": 0.19975,
+    "omega2": 0.199,
+    "omega4_rel_error_percent": 0.4204504131608111,
+    "omega2_rel_error_percent": 0.04340241411264767,
+    "direct_alpha_rel_error_percent": 0.5461330795102137
+  },
+  {
+    "spin": 0.99,
+    "alpha": 0.25,
+    "omega_re_interpolated": 0.24791379551752243,
+    "omega_im_interpolated": 9.2e-09,
+    "omega4": 0.24951171875,
+    "omega2": 0.248046875,
+    "omega4_rel_error_percent": 0.6445479280981159,
+    "omega2_rel_error_percent": 0.053679740653311825,
+    "direct_alpha_rel_error_percent": 0.8415039905797173
+  },
+  {
+    "spin": 0.99,
+    "alpha": 0.3,
+    "omega_re_interpolated": 0.2962465998136935,
+    "omega_im_interpolated": 3.84e-08,
+    "omega4": 0.29915625,
+    "omega2": 0.29662499999999997,
+    "omega4_rel_error_percent": 0.9821716732399066,
+    "omega2_rel_error_percent": 0.12773148672236,
+    "direct_alpha_rel_error_percent": 1.2669850687457629
+  },
+  {
+    "spin": 0.99,
+    "alpha": 0.35,
+    "omega_re_interpolated": 0.3438558264466178,
+    "omega_im_interpolated": 1.288e-07,
+    "omega4": 0.34866015625,
+    "omega2": 0.344640625,
+    "omega4_rel_error_percent": 1.397193077409753,
+    "omega2_rel_error_percent": 0.2282347696394238,
+    "direct_alpha_rel_error_percent": 1.7868458466665071
+  },
+  {
+    "spin": 0.99,
+    "alpha": 0.4,
+    "omega_re_interpolated": 0.3904155,
+    "omega_im_interpolated": 3.6760000000000004e-07,
+    "omega4": 0.398,
+    "omega2": 0.392,
+    "omega4_rel_error_percent": 1.9426738948632893,
+    "omega2_rel_error_percent": 0.40584966529249034,
+    "direct_alpha_rel_error_percent": 2.4549486380535557
+  },
+  {
+    "spin": 0.99,
+    "alpha": 0.44,
+    "omega_re_interpolated": 0.42655203687041565,
+    "omega_im_interpolated": 7.788e-07,
+    "omega4": 0.437338,
+    "omega2": 0.429352,
+    "omega4_rel_error_percent": 2.5286394618392327,
+    "omega2_rel_error_percent": 0.65641771403262,
+    "direct_alpha_rel_error_percent": 3.152713377774763
+  }
+]

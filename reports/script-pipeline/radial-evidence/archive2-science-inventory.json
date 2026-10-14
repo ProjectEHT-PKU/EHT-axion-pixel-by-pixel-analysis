@@ -1,0 +1,338 @@
+[
+  {
+    "name": "Radial_function",
+    "size": 0,
+    "mtime": "2025-07-22T03:24:59+00:00",
+    "type": "5",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/.DS_Store",
+    "size": 8196,
+    "mtime": "2022-08-31T01:01:08+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/Axion_Radial.c",
+    "size": 10269,
+    "mtime": "2025-07-22T02:32:41+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/Axion_Radial.h",
+    "size": 1485,
+    "mtime": "2025-07-22T03:24:55+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/extraporlation.nb",
+    "size": 53474,
+    "mtime": "2021-03-09T10:21:06+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/Interpolation.nb",
+    "size": 9508,
+    "mtime": "2021-03-06T09:12:00+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/main",
+    "size": 29072,
+    "mtime": "2025-07-22T03:24:59+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/main.c",
+    "size": 762,
+    "mtime": "2025-07-22T02:26:53+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/NormR.csv",
+    "size": 654388,
+    "mtime": "2021-02-06T08:33:00+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/Plot_Radial_funtion.nb",
+    "size": 929408,
+    "mtime": "2021-06-08T19:19:32+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/README.txt",
+    "size": 1954,
+    "mtime": "2021-03-06T10:34:36+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result",
+    "size": 0,
+    "mtime": "2025-07-22T03:05:32+00:00",
+    "type": "5",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result/result_a=0.9375_l1m1.txt",
+    "size": 1403734,
+    "mtime": "2025-07-22T03:29:24+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result/result_a=0.9375_l1m1.txt.500",
+    "size": 1403606,
+    "mtime": "2025-07-22T02:57:45+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old",
+    "size": 0,
+    "mtime": "2025-07-22T02:24:43+00:00",
+    "type": "5",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/100.csv",
+    "size": 34893,
+    "mtime": "2021-06-08T19:11:16+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/1000.csv",
+    "size": 34892,
+    "mtime": "2021-06-08T19:12:36+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/10000.csv",
+    "size": 34989,
+    "mtime": "2021-06-08T19:13:26+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/200.csv",
+    "size": 34892,
+    "mtime": "2021-06-08T19:11:38+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/50.csv",
+    "size": 15664,
+    "mtime": "2021-06-08T19:14:56+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/500.csv",
+    "size": 34892,
+    "mtime": "2021-06-08T19:12:04+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/5000.csv",
+    "size": 34892,
+    "mtime": "2021-06-08T19:13:00+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/result_a=0.5_l1m1.csv",
+    "size": 1429098,
+    "mtime": "2021-03-06T10:12:20+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/result_a=0.8_l1m1.csv",
+    "size": 1408415,
+    "mtime": "2021-03-06T10:11:56+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/result_a=0.9375_l1m1.csv",
+    "size": 1403734,
+    "mtime": "2021-03-06T10:10:54+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/result_a=0.95_l1m1.csv",
+    "size": 1402095,
+    "mtime": "2021-03-06T10:10:02+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/result_a=0.99_l1m1.csv",
+    "size": 1400774,
+    "mtime": "2021-03-09T11:10:16+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/result_old/result_a=0.9_l1m1.csv",
+    "size": 1404227,
+    "mtime": "2021-03-06T10:11:26+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source",
+    "size": 0,
+    "mtime": "2025-07-22T02:24:43+00:00",
+    "type": "5",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.5_l1m1_ima.txt",
+    "size": 2948,
+    "mtime": "2021-03-06T07:25:08+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.5_l1m1_real.txt",
+    "size": 4296,
+    "mtime": "2021-03-06T05:39:38+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.7_l1m1_real.txt",
+    "size": 4684,
+    "mtime": "2021-03-06T07:25:36+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.8_l1m1_ima.txt",
+    "size": 4769,
+    "mtime": "2021-03-06T07:26:16+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.8_l1m1_real.txt",
+    "size": 6111,
+    "mtime": "2021-03-06T06:54:06+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.9375_l1m1_ima.txt",
+    "size": 7072,
+    "mtime": "2021-03-06T07:59:18+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.9375_l1m1_real.txt",
+    "size": 8465,
+    "mtime": "2021-03-06T07:59:32+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.95_l1m1_ima.txt",
+    "size": 1527,
+    "mtime": "2021-03-06T07:58:04+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.95_l1m1_real.txt",
+    "size": 8480,
+    "mtime": "2021-03-06T07:58:30+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.95_l2m2_ima.txt",
+    "size": 2945,
+    "mtime": "2021-01-12T08:11:54+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.99_l1m1_ima.txt",
+    "size": 6313,
+    "mtime": "2021-03-09T10:14:36+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.99_l1m1_ima_combined_no_extra.csv",
+    "size": 1699,
+    "mtime": "2021-03-09T10:04:56+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.99_l1m1_ima_old.csv",
+    "size": 1716,
+    "mtime": "2021-03-09T10:19:26+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.99_l1m1_ima_old.txt",
+    "size": 1794,
+    "mtime": "2021-03-09T10:18:12+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.99_l1m1_ima_yifan.csv",
+    "size": 1876,
+    "mtime": "2021-03-09T07:31:00+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.99_l1m1_real.txt",
+    "size": 3690,
+    "mtime": "2021-03-06T07:58:48+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.99_l2m2_ima.txt",
+    "size": 2184,
+    "mtime": "2021-01-12T08:12:16+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.9_l1m1_ima.txt",
+    "size": 4914,
+    "mtime": "2021-03-06T07:57:28+00:00",
+    "type": "0",
+    "link": ""
+  },
+  {
+    "name": "Radial_function/source/a=0.9_l1m1_real.txt",
+    "size": 7509,
+    "mtime": "2021-03-06T07:57:46+00:00",
+    "type": "0",
+    "link": ""
+  }
+]
