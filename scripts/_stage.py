@@ -14,6 +14,7 @@ from eht_axion.pipeline.workflow import run_stage
 ENVIRONMENT_OPTIONS = {
     "config": "EHT_CONFIG",
     "input_root": "EHT_INPUT_ROOT",
+    "raptor_input_root": "EHT_RAPTOR_INPUT_ROOT",
     "output_root": "EHT_OUTPUT_ROOT",
     "trust_pickle": "EHT_TRUST_PICKLE",
     "rebuild": "EHT_REBUILD",
@@ -34,7 +35,7 @@ def parse_options(stage, argv=None):
     parser = argparse.ArgumentParser(
         description=f"Run the {stage} research stage. Arguments override exported EHT_* variables."
     )
-    for option in ("config", "input_root", "output_root"):
+    for option in ("config", "input_root", "raptor_input_root", "output_root"):
         parser.add_argument(
             "--" + option.replace("_", "-"),
             type=Path,
@@ -51,7 +52,7 @@ def parse_options(stage, argv=None):
     for option, name in ENVIRONMENT_OPTIONS.items():
         if getattr(args, option) is not None:
             continue  # Do not even parse a stale/invalid environment value if CLI overrides it.
-        if option in {"config", "input_root", "output_root"}:
+        if option in {"config", "input_root", "raptor_input_root", "output_root"}:
             value = os.environ.get(name, "").strip()
             setattr(args, option, Path(value) if value else None)
         else:
@@ -64,8 +65,10 @@ def parse_options(stage, argv=None):
             parser.error(
                 f"Set {ENVIRONMENT_OPTIONS[option]} in the shell or pass --{option.replace('_', '-')}"
             )
-    if stage in {"all", "raptor", "eht", "background"} and args.input_root is None:
+    if stage in {"all", "eht"} and args.input_root is None:
         parser.error("Set EHT_INPUT_ROOT in the shell or pass --input-root")
+    if stage in {"raptor", "background"} and args.input_root is None and args.raptor_input_root is None:
+        parser.error("Set EHT_INPUT_ROOT/EHT_RAPTOR_INPUT_ROOT or pass the corresponding input root")
     return args
 
 
@@ -75,6 +78,7 @@ def execute(stage, argv=None):
         args.config,
         args.output_root,
         input_root=args.input_root,
+        raptor_input_root=args.raptor_input_root,
         stage=stage,
         trust_pickle=args.trust_pickle,
         rebuild=args.rebuild,

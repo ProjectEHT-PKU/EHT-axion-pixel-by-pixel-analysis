@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+from contextvars import ContextVar
 import hashlib
 import json
 from importlib.metadata import PackageNotFoundError, version
@@ -15,14 +16,61 @@ import time
 from pathlib import Path
 
 SCHEMA_VERSION = 1
+_VERIFICATION = ContextVar("content_verification_session", default=None)
+_STAGE_TEMPORARIES = ContextVar("active_stage_temporaries", default=())
+
+
+def _file_identity(path):
+    info = path.stat()
+    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+@contextlib.contextmanager
+def verification_session():
+    """Hash shared immutable inputs once per invocation, never across invocations.
+
+    Every reuse checks file identity, including ctime, and successful exit checks
+    all hashed files again. This is not a persistent mtime-based content cache.
+    Scope this around a batch of jobs; temporary renamed outputs are not memoized.
+    """
+    current = _VERIFICATION.get()
+    if current is not None:
+        yield
+        return
+    records = {}
+    token = _VERIFICATION.set(records)
+    try:
+        yield
+        for path, (identity, _) in records.items():
+            if not path.is_file() or _file_identity(path) != identity:
+                raise ValueError(f"Input changed during verification session: {path}")
+    finally:
+        _VERIFICATION.reset(token)
 
 
 def sha256(path: Path) -> str:
+    path = Path(path).resolve(strict=True)
+    records = _VERIFICATION.get()
+    # Atomic stage temporaries move on publish; never bind them to session paths.
+    memoize = records is not None and not any(
+        path.is_relative_to(root) for root in _STAGE_TEMPORARIES.get()
+    )
+    before = _file_identity(path)
+    if memoize and path in records:
+        identity, result = records[path]
+        if before != identity:
+            raise ValueError(f"Input changed during verification session: {path}")
+        return result
     digest = hashlib.sha256()
-    with Path(path).open("rb") as stream:
+    with path.open("rb") as stream:
         for block in iter(lambda: stream.read(8 * 1024 * 1024), b""):
             digest.update(block)
-    return digest.hexdigest()
+    if _file_identity(path) != before:
+        raise ValueError(f"Input changed while hashing: {path}")
+    result = digest.hexdigest()
+    if memoize:
+        records[path] = (before, result)
+    return result
 
 
 def describe_inputs(paths):
@@ -296,6 +344,7 @@ def stage_directory(
     with os.fdopen(fd, "w") as stream:
         stream.write(json.dumps({"pid": os.getpid(), "started": time.time()}))
     temporary = None
+    temporary_token = None
     try:
         if destination.exists() and not rebuild:
             manifest = verify_stage(destination, recursive=True, allow_imported=reuse_imported)
@@ -314,6 +363,7 @@ def stage_directory(
             yield None
             return
         temporary = Path(tempfile.mkdtemp(prefix=destination.name + ".building-", dir=destination.parent))
+        temporary_token = _STAGE_TEMPORARIES.set(_STAGE_TEMPORARIES.get() + (temporary,))
         started = time.perf_counter()
         yield temporary
         outputs = [
@@ -377,6 +427,8 @@ def stage_directory(
             shutil.rmtree(backup)
         print(f"COMPLETE {stage}: {destination}", flush=True)
     finally:
+        if temporary_token is not None:
+            _STAGE_TEMPORARIES.reset(temporary_token)
         if temporary is not None:
             shutil.rmtree(temporary)
         lock.unlink(missing_ok=True)

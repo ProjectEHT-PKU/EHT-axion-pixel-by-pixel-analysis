@@ -108,6 +108,9 @@ def input_raptor_files(root, alpha, resolution):
                 sources.append(("whole", [whole]))
             # Include malformed time-like names so they cannot disappear silently.
             paths = list(directory.glob("stokes-t*.npy"))
+            # Generated deliveries are independent atomic time-shard stages.
+            generated = list(directory.glob("t*/stokes-t*.npy"))
+            paths += generated
             if paths:
                 sources.append(("shards", paths))
         if len(sources) > 1:

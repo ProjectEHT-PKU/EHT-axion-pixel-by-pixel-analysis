@@ -40,5 +40,21 @@ test = { cmd = 'python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=. sc
 lint = { cmd = "ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts", description = "Check code using explicit rules; no external Ruff configuration" }
 check = { depends-on = ["test", "lint"], description = "Run tests and lint" }
 
+[feature.raptor-build]
+platforms = ["linux-64"]
+
+[feature.raptor-build.dependencies]
+c-compiler = "*"
+make = "*"
+gsl = "*"
+hdf5 = "*"
+pkg-config = "*"
+rsync = "*"
+
+[feature.raptor-build.tasks]
+build-raptor = "python scripts/build_raptor.py"
+generate-raptor = "python scripts/generate_raptor.py"
+
 [environments]
 default = { features = [] }
+raptor-build = { features = ["raptor-build"] }

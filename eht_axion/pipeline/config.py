@@ -105,7 +105,8 @@ def _alpha(value, name):
 
 
 def _validate(config):
-    _keys(config, set(_FIELDS), "root")
+    expected = set(_FIELDS) | ({"producer"} if "producer" in config else set())
+    _keys(config, expected, "root")
     for section, fields in _FIELDS.items():
         if section == "inference" and isinstance(config[section], dict):
             if {"observation", "observed"} & config[section].keys():
@@ -174,4 +175,8 @@ def read_config(path):
     if not isinstance(config, dict):
         raise ValueError("Scientific YAML configuration must contain a mapping")
     _validate(config)
+    if "producer" in config:
+        from ..producer.config import validate_production_config
+
+        validate_production_config(config)
     return config

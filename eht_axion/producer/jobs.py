@@ -1,0 +1,486 @@
+"""Serial, per-job atomic RAPTOR runner; never a transaction over the whole run.
+
+The build is produced by the core-owned setup/make Python entry point. This
+module only consumes its immutable, declared products. Failed attempts remain
+outside the stage temporary directory. Resume requires both verified lineage
+and the success/schema receipts, never mere directory or HDF5 existence.
+"""
+from __future__ import annotations
+
+import json
+import math
+import os
+from pathlib import Path
+import re
+import shutil
+import signal
+import subprocess
+import tempfile
+import time
+
+from ..pipeline import common
+from .outputs import read_core_constants, validate_job_output
+
+PARAMETER_UNITS = {
+    "MBH": "(Msun)", "DISTANCE": "(kpc)", "M_UNIT": "(g)", "R_LOW": "(-)", "R_HIGH": "(-)",
+    "INCLINATION": "(deg)", "IMG_WIDTH": "(pixels)", "IMG_HEIGHT": "(pixels)",
+    "CAM_SIZE_X": "(Rg)", "CAM_SIZE_Y": "(Rg)", "FREQS_PER_DEC": "(-)", "FREQ_MIN": "(Hz)",
+    "STEPSIZE": "(-)", "AXION_ALPHA": "(-)", "AXION_OMEGA": "(-)", "AXION_NORM": "(-)",
+    "AXION_PHASE": "(-)", "AXION_TABLE": "(-)", "MAX_LEVEL": "(-)",
+}
+_INTEGER_FIELDS = {"IMG_WIDTH", "IMG_HEIGHT", "AXION_PHASE", "MAX_LEVEL"}
+
+
+def _integer(value, name, minimum=0):
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise ValueError(f"{name} must be an integer >= {minimum}")
+    return value
+
+
+def _token(value, name):
+    value = str(value)
+    if not value or len(os.fsencode(value)) > 255 or any(c.isspace() or c == "\0" for c in value):
+        raise ValueError(f"{name} must be one nonempty token of at most 255 bytes")
+    return value
+
+
+def parameter_values(parameters: dict) -> dict:
+    """Accept plan's explicit {unit,value} records or already-normalized values."""
+    result = {}
+    for name, item in parameters.items():
+        if isinstance(item, dict):
+            if set(item) != {"unit", "value"} or item["unit"] != PARAMETER_UNITS.get(name):
+                raise ValueError(f"Invalid explicit unit/value for {name}")
+            result[name] = item["value"]
+        else:
+            result[name] = item
+    return result
+
+
+def serialize_parameters(parameters: dict) -> str:
+    """Emit the exact 19 LABEL UNIT VALUE triples accepted by the new core."""
+    if set(parameters) != set(PARAMETER_UNITS):
+        raise ValueError("model.in requires exactly the 19 declared core parameters")
+    p = parameter_values(parameters)
+    for name, value in p.items():
+        if name == "AXION_TABLE":
+            _token(value, name)
+        elif name in _INTEGER_FIELDS:
+            _integer(value, name)
+        elif isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value):
+            raise ValueError(f"{name} must be a finite number")
+    positive = {"MBH", "DISTANCE", "M_UNIT", "R_LOW", "R_HIGH", "CAM_SIZE_X", "CAM_SIZE_Y",
+                "FREQS_PER_DEC", "FREQ_MIN", "STEPSIZE"}
+    if any(p[name] <= 0 for name in positive):
+        raise ValueError("Core scale/model parameters must be positive")
+    if not 0 <= p["INCLINATION"] <= 180:
+        raise ValueError("INCLINATION must be in 0..180 degrees")
+    if (p["IMG_WIDTH"] <= 0 or p["IMG_WIDTH"] != p["IMG_HEIGHT"] or p["IMG_WIDTH"] % 10
+            or (p["IMG_WIDTH"] // 10) ** 2 > 2**31 - 1):
+        raise ValueError("Square image resolution must be a positive multiple of 10")
+    if p["MAX_LEVEL"] != 1:
+        raise ValueError("First-scope runner supports only MAX_LEVEL=1")
+    if not 0 <= p["AXION_PHASE"] <= 15:
+        raise ValueError("AXION_PHASE must be in 0..15")
+    if p["AXION_NORM"] < 0 or p["AXION_ALPHA"] < 0 or p["AXION_OMEGA"] < 0:
+        raise ValueError("Axion parameters must be nonnegative")
+    if p["AXION_NORM"] > 0 and (p["AXION_ALPHA"] <= 0 or p["AXION_OMEGA"] <= 0):
+        raise ValueError("Enabled alpha and independent omega must be positive")
+    if not math.isfinite(p["MBH"] * 1.989e33) or not math.isfinite(p["DISTANCE"] * 3.086e21):
+        raise ValueError("Core cgs conversion overflows")
+    lines = []
+    for name, unit in PARAMETER_UNITS.items():
+        value = p[name]
+        text = str(value) if name == "AXION_TABLE" or name in _INTEGER_FIELDS else format(value, ".17g")
+        lines.append(f"{name}\t{unit}\t{text}\n")
+    return "".join(lines)
+
+
+def _build_products(build_dir, manifest):
+    declared = [build_dir / e["path"] for e in manifest["outputs"]]
+
+    def one(name, preferred=()):
+        for relative in preferred:
+            if build_dir / relative in declared:
+                return build_dir / relative
+        matches = [p for p in declared if p.name == name]
+        if len(matches) != 1:
+            raise ValueError(f"Build must declare one effective {name}; found {len(matches)}")
+        return matches[0]
+
+    binary = one("RAPTOR", ("RAPTOR", "run/RAPTOR"))
+    grid = one("grid_mks.in", ("grid_mks.in", "run/grid_mks.in"))
+    header = one("definitions.h", ("run/definitions.h", "definitions.h"))
+    common.require_declared_outputs(build_dir, [binary, grid, header])
+    if any(p.is_symlink() for p in (binary, grid, header)):
+        raise ValueError("Generated build products must not be symlinks")
+    if not os.access(binary, os.X_OK):
+        raise ValueError("Declared RAPTOR binary is not executable")
+    return binary, grid, header
+
+
+def _prepare_task(task):
+    task = dict(task)
+    identifier = task.get("id")
+    if not isinstance(identifier, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,159}", identifier):
+        raise ValueError("Unsafe task id")
+    if task.get("kind") not in {"baseline", "response"}:
+        raise ValueError("Task kind must be baseline or response")
+    source = Path(task["source_path"]).resolve(strict=True)
+    if not source.is_file() or len(os.fsencode(source)) > 255:
+        raise ValueError("Snapshot must be a regular file with a path <=255 bytes")
+    _integer(task["label"], "snapshot label")
+    if isinstance(task["time_tg"], bool) or not math.isfinite(task["time_tg"]):
+        raise ValueError("Snapshot time_tg must be finite")
+    resolution = _integer(task["resolution"], "resolution", 1)
+    slot = _integer(task.get("output_slot", task["phase_index"]), "output slot")
+    if slot > 16:
+        raise ValueError("Output slot must be in 0..16")
+    p = parameter_values(task["parameters"])
+    if p["IMG_WIDTH"] != resolution or p["IMG_HEIGHT"] != resolution:
+        raise ValueError("Task resolution and model dimensions differ")
+    if task["norm"] != p["AXION_NORM"]:
+        raise ValueError("Task norm and model norm differ")
+    table = None
+    if task["kind"] == "baseline":
+        if (task["norm"] != 0 or slot != 0 or p["AXION_ALPHA"] != 0 or p["AXION_OMEGA"] != 0
+                or p["AXION_PHASE"] != 0 or task.get("omega", 0) != 0
+                or task["phase_index"] != 0 or task.get("alpha") is not None):
+            raise ValueError("Baseline requires norm/alpha/omega/phase/outputslot zero")
+        # Disabled jobs do not consume any radial table or cloud identity.
+        task.update(alpha=None, omega=0, table_id=None, table_path=None)
+        p["AXION_TABLE"] = "disabled"
+    else:
+        if task["norm"] <= 0 or slot < 1 or p["AXION_PHASE"] != slot - 1:
+            raise ValueError("Response requires positive norm and slot=AXION_PHASE+1")
+        if task["alpha"] != p["AXION_ALPHA"] or task["omega"] != p["AXION_OMEGA"]:
+            raise ValueError("Task alpha/omega and model parameters differ")
+        if "output_slot" in task and task["phase_index"] != p["AXION_PHASE"]:
+            raise ValueError("Task phase_index differs from physical AXION_PHASE")
+        table = Path(task["table_path"]).resolve(strict=True)
+        if Path(p["AXION_TABLE"]).resolve(strict=True) != table:
+            raise ValueError("Model AXION_TABLE differs from task table_path")
+        if not table.is_file():
+            raise ValueError("Axion table must be a regular file")
+        p["AXION_TABLE"] = _token(table, "AXION_TABLE")
+        task["table_path"] = str(table)
+    task.update(source_path=str(source), parameters=p, output_slot=slot)
+    serialize_parameters(p)
+    # Intentionally whitelist consumed identity: baseline must not acquire a
+    # hidden dependency on arbitrary planning annotations or radial tables.
+    config = {key: task.get(key) for key in (
+        "id", "kind", "label", "time_tg", "source_path", "resolution", "alpha", "omega", "norm",
+        "phase_index", "output_slot", "parameters",
+    )}
+    if table is not None:
+        config.update({key: task.get(key) for key in ("table_id", "table_path", "table_spin")})
+    return task, config, [source] + ([] if table is None else [table])
+
+
+def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
+    """Reject drift between a production plan, live footer/table, and build.
+
+    A bare tasks-only plan is the lower-level synthetic runner API. Production
+    plans carry config/snapshot/table inventories and must satisfy every gate.
+    """
+    for task, _, paths in prepared:
+        for path in paths:
+            digest = common.sha256(path)
+            expected = task.get("source_sha256" if path == paths[0] else "table_sha256")
+            if expected is not None and expected != digest:
+                raise ValueError(f"Declared plan input hash differs from live bytes: {path}")
+    expected_commit = plan.get("expected_core_commit")
+    if expected_commit is not None:
+        if manifest["config"].get("source_commit") != expected_commit:
+            raise ValueError("Build source commit differs from expected_core_commit")
+        receipt_path = build_dir / "receipt.json"
+        common.require_declared_outputs(build_dir, [receipt_path])
+        if json.loads(receipt_path.read_text()).get("source_commit") != expected_commit:
+            raise ValueError("Build receipt source commit differs from expected_core_commit")
+    if "config" not in plan:
+        return
+    if expected_commit is None:
+        raise ValueError("Production plan requires expected_core_commit")
+    from ..model import omega
+    from .config import canonical_alpha, validate_production_config
+    from .plan import _parameters, read_snapshot_footer, validate_radial_table
+
+    config = plan["config"]
+    validate_production_config(config)
+    p = config["producer"]
+    if manifest["config"].get("settings") != p["build"]:
+        raise ValueError("Build settings differ from production plan")
+    # grid_mks.in's exact legacy field spellings are owned by the core.
+    fields = {}
+    for line in grid.read_text().splitlines():
+        if not line.strip():
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if key in fields:
+            raise ValueError("Duplicate core grid field")
+        fields[key] = float(value.strip())
+    expected_grid = {f"nxlone{i+1}": v for i, v in enumerate(p["grid"]["nxlone"])}
+    expected_grid.update({f"xprobminx{i+1}": v for i, v in enumerate(p["grid"]["xprobmin"])})
+    expected_grid.update({f"xprobmax{i+1}": v for i, v in enumerate(p["grid"]["xprobmax"])})
+    expected_grid["hslope"] = p["grid"]["hslope"]
+    if fields != expected_grid:
+        raise ValueError("Effective build grid differs from production plan")
+    macro_path = build_dir / "macros.txt"
+    common.require_declared_outputs(build_dir, [macro_path])
+    macro_text = macro_path.read_text()
+    from .build import _verify_macros
+    _verify_macros(macro_text, p["build"])
+    macros = dict(re.findall(r"^#define[ \t]+(\w+)[ \t]+([^\n]*)$", macro_text, re.MULTILINE))
+    required = {"POL": "1", "num_frequencies": "1", "num_pixels_1d": "10", "NSPIN": "3",
+                "SMR": "1", "AMR": "0", "UNIF": "0", "metric": "MKSBHAC",
+                "DF": "TH", "IMGFILE": "1", "SPECFILE": "1"}
+    if any(macros.get(key, "").strip().strip("()").strip() != value for key, value in required.items()):
+        raise ValueError("Unsupported effective camera/POL/frequency/build macros")
+    snapshots = {s["label"]: s for s in plan["snapshots"]}
+    footer_cache, table_cache = {}, {}
+    start, stop, step = (p["snapshots"][k] for k in ("start", "stop", "step"))
+    for task, _, _ in prepared:
+        label = task["label"]
+        if not start <= label <= stop or (label - start) % step:
+            raise ValueError("Task label is not on the production snapshot grid")
+        snapshot = snapshots.get(label)
+        if snapshot is None or Path(snapshot["source_path"]).resolve() != Path(task["source_path"]):
+            raise ValueError("Task source differs from plan snapshot inventory")
+        source = task["source_path"]
+        if source not in footer_cache:
+            footer_cache[source] = read_snapshot_footer(Path(source), p["grid"])
+        if footer_cache[source]["time_tg"] != task["time_tg"] or task["time_tg"] != snapshot["time_tg"]:
+            raise ValueError("Task time differs from live snapshot footer")
+        if "metadata" in snapshot and footer_cache[source] != snapshot["metadata"]:
+            raise ValueError("Live snapshot footer differs from plan metadata")
+        if snapshot.get("source_sha256") not in (None, common.sha256(Path(source))):
+            raise ValueError("Live snapshot bytes differ from plan inventory hash")
+        enabled = task["kind"] == "response"
+        alpha = task["alpha"] if enabled else None
+        if enabled and alpha not in config["data"]["alphas"]:
+            raise ValueError("Task alpha is not in production config")
+        resolution = p["response"]["resolution"]
+        if not enabled and task["resolution"] not in {resolution, p["background"]["resolution"]}:
+            raise ValueError("Baseline resolution differs from production config")
+        if enabled and task["resolution"] != resolution:
+            raise ValueError("Response resolution differs from production config")
+        phase = task["parameters"]["AXION_PHASE"]
+        expected_omega = float(omega(alpha, config["inference"]["principal_n"])) if enabled else 0.
+        norm = p["response"]["reference_norm"] if enabled else 0.
+        table_path = None
+        if enabled:
+            table_id = p["alpha_table"][canonical_alpha(alpha)]
+            table = plan["radial_tables"][table_id]
+            table_path = str(Path(table["path"]).resolve(strict=True))
+            if (task["table_id"] != table_id or task["table_path"] != table_path
+                    or task.get("table_spin") != p["radial_tables"][table_id]["spin"]):
+                raise ValueError("Task table identity/spin differs from production plan")
+            if table.get("sha256") not in (None, common.sha256(Path(table_path))):
+                raise ValueError("Live radial table differs from plan inventory hash")
+            if table_path not in table_cache:
+                table_cache[table_path] = validate_radial_table(Path(table_path), [])
+            if not table_cache[table_path]["alpha_min"] <= alpha <= table_cache[table_path]["alpha_max"]:
+                raise ValueError("Live radial table does not cover task alpha")
+        expected = parameter_values(_parameters(config, task["resolution"], alpha, expected_omega,
+                                                norm, phase, table_path))
+        if not enabled:
+            expected["AXION_TABLE"] = "disabled"
+        if expected != task["parameters"]:
+            raise ValueError("Task model parameters differ from production plan")
+
+
+def _json(path, record):
+    common.require_new_output_file(path)
+    path.write_text(json.dumps(record, indent=2, allow_nan=False) + "\n")
+
+
+def _kill_group(process):
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    process.wait()
+
+
+def _execute(command, cwd, env, stdout, stderr, timeout):
+    with stdout.open("xb") as out, stderr.open("xb") as err:
+        process = subprocess.Popen(command, cwd=cwd, env=env, stdout=out, stderr=err,
+                                   shell=False, start_new_session=True)
+        try:
+            return process.wait(timeout=timeout), False
+        except subprocess.TimeoutExpired:
+            _kill_group(process)
+            return process.returncode, True
+        except BaseException:
+            _kill_group(process)
+            raise
+
+
+def _assert_sources_unchanged(paths):
+    # verification_session's sha256 validates cached stat identity, rather than
+    # rereading 97 GB. It also validates identity before/after the initial read.
+    for path in paths:
+        common.sha256(path)
+
+
+def _run_jobs(plan, build_dir, run_root, *, max_jobs, threads, timeout_seconds):
+    threads = _integer(threads, "threads", 1)
+    if max_jobs is not None:
+        _integer(max_jobs, "max_jobs")
+    if timeout_seconds is not None and (
+        isinstance(timeout_seconds, bool) or not math.isfinite(timeout_seconds) or timeout_seconds <= 0
+    ):
+        raise ValueError("timeout_seconds must be positive and finite")
+    if not isinstance(plan, dict) or not isinstance(plan.get("tasks"), list):
+        raise ValueError("plan must contain a tasks list")
+    tasks = plan["tasks"] if max_jobs is None else plan["tasks"][:max_jobs]
+    prepared = [_prepare_task(task) for task in tasks]
+    if len({t[0]["id"] for t in prepared}) != len(prepared):
+        raise ValueError("Duplicate task ids")
+    common.reject_directory_symlinks(build_dir)
+    common.reject_directory_symlinks(run_root)
+    build_dir, run_root = Path(build_dir).resolve(strict=True), Path(run_root).resolve()
+    if run_root == build_dir or run_root.is_relative_to(build_dir):
+        raise ValueError("Run container must not be inside the immutable build")
+    if any((parent / name).exists() or (parent / name).is_symlink()
+           for parent in [run_root, *run_root.parents] for name in ("manifest.json", "stage.json")):
+        raise ValueError("Refusing to use an existing output stage as a run container/ancestor")
+    manifest = common.verify_stage(build_dir, recursive=True, allow_imported=False)
+    binary, grid, header = _build_products(build_dir, manifest)
+    constants = read_core_constants(header)
+    _validate_plan_binding(plan, prepared, manifest, build_dir, grid)
+    base_inputs = [common.manifest_path(build_dir), binary, grid, header]
+    closure = list(common.source_closure(base_inputs + [p for _, _, paths in prepared for p in paths]))
+    write_roots = [run_root / "jobs", run_root / "attempts"]
+    for source in closure:
+        for write_root in write_roots:
+            if source == write_root or source.is_relative_to(write_root) or write_root.is_relative_to(source):
+                raise ValueError(f"Job/attempt root overlaps a consumed source: {source}")
+        if run_root.is_relative_to(source.parent) and not source.is_relative_to(build_dir):
+            raise ValueError(f"Run root is inside a consumed source directory: {source.parent}")
+    for name in ("jobs", "attempts"):
+        common.reject_directory_symlinks(run_root / name)
+    # Reject shared core/fluid/table directory ancestry even where the concrete
+    # input filename is not itself an ancestor. CLI performs broader root checks.
+    for key in ("source_roots", "input_roots"):
+        roots = plan.get(key, [])
+        if isinstance(roots, dict):
+            roots = roots.values()
+        for root in roots:
+            root = Path(root).resolve(strict=True)
+            if root == run_root or root.is_relative_to(run_root) or run_root.is_relative_to(root):
+                raise ValueError(f"Run root overlaps protected input root: {root}")
+    env = os.environ.copy()
+    env.update(OMP_NUM_THREADS=str(threads), OMP_DYNAMIC="FALSE", MKL_NUM_THREADS="1",
+               OPENBLAS_NUM_THREADS="1", BLIS_NUM_THREADS="1", NUMEXPR_NUM_THREADS="1",
+               VECLIB_MAXIMUM_THREADS="1")
+    results = []
+    for task, config, task_inputs in prepared:
+        destination = run_root / "jobs" / task["id"]
+        attempt_parent = run_root / "attempts" / task["id"]
+        common.reject_directory_symlinks(attempt_parent)
+        task.update(core_constants=constants, core_constants_source=str(header))
+        inputs = base_inputs + task_inputs
+        config.update(threads=threads, output_adapter_schema=1)
+        attempt = temporary = None
+        receipt = None
+        try:
+            with common.stage_directory(destination, "producer-job", config, inputs) as temporary:
+                if temporary is None:
+                    # A generic complete manifest alone is insufficient.
+                    common.require_declared_outputs(destination, [destination / "success.json",
+                                                                 destination / "output.json"])
+                    success = json.loads((destination / "success.json").read_text())
+                    if (success.get("schema") != 1 or success.get("returncode") != 0
+                            or success.get("timed_out") is not False
+                            or success.get("output_validated") is not True):
+                        raise ValueError("Cached job lacks a successful process receipt")
+                    validated = validate_job_output(destination, task)
+                    common.require_declared_outputs(destination, [destination / validated["hdf5"],
+                                                                 destination / validated["spectrum"],
+                                                                 destination / "model.in",
+                                                                 destination / "grid_mks.in",
+                                                                 destination / "task.json"])
+                    if (destination / "model.in").read_text() != serialize_parameters(task["parameters"]):
+                        raise ValueError("Cached job model.in differs from task")
+                    if json.loads((destination / "task.json").read_text()) != config:
+                        raise ValueError("Cached task receipt differs from task config")
+                    if common.sha256(destination / "grid_mks.in") != common.sha256(grid):
+                        raise ValueError("Cached job grid differs from declared build grid")
+                    if json.loads((destination / "output.json").read_text()) != validated:
+                        raise ValueError("Cached output validation metadata differs")
+                    _assert_sources_unchanged(closure)
+                    results.append({"id": task["id"], "status": "cached", "directory": str(destination)})
+                    continue
+                attempt_parent.mkdir(parents=True, exist_ok=True)
+                attempt = Path(tempfile.mkdtemp(prefix="attempt-", dir=attempt_parent))
+                command = [str(binary), "model.in", task["source_path"], str(task["output_slot"])]
+                receipt = {"schema": 1, "task_id": task["id"], "command": command,
+                           "started_unix": time.time(), "threads": threads,
+                           "timeout_seconds": timeout_seconds, "inputs": common.describe_inputs(inputs),
+                           "returncode": None, "timed_out": False, "complete": False}
+                _json(attempt / "input.json", receipt)
+                try:
+                    _json(temporary / "task.json", config)
+                    (temporary / "model.in").write_text(serialize_parameters(task["parameters"]))
+                    shutil.copyfile(grid, temporary / "grid_mks.in")
+                    _assert_sources_unchanged(closure)
+                    code, timed_out = _execute(command, temporary, env, attempt / "stdout.log",
+                                               attempt / "stderr.log", timeout_seconds)
+                    receipt.update(returncode=code, timed_out=timed_out)
+                    if timed_out:
+                        raise RuntimeError(f"RAPTOR timed out after {timeout_seconds} seconds")
+                    if code != 0:
+                        raise RuntimeError(f"RAPTOR exited with returncode {code}")
+                    validated = validate_job_output(temporary, task)
+                    _json(temporary / "output.json", validated)
+                    _json(temporary / "success.json", {"schema": 1, "returncode": 0, "timed_out": False,
+                                                       "output_validated": True})
+                    shutil.copyfile(attempt / "stdout.log", temporary / "stdout.log")
+                    shutil.copyfile(attempt / "stderr.log", temporary / "stderr.log")
+                    _assert_sources_unchanged(closure)
+                except BaseException:
+                    # Preserve partial HDF and exact model input before common
+                    # cleans the failed transaction. Never mark this tree complete.
+                    shutil.copytree(temporary, attempt / "work", symlinks=True)
+                    raise
+            receipt.update(complete=True, finished_unix=time.time())
+            _json(attempt / "result.json", receipt)
+            results.append({"id": task["id"], "status": "complete", "directory": str(destination),
+                            "attempt": str(attempt), "returncode": 0})
+        except Exception as exc:
+            if attempt is not None:
+                receipt.update(error=f"{type(exc).__name__}: {exc}", finished_unix=time.time())
+                _json(attempt / "result.json", receipt)
+            results.append({"id": task["id"], "status": "failed", "directory": str(destination),
+                            "attempt": None if attempt is None else str(attempt),
+                            "returncode": None if receipt is None else receipt["returncode"],
+                            "error": f"{type(exc).__name__}: {exc}"})
+        except BaseException as exc:
+            if attempt is not None:
+                receipt.update(error=f"{type(exc).__name__}: {exc}", cancelled=True,
+                               finished_unix=time.time())
+                _json(attempt / "result.json", receipt)
+            raise
+    counts = {status: sum(r["status"] == status for r in results)
+              for status in ("complete", "cached", "failed")}
+    return {"schema": 1, "run_root": str(run_root), "build_dir": str(build_dir), "jobs": results,
+            "counts": counts, "selected_tasks": len(prepared), "planned_tasks": len(plan["tasks"]),
+            "complete": counts["failed"] == 0, "process_run": counts["complete"] > 0,
+            "scientific_validation": False}
+
+
+def run_jobs(plan: dict, build_dir: Path, run_root: Path, *, max_jobs: int | None = None,
+             threads: int = 2, timeout_seconds: float | None = None) -> dict:
+    """Run only the first max_jobs tasks, serially, with invocation-local hashes.
+
+    No real data is copied, no shell is used, no old successful stage is rebuilt.
+    ``complete`` refers to the selected prefix only; counts/planned_tasks expose
+    partial pilot authorization. Operational failures are returned per task;
+    invalid plans/root/build fail before launch. Cancellation kills the process
+    group and propagates after saving the attempt receipt.
+    """
+    with common.verification_session():
+        return _run_jobs(plan, build_dir, run_root, max_jobs=max_jobs, threads=threads,
+                         timeout_seconds=timeout_seconds)

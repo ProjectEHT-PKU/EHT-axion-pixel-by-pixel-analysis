@@ -1,0 +1,6 @@
+{
+  "repository": "https://github.com/ProjectEHT-PKU/raptor",
+  "commit": "20056006820b6536c96de790dd5fdaad5ada4eae",
+  "branch_hint": "fix/axion-source",
+  "publication": "local-only; no automatic clone/pull or remote availability assumed"
+}

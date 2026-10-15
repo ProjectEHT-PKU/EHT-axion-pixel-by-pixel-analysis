@@ -7,6 +7,11 @@ No Notebook, Nix/NixOS, system Python, LaTeX or old local intermediates are requ
 
 **Start here: [Pixi 中文运行指南](docs/PIXI_QUICKSTART.md)**
 
+**New data generation:** [RAPTOR生成端指南](docs/raptor-generation.md) — Python/Pixi
+entrypoints reuse the official RAPTOR setup/make workflow. Generation is explicit;
+`pixi run pipeline` never launches ray tracing. The core remains a separately
+pinned repository; no duplicate header templates are maintained here.
+
 ## Run
 
 Input data are already available on this machine through `data/inputs/`.

@@ -6,7 +6,9 @@ from pathlib import Path
 import numpy as np
 
 from .config import read_config
-from .common import stage_directory, verify_stage, manifest_path, reject_directory_symlinks
+from .common import (
+    stage_directory, verify_stage, manifest_path, reject_directory_symlinks, verification_session,
+)
 from .layout import RunLayout, input_raptor_files, input_eht_file
 from .constants import PhysicalScale
 
@@ -16,11 +18,13 @@ def stage_inputs(directory):
     return [manifest_path(directory)] + [Path(directory) / p["path"] for p in manifest["outputs"]]
 
 
+@verification_session()
 def run_stage(
     config,
     output_root,
     *,
     input_root=None,
+    raptor_input_root=None,
     stage="all",
     trust_pickle=False,
     rebuild=False,
@@ -39,6 +43,7 @@ def run_stage(
         config=Path(config),
         output_root=Path(output_root),
         input_root=Path(input_root) if input_root is not None else None,
+        raptor_input_root=Path(raptor_input_root) if raptor_input_root is not None else None,
         stage=stage,
         trust_pickle=trust_pickle,
         rebuild=rebuild,
@@ -68,8 +73,11 @@ def run_stage(
         return stage_directory(*values, reuse_imported=reuse, **keywords)
 
     source = args.input_root.resolve() if args.input_root else None
-    if source is not None and (source == output or source.is_relative_to(output)):
-        raise ValueError("Output root must not contain the raw input root")
+    raptor_source = args.raptor_input_root.resolve() if args.raptor_input_root else source
+    for raw_root in (source, raptor_source):
+        if raw_root is not None and (raw_root == output or raw_root.is_relative_to(output)
+                                     or output.is_relative_to(raw_root)):
+            raise ValueError("Output root must not overlap a raw input root")
     alphas = config["data"]["alphas"]
     selected = {"all"} if args.stage == "all" else {args.stage}
 
@@ -104,22 +112,28 @@ def run_stage(
         angular_bins=aperture["angular_bins"],
     )
     if do("raptor"):
-        if source is None:
-            raise ValueError("--input-root required for RAPTOR stages")
+        if raptor_source is None:
+            raise ValueError("--input-root or --raptor-input-root required for RAPTOR stages")
+        from ..producer.delivery import generated_inputs
+
         for alpha in alphas:
-            inputs = input_raptor_files(source, alpha, 100)
+            cubes = input_raptor_files(raptor_source, alpha, 100)
+            inputs, labels = generated_inputs(cubes, config, alpha=alpha, resolution=100)
             processed = layout.processed(alpha)
             with stage(
                 processed, "raptor:preprocess", process_params, inputs, rebuild=args.rebuild
             ) as temporary:
                 if temporary is not None:
-                    preprocess_cube(inputs, temporary, **process_params)
+                    preprocess_cube(cubes, temporary, **process_params)
             fitted = layout.response(alpha)
+            effective_fit = dict(fit_params)
+            if labels is not None:
+                effective_fit["snapshot_labels"] = labels
             with stage(
-                fitted, "raptor:fit", fit_params, stage_inputs(processed), rebuild=args.rebuild
+                fitted, "raptor:fit", effective_fit, stage_inputs(processed), rebuild=args.rebuild
             ) as temporary:
                 if temporary is not None:
-                    fit_processed(processed, temporary, **fit_params)
+                    fit_processed(processed, temporary, **effective_fit)
         for dim in ("1d", "2d"):
             fits = {a: layout.response(a) / f"response-{dim}.npz" for a in alphas}
             dest = layout.templates(dim)
@@ -159,11 +173,14 @@ def run_stage(
             if temporary is not None:
                 run_eht_stage(raw, temporary, **params)
     if do("background"):
-        if source is None:
-            raise ValueError("--input-root required for background stage")
+        if raptor_source is None:
+            raise ValueError("--input-root or --raptor-input-root required for background stage")
         cfg = config["background"]
         alpha, res = cfg["alpha"], cfg["source_resolution"]
-        inputs = input_raptor_files(source, alpha, res)
+        cubes = input_raptor_files(raptor_source, alpha, res)
+        from ..producer.delivery import generated_inputs
+
+        inputs, _ = generated_inputs(cubes, config, alpha=alpha, resolution=res)
         processed = layout.background_processed
         with stage(
             processed,
@@ -173,7 +190,7 @@ def run_stage(
             rebuild=args.rebuild,
         ) as temporary:
             if temporary is not None:
-                preprocess_cube(inputs, temporary, state_indices=[0], **process_params)
+                preprocess_cube(cubes, temporary, state_indices=[0], **process_params)
         mask = layout.eht / "mask.npy"
         params = dict(
             lag=cfg["lag_frames"],
@@ -249,6 +266,7 @@ def run_stage(
         "reuse_imported_requested": reuse,
         "completion": "See individual stage manifests; this is not a completion marker",
         "source_root": str(source) if source else None,
+        "raptor_source_root": str(raptor_source) if raptor_source else None,
         "environment": {
             "python": platform.python_version(),
             "numpy": version("numpy"),

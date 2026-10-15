@@ -64,8 +64,15 @@ def validate_run_lineage(output_root, alphas, *, allow_imported=False):
                              [layout.inference / f"limits-{dim}.npz" for dim in ("1d", "2d")])
     eht_files = _stage_files(layout.eht)
     verified(layout.eht)
+    generation_profile = inference["config"].get("generation_profile")
     for alpha in alphas:
-        verified(layout.processed(alpha))
+        processed = verified(layout.processed(alpha))
+        if generation_profile is not None:
+            from ..producer.delivery import validate_processed_source
+
+            validate_processed_source(processed, generation_profile, alpha=alpha, resolution=100)
+        elif any(Path(e["path"]).name == "generated.json" for e in processed["inputs"]):
+            raise ValueError("Generated inference lineage lacks its production science profile")
         _check_lineage(verified(layout.response(alpha)), _stage_files(layout.processed(alpha)))
     for dim in ("1d", "2d"):
         _check_lineage(
@@ -78,7 +85,15 @@ def validate_run_lineage(output_root, alphas, *, allow_imported=False):
             verified(layout.observations(dim)),
             eht_files + [manifest_path(layout.templates(dim)), layout.templates(dim) / "templates.npz"],
         )
-    verified(layout.background_processed)
+    bg_processed = verified(layout.background_processed)
+    if generation_profile is not None:
+        from ..producer.delivery import validate_processed_source
+
+        validate_processed_source(bg_processed, generation_profile,
+                                  alpha=generation_profile["background"]["alpha"],
+                                  resolution=generation_profile["background"]["source_resolution"])
+    elif any(Path(e["path"]).name == "generated.json" for e in bg_processed["inputs"]):
+        raise ValueError("Generated background lineage lacks its production science profile")
     _check_lineage(
         verified(layout.background),
         _stage_files(layout.background_processed) + [manifest_path(layout.eht), layout.eht / "mask.npy"],
@@ -157,12 +172,21 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
         window_degrees=config["aperture"]["window_degrees"],
         angular_bins=360,
     )
+    from ..producer.delivery import generated_inputs, validate_processed_source
+
     for alpha in config["data"]["alphas"]:
         processed = verified(layout.processed(alpha))
+        validate_processed_source(processed, config, alpha=alpha, resolution=100)
         if processed["config"] != expected_preprocess:
             raise ValueError("Current image config differs from RAPTOR preprocessing")
         fitted = verified(layout.response(alpha))
-        if fitted["config"] != expected_fit:
+        raw_inputs = [Path(e["path"]) for e in processed["inputs"]
+                      if Path(e["path"]).suffix == ".npy"]
+        _, labels = generated_inputs(raw_inputs, config, alpha=alpha, resolution=100)
+        effective_fit = dict(expected_fit)
+        if labels is not None:
+            effective_fit["snapshot_labels"] = labels
+        if fitted["config"] != effective_fit:
             raise ValueError("Current aperture config differs from RAPTOR response fits")
         _check_lineage(fitted, _stage_files(layout.processed(alpha)))
     if (
@@ -179,6 +203,8 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
     ):
         raise ValueError("Current background source differs from completed stage")
     bg_processed = verified(layout.background_processed)
+    validate_processed_source(bg_processed, config, alpha=config["background"]["alpha"],
+                              resolution=config["background"]["source_resolution"])
     if bg_processed["config"] != dict(expected_preprocess, state_indices=[0]):
         raise ValueError("Current image config differs from background preprocessing")
     _check_lineage(
@@ -213,6 +239,8 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
         "eht": config["eht"],
         "alphas": config["data"]["alphas"],
     }
+    if "producer" in config:
+        effective["generation_profile"] = config
     with stage_directory(
         layout.inference,
         "inference:six-curves",
