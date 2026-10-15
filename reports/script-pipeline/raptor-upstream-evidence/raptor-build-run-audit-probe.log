@@ -1,0 +1,100 @@
+PROBE_DIR /tmp/raptor-build-run-probe-hmwlewy9
+model.in newline count 0 bytes 361
+PARSE /tmp/raptor-build-run-probe-hmwlewy9/generated-model.in Using model parameter file /tmp/raptor-build-run-probe-hmwlewy9/generated-model.in
+RESULT norm=0.1 omega=0.3 phase=15 max_level=1 width=100 output_index=16
+Model parameters:
+
+MBH 		= 6.2e+09 Msun
+DISTANCE 	= 16800 kpc
+M_UNIT 		= 3e+25 grams
+R_LOW 		= 1 
+R_HIGH 		= 1 
+INCLINATION 	= 163 deg
+METRIC 		= MKS BHAC
+
+Observer parameters:
+
+IMG_WIDTH 	= 100 
+IMG_HEIGHT 	= 100 
+CAM_SIZE_X 	= 46.2261 GM/c2
+CAM_SIZE_Y 	= 46.2261 GM/c2
+FREQS_PER_DEC 	= 1.000000 
+FREQ_MIN 	= 2.3e+11 Hz
+STEPSIZE 	= 0.005 
+AXION 	norm= 0.1,omega=0.3,phase=15
+PARSE /tmp/eht-github-raptor-GckNId/run/raptor_run/model.in Using model parameter file /tmp/eht-github-raptor-GckNId/run/raptor_run/model.in
+RESULT norm=1 omega=0 phase=0 max_level=0 width=200 output_index=16
+Model parameters:
+
+MBH 		= 4.14e+06 Msun
+DISTANCE 	= 8.127 kpc
+M_UNIT 		= 1e+18 grams
+R_LOW 		= 1 
+R_HIGH 		= 1 
+INCLINATION 	= 50 deg
+METRIC 		= MKS BHAC
+
+Observer parameters:
+
+IMG_WIDTH 	= 200 
+IMG_HEIGHT 	= 200 
+CAM_SIZE_X 	= 40 GM/c2
+CAM_SIZE_Y 	= 40 GM/c2
+FREQS_PER_DEC 	= 1.000000 
+FREQ_MIN 	= 2.3e+11 Hz
+STEPSIZE 	= 0.01 
+AXION 	norm= 1,omega=0,phase=0
+PREPROCESS /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/src/core.c rc 0
+. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/definitions.h
+. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/src/functions.h
+.. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model_definitions.h
+. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/src/global_vars.h
+. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model_functions.h
+. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model_global_vars.h
+/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/src/functions.h
+#define RAD_TRANS (1)
+#define SIGMA_CUT (1)
+#define DEBUG (1)
+#define metric (MKSBHAC)
+#define POL (1)
+#define LIGHT_TRANSPORT (1)
+PREPROCESS /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model.c rc 0
+. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/definitions.h
+. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/src/functions.h
+.. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/definitions.h
+.. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model_definitions.h
+. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/src/global_vars.h
+. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model_definitions.h
+. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model_functions.h
+. /home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model_global_vars.h
+/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/src/functions.h
+#define RAD_TRANS (1)
+#define SIGMA_CUT (1)
+#define DEBUG (1)
+#define metric (MKSBHAC)
+#define POL (1)
+#define LIGHT_TRANSPORT (1)
+MAKE_PROBE ['make', '-n', 'all'] rc 0
+test -d build || mkdir -v build
+
+MAKE_PROBE ['make', '-n', '-B', 'all'] rc 0
+test -d build || mkdir -v build
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c /tmp/raptor-build-run-probe-hmwlewy9/toy-core/src/main.c -o build/main.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c /tmp/raptor-build-run-probe-hmwlewy9/toy-core/src/core.c -o build/core.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c /tmp/raptor-build-run-probe-hmwlewy9/toy-core/src/io.c -o build/io.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c /tmp/raptor-build-run-probe-hmwlewy9/toy-core/src/GRmath.c -o build/GRmath.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c /tmp/raptor-build-run-probe-hmwlewy9/toy-core/src/gr_integrator.c -o build/gr_integrator.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c /tmp/raptor-build-run-probe-hmwlewy9/toy-core/src/rte_integrator.c -o build/rte_integrator.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c /tmp/raptor-build-run-probe-hmwlewy9/toy-core/src/pol_rte_integrator.c -o build/pol_rte_integrator.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c /tmp/raptor-build-run-probe-hmwlewy9/toy-core/src/metric.c -o build/metric.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c /tmp/raptor-build-run-probe-hmwlewy9/toy-core/src/pol_emission.c -o build/pol_emission.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c /tmp/raptor-build-run-probe-hmwlewy9/toy-core/src/tetrad.c -o build/tetrad.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c model.c -o build/model.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c /tmp/raptor-build-run-probe-hmwlewy9/toy-core/src/constants.c -o build/constants.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable  -c /tmp/raptor-build-run-probe-hmwlewy9/toy-core/src/camera.c -o build/camera.o
+h5cc -I/tmp/raptor-build-run-probe-hmwlewy9/toy-core/src -I/tmp/raptor-build-run-probe-hmwlewy9/toy-run -fopenmp -lm -lgsl -lgslcblas build/main.o build/core.o build/io.o build/GRmath.o build/gr_integrator.o build/rte_integrator.o build/pol_rte_integrator.o build/metric.o build/pol_emission.o build/tetrad.o build/model.o build/constants.o build/camera.o -o RAPTOR
+
+MAKE_PROBE ['make', '-n', '-B', 'all', 'RAPTOR=/tmp/raptor-build-run-probe-hmwlewy9/different-core'] rc 2
+test -d build || mkdir -v build
+make: *** No rule to make target 'main.c', needed by 'all'.  Stop.
+ALL_PROBES_ONLY_IN /tmp/raptor-build-run-probe-hmwlewy9

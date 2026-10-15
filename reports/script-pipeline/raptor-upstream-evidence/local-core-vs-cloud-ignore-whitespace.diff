@@ -1,0 +1,76 @@
+diff --git a/model/bhac/definitions.h b/model/bhac/definitions.h
+index b47cc9b..e5f96aa 100644
+--- a/model/bhac/definitions.h
++++ b/model/bhac/definitions.h
+@@ -108,7 +108,7 @@ typedef struct Camera {
+ // MODEL PARAMETERS
+ ///////////////////
+ 
+-#define SIGMA_CUT (1)
++#define SIGMA_CUT (1000)
+ #define THETAE_MAX (100)
+ #define THETAE_MIN (1e-3)
+ 
+diff --git a/src/pol_rte_integrator.c b/src/pol_rte_integrator.c
+index a420740..6192e80 100755
+--- a/src/pol_rte_integrator.c
++++ b/src/pol_rte_integrator.c
+@@ -687,7 +687,7 @@ void pol_integration_step(struct GRMHD modvar, double frequency,
+          phii =X_u[3];
+          timei = X_u[0];
+          thi = X_u[2] + 0.5 * hslope * sin(2. * X_u[2]);
+-        // printf("%f",hslope);
++         // printf("hslope: %f, R0: %f",hslope,R0);
+          thi = X_u[2];
+          // bl_coord(Xf, &rf, &thf);
+          double k2 = sqrt(k_u_old[0]*k_u_old[0]-k_u_old[1]*k_u_old[1]-k_u_old[2]*k_u_old[2]-k_u_old[3]*k_u_old[3]);
+@@ -773,7 +773,7 @@ void pol_integration_step(struct GRMHD modvar, double frequency,
+          // aV=0;
+  
+  
+-    // if (abs(ri*cos(thi))>0.01 ){
++     // if (abs(ri*cos(thi))>0.1 ){
+      //     jI = 0;
+      //     jQ=0;
+      //     jU=0;
+@@ -788,10 +788,12 @@ void pol_integration_step(struct GRMHD modvar, double frequency,
+      // }
+      // else
+      // {
+-
+-    //     jI =1E-30;
+-    //     jQ=3E-31;
+-    //     jU=3E-31;
++         // double _ring=5.5;
++         // double _sigma=1;
++         // double _scale=exp(-(ri-_ring)*(ri-_ring)/2./_sigma/_sigma)+0.01; //+0.01* exp(-ri*ri/2./_sigma/_sigma/100);
++         // jI =1E-30*_scale;
++         // jQ=1E-31*_scale; // *cos(phii);
++         // jU=0; //*sin(phii);
+          // jV=0;
+         //  rQ=0;
+         //  rU =0;
+@@ -815,6 +817,17 @@ void pol_integration_step(struct GRMHD modvar, double frequency,
+  
+      // If (POLARIZATION_ACTIVE), get Stokes params from f_u and p.
+      // S_I_current)
++ 
++     // if (thi<0.2){
++     // FILE *fpDM = NULL;
++     // fpDM = fopen("GRMHD_cut_400","a+");
++     // double alpha_amplitude=axion_norm /2./M_PI*sin(thi)*radiali*exp(-pow(ri/25.0,15));
++     // fprintf(fpDM, "%i, %i, %f, %f, %f, %f, %f, %f\n",block,pixel,ri,thi,phii,timei,alphai, alpha_amplitude);
++     // fclose(fpDM);
++     // }
++ 
++ 
++ 
+      if (*POLARIZATION_ACTIVE) {
+          f_to_stokes(f_u, f_tetrad_u, tetrad_d, S_A, *Iinv, *Iinv_pol);
+      }
+@@ -1021,3 +1034,4 @@ void radiative_transfer_polarized(double *lightpath, int steps,
+          LOOP_i IQUV[i] = S_A[i] * pow(frequency, 3.);
+      }
+  }
++ 
+\ No newline at end of file

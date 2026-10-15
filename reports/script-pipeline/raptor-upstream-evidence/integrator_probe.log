@@ -1,0 +1,11 @@
+rotation_delta=+.2: I=2 Q=0.921060994003 U=-0.389418342309 V=0 chi=-0.2
+stiff_zero=1 stiff_pure_rV=1 stiff_absorb=1
+source_split n=1 error=0.893742687493
+source_split n=2 error=0.426737475489
+source_split n=4 error=0.211103041057
+source_split n=8 error=0.105275329389
+source_split n=16 error=0.0526033544391
+source_split n=32 error=0.0262973950699
+source_split n=64 error=0.0131481624732
+source_split n=128 error=0.00657401436032
+synthetic telescoping correct_delta=-0.3 actual_delta=0.3, chi_code=-0.3

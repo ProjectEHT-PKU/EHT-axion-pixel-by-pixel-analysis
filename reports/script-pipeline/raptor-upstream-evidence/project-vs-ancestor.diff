@@ -1,0 +1,729 @@
+diff --git a/.gitignore b/.gitignore
+index 65e2e20..01a9e8e 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -5,3 +5,6 @@ RAPTOR
+ harm3d.txt
+ .DS_Store
+ __pycache__
++.vscode/
++model.zip
++src.zip
+\ No newline at end of file
+diff --git a/model/bhac/definitions.h b/model/bhac/definitions.h
+index b62b43b..b47cc9b 100644
+--- a/model/bhac/definitions.h
++++ b/model/bhac/definitions.h
+@@ -52,15 +52,13 @@
+ #define num_pixels_1d 10
+ #define tot_pixels 100
+ 
+-#define USERSPEC (0)
++#define USERSPEC (1)
+ #define nspec 4
+ 
+ typedef struct Camera {
+     double IQUV[tot_pixels][num_frequencies][4]; // intensity
+     double tau[tot_pixels][num_frequencies];     // intensity
+     double tauF[tot_pixels][num_frequencies];    // intensity
+-    double pdf[tot_pixels][num_frequencies];    // intensity
+-    double avg[tot_pixels][num_frequencies];    // intensity
+     double alpha[tot_pixels];                    // impact parameter
+     double beta[tot_pixels];                     // impact parameter
+     double lcorner[2];                           // lower left corner of a block
+diff --git a/model/bhac/grid_mks.in b/model/bhac/grid_mks.in
+index 9252bf5..5cba014 100644
+--- a/model/bhac/grid_mks.in
++++ b/model/bhac/grid_mks.in
+@@ -1,13 +1,13 @@
+-nxlone1 = 128
+-nxlone2 = 64
+-nxlone3 = 64
++nxlone1 = 96
++nxlone2 = 48
++nxlone3 = 48
+ 
+-xprobminx1 = 0.17
++xprobminx1 = 0.17395330712343798
+ xprobminx2 = 0.0
+ xprobminx3 = 0.0
+ 
+-xprobmax1 = 8.1117280833
++xprobmax1 = 7.824046010856292
+ xprobmax2 = 0.5
+ xprobmax3 = 1.0
+ 
+-hslope = 0.25
++hslope = 0.0
+diff --git a/model/bhac/model.c b/model/bhac/model.c
+old mode 100755
+new mode 100644
+index c579ed5..f820836
+--- a/model/bhac/model.c
++++ b/model/bhac/model.c
+@@ -819,6 +819,7 @@ void init_grmhd_data(char *fname) {
+                              block_info[i].dxc_block);
+ 
+                 p[KRHO][i][c][0] = prim[KRHO];
++                // printf("%f \n",p[KRHO][i][c][0]);
+                 p[UU][i][c][0] = prim[UU];
+ 
+                 p[U1][i][c][0] = prim[U1];
+@@ -1182,7 +1183,13 @@ int get_fluid_params(double X[NDIM], struct GRMHD *modvar) {
+     double xc = r * sin(X[2]) * cos(X[3]);
+     double yc = r * sin(X[2]) * sin(X[3]);
+     double rc = sqrt(xc * xc + yc * yc);
+-
++    // if (fabs(X[3]-1.) <0.0005){
++    // FILE* fp = NULL;
++    // fp = fopen("phi_cut_profile.txt","a+");
++    // //fprintf(fp,"%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f \n",block,pixel,phase_index,axion_norm,timei,ri,alphai,rf,alphaf,thi,thf,phii,phif,log10(creal(S_A[0])),log10(creal(S_A[1])),log10(creal(S_A[2])),carg(S_A[1]+I*S_A[2]));
++    // fprintf(fp,"%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f \n",get_r(X),X[2],Bp[1],Bp[2],Bp[3],gV_u[1],gV_u[2],gV_u[3],(*modvar).B,(*modvar).n_e,(*modvar).theta_e);
++    // fclose(fp);
++    // }
+     if ((Bsq / (rho + 1e-20) > SIGMA_CUT) || r > RT_OUTER_CUTOFF ||
+         (*modvar).theta_e > THETAE_MAX ||
+         (*modvar).theta_e < THETAE_MIN) { // excludes all spine emmission
+diff --git a/model/bhac/model_definitions.h b/model/bhac/model_definitions.h
+index 3853a38..4bd3058 100644
+--- a/model/bhac/model_definitions.h
++++ b/model/bhac/model_definitions.h
+@@ -8,7 +8,7 @@
+ #ifndef MODEL_DEFINITIONS_H
+ #define MODEL_DEFINITIONS_H
+ 
+-#define SFC 0
++#define SFC 1
+ 
+ #define KRHO 0
+ #define UU 1
+@@ -30,7 +30,7 @@ extern int XI;
+ 
+ #define NP 8
+ 
+-#define NSPIN 3
++#define NSPIN 3 //Change this into 5 for Mizuno's GRMHD, 3 for the GRMHD in this folder.
+ 
+ #define PLUS 1
+ #define MINUS -1
+diff --git a/model/bhac/model_global_vars.h b/model/bhac/model_global_vars.h
+old mode 100755
+new mode 100644
+diff --git a/python/plotting/plotter-example.py b/python/plotting/plotter-example.py
+index 6819cfc..3dd57bf 100644
+--- a/python/plotting/plotter-example.py
++++ b/python/plotting/plotter-example.py
+@@ -19,8 +19,8 @@ ind = int(sys.argv[1])
+ data_id = rapplot.read_data_id("output",ind)
+ 
+ #Computing relevant constants
+-M=5e6 * rapplot.MSUN
+-d=8 * rapplot.KPC
++M=6.2e9 * rapplot.MSUN
++d=16800 * rapplot.KPC
+ 
+ rg = (rapplot.G*M/rapplot.SPEED_OF_LIGHT**2.)
+ 
+diff --git a/python/plotting/rapplot.py b/python/plotting/rapplot.py
+index 938f1b4..0359d9e 100644
+--- a/python/plotting/rapplot.py
++++ b/python/plotting/rapplot.py
+@@ -33,7 +33,7 @@ def read_data(folder,ind,data_id):
+ 
+     min = [-100.,-100.,-100.,-100.]
+     max = [100.,100.,100,100.]
+-    print(len(data_id))
++
+     for j in range(0,len(data_id)-4):
+         for i in range(0,len(images[data_id[j]])):
+             current=np.max(images[data_id[j]][i])
+@@ -43,15 +43,15 @@ def read_data(folder,ind,data_id):
+ 
+     return min,max,images
+ 
+-def plot_data_tau(image,data_id,ind,fig,ax,halfrange=40,mas=1,label="Stokes",cmap="CMRmap",vmin=-8,vmax=2):
++def plot_data_tau(image,data_id,ind,fig,ax,halfrange=40,mas=1,label="Stokes",cmap="RdBu",vmin=-2,vmax=2):
+ 
+     for i in range(0,len(image[data_id[ind]])):
+         pixels=int(np.sqrt(len(image[data_id[ind]][i])))
+         array=((np.reshape(image[data_id[ind]][i],(pixels,pixels))))
+         alpha=((np.reshape(image['alpha'][i],(pixels,pixels))))*mas
+-        beta=((-np.reshape(image['beta'][i],(pixels,pixels))))*mas
++        beta=((np.reshape(image['beta'][i],(pixels,pixels))))*mas
+ 
+-        figure=ax.pcolormesh(alpha,beta,np.log10(array+1e-10),vmin=vmin,vmax=vmax,cmap=cmap,shading='auto')
++        figure=ax.pcolormesh(alpha,beta,np.log10(array),vmin=vmin,vmax=vmax,cmap=cmap,shading='auto')
+         ax.set_aspect('equal')
+         
+     fig.colorbar(figure,label=label,ax=ax)
+@@ -101,20 +101,20 @@ def plot_data_polfrac(image,max,data_id,fig,ax,halfrange=10,mas=1,label="|m|",cm
+     ax.set_xlim(-halfrange*mas,halfrange*mas)
+     ax.set_ylim(-halfrange*mas,halfrange*mas)
+ 
+-def plot_data_RM(image,min,max,ind_1,ind_2,data_id,lam1,lam2,fig,ax,halfrange=10,mas=1,label="RM",cmap="RdBu"):
++def plot_data_RM(image_1,image_2,max_1,max_2,data_id_1,data_id_2,lam1,lam2,fig,ax,halfrange=10,mas=1,label="RM",cmap="RdBu"):
+ 
+     lam1*=1e-3
+     lam2*=1e-3
+-    for i in range(0,len(image[data_id[0]])):
+-        pixels=int(np.sqrt(len(image[data_id[0]][i])))
++    for i in range(0,len(image_1[data_id_1[0]])):
++        pixels=int(np.sqrt(len(image_1[data_id_1[0]][i])))
+ 
+-       	array_I_1=((np.reshape(image[data_id[ind_1]][i],(pixels,pixels))))
+-        array_Q_1=((np.reshape(image[data_id[ind_1 + 20]][i],(pixels,pixels))))
+-        array_U_1=((np.reshape(image[data_id[ind_1+ 40]][i],(pixels,pixels))))
++       	array_I_1=((np.reshape(image_1[data_id_1[0]][i],(pixels,pixels))))
++        array_Q_1=((np.reshape(image_1[data_id_1[1]][i],(pixels,pixels))))
++        array_U_1=((np.reshape(image_1[data_id_1[2]][i],(pixels,pixels))))
+ 
+-        array_I_2=((np.reshape(image[data_id[ind_2]][i],(pixels,pixels))))
+-        array_Q_2=((np.reshape(image[data_id[ind_2+20]][i],(pixels,pixels))))
+-        array_U_2=((np.reshape(image[data_id[ind_2+40]][i],(pixels,pixels))))
++        array_I_2=((np.reshape(image_2[data_id_2[0]][i],(pixels,pixels))))
++        array_Q_2=((np.reshape(image_2[data_id_2[1]][i],(pixels,pixels))))
++        array_U_2=((np.reshape(image_2[data_id_2[2]][i],(pixels,pixels))))
+ 
+         LP_1 = np.sqrt(array_Q_1**2. + array_U_1**2)
+         LP_2 = np.sqrt(array_Q_2**2. + array_U_2**2)
+@@ -132,18 +132,15 @@ def plot_data_RM(image,min,max,ind_1,ind_2,data_id,lam1,lam2,fig,ax,halfrange=10
+              if(np.abs(array[j,k])>0.75*np.pi):
+                  array[j,k]=array[j,k]-np.sign(array[j,k])*np.pi
+ 
+-        RM = (array) #/(lam2**2-lam1**2)
++        RM = (array)/(lam2**2-lam1**2)
+ 
+-        RM[array_I_1/max[0]<1e-6]=0
+-        RM[array_I_2/max[0]<1e-6]=0
+-
+-        alpha=((np.reshape(image['alpha'][i],(pixels,pixels))))*mas
+-        beta=((np.reshape(-image['beta'][i],(pixels,pixels))))*mas
++        RM[array_I_1/max_1[0]<1e-6]=0
++        RM[array_I_2/max_2[0]<1e-6]=0
+ 
+-        figure=ax.pcolormesh(alpha,beta,np.sign(RM)*np.abs(RM)**0.25,vmin=-1,vmax=1,cmap=cmap,shading='auto')
++        alpha=((np.reshape(image_1['alpha'][i],(pixels,pixels))))*mas
++        beta=((np.reshape(-image_1['beta'][i],(pixels,pixels))))*mas
+ 
+-        ax.set_xlim(-halfrange*mas,halfrange*mas)
+-        ax.set_ylim(-halfrange*mas,halfrange*mas)
++        figure=ax.pcolormesh(alpha,beta,np.sign(RM)*np.abs(RM/5e5)**0.25,vmin=-1,vmax=1,cmap=cmap,shading='auto')
+ 
+ 
+     fig.colorbar(figure,label=label,ax=ax)
+diff --git a/run/makefile b/run/makefile
+index ff88fc5..3a490e3 100644
+--- a/run/makefile
++++ b/run/makefile
+@@ -1,6 +1,6 @@
+ CC = h5cc -I$(RAPTOR)/src -I$(PWD)
+ CFLAGS = -fopenmp  -std=c99  -O2 -lm -lgsl -Wall -Wno-unused-but-set-variable
+-LDFLAGS = -fopenmp -lm -lgsl 
++LDFLAGS = -fopenmp -lm -lgsl -lgslcblas
+ 
+ VPATH=$(RAPTOR)/src:
+ CPATH=$(RAPTOR)/src:
+diff --git a/src/camera.c b/src/camera.c
+index 74a0a8e..9ac8f79 100644
+--- a/src/camera.c
++++ b/src/camera.c
+@@ -32,6 +32,7 @@ void init_camera(struct Camera **intensityfield) {
+         exit(1);
+     }
+     tot_blocks = num_blocks * num_blocks2;
++    printf("%d,%d,%d\n",num_pixels_1d,IMG_HEIGHT,num_blocks2);
+     (*intensityfield) = malloc((tot_blocks) * sizeof(struct Camera));
+     for (int block = 0; block < tot_blocks; block++) {
+         (*intensityfield)[block].level = 1;
+diff --git a/src/core.c b/src/core.c
+index a20cf22..ba3600c 100644
+--- a/src/core.c
++++ b/src/core.c
+@@ -11,12 +11,14 @@
+ #include "model_functions.h"
+ #include "model_global_vars.h"
+ 
++#include "time.h"
++
+ // GLOBAL VARS
+ //////////////
+ 
+ char GRMHD_FILE[256];
+ 
+-double MBH, M_UNIT, TIME_INIT, INCLINATION;
++double MBH, M_UNIT, TIME_INIT, INCLINATION, axion_norm,axion_omega,phase_index;
+ double R_HIGH, R_LOW;
+ double FREQS_PER_DEC, FREQ_MIN, FREQ_MAX;
+ 
+@@ -61,6 +63,9 @@ void read_model(char *argv[]) {
+     fscanf(input, "%s %s %lf", temp, temp2, &FREQS_PER_DEC);
+     fscanf(input, "%s %s %lf", temp, temp2, &FREQ_MIN);
+     fscanf(input, "%s %s %lf", temp, temp2, &STEPSIZE);
++    fscanf(input, "%s %s %lf", temp, temp2, &axion_norm);
++    fscanf(input, "%s %s %lf", temp, temp2, &axion_omega);
++    fscanf(input, "%s %s %lf", temp, temp2, &phase_index);
+     fscanf(input, "%s %s %d", temp, temp2, &max_level);
+ 
+     // Second argument: GRMHD file
+@@ -92,7 +97,7 @@ void read_model(char *argv[]) {
+     fprintf(stderr, "FREQS_PER_DEC \t= %lf \n", FREQS_PER_DEC);
+     fprintf(stderr, "FREQ_MIN \t= %g Hz\n", FREQ_MIN);
+     fprintf(stderr, "STEPSIZE \t= %g \n", STEPSIZE);
+-
++    fprintf(stderr, "AXION \tnorm= %g,omega=%g,phase=%g \n", axion_norm,axion_omega,phase_index);
+     // to cgs units
+     MBH *= MSUN;
+     SOURCE_DIST *= KPCTOCM;
+@@ -103,7 +108,7 @@ void read_model(char *argv[]) {
+ // For a single block this function will iterate over the pixels and call
+ // geodesic integrations as well as radiation transfer
+ void calculate_image_block(struct Camera *intensityfield,
+-                           double frequencies[num_frequencies]) {
++                           double frequencies[num_frequencies],int block) {
+ 
+ #pragma omp parallel for shared(frequencies, intensityfield, p)                \
+     schedule(static, 1)
+@@ -129,7 +134,7 @@ void calculate_image_block(struct Camera *intensityfield,
+                                          &f_x, &f_y, &p, 0,
+                                          (*intensityfield).IQUV[pixel][f],
+                                          &(*intensityfield).tau[pixel][f],
+-                                         &(*intensityfield).tauF[pixel][f]);
++                                         &(*intensityfield).tauF[pixel][f],axion_omega,axion_norm,phase_index,block,pixel);
+         }
+ 
+ #else
+diff --git a/src/functions.h b/src/functions.h
+index 47a3ddb..cd18023 100755
+--- a/src/functions.h
++++ b/src/functions.h
+@@ -106,7 +106,7 @@ void integrate_geodesic(double alpha, double beta, double *lightpath,
+ void radiative_transfer_polarized(double *lightpath, int steps,
+                                   double frequency, double *f_x, double *f_y,
+                                   double *p, int PRINT_POLAR, double *IQUV,
+-                                  double *tau, double *tauF);
++                                  double *tau, double *tauF,double axion_omega,double axion_norm,double phase_index,int block,int pixel);
+ 
+ double radiative_transfer_unpolarized(double *lightpath, int steps,
+                                       double *frequency,
+@@ -333,7 +333,7 @@ void write_uniform_camera(struct Camera *intensityfield, double frequency,
+ // Integrate null geodesics, perform radiative transfer calculations, and
+ // compute the image.
+ void calculate_image_block(struct Camera *intensityfield,
+-                           double frequencies[num_frequencies]);
++                           double frequencies[num_frequencies],int block);
+ /// CAMERA.C
+ void init_camera(struct Camera **intensityfield);
+ 
+diff --git a/src/io.c b/src/io.c
+index 35bdf0d..5d950cc 100644
+--- a/src/io.c
++++ b/src/io.c
+@@ -18,7 +18,7 @@ void output_files(struct Camera *intensityfield,
+                   double energy_spectrum[num_frequencies][nspec],
+                   double frequencies[num_frequencies]) {
+     struct stat st = {0};
+-    char spec_folder[64] = "output";
++    char spec_folder[128] = "output";
+ 
+     if (stat(spec_folder, &st) == -1) {
+         mkdir(spec_folder, 0700);
+diff --git a/src/main.c b/src/main.c
+index 9eb7c84..477dd82 100755
+--- a/src/main.c
++++ b/src/main.c
+@@ -136,8 +136,7 @@ int main(int argc, char *argv[]) {
+     while (block  < tot_blocks) { // block_total
+         if (block % (25) == 0)
+             fprintf(stderr, "block %d of total %d\n", block, tot_blocks);
+-
+-        calculate_image_block(&intensityfield[block], frequencies);
++        calculate_image_block(&intensityfield[block], frequencies,block);
+ #if (AMR)
+         if (refine_block(intensityfield[block])) {
+             add_block(&intensityfield, block);
+diff --git a/src/metric.c b/src/metric.c
+index 792a3df..85a2a04 100755
+--- a/src/metric.c
++++ b/src/metric.c
+@@ -26,10 +26,12 @@ void metric_dd(double X_u[4], double g_dd[4][4]) {
+     for (int i = 1; i < DIM; i++)
+         g_dd[i][i] = 1.;
+ 
++
+ #elif (metric == BL || metric == MBL) // (modified) Boyer-Lindquist coordinates
+ 
+     double r = logscale ? exp(X_u[1]) : X_u[1];
+-    double rfactor = logscale ? r : 1.;
++    double rfactor = logscale ? r : 1.;  
++
+     double theta = X_u[2];
+     double sint = sin(theta);
+     double cost = cos(theta);
+@@ -50,6 +52,7 @@ void metric_dd(double X_u[4], double g_dd[4][4]) {
+     double r = logscale ? exp(X_u[1]) + R0 : X_u[1];
+     double rfactor = logscale ? r : 1.;
+     double theta = X_u[2];
++
+     double cth = cos(theta);
+     double sth = sin(theta);
+     double sth2 = sth * sth;
+@@ -75,6 +78,7 @@ void metric_dd(double X_u[4], double g_dd[4][4]) {
+ #elif (metric == MKSHARM) // Proper MKS coords
+ 
+     double r = exp(X_u[1]) + R0;
++
+     double theta =
+         M_PI * X_u[2] + 0.5 * (1. - hslope) * sin(2. * M_PI * X_u[2]);
+ 
+diff --git a/src/pol_rte_integrator.c b/src/pol_rte_integrator.c
+index 23d2284..a420740 100755
+--- a/src/pol_rte_integrator.c
++++ b/src/pol_rte_integrator.c
+@@ -408,13 +408,13 @@ int check_stiffness(double jI, double jQ, double jU, double jV, double rQ,
+ 
+ void pol_rte_rk4_step(double jI, double jQ, double jU, double jV, double rQ,
+                       double rU, double rV, double aI, double aQ, double aU,
+-                      double aV, double dl_current, double C,
++                      double aV, double alphaf,double alphai, double dl_current, double C,
+                       double complex S_A[]) {
+     double complex I0 = S_A[0];
+     double complex Q0 = S_A[1];
+     double complex U0 = S_A[2];
+     double complex V0 = S_A[3];
+-
++    double delta_a = alphaf-alphai;
+     // RK4 with constant coefficients
+     // k1
+     double complex Ik1 =
+@@ -484,21 +484,37 @@ void pol_rte_rk4_step(double jI, double jQ, double jU, double jV, double rQ,
+                                   (aV * (I0 + Ik3) + rU * (Q0 + Qk3) -
+                                    rQ * (U0 + Uk3) + aI * (V0 + Vk3));
+ 
+-    S_A[0] = I0 + 1. / 6. * (Ik1 + 2. * Ik2 + 2. * Ik3 + Ik4);
+-    S_A[1] = Q0 + 1. / 6. * (Qk1 + 2. * Qk2 + 2. * Qk3 + Qk4);
+-    S_A[2] = U0 + 1. / 6. * (Uk1 + 2. * Uk2 + 2. * Uk3 + Uk4);
+-    S_A[3] = V0 + 1. / 6. * (Vk1 + 2. * Vk2 + 2. * Vk3 + Vk4);
++    double complex x1 = I0 + 1. / 6. * (Ik1 + 2. * Ik2 + 2. * Ik3 + Ik4);
++    double complex x2 = Q0 + 1. / 6. * (Qk1 + 2. * Qk2 + 2. * Qk3 + Qk4);
++    double complex x3 = U0 + 1. / 6. * (Uk1 + 2. * Uk2 + 2. * Uk3 + Uk4);
++    double complex x4= V0 + 1. / 6. * (Vk1 + 2. * Vk2 + 2. * Vk3 + Vk4);
++
++    // if (fabs(alphaf) >0.5E-7){
++    S_A[0] = x1;
++    S_A[1] = x2*cos(2*delta_a) + x3*sin(2*delta_a);
++    S_A[2] = -x2*sin(2*delta_a) + x3*cos(2*delta_a);
++    S_A[3] = x4;
++    // }
++    // else{
++    // S_A[0] = x1;
++    // S_A[1] = x2;
++    // S_A[2] = x3;
++    // S_A[3] = x4;
++    // }
++
+ }
+ 
+ void pol_rte_trapezoid_step(double jI, double jQ, double jU, double jV,
+                             double rQ, double rU, double rV, double aI,
+-                            double aQ, double aU, double aV, double dl_current,
+-                            double C, double complex S_A[]) {
++                            double aQ, double aU, double aV,double alphaf,double alphai, double dl_current,
++                            double C, double complex S_A[]){
+     double complex I0 = S_A[0];
+     double complex Q0 = S_A[1];
+     double complex U0 = S_A[2];
+     double complex V0 = S_A[3];
+ 
++    double delta_a = alphaf-alphai;
++
+     double u11 = 1. + 0.5 * dl_current * C * aI;
+     double u12 = 0.5 * dl_current * C * aQ;
+     double u14 = 0.5 * dl_current * C * aV;
+@@ -537,10 +553,19 @@ void pol_rte_trapezoid_step(double jI, double jQ, double jU, double jV,
+     double x2 = (y2 - u23 * x3 - u24 * x4) / u22;
+     double x1 = (y1 - u12 * x2 - u14 * x4) / u11;
+ 
++    // if (fabs(alphaf) >0.5E-7){
+     S_A[0] = x1;
+-    S_A[1] = x2;
+-    S_A[2] = x3;
++    S_A[1] = x2*cos(2*delta_a) + x3*sin(2*delta_a);
++    S_A[2] = -x2*sin(2*delta_a) + x3*cos(2*delta_a);
+     S_A[3] = x4;
++    // }
++    // else{
++    // S_A[0] = x1;
++    // S_A[1] = x2;
++    // S_A[2] = x3;
++    // S_A[3] = x4;
++    // }
++
+ }
+ 
+ void f_to_stokes(double complex f_u[], double complex f_tetrad_u[],
+@@ -561,12 +586,12 @@ void stokes_to_f(double complex f_u[], double complex f_tetrad_u[],
+ }
+ 
+ void pol_integration_step(struct GRMHD modvar, double frequency,
+-                          double *dl_current, double C, double X_u[],
++                          double *dl_current, double C, double X_u[],double X_u_next[],
+                           double k_u[], double k_d[], int *POLARIZATION_ACTIVE,
+                           double complex f_u[], double complex f_tetrad_u[],
+                           double tetrad_d[][4], double tetrad_u[][4],
+                           double complex S_A[], double *Iinv, double *Iinv_pol,
+-                          double *tau, double *tauF) {
++                          double *tau, double *tauF,double axion_omega,double axion_norm,double phase_index,int block,int pixel) {
+ 
+     double jI, jQ, jU, jV, rQ, rU, rV, aI, aQ, aU, aV;
+     double pitch_ang, nu_p;
+@@ -593,7 +618,7 @@ void pol_integration_step(struct GRMHD modvar, double frequency,
+     // Scale the wave vector to correct energy
+     LOOP_i k_u[i] *= PLANCK_CONSTANT * frequency /
+                      (ELECTRON_MASS * SPEED_OF_LIGHT * SPEED_OF_LIGHT);
+-
++    double dlambda =*dl_current;
+     // Convert distance dlambda accordingly
+     *dl_current *= (ELECTRON_MASS * SPEED_OF_LIGHT * SPEED_OF_LIGHT) /
+                    (PLANCK_CONSTANT * frequency);
+@@ -614,12 +639,181 @@ void pol_integration_step(struct GRMHD modvar, double frequency,
+     // false.
+     create_observer_tetrad(X_u, k_u, modvar.U_u, modvar.B_u, tetrad_u);
+     create_tetrad_d(X_u, tetrad_u, tetrad_d);
+-
++    
+     // FROM F VECTOR TO STOKES (when applicable)
+     ////////////////////////////////////////////
++    
++    // if (X_u[0] < -10023.){
++    //     jI = 0.;
++    //     jQ = 0.;
++    //     jU = 0.;
++    //     jV = 0.;
++    // }
++
++        //Axion:Start
++        #define omega_count 23
++        #define r_count 2400
++        
++        static int flagg = 0;
++        static double Axion_Radial[omega_count][r_count][3];
++        if(flagg == 0){
++        FILE *fp1=NULL;
++        fp1 = fopen("NormR.csv", "r");
++        double temp[3];
++        for(int m = 0; m < omega_count; m++){
++        for(int n = 0; n < r_count;n++){
++            // fscanf(fp1, "%lf,",&temp[0]);
++            // fscanf(fp1, "%lf,",&temp[1]);
++            // fscanf(fp1, "%lf\n",&temp[2]);
++            // fscanf(fp1, "%lf,",&temp[0]);
++            // fscanf(fp1, "%lf,",&temp[1]);
++            // fscanf(fp1, "%lf\n",&temp[2]);
++
++            fscanf(fp1, "%lf,",&Axion_Radial[m][n][0]);
++            fscanf(fp1, "%lf,",&Axion_Radial[m][n][1]);
++            fscanf(fp1, "%lf\n",&Axion_Radial[m][n][2]);
++        }
++
++
++
++        }
++        fclose(fp1);
++            flagg = 1;
++
++        }
++        double ri, thi, phii,timei, rf, thf, phif,timef;
++        // bl_coord(Xi, &ri, &thi);
++        ri = exp(X_u[1]);
++        phii =X_u[3];
++        timei = X_u[0];
++        thi = X_u[2] + 0.5 * hslope * sin(2. * X_u[2]);
++        // printf("%f",hslope);
++        thi = X_u[2];
++        // bl_coord(Xf, &rf, &thf);
++        double k2 = sqrt(k_u_old[0]*k_u_old[0]-k_u_old[1]*k_u_old[1]-k_u_old[2]*k_u_old[2]-k_u_old[3]*k_u_old[3]);
++        phif =X_u_next[3];
++        timef = X_u_next[0];
++        thf = X_u_next[2] + 0.5 * hslope * sin(2. * X_u_next[2]);
++        rf = exp(X_u_next[1]);
++        thf = X_u_next[2];
++        int i=1;
++        while (Axion_Radial[i][2][0] < axion_omega) {
++          ++i;
++        }
++        --i;
++        int j=1;
++        while (Axion_Radial[i][j][1] < ri && j <=r_count-2) {
++          ++j;
++        }
++        --j;
++        // if (j>1000) {
++        //     printf("1j=%d,ri=%f\n",j,ri);};
++        // if (j>=r_count-1){j =r_count-2;}
++
++        double middle_var_i_j,middle_var_ip1_j,middle_var_i_j_f,middle_var_ip1_j_f;
++        middle_var_i_j= ((Axion_Radial[i][j+1][2]-Axion_Radial[i][j][2])*(ri-Axion_Radial[i][j][1])/(Axion_Radial[i][j+1][1]-Axion_Radial[i][j][1])+Axion_Radial[i][j][2]);
++        middle_var_ip1_j= ((Axion_Radial[i+1][j+1][2]-Axion_Radial[i+1][j][2])*(ri-Axion_Radial[i+1][j][1])/(Axion_Radial[i+1][j+1][1]-Axion_Radial[i+1][j][1])+Axion_Radial[i+1][j][2]);
++
++        double radiali = (middle_var_ip1_j - middle_var_i_j)*(axion_omega - Axion_Radial[i][j][0])/(Axion_Radial[i+1][j][0]-Axion_Radial[i][j][0])+middle_var_i_j;
++        j= 1;
++        while (Axion_Radial[i][j][1] < rf && j <=r_count-2) {
++          ++j;
++        }
++        --j;
++
++        // if (j>1000) {
++        //     printf("1j=%d,rf=%f\n",j,rf);};
++        // if (j>=r_count-1){j =r_count-2;}
++        middle_var_i_j_f= ((Axion_Radial[i][j+1][2]-Axion_Radial[i][j][2])*(rf-Axion_Radial[i][j][1])/(Axion_Radial[i][j+1][1]-Axion_Radial[i][j][1])+Axion_Radial[i][j][2]);
++        middle_var_ip1_j_f= ((Axion_Radial[i+1][j+1][2]-Axion_Radial[i+1][j][2])*(rf-Axion_Radial[i+1][j][1])/(Axion_Radial[i+1][j+1][1]-Axion_Radial[i+1][j][1])+Axion_Radial[i+1][j][2]);
++        double radialf = (middle_var_ip1_j_f - middle_var_i_j_f)*(axion_omega - Axion_Radial[i][j][0])/(Axion_Radial[i+1][j][0]-Axion_Radial[i][j][0])+middle_var_i_j_f;
++      	// for(int mmm = 0;mmm<5;mmm++){printf("radialf = %f\n",radialf);}  
++        // radiali = exp(-pow(ri/20.0,15));
++        // radialf = exp(-pow(rf/20.0,15));
++
++
++		double alphai = axion_norm /2./M_PI*sin(thi)*cos(-phii+(1022.0+timei)*axion_omega + phase_index/8.0 * M_PI)*radiali*exp(-pow(ri/25.0,15));
++        double alphaf = axion_norm /2./M_PI*sin(thf)*cos(-phif+(1022.0+timef)*axion_omega + phase_index/8.0 * M_PI)*radialf*exp(-pow(rf/25.0,15));
++
++		// double alphai = axion_norm /2./M_PI*cos(phase_index/8.0 * M_PI+0.137373737*M_PI)*exp(-pow(ri/15.0,20));
++
++        // double alphaf = axion_norm /2./M_PI*cos(phase_index/8.0 * M_PI+0.137373737*M_PI)*exp(-pow(rf/15.0,20));
++
++        // if (fabs(thi-M_PI/2.) <0.1){
++        // FILE* fp = NULL;
++        // fp = fopen("thi_cut_profile.txt","a+");
++        // //fprintf(fp,"%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f \n",block,pixel,phase_index,axion_norm,timei,ri,alphai,rf,alphaf,thi,thf,phii,phif,log10(creal(S_A[0])),log10(creal(S_A[1])),log10(creal(S_A[2])),carg(S_A[1]+I*S_A[2]));
++        // fprintf(fp,"%f,%f,%f,%f,%f,%f,%f \n",timei,ri,thi,phii,modvar.B,modvar.n_e,modvar.theta_e);
++        // fclose(fp);
++        // }
++        // printf("%f,%f,%f,%f,%f,%f \n",log10(S_A[1]*S_A[1]),log10(abs(alphaf-alphai)),rf,ri,alphaf,alphai);
++
++        // if (log10(jI) >-42.){
++        //     double temp = rV+100*axion_norm;
++            
++        //     printf("%f,%f,%f,\n",temp,rV,phase_index/8.0 * M_PI);
++        //     rV = temp;
++        //  }
++
++	    // rV +=  axion_norm /2./M_PI * (alphai - alphaf) / dlambda/k2;
++        // rV +=  axion_norm/2./M_PI * exp(-ri)*cos(-phii+(1022.0+timei)*axion_omega + phase_index/8.0 * M_PI);
++        // if (isnan(rV)){
++
++        //printf("%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f \n",ri,rf,dlambda,*dl_current,scale,k_u[0],k2,k_u[0],k_u[1],k_u[2],k_u[3]);
++        //  }
++    // // Axion: end
++
++    // turn off plasma effects
++        // rQ=0;
++        // rU=0;
++        // rV=0;
++        // aI=0;
++        // aQ=0;
++        // aU=0;
++        // aV=0;
++
++
++    // if (abs(ri*cos(thi))>0.01 ){
++    //     jI = 0;
++    //     jQ=0;
++    //     jU=0;
++    //     jV=0;
++    //     rQ=0;
++    //     rU=0;
++    //     rV=0;
++    //     aI=0;
++    //     aQ=0;
++    //     aU=0;
++    //     aV=0;
++    // }
++    // else
++    // {
++
++    //     jI =1E-30;
++    //     jQ=3E-31;
++    //     jU=3E-31;
++    //     jV=0;
++    //     rQ=0;
++    //     rU =0;
++    //     rV=0;
++    //     aI=0;
++    //     aQ=0;
++    //     aU=0;
++    //     aV=0;
++    // }
++    // if (X_u[0] < -10023.){
++    //     jI = 0.;
++    //     jQ = 0.;
++    //     jU = 0.;
++    //     jV = 0.;
++    // }
++        
++    // S_A[0] = block*64+pixel;
++    // S_A[1] = S_A[0]/10.;
++    // S_A[2] = S_A[0]/10.;
++    // S_A[3] = 0;
+ 
+     // If (POLARIZATION_ACTIVE), get Stokes params from f_u and p.
+-    // (Otherwise, never been in volume before; we simply use
+     // S_I_current)
+     if (*POLARIZATION_ACTIVE) {
+         f_to_stokes(f_u, f_tetrad_u, tetrad_d, S_A, *Iinv, *Iinv_pol);
+@@ -633,13 +827,17 @@ void pol_integration_step(struct GRMHD modvar, double frequency,
+     // If both rotation coeffs (times dlambda) are smaller than
+     // threshold, take an RK4 step; otherwise, implicit Euler.
+     // if (fabs(rQ) < THRESH && fabs(rV) < THRESH) {
++
+     if (!STIFF) {
+-        pol_rte_rk4_step(jI, jQ, jU, jV, rQ, rU, rV, aI, aQ, aU, aV,
++ 
++        pol_rte_rk4_step(jI, jQ, jU, jV, rQ, rU, rV, aI, aQ, aU, aV,alphaf,alphai,
+                          *dl_current, C, S_A);
+     } else {
+-        pol_rte_trapezoid_step(jI, jQ, jU, jV, rQ, rU, rV, aI, aQ, aU, aV,
++        pol_rte_trapezoid_step(jI, jQ, jU, jV, rQ, rU, rV, aI, aQ, aU, aV,alphaf,alphai,
+                                *dl_current, C, S_A);
++   
+     }
++ 
+     // FROM STOKES TO F VECTOR
+     ///////////////////////////
+     // somtimes in very specific cells issue with Ipol>S_I, numerical round off
+@@ -721,11 +919,11 @@ void construct_f_obs_tetrad_u(double *X_u, double *k_u, double complex *f_u,
+ void radiative_transfer_polarized(double *lightpath, int steps,
+                                   double frequency, double *f_x, double *f_y,
+                                   double *p, int PRINT_POLAR, double *IQUV,
+-                                  double *tau, double *tauF) {
++                                  double *tau, double *tauF,double axion_omega,double axion_norm,double phase_index,int block,int pixel) {
+     int path_counter;
+     double dl_current;
+ 
+-    double X_u[4], k_u[4], k_d[4];
++    double X_u[4], k_u[4], k_d[4], X_u_next[4];
+ 
+     double Iinv, Iinv_pol;
+     int POLARIZATION_ACTIVE = 0;
+@@ -759,6 +957,7 @@ void radiative_transfer_polarized(double *lightpath, int steps,
+             X_u[i] = lightpath[path_counter * 9 + i];
+             k_u[i] = lightpath[path_counter * 9 + 4 + i];
+         }
++        LOOP_i {X_u_next[i] = lightpath[(path_counter+1) * 9 + i];}
+         dl_current = fabs(lightpath[(path_counter - 1) * 9 + 8]);
+ 
+         // check normalization of k vectors.
+@@ -771,11 +970,12 @@ void radiative_transfer_polarized(double *lightpath, int steps,
+         double r_current = get_r(X_u);
+ 
+         // Check whether the ray is currently in the GRMHD simulation volume
+-        if (get_fluid_params(X_u, &modvar) && r_current < RT_OUTER_CUTOFF) {
+-            pol_integration_step(modvar, frequency, &dl_current, C_CONST, X_u,
++        if (get_fluid_params(X_u, &modvar) || r_current < RT_OUTER_CUTOFF) {
++        // if (r_current < RT_OUTER_CUTOFF) {
++            pol_integration_step(modvar, frequency, &dl_current, C_CONST, X_u,X_u_next,
+                                  k_u, k_d, &POLARIZATION_ACTIVE, f_u,
+                                  f_tetrad_u, tetrad_d, tetrad_u, S_A, &Iinv,
+-                                 &Iinv_pol, tau, tauF);
++                                 &Iinv_pol, tau, tauF,axion_omega,axion_norm,phase_index,block,pixel);
+         } // End of if(IN_VOLUME)
+ 
+         // SPACETIME-INTEGRATION STEP

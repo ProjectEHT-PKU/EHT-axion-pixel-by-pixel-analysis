@@ -1,0 +1,567 @@
+{
+  "LC": {
+    "root": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor",
+    "files": {
+      "definitions.h": {
+        "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/model/bhac/definitions.h",
+        "sha256": "a69f3999c7819353f87a389386abc92694ac521451d790096a97e5044290c72a",
+        "defines": {
+          "DEFINITIONS_H": "#include <complex.h>",
+          "M_PI": "3.14159265358979323846",
+          "DEBUG": "(1)",
+          "NDIM": "4",
+          "NPRIM": "8",
+          "IMGFILE": "(1)",
+          "SPECFILE": "(1)",
+          "RAD_TRANS": "(1)",
+          "POL": "(1)",
+          "num_frequencies": "1",
+          "FREQFILE": "(0)",
+          "FREQLOG": "(1)",
+          "FREQS": "(FREQLOG)",
+          "EMISUSER": "(0)",
+          "UNIF": "(1)",
+          "AMR": "0",
+          "SMR": "1",
+          "num_pixels_1d": "10",
+          "tot_pixels": "100",
+          "USERSPEC": "(1)",
+          "nspec": "4",
+          "KAPPA": "(0) // kappa distribution",
+          "TH": "(1)    // thermal distribution",
+          "POWER": "(2) // Power-law distribution",
+          "DF": "(TH)   // Distribution function",
+          "kappa": "5.0",
+          "power": "2.5",
+          "gamma_min": "1.",
+          "gamma_max": "1000.",
+          "CAR": "(0) // Minkowski",
+          "BL": "(1)  // Boyer-Lindquist,               x1=r, x2=th, and x3=phi",
+          "MBL": "(2) // modified Boyer-Lindquist, x1=log(r), x2=th, and x3=phi",
+          "KS": "(3)  // Kerr-Schild,                   x1=r, x2=th, and x3=phi",
+          "MKS": "(4) // modified Kerr-Schild,          x1=log(r), x2=th, and x3=phi",
+          "MKSHARM": "\\",
+          "MKSBHAC": "\\",
+          "MKSN": "(7) //  modified Kerr-Schild-Newman,  x1=log(r), x2=th, and x3=phi",
+          "CKS": "(8)  //  modified Kerr-Schild-Newman,  x1=log(r), x2=th, and x3=phi",
+          "metric": "(MKSBHAC)",
+          "logscale": "(1) // Modified BL/KS coordinates; logarithmic radius",
+          "SIGMA_CUT": "(1000)",
+          "THETAE_MAX": "(100)",
+          "THETAE_MIN": "(1e-3)",
+          "LIGHT_TRANSPORT": "\\",
+          "rcam": "(1e4) //(500.)    // Camera distance from the sing.(units of Rg)",
+          "max_order": "(100) // Maximimum order of lensed images 0 = direct only",
+          "RT_OUTER_CUTOFF": "(50.) // Stop polarized integration beyond this radius",
+          "delta_num": "(1.e-4) // Used for numerical derivatives",
+          "max_steps": "(1e4)   // Maximum number of integration steps",
+          "cutoff_outer": "(1.1 * rcam) // Outer cutoff, near flat spacetime, in M",
+          "horizon_marg": "(1.e-2) // Stop tracing at this distance from E.H. [BL]",
+          "RK2": "(1)              //",
+          "VER": "(2)              //",
+          "RK4": "(3)              //",
+          "RK45": "(4)             //",
+          "int_method": "(RK4)",
+          "ELECTRON_CHARGE": "(4.80320425e-10)",
+          "ELECTRON_MASS": "(9.1093829e-28)",
+          "PROTON_MASS": "(1.6726219e-24)",
+          "BOLTZMANN_CONSTANT": "(1.3806488e-16)",
+          "SPEED_OF_LIGHT": "(2.99792458e10)",
+          "PLANCK_CONSTANT": "(6.62606885e-27)",
+          "MPCL2": "(0.0015033)",
+          "GGRAV": "(6.674e-8)",
+          "MSUN": "(1.989e33)",
+          "KPCTOCM": "(3.086e21)",
+          "MPoME": "(PROTON_MASS / ELECTRON_MASS)",
+          "DIM": "4",
+          "LOOP_i": "for (int i = 0; i < DIM; i++)",
+          "LOOP_ij": "\\",
+          "LOOP_kl": "\\",
+          "LOOP_ijk": "\\",
+          "LOOP_ijkl": "\\"
+        }
+      },
+      "model_definitions.h": {
+        "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/model/bhac/model_definitions.h",
+        "sha256": "47a15b89840bc83dc452071b6174743e1264cee0a76513e8d159a74ed99ec78c",
+        "defines": {
+          "MODEL_DEFINITIONS_H": "#define SFC 1",
+          "KRHO": "0",
+          "UU": "1",
+          "U1": "2",
+          "U2": "3",
+          "U3": "4",
+          "B1": "5",
+          "B2": "6",
+          "B3": "7",
+          "D": "0",
+          "S1": "1",
+          "S2": "2",
+          "S3": "3",
+          "TAU": "4",
+          "DS": "8",
+          "NP": "8",
+          "NSPIN": "3 //Change this into 5 for Mizuno's GRMHD, 3 for the GRMHD in this folder.",
+          "PLUS": "1",
+          "MINUS": "-1",
+          "BPOL": "(PLUS)"
+        }
+      },
+      "model.c": {
+        "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/model/bhac/model.c",
+        "sha256": "eba6c5777d23a61f4209ab510e17cdc0b0550fc51b1d6b1a0f58f71f957ef45d"
+      },
+      "grid_mks.in": {
+        "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/model/bhac/grid_mks.in",
+        "sha256": "adef154b49c12e8a7adc88386951ab8ae3a0c8057c5e2c8e785fa4e2bac85580",
+        "content": "nxlone1 = 96\nnxlone2 = 48\nnxlone3 = 48\n\nxprobminx1 = 0.17395330712343798\nxprobminx2 = 0.0\nxprobminx3 = 0.0\n\nxprobmax1 = 7.824046010856292\nxprobmax2 = 0.5\nxprobmax3 = 1.0\n\nhslope = 0.0\n"
+      },
+      "model_functions.h": {
+        "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/model/bhac/model_functions.h",
+        "sha256": "ecdb14bac382c660515c99fabf9fd27c6b30153ba878e3aabad7202467f0dc9e",
+        "defines": {
+          "MODEL_FUNCTIONS_H": "void set_units(double);"
+        }
+      },
+      "model_global_vars.h": {
+        "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/model/bhac/model_global_vars.h",
+        "sha256": "ff83a440c29ecbcf4419d21389c0a434e087c4cc262174edc2b810a014e91f53",
+        "defines": {
+          "MODEL_GLOBAL_VARS_H": "extern double ****p;"
+        }
+      }
+    },
+    "model_input": {
+      "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor/run/model.in",
+      "exists": true,
+      "text": "MBH\t\t(Msun)\t4.14e6\nDISTANCE\t\t(kpc) 8.127\nM_UNIT\t\t(g)\t1e+18\nR_LOW\t\t(-)\t1\nR_HIGH\t\t(-)\t1\n\nINCLINATION\t(deg)           50\nIMG_WIDTH\t(pixels)\t200\nIMG_HEIGHT\t(pixels)\t200\nCAM_SIZE_X\t(Rg)\t\t40\nCAM_SIZE_Y\t(Rg)\t\t40\nFREQS_PER_DEC\t(-)\t\t1\nFREQ_MIN\t(Hz)\t\t230.e9\nSTEPSIZE\t(-)\t\t0.01\nMAX_LEVEL\t(-)\t\t1\n"
+    }
+  },
+  "LR": {
+    "root": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run",
+    "files": {
+      "definitions.h": {
+        "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/definitions.h",
+        "sha256": "04e2388a5fc1afbb453bdec61c4e2efa32282f6bc23a69f17a4c971a80f73a0b",
+        "defines": {
+          "DEFINITIONS_H": "#include <complex.h>",
+          "M_PI": "3.14159265358979323846",
+          "DEBUG": "(1)",
+          "NDIM": "4",
+          "NPRIM": "8",
+          "IMGFILE": "(1)",
+          "SPECFILE": "(1)",
+          "RAD_TRANS": "(1)",
+          "POL": "(1)",
+          "num_frequencies": "1",
+          "FREQFILE": "(0)",
+          "FREQLOG": "(1)",
+          "FREQS": "(FREQLOG)",
+          "EMISUSER": "(0)",
+          "UNIF": "(1)",
+          "AMR": "0",
+          "SMR": "1",
+          "num_pixels_1d": "10",
+          "tot_pixels": "100",
+          "USERSPEC": "(1)",
+          "nspec": "4",
+          "KAPPA": "(0) // kappa distribution",
+          "TH": "(1)    // thermal distribution",
+          "POWER": "(2) // Power-law distribution",
+          "DF": "(TH)   // Distribution function",
+          "kappa": "5.0",
+          "power": "2.5",
+          "gamma_min": "1.",
+          "gamma_max": "1000.",
+          "CAR": "(0) // Minkowski",
+          "BL": "(1)  // Boyer-Lindquist,               x1=r, x2=th, and x3=phi",
+          "MBL": "(2) // modified Boyer-Lindquist, x1=log(r), x2=th, and x3=phi",
+          "KS": "(3)  // Kerr-Schild,                   x1=r, x2=th, and x3=phi",
+          "MKS": "(4) // modified Kerr-Schild,          x1=log(r), x2=th, and x3=phi",
+          "MKSHARM": "\\",
+          "MKSBHAC": "\\",
+          "MKSN": "(7) //  modified Kerr-Schild-Newman,  x1=log(r), x2=th, and x3=phi",
+          "CKS": "(8)  //  modified Kerr-Schild-Newman,  x1=log(r), x2=th, and x3=phi",
+          "metric": "(MKSBHAC)",
+          "logscale": "(1) // Modified BL/KS coordinates; logarithmic radius",
+          "SIGMA_CUT": "(1)",
+          "THETAE_MAX": "(100)",
+          "THETAE_MIN": "(1e-3)",
+          "LIGHT_TRANSPORT": "\\",
+          "rcam": "(1e4) //(500.)    // Camera distance from the sing.(units of Rg)",
+          "max_order": "(100) // Maximimum order of lensed images 0 = direct only",
+          "RT_OUTER_CUTOFF": "(50.) // Stop polarized integration beyond this radius",
+          "delta_num": "(1.e-4) // Used for numerical derivatives",
+          "max_steps": "(1e4)   // Maximum number of integration steps",
+          "cutoff_outer": "(1.1 * rcam) // Outer cutoff, near flat spacetime, in M",
+          "horizon_marg": "(1.e-2) // Stop tracing at this distance from E.H. [BL]",
+          "RK2": "(1)              //",
+          "VER": "(2)              //",
+          "RK4": "(3)              //",
+          "RK45": "(4)             //",
+          "int_method": "(RK4)",
+          "ELECTRON_CHARGE": "(4.80320425e-10)",
+          "ELECTRON_MASS": "(9.1093829e-28)",
+          "PROTON_MASS": "(1.6726219e-24)",
+          "BOLTZMANN_CONSTANT": "(1.3806488e-16)",
+          "SPEED_OF_LIGHT": "(2.99792458e10)",
+          "PLANCK_CONSTANT": "(6.62606885e-27)",
+          "MPCL2": "(0.0015033)",
+          "GGRAV": "(6.674e-8)",
+          "MSUN": "(1.989e33)",
+          "KPCTOCM": "(3.086e21)",
+          "MPoME": "(PROTON_MASS / ELECTRON_MASS)",
+          "DIM": "4",
+          "LOOP_i": "for (int i = 0; i < DIM; i++)",
+          "LOOP_ij": "\\",
+          "LOOP_kl": "\\",
+          "LOOP_ijk": "\\",
+          "LOOP_ijkl": "\\"
+        }
+      },
+      "model_definitions.h": {
+        "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model_definitions.h",
+        "sha256": "47a15b89840bc83dc452071b6174743e1264cee0a76513e8d159a74ed99ec78c",
+        "defines": {
+          "MODEL_DEFINITIONS_H": "#define SFC 1",
+          "KRHO": "0",
+          "UU": "1",
+          "U1": "2",
+          "U2": "3",
+          "U3": "4",
+          "B1": "5",
+          "B2": "6",
+          "B3": "7",
+          "D": "0",
+          "S1": "1",
+          "S2": "2",
+          "S3": "3",
+          "TAU": "4",
+          "DS": "8",
+          "NP": "8",
+          "NSPIN": "3 //Change this into 5 for Mizuno's GRMHD, 3 for the GRMHD in this folder.",
+          "PLUS": "1",
+          "MINUS": "-1",
+          "BPOL": "(PLUS)"
+        }
+      },
+      "model.c": {
+        "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model.c",
+        "sha256": "eba6c5777d23a61f4209ab510e17cdc0b0550fc51b1d6b1a0f58f71f957ef45d"
+      },
+      "grid_mks.in": {
+        "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/grid_mks.in",
+        "sha256": "adef154b49c12e8a7adc88386951ab8ae3a0c8057c5e2c8e785fa4e2bac85580",
+        "content": "nxlone1 = 96\nnxlone2 = 48\nnxlone3 = 48\n\nxprobminx1 = 0.17395330712343798\nxprobminx2 = 0.0\nxprobminx3 = 0.0\n\nxprobmax1 = 7.824046010856292\nxprobmax2 = 0.5\nxprobmax3 = 1.0\n\nhslope = 0.0\n"
+      },
+      "model_functions.h": {
+        "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model_functions.h",
+        "sha256": "ecdb14bac382c660515c99fabf9fd27c6b30153ba878e3aabad7202467f0dc9e",
+        "defines": {
+          "MODEL_FUNCTIONS_H": "void set_units(double);"
+        }
+      },
+      "model_global_vars.h": {
+        "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model_global_vars.h",
+        "sha256": "ff83a440c29ecbcf4419d21389c0a434e087c4cc262174edc2b810a014e91f53",
+        "defines": {
+          "MODEL_GLOBAL_VARS_H": "extern double ****p;"
+        }
+      }
+    },
+    "model_input": {
+      "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/model.in",
+      "exists": false,
+      "text": null
+    },
+    "Run.py": {
+      "path": "/home/canoziia/MyProject/PHYS/vmdk/home/yuxin/Work/Work/EHT/EHT-axion-pixel-by-pixel/raptor_run/Run.py",
+      "sha256": "c7e999944664a4589f4a44fb6412f1dc525caba6029b65dc2959ddc8371bac8d",
+      "text": "import os,shutil\nfrom copy import deepcopy\nimport os\n\ndef move_file(to_path,from_path='output/'):\n    dir_files = os.listdir(from_path)\n    if os.path.exists(to_path) is False:\n        os.makedirs(to_path)\n    if not os.path.exists(os.path.join(to_path,\"figures\")):\n        os.makedirs(os.path.join(to_path,\"figures\"))\n    os.system(f\"mv figures/* {os.path.join(to_path,'figures')}\")\n    for file in dir_files:\n        file_path = os.path.join(from_path,file)\n        if os.path.isfile(file_path):\n            if os.path.exists(os.path.join(to_path,file)):\n                os.remove(os.path.join(to_path,file))\n            shutil.move(file_path, to_path)\n\nGRMHD_DATA_DIR=\"/home/yuxin/Work/Work/EHT/raptor_run/MAD_a+15o16/a094-high\"\n\nCAM_SIZE = 46.2261\n# CAM_SIZE=32\nRESOLUTION = 100\n\n# high resolution figure will be copied to result/data_save_dirname\nHIGH_RESOLUTION = 4 * RESOLUTION\nRUN_HIGH_RESOLUTION = False\n\nOUTPUT_DIR = \"../raptor_output\"\n\ndef Run(params_json,GRMHD_DATA_FILE,data_save_dirname):\n    f = open('model.in','w')\n    f.write(f'MBH\t\t(Msun)\t{params_json[\"MBH\"]}')\n    f.write(f'DISTANCE\t\t(kpc) {params_json[\"DISTANCE\"]}')\n    f.write(f'M_UNIT\t\t(g)\t{params_json[\"M_UNIT\"]}')\n    f.write(f'R_LOW\t\t(-)\t{params_json[\"R_LOW\"]}')\n    f.write(f'R_HIGH\t\t(-)\t{params_json[\"R_HIGH\"]}')\n    f.write(f'INCLINATION\t(deg)          {params_json[\"INCLINATION\"]}')\n    f.write(f'IMG_WIDTH\t(pixels)\t{params_json[\"IMG_WIDTH\"]}')\n    f.write(f'IMG_HEIGHT\t(pixels)\t{params_json[\"IMG_HEIGHT\"]}')\n    f.write(f'CAM_SIZE_X\t(Rg)\t\t{params_json[\"CAM_SIZE_X\"]}')\n    f.write(f'CAM_SIZE_Y\t(Rg)\t\t{params_json[\"CAM_SIZE_Y\"]}')\n    f.write(f'FREQS_PER_DEC\t(-)\t\t{params_json[\"FREQS_PER_DEC\"]}')\n    f.write(f'FREQ_MIN\t(Hz)\t\t{params_json[\"FREQ_MIN\"]}')\n    f.write(f'STEPSIZE\t(-)\t\t{params_json[\"STEPSIZE\"]}')\n    f.write(f'AXION_NORM  (-)    {params_json[\"AXION_NORM\"]}')\n    f.write(f'AXION_OMEGA  (-)    {params_json[\"AXION_OMEGA\"]}')\n    f.write(f'AXION_PHASE  (-)    {params_json[\"AXION_PHASE\"]}')\n    f.write(f'MAX_LEVEL\t(-)\t\t{params_json[\"MAX_LEVEL\"]}')\n    f.close()\n    if params_json[\"AXION_NORM\"]==0:\n        if not os.path.exists(os.path.join(os.path.abspath(OUTPUT_DIR),data_save_dirname,\"img_data_0.h5\")):\n            os.system(f'./RAPTOR model.in {GRMHD_DATA_FILE} 0 ')\n            os.system(f'python plotter-example.py 0')\n            move_file(os.path.join(os.path.abspath(OUTPUT_DIR),data_save_dirname))\n    else:\n        if not os.path.exists(os.path.join(os.path.abspath(OUTPUT_DIR),data_save_dirname,f\"img_data_{params_json['AXION_PHASE']+1}.h5\")):\n            os.system(f'./RAPTOR model.in {GRMHD_DATA_FILE} {params_json[\"AXION_PHASE\"]+1} ')\n            os.system(f'python plotter-example.py {params_json[\"AXION_PHASE\"]+1}')\n            move_file(os.path.join(os.path.abspath(OUTPUT_DIR),data_save_dirname))\n    os.remove(\"model.in\")\n\n\nPARAMS_JSON={\n    \"MBH\": 6.2e9,\n    \"DISTANCE\": 16800, \n    \"M_UNIT\": 3e+25,\n    \"R_LOW\": 1,\n    \"R_HIGH\": 1,\n    \"INCLINATION\" : 163,\n    \"IMG_WIDTH\": RESOLUTION,\n    \"IMG_HEIGHT\": RESOLUTION,\n    \"CAM_SIZE_X\": CAM_SIZE,\n    \"CAM_SIZE_Y\": CAM_SIZE,\n    \"FREQS_PER_DEC\": 1,\n    \"FREQ_MIN\": 230.e9,\n    \"STEPSIZE\": 0.005,\n    \"AXION_NORM\": 0, # 0/0.1\n    \"AXION_OMEGA\": 0.4, # default 0.4\n    \"AXION_PHASE\": 0, # 0-15\n    \"MAX_LEVEL\": 1,\n}\n\nif __name__=='__main__':\n\n\n    GRMHD_DATA_FILES=[]\n    rpaths=sorted(os.listdir(GRMHD_DATA_DIR))\n    for rpath in rpaths:\n        if os.path.isfile(os.path.join(GRMHD_DATA_DIR,rpath)):\n            GRMHD_DATA_FILES.append(os.path.join(GRMHD_DATA_DIR,rpath))\n\n    GRMHD_DATA_FILES=GRMHD_DATA_FILES[100:]\n    # loop for grmhd time\n    error_list=[]\n    axion_omega_list=[0.1] #0.3,0.25,\n    for axion_omega in axion_omega_list:\n        for GRMHD_DATA_FILE in GRMHD_DATA_FILES:\n            try:\n                data_save_dirname=str(axion_omega)+\"/\"+os.path.basename(GRMHD_DATA_FILE)\n                params_json=deepcopy(PARAMS_JSON)\n                params_json[\"AXION_OMEGA\"]=axion_omega\n                Run(params_json,GRMHD_DATA_FILE,data_save_dirname)\n                \n                params_json[\"AXION_NORM\"]=0.1\n                \n                for phase in range(16):\n                    params_json[\"AXION_PHASE\"]=phase\n                    Run(params_json,GRMHD_DATA_FILE,data_save_dirname)\n            except Exception as e:\n                error_list.append(f\"{e}\")\n                print(e)\n        open(f\"{axion_omega} done\", \"w\").close()\n\n    # loop for grmhd time (high resolution)\n    if RUN_HIGH_RESOLUTION == True:\n        for axion_omega in axion_omega_list:\n            for GRMHD_DATA_FILE in GRMHD_DATA_FILES:\n                try:\n                    data_save_dirname=str(axion_omega)+\"/\"+os.path.basename(GRMHD_DATA_FILE)+\"_high_res\"\n                    params_json=deepcopy(PARAMS_JSON)\n                    params_json[\"AXION_OMEGA\"]=axion_omega\n                    params_json[\"IMG_WIDTH\"]=HIGH_RESOLUTION\n                    params_json[\"IMG_HEIGHT\"]=HIGH_RESOLUTION\n                    Run(params_json,GRMHD_DATA_FILE,data_save_dirname)\n                    \n                    params_json[\"AXION_NORM\"]=0.1\n                    \n                    for phase in range(16):\n                        params_json[\"AXION_PHASE\"]=phase\n                        Run(params_json,GRMHD_DATA_FILE,data_save_dirname)\n                except Exception as e:\n                    error_list.append(f\"{e}\")\n                    print(e)\n            open(f\"{axion_omega} done\", \"w\").close()\n\n    errorlog = open(\"log_run_error.txt\", 'w', encoding='utf-8')\n    errorlog.write(\"\\n\".join(error_list))\n    errorlog.close()\n    os.rmdir(\"output\")\n\n\n\n"
+    }
+  },
+  "CC": {
+    "root": "/tmp/eht-github-raptor-GckNId/raptor",
+    "files": {
+      "definitions.h": {
+        "path": "/tmp/eht-github-raptor-GckNId/raptor/model/bhac/definitions.h",
+        "sha256": "04e2388a5fc1afbb453bdec61c4e2efa32282f6bc23a69f17a4c971a80f73a0b",
+        "defines": {
+          "DEFINITIONS_H": "#include <complex.h>",
+          "M_PI": "3.14159265358979323846",
+          "DEBUG": "(1)",
+          "NDIM": "4",
+          "NPRIM": "8",
+          "IMGFILE": "(1)",
+          "SPECFILE": "(1)",
+          "RAD_TRANS": "(1)",
+          "POL": "(1)",
+          "num_frequencies": "1",
+          "FREQFILE": "(0)",
+          "FREQLOG": "(1)",
+          "FREQS": "(FREQLOG)",
+          "EMISUSER": "(0)",
+          "UNIF": "(1)",
+          "AMR": "0",
+          "SMR": "1",
+          "num_pixels_1d": "10",
+          "tot_pixels": "100",
+          "USERSPEC": "(1)",
+          "nspec": "4",
+          "KAPPA": "(0) // kappa distribution",
+          "TH": "(1)    // thermal distribution",
+          "POWER": "(2) // Power-law distribution",
+          "DF": "(TH)   // Distribution function",
+          "kappa": "5.0",
+          "power": "2.5",
+          "gamma_min": "1.",
+          "gamma_max": "1000.",
+          "CAR": "(0) // Minkowski",
+          "BL": "(1)  // Boyer-Lindquist,               x1=r, x2=th, and x3=phi",
+          "MBL": "(2) // modified Boyer-Lindquist, x1=log(r), x2=th, and x3=phi",
+          "KS": "(3)  // Kerr-Schild,                   x1=r, x2=th, and x3=phi",
+          "MKS": "(4) // modified Kerr-Schild,          x1=log(r), x2=th, and x3=phi",
+          "MKSHARM": "\\",
+          "MKSBHAC": "\\",
+          "MKSN": "(7) //  modified Kerr-Schild-Newman,  x1=log(r), x2=th, and x3=phi",
+          "CKS": "(8)  //  modified Kerr-Schild-Newman,  x1=log(r), x2=th, and x3=phi",
+          "metric": "(MKSBHAC)",
+          "logscale": "(1) // Modified BL/KS coordinates; logarithmic radius",
+          "SIGMA_CUT": "(1)",
+          "THETAE_MAX": "(100)",
+          "THETAE_MIN": "(1e-3)",
+          "LIGHT_TRANSPORT": "\\",
+          "rcam": "(1e4) //(500.)    // Camera distance from the sing.(units of Rg)",
+          "max_order": "(100) // Maximimum order of lensed images 0 = direct only",
+          "RT_OUTER_CUTOFF": "(50.) // Stop polarized integration beyond this radius",
+          "delta_num": "(1.e-4) // Used for numerical derivatives",
+          "max_steps": "(1e4)   // Maximum number of integration steps",
+          "cutoff_outer": "(1.1 * rcam) // Outer cutoff, near flat spacetime, in M",
+          "horizon_marg": "(1.e-2) // Stop tracing at this distance from E.H. [BL]",
+          "RK2": "(1)              //",
+          "VER": "(2)              //",
+          "RK4": "(3)              //",
+          "RK45": "(4)             //",
+          "int_method": "(RK4)",
+          "ELECTRON_CHARGE": "(4.80320425e-10)",
+          "ELECTRON_MASS": "(9.1093829e-28)",
+          "PROTON_MASS": "(1.6726219e-24)",
+          "BOLTZMANN_CONSTANT": "(1.3806488e-16)",
+          "SPEED_OF_LIGHT": "(2.99792458e10)",
+          "PLANCK_CONSTANT": "(6.62606885e-27)",
+          "MPCL2": "(0.0015033)",
+          "GGRAV": "(6.674e-8)",
+          "MSUN": "(1.989e33)",
+          "KPCTOCM": "(3.086e21)",
+          "MPoME": "(PROTON_MASS / ELECTRON_MASS)",
+          "DIM": "4",
+          "LOOP_i": "for (int i = 0; i < DIM; i++)",
+          "LOOP_ij": "\\",
+          "LOOP_kl": "\\",
+          "LOOP_ijk": "\\",
+          "LOOP_ijkl": "\\"
+        }
+      },
+      "model_definitions.h": {
+        "path": "/tmp/eht-github-raptor-GckNId/raptor/model/bhac/model_definitions.h",
+        "sha256": "47a15b89840bc83dc452071b6174743e1264cee0a76513e8d159a74ed99ec78c",
+        "defines": {
+          "MODEL_DEFINITIONS_H": "#define SFC 1",
+          "KRHO": "0",
+          "UU": "1",
+          "U1": "2",
+          "U2": "3",
+          "U3": "4",
+          "B1": "5",
+          "B2": "6",
+          "B3": "7",
+          "D": "0",
+          "S1": "1",
+          "S2": "2",
+          "S3": "3",
+          "TAU": "4",
+          "DS": "8",
+          "NP": "8",
+          "NSPIN": "3 //Change this into 5 for Mizuno's GRMHD, 3 for the GRMHD in this folder.",
+          "PLUS": "1",
+          "MINUS": "-1",
+          "BPOL": "(PLUS)"
+        }
+      },
+      "model.c": {
+        "path": "/tmp/eht-github-raptor-GckNId/raptor/model/bhac/model.c",
+        "sha256": "eba6c5777d23a61f4209ab510e17cdc0b0550fc51b1d6b1a0f58f71f957ef45d"
+      },
+      "grid_mks.in": {
+        "path": "/tmp/eht-github-raptor-GckNId/raptor/model/bhac/grid_mks.in",
+        "sha256": "adef154b49c12e8a7adc88386951ab8ae3a0c8057c5e2c8e785fa4e2bac85580",
+        "content": "nxlone1 = 96\nnxlone2 = 48\nnxlone3 = 48\n\nxprobminx1 = 0.17395330712343798\nxprobminx2 = 0.0\nxprobminx3 = 0.0\n\nxprobmax1 = 7.824046010856292\nxprobmax2 = 0.5\nxprobmax3 = 1.0\n\nhslope = 0.0\n"
+      },
+      "model_functions.h": {
+        "path": "/tmp/eht-github-raptor-GckNId/raptor/model/bhac/model_functions.h",
+        "sha256": "ecdb14bac382c660515c99fabf9fd27c6b30153ba878e3aabad7202467f0dc9e",
+        "defines": {
+          "MODEL_FUNCTIONS_H": "void set_units(double);"
+        }
+      },
+      "model_global_vars.h": {
+        "path": "/tmp/eht-github-raptor-GckNId/raptor/model/bhac/model_global_vars.h",
+        "sha256": "ff83a440c29ecbcf4419d21389c0a434e087c4cc262174edc2b810a014e91f53",
+        "defines": {
+          "MODEL_GLOBAL_VARS_H": "extern double ****p;"
+        }
+      }
+    },
+    "model_input": {
+      "path": "/tmp/eht-github-raptor-GckNId/raptor/run/model.in",
+      "exists": true,
+      "text": "MBH\t\t(Msun)\t4.14e6\nDISTANCE\t\t(kpc) 8.127\nM_UNIT\t\t(g)\t1e+18\nR_LOW\t\t(-)\t1\nR_HIGH\t\t(-)\t1\n\nINCLINATION\t(deg)           50\nIMG_WIDTH\t(pixels)\t200\nIMG_HEIGHT\t(pixels)\t200\nCAM_SIZE_X\t(Rg)\t\t40\nCAM_SIZE_Y\t(Rg)\t\t40\nFREQS_PER_DEC\t(-)\t\t1\nFREQ_MIN\t(Hz)\t\t230.e9\nSTEPSIZE\t(-)\t\t0.01\nMAX_LEVEL\t(-)\t\t1\n"
+    }
+  },
+  "CR": {
+    "root": "/tmp/eht-github-raptor-GckNId/run/raptor_run",
+    "files": {
+      "definitions.h": {
+        "path": "/tmp/eht-github-raptor-GckNId/run/raptor_run/definitions.h",
+        "sha256": "04e2388a5fc1afbb453bdec61c4e2efa32282f6bc23a69f17a4c971a80f73a0b",
+        "defines": {
+          "DEFINITIONS_H": "#include <complex.h>",
+          "M_PI": "3.14159265358979323846",
+          "DEBUG": "(1)",
+          "NDIM": "4",
+          "NPRIM": "8",
+          "IMGFILE": "(1)",
+          "SPECFILE": "(1)",
+          "RAD_TRANS": "(1)",
+          "POL": "(1)",
+          "num_frequencies": "1",
+          "FREQFILE": "(0)",
+          "FREQLOG": "(1)",
+          "FREQS": "(FREQLOG)",
+          "EMISUSER": "(0)",
+          "UNIF": "(1)",
+          "AMR": "0",
+          "SMR": "1",
+          "num_pixels_1d": "10",
+          "tot_pixels": "100",
+          "USERSPEC": "(1)",
+          "nspec": "4",
+          "KAPPA": "(0) // kappa distribution",
+          "TH": "(1)    // thermal distribution",
+          "POWER": "(2) // Power-law distribution",
+          "DF": "(TH)   // Distribution function",
+          "kappa": "5.0",
+          "power": "2.5",
+          "gamma_min": "1.",
+          "gamma_max": "1000.",
+          "CAR": "(0) // Minkowski",
+          "BL": "(1)  // Boyer-Lindquist,               x1=r, x2=th, and x3=phi",
+          "MBL": "(2) // modified Boyer-Lindquist, x1=log(r), x2=th, and x3=phi",
+          "KS": "(3)  // Kerr-Schild,                   x1=r, x2=th, and x3=phi",
+          "MKS": "(4) // modified Kerr-Schild,          x1=log(r), x2=th, and x3=phi",
+          "MKSHARM": "\\",
+          "MKSBHAC": "\\",
+          "MKSN": "(7) //  modified Kerr-Schild-Newman,  x1=log(r), x2=th, and x3=phi",
+          "CKS": "(8)  //  modified Kerr-Schild-Newman,  x1=log(r), x2=th, and x3=phi",
+          "metric": "(MKSBHAC)",
+          "logscale": "(1) // Modified BL/KS coordinates; logarithmic radius",
+          "SIGMA_CUT": "(1)",
+          "THETAE_MAX": "(100)",
+          "THETAE_MIN": "(1e-3)",
+          "LIGHT_TRANSPORT": "\\",
+          "rcam": "(1e4) //(500.)    // Camera distance from the sing.(units of Rg)",
+          "max_order": "(100) // Maximimum order of lensed images 0 = direct only",
+          "RT_OUTER_CUTOFF": "(50.) // Stop polarized integration beyond this radius",
+          "delta_num": "(1.e-4) // Used for numerical derivatives",
+          "max_steps": "(1e4)   // Maximum number of integration steps",
+          "cutoff_outer": "(1.1 * rcam) // Outer cutoff, near flat spacetime, in M",
+          "horizon_marg": "(1.e-2) // Stop tracing at this distance from E.H. [BL]",
+          "RK2": "(1)              //",
+          "VER": "(2)              //",
+          "RK4": "(3)              //",
+          "RK45": "(4)             //",
+          "int_method": "(RK4)",
+          "ELECTRON_CHARGE": "(4.80320425e-10)",
+          "ELECTRON_MASS": "(9.1093829e-28)",
+          "PROTON_MASS": "(1.6726219e-24)",
+          "BOLTZMANN_CONSTANT": "(1.3806488e-16)",
+          "SPEED_OF_LIGHT": "(2.99792458e10)",
+          "PLANCK_CONSTANT": "(6.62606885e-27)",
+          "MPCL2": "(0.0015033)",
+          "GGRAV": "(6.674e-8)",
+          "MSUN": "(1.989e33)",
+          "KPCTOCM": "(3.086e21)",
+          "MPoME": "(PROTON_MASS / ELECTRON_MASS)",
+          "DIM": "4",
+          "LOOP_i": "for (int i = 0; i < DIM; i++)",
+          "LOOP_ij": "\\",
+          "LOOP_kl": "\\",
+          "LOOP_ijk": "\\",
+          "LOOP_ijkl": "\\"
+        }
+      },
+      "model_definitions.h": {
+        "path": "/tmp/eht-github-raptor-GckNId/run/raptor_run/model_definitions.h",
+        "sha256": "47a15b89840bc83dc452071b6174743e1264cee0a76513e8d159a74ed99ec78c",
+        "defines": {
+          "MODEL_DEFINITIONS_H": "#define SFC 1",
+          "KRHO": "0",
+          "UU": "1",
+          "U1": "2",
+          "U2": "3",
+          "U3": "4",
+          "B1": "5",
+          "B2": "6",
+          "B3": "7",
+          "D": "0",
+          "S1": "1",
+          "S2": "2",
+          "S3": "3",
+          "TAU": "4",
+          "DS": "8",
+          "NP": "8",
+          "NSPIN": "3 //Change this into 5 for Mizuno's GRMHD, 3 for the GRMHD in this folder.",
+          "PLUS": "1",
+          "MINUS": "-1",
+          "BPOL": "(PLUS)"
+        }
+      },
+      "model.c": {
+        "path": "/tmp/eht-github-raptor-GckNId/run/raptor_run/model.c",
+        "sha256": "eba6c5777d23a61f4209ab510e17cdc0b0550fc51b1d6b1a0f58f71f957ef45d"
+      },
+      "grid_mks.in": {
+        "path": "/tmp/eht-github-raptor-GckNId/run/raptor_run/grid_mks.in",
+        "sha256": "adef154b49c12e8a7adc88386951ab8ae3a0c8057c5e2c8e785fa4e2bac85580",
+        "content": "nxlone1 = 96\nnxlone2 = 48\nnxlone3 = 48\n\nxprobminx1 = 0.17395330712343798\nxprobminx2 = 0.0\nxprobminx3 = 0.0\n\nxprobmax1 = 7.824046010856292\nxprobmax2 = 0.5\nxprobmax3 = 1.0\n\nhslope = 0.0\n"
+      },
+      "model_functions.h": {
+        "path": "/tmp/eht-github-raptor-GckNId/run/raptor_run/model_functions.h",
+        "sha256": "ecdb14bac382c660515c99fabf9fd27c6b30153ba878e3aabad7202467f0dc9e",
+        "defines": {
+          "MODEL_FUNCTIONS_H": "void set_units(double);"
+        }
+      },
+      "model_global_vars.h": {
+        "path": "/tmp/eht-github-raptor-GckNId/run/raptor_run/model_global_vars.h",
+        "sha256": "ff83a440c29ecbcf4419d21389c0a434e087c4cc262174edc2b810a014e91f53",
+        "defines": {
+          "MODEL_GLOBAL_VARS_H": "extern double ****p;"
+        }
+      }
+    },
+    "model_input": {
+      "path": "/tmp/eht-github-raptor-GckNId/run/raptor_run/model.in",
+      "exists": true,
+      "text": "MBH\t\t(Msun)\t4.14e6\nDISTANCE\t\t(kpc) 8.127\nM_UNIT\t\t(g)\t1e+18\nR_LOW\t\t(-)\t1\nR_HIGH\t\t(-)\t1\n\nINCLINATION\t(deg)           50\nIMG_WIDTH\t(pixels)\t200\nIMG_HEIGHT\t(pixels)\t200\nCAM_SIZE_X\t(Rg)\t\t40\nCAM_SIZE_Y\t(Rg)\t\t40\nFREQS_PER_DEC\t(-)\t\t1\nFREQ_MIN\t(Hz)\t\t230.e9\nSTEPSIZE\t(-)\t\t0.01\nMAX_LEVEL\t(-)\t\t1\n"
+    },
+    "Run.py": {
+      "path": "/tmp/eht-github-raptor-GckNId/run/raptor_run/Run.py",
+      "sha256": "001b62ea31630ee373d0fab0d50106a23e50e0f7bc381af366299068dad8c504",
+      "text": "import os,shutil\nfrom copy import deepcopy\nimport os\n\ndef move_file(to_path,from_path='output/'):\n    dir_files = os.listdir(from_path)\n    if os.path.exists(to_path) is False:\n        os.makedirs(to_path)\n    if not os.path.exists(os.path.join(to_path,\"figures\")):\n        os.makedirs(os.path.join(to_path,\"figures\"))\n    os.system(f\"mv figures/* {os.path.join(to_path,'figures')}\")\n    for file in dir_files:\n        file_path = os.path.join(from_path,file)\n        if os.path.isfile(file_path):\n            if os.path.exists(os.path.join(to_path,file)):\n                os.remove(os.path.join(to_path,file))\n            shutil.move(file_path, to_path)\n\nGRMHD_DATA_DIR=\"/home/yuxin/Work/Work/EHT/raptor_run/MAD_a+15o16/a094-high\"\n\nCAM_SIZE = 46.2261\n# CAM_SIZE=32\nRESOLUTION = 100\n\n# high resolution figure will be copied to result/data_save_dirname\nHIGH_RESOLUTION = 4 * RESOLUTION\nRUN_HIGH_RESOLUTION = False\n\nOUTPUT_DIR = \"../raptor_output\"\n\ndef Run(params_json,GRMHD_DATA_FILE,data_save_dirname):\n    f = open('model.in','w')\n    f.write(f'MBH\t\t(Msun)\t{params_json[\"MBH\"]}')\n    f.write(f'DISTANCE\t\t(kpc) {params_json[\"DISTANCE\"]}')\n    f.write(f'M_UNIT\t\t(g)\t{params_json[\"M_UNIT\"]}')\n    f.write(f'R_LOW\t\t(-)\t{params_json[\"R_LOW\"]}')\n    f.write(f'R_HIGH\t\t(-)\t{params_json[\"R_HIGH\"]}')\n    f.write(f'INCLINATION\t(deg)          {params_json[\"INCLINATION\"]}')\n    f.write(f'IMG_WIDTH\t(pixels)\t{params_json[\"IMG_WIDTH\"]}')\n    f.write(f'IMG_HEIGHT\t(pixels)\t{params_json[\"IMG_HEIGHT\"]}')\n    f.write(f'CAM_SIZE_X\t(Rg)\t\t{params_json[\"CAM_SIZE_X\"]}')\n    f.write(f'CAM_SIZE_Y\t(Rg)\t\t{params_json[\"CAM_SIZE_Y\"]}')\n    f.write(f'FREQS_PER_DEC\t(-)\t\t{params_json[\"FREQS_PER_DEC\"]}')\n    f.write(f'FREQ_MIN\t(Hz)\t\t{params_json[\"FREQ_MIN\"]}')\n    f.write(f'STEPSIZE\t(-)\t\t{params_json[\"STEPSIZE\"]}')\n    f.write(f'AXION_NORM  (-)    {params_json[\"AXION_NORM\"]}')\n    f.write(f'AXION_OMEGA  (-)    {params_json[\"AXION_OMEGA\"]}')\n    f.write(f'AXION_PHASE  (-)    {params_json[\"AXION_PHASE\"]}')\n    f.write(f'MAX_LEVEL\t(-)\t\t{params_json[\"MAX_LEVEL\"]}')\n    f.close()\n    if params_json[\"AXION_NORM\"]==0:\n        if not os.path.exists(os.path.join(os.path.abspath(OUTPUT_DIR),data_save_dirname,\"img_data_0.h5\")):\n            os.system(f'./RAPTOR model.in {GRMHD_DATA_FILE} 0 ')\n            os.system(f'python plotter-example.py 0')\n            move_file(os.path.join(os.path.abspath(OUTPUT_DIR),data_save_dirname))\n    else:\n        if not os.path.exists(os.path.join(os.path.abspath(OUTPUT_DIR),data_save_dirname,f\"img_data_{params_json['AXION_PHASE']+1}.h5\")):\n            os.system(f'./RAPTOR model.in {GRMHD_DATA_FILE} {params_json[\"AXION_PHASE\"]+1} ')\n            os.system(f'python plotter-example.py {params_json[\"AXION_PHASE\"]+1}')\n            move_file(os.path.join(os.path.abspath(OUTPUT_DIR),data_save_dirname))\n    os.remove(\"model.in\")\n\n\nPARAMS_JSON={\n    \"MBH\": 6.2e9,\n    \"DISTANCE\": 16800, \n    \"M_UNIT\": 3e+25,\n    \"R_LOW\": 1,\n    \"R_HIGH\": 1,\n    \"INCLINATION\" : 163,\n    \"IMG_WIDTH\": RESOLUTION,\n    \"IMG_HEIGHT\": RESOLUTION,\n    \"CAM_SIZE_X\": CAM_SIZE,\n    \"CAM_SIZE_Y\": CAM_SIZE,\n    \"FREQS_PER_DEC\": 1,\n    \"FREQ_MIN\": 230.e9,\n    \"STEPSIZE\": 0.005,\n    \"AXION_NORM\": 0, # 0/0.1\n    \"AXION_OMEGA\": 0.4, # default 0.4\n    \"AXION_PHASE\": 0, # 0-15\n    \"MAX_LEVEL\": 1,\n}\n\nif __name__=='__main__':\n\n\n    GRMHD_DATA_FILES=[]\n    rpaths=sorted(os.listdir(GRMHD_DATA_DIR))\n    for rpath in rpaths:\n        if os.path.isfile(os.path.join(GRMHD_DATA_DIR,rpath)):\n            GRMHD_DATA_FILES.append(os.path.join(GRMHD_DATA_DIR,rpath))\n\n    GRMHD_DATA_FILES=GRMHD_DATA_FILES[100:]\n    # loop for grmhd time\n    error_list=[]\n    axion_omega_list=[0.3,0.25,0.2,0.15,0.1]\n    for axion_omega in axion_omega_list:\n        for GRMHD_DATA_FILE in GRMHD_DATA_FILES:\n            try:\n                data_save_dirname=str(axion_omega)+\"/\"+os.path.basename(GRMHD_DATA_FILE)\n                params_json=deepcopy(PARAMS_JSON)\n                params_json[\"AXION_OMEGA\"]=axion_omega\n                Run(params_json,GRMHD_DATA_FILE,data_save_dirname)\n                \n                params_json[\"AXION_NORM\"]=0.1\n                \n                for phase in range(16):\n                    params_json[\"AXION_PHASE\"]=phase\n                    Run(params_json,GRMHD_DATA_FILE,data_save_dirname)\n            except Exception as e:\n                error_list.append(f\"{e}\")\n                print(e)\n        open(f\"{axion_omega} done\", \"w\").close()\n\n    # loop for grmhd time (high resolution)\n    if RUN_HIGH_RESOLUTION == True:\n        for axion_omega in axion_omega_list:\n            for GRMHD_DATA_FILE in GRMHD_DATA_FILES:\n                try:\n                    data_save_dirname=str(axion_omega)+\"/\"+os.path.basename(GRMHD_DATA_FILE)+\"_high_res\"\n                    params_json=deepcopy(PARAMS_JSON)\n                    params_json[\"AXION_OMEGA\"]=axion_omega\n                    params_json[\"IMG_WIDTH\"]=HIGH_RESOLUTION\n                    params_json[\"IMG_HEIGHT\"]=HIGH_RESOLUTION\n                    Run(params_json,GRMHD_DATA_FILE,data_save_dirname)\n                    \n                    params_json[\"AXION_NORM\"]=0.1\n                    \n                    for phase in range(16):\n                        params_json[\"AXION_PHASE\"]=phase\n                        Run(params_json,GRMHD_DATA_FILE,data_save_dirname)\n                except Exception as e:\n                    error_list.append(f\"{e}\")\n                    print(e)\n            open(f\"{axion_omega} done\", \"w\").close()\n\n    errorlog = open(\"log_run_error.txt\", 'w', encoding='utf-8')\n    errorlog.write(\"\\n\".join(error_list))\n    errorlog.close()\n    os.rmdir(\"output\")\n\n\n\n"
+    }
+  },
+  "git": {
+    "merge_base": "cdc2547b868ed8d6ae0c9a5428bc1ea86fce901a"
+  }
+}
