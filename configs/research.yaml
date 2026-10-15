@@ -45,7 +45,7 @@ inference:
   coupling_max: 1000.0
   prior: log-uniform
   # 观测EVPA日差固定为0；观测不确定度/协方差仍参与推断。
-  principal_n: 4  # 保留旧频率约定；与模拟模板态的对应仍需确认。
+  principal_n: 2  # 211态的主量子数N=2；领先小α频率，不是径向激发数。
   exposure_hours: 6.0
   day_gap_hours: 24.0
   pair_separation_hours: 120.0

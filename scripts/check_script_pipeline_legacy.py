@@ -18,7 +18,8 @@ def main():
     for dim in ("1d", "2d"):
         for mode in ("std", "cor", "cor_grmhd"):
             alpha, cuts = calculate_limits(
-                args.historical_root, dimension=dim, mode=mode, options=LimitOptions(legacy=True)
+                args.historical_root, dimension=dim, mode=mode,
+                options=LimitOptions(legacy=True, n_principal=4),
             )
             suffix = "_1d" if dim == "1d" else ""
             with np.load(args.historical_root / "Results" / "data" / f"{mode}{suffix}.npz") as z:

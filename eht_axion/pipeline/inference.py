@@ -230,7 +230,8 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
                 "Null data are zero-difference/Asimov-like, not median expected limits.",
                 "Model errors are diagonal in space and assumed independent between day-pairs.",
                 "GRMHD background is scalar at a discrete lag, not exact 24h.",
-                "Principal n=4 and image angular calibration need author confirmation.",
+                "Frequency uses the leading small-alpha principal-N formula, not an exact Kerr spectrum.",
+                "Existing image angular calibration and producer frequency consistency need verification.",
                 "Posterior limits depend on explicit finite coupling bounds and prior.",
             ],
         )

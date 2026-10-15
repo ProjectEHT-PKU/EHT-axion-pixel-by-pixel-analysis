@@ -96,9 +96,10 @@ def test_two_cosine_exposure_pair_differences_oracle(legacy, timing):
         assert not np.allclose(signal[:, 1], physical[:, 1])
 
 
-def test_omega_keeps_historical_n4_and_supports_explicit_n():
-    assert omega(0.3) == 0.3 * (1 - 0.3**2 / 32)
-    assert omega(0.3, 2) == 0.3 * (1 - 0.3**2 / 8)
+def test_omega_defaults_to_211_principal_n2_and_supports_explicit_n():
+    assert omega(0.3) == 0.3 * (1 - 0.3**2 / 8)
+    assert omega(0.3, 2) == omega(0.3)
+    assert omega(0.3, 4) == 0.3 * (1 - 0.3**2 / 32)
 
 
 @pytest.mark.parametrize("kwargs", [

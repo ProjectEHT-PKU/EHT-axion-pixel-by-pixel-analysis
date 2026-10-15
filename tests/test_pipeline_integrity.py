@@ -37,6 +37,8 @@ def tiny_chain(tmp_path_factory):
         "covariance_ridge: 0.0": "covariance_ridge: 0.001",
         "source_resolution: 400": "source_resolution: 100", "phase_count: 64": "phase_count: 16",
         "coupling_points: 120": "coupling_points: 30",
+        # Keep the pre-N2 numerical oracle explicit; production defaults are N=2.
+        "principal_n: 2": "principal_n: 4",
     }
     for before, after in replacements.items():
         assert before in text
@@ -49,7 +51,8 @@ def tiny_chain(tmp_path_factory):
 
 def test_valid_chain_preserves_verified_numerics(tiny_chain):
     _, _, out, _ = tiny_chain
-    # Before-fix parent verification: same deterministic fixture and unchanged physics.
+    # Historical N=4 engineering oracle, explicitly selected by tiny_chain.
+    # The 211 default correction has separate default/analytic regression coverage.
     expected = {
         "1d": [[-0.0001886100856455447, -1.1073034273258424],
                [0.13089591098059092, -0.9823464577669513],

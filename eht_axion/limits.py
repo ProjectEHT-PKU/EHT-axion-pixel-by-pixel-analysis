@@ -34,7 +34,7 @@ class LimitOptions:
     exposure_hours: float = 6.0
     day_gap_hours: float = 24.0
     pair_separation_hours: float = 120.0
-    n_principal: int = 4  # Historical omega4; pending theoretical confirmation.
+    n_principal: int = 2  # Principal N=2 for the article's scalar 211 mode.
     # New products use the diagonal of the same C as cor. The old loader
     # explicitly selects historical marginal sigma instead for compatibility.
     std_covariance: str = "covariance"

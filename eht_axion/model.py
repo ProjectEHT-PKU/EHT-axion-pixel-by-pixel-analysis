@@ -13,8 +13,12 @@ AXION_NORM = 0.1
 TIME_CONVERSION = 0.112411
 
 
-def omega(alpha: float, n_principal: int = 4) -> float:
-    """Bound-state frequency; the historical n=4 is intentionally unchanged."""
+def omega(alpha: float, n_principal: int = 2) -> float:
+    """Leading small-alpha M*omega_R; principal N=2 for the scalar 211 mode.
+
+    N = radial_overtone + l + 1, not N+l+1 or n+l+m. This is not
+    an exact Kerr eigenfrequency or the interpolated radial-generator table.
+    """
     if not np.isfinite(alpha) or alpha <= 0:
         raise ValueError("alpha must be positive and finite")
     if isinstance(n_principal, bool) or not isinstance(n_principal, (int, np.integer)) or n_principal < 1:
@@ -104,7 +108,7 @@ def evpa_templates(
     exposure_hours: float = 6.0,
     day_gap_hours: float = 24.0,
     pair_separation_hours: float = 120.0,
-    n_principal: int = 4,
+    n_principal: int = 2,
 ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
     """Return two-epoch signal templates and their propagated uncertainties.
 

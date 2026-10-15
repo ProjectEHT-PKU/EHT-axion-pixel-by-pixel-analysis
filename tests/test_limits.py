@@ -203,7 +203,8 @@ def test_compatibility_loader_keeps_legacy_sigma_and_return_pair(monkeypatch, mo
 def test_legacy_templates_and_posterior_strict_notebook_regression():
     obs = observations()
     amplitude, phase = products()
-    options = LimitOptions(legacy=True, std_covariance="legacy-sigma")
+    # The historical oracle requires explicit N=4, never the corrected default.
+    options = LimitOptions(legacy=True, std_covariance="legacy-sigma", n_principal=4)
     _, cuts, diagnostics = calculate_from_products(obs, amplitude, phase, [0.1], options=options)
     # Independent notebook expression, including duplicate endpoint, omega4,
     # half-speed five-day shift, likelihood addition and discrete log-grid CDF.
