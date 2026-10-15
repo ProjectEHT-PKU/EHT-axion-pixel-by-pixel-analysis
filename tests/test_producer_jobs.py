@@ -4,7 +4,11 @@ import inspect
 import json
 import os
 from pathlib import Path
+import signal
+import subprocess
 import sys
+import threading
+import time
 
 import pytest
 
@@ -41,17 +45,35 @@ Path("environment.json").write_text(json.dumps({{k: os.environ[k] for k in
     ["OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"]}}))
 assert Path("grid_mks.in").read_text() == "private grid\\n"
 assert Path(sys.argv[2]).read_bytes()
+task_id = json.loads(Path("task.json").read_text())["id"]
+Path("binding-environment.json").write_text(json.dumps({{k: os.environ.get(k) for k in
+    ["OMP_PROC_BIND", "OMP_PLACES", "GOMP_CPU_AFFINITY"]}}))
+Path("actual-affinity.json").write_text(json.dumps(sorted(os.sched_getaffinity(0))))
+if mode == "overlap":
+    time.sleep(.2)
+if mode == "thread-binding":
+    import threading
+    cpus = sorted(os.sched_getaffinity(0))
+    os.sched_setaffinity(0, {{cpus[0]}})
+    def bound_thread(cpu):
+        os.sched_setaffinity(0, {{cpu}})
+        time.sleep(1)
+    for cpu in cpus[1:]:
+        threading.Thread(target=bound_thread, args=(cpu,), daemon=True).start()
+    time.sleep(.3)
+    Path("leader-affinity.json").write_text(json.dumps(sorted(os.sched_getaffinity(0))))
 if mode == "timeout":
     import subprocess
     child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
     Path({str(tmp_path / 'child.pid')!r}).write_text(str(child.pid))
+    (Path({str(tmp_path)!r}) / f"{{task_id}}.child.pid").write_text(str(child.pid))
     time.sleep(60)
 write_products(Path.cwd(), p, int(sys.argv[3]))
 if mode == "invalid":
     (Path("output") / f"img_data_{{sys.argv[3]}}.h5").write_bytes(b"invalid")
 if mode == "mutate":
     Path(sys.argv[2]).write_bytes(b"changed during run")
-if mode == "failure":
+if mode == "failure" or (mode == "mixed" and task_id == "baseline-1"):
     sys.exit(7)
 '''
     build = tmp_path / "build"
@@ -197,10 +219,10 @@ def test_shared_source_read_once_per_invocation(setup, monkeypatch):
     tasks = [deepcopy(setup["task"]) for _ in range(3)]
     for i, task in enumerate(tasks):
         task["id"] = f"baseline-{i}"
-    result = invoke(setup, tasks)
+    result = invoke(setup, tasks, workers=3)
     assert result["counts"]["complete"] == 3
     assert count == 1
-    invoke(setup, tasks)
+    invoke(setup, tasks, workers=2)
     assert count == 2
 
 
@@ -218,10 +240,10 @@ def test_sixteen_response_phases_share_one_source_hash(setup, monkeypatch):
     for task in tasks:
         task["table_path"] = str(setup["table"])
         task["parameters"]["AXION_TABLE"] = str(setup["table"])
-    result = invoke(setup, tasks)
+    result = invoke(setup, tasks, workers=4)
     assert result["counts"]["complete"] == 16
     assert reads == {setup["source"]: 1, setup["table"]: 1}
-    result = invoke(setup, tasks)
+    result = invoke(setup, tasks, workers=3)
     assert result["counts"]["cached"] == 16
     assert reads == {setup["source"]: 2, setup["table"]: 2}
 
@@ -442,3 +464,417 @@ def test_exact_parameter_contract(setup, mutation):
         p["AXION_TABLE"] = "has whitespace"
     with pytest.raises(ValueError):
         serialize_parameters(p)
+
+
+def baseline_tasks(setup, count):
+    tasks = [deepcopy(setup["task"]) for _ in range(count)]
+    for i, task in enumerate(tasks):
+        task["id"] = f"baseline-{i}"
+    return tasks
+
+
+def test_bounded_rolling_overlap_private_states_and_worker_count_resume(setup, monkeypatch):
+    from eht_axion.producer import jobs
+    original = jobs._execute
+    lock = threading.Lock()
+    barrier = threading.Barrier(2)
+    active = peak = calls = 0
+    contexts = []
+
+    def execute(command, cwd, env, stdout, stderr, timeout):
+        nonlocal active, peak, calls
+        with lock:
+            calls += 1
+            call = calls
+            active += 1
+            peak = max(peak, active)
+            contexts.append((common._VERIFICATION.get(), common._STAGE_TEMPORARIES.get()))
+        try:
+            if call <= 2:
+                barrier.wait(timeout=10)
+            return original(command, cwd, env, stdout, stderr, timeout)
+        finally:
+            with lock:
+                active -= 1
+
+    monkeypatch.setattr(jobs, "_execute", execute)
+    setup["mode"].write_text("overlap")
+    tasks = baseline_tasks(setup, 6)
+    result = invoke(setup, tasks, workers=2, threads=1, max_jobs=5)
+    assert peak == result["scheduling"]["peak_in_flight"] == 2
+    assert calls == 5
+    assert result["counts"] == {"complete": 5, "cached": 0, "failed": 0}
+    assert [r["id"] for r in result["jobs"]] == [t["id"] for t in tasks[:5]]
+    assert len({id(session) for session, _ in contexts}) == 1
+    assert all(len(temporaries) == 1 for _, temporaries in contexts)
+    assert len({temporaries[0] for _, temporaries in contexts}) == 5
+    assert not common._STAGE_TEMPORARIES.get()
+    assert common._VERIFICATION.get() is None
+    for entry in result["jobs"]:
+        destination = Path(entry["directory"])
+        manifest = common.verify_stage(destination, recursive=True)
+        assert manifest["config"]["id"] == entry["id"]
+        assert "workers" not in manifest["config"]
+        assert json.loads((destination / "task.json").read_text()) == manifest["config"]
+        receipt = json.loads((Path(entry["attempt"]) / "result.json").read_text())
+        assert receipt["task_id"] == entry["id"]
+        assert receipt["pid"] == receipt["process_group"] == entry["pid"]
+        assert receipt["wall_seconds"] >= receipt["process_wall_seconds"] > 0
+        assert receipt["actual_cpu_set"] == sorted(os.sched_getaffinity(0))
+        assert entry["wall_seconds"] > 0
+        assert not any(".building-" in e["path"] for e in manifest["inputs"])
+    assert not (setup["run"] / "jobs/baseline-5").exists()
+    resumed = invoke(setup, tasks, workers=3, threads=1, max_jobs=5)
+    assert resumed["counts"]["cached"] == 5
+    assert calls == 5
+
+
+def test_concurrent_failure_is_independent_and_later_jobs_launch(setup):
+    setup["mode"].write_text("mixed")
+    result = invoke(setup, baseline_tasks(setup, 5), workers=2, threads=1)
+    assert result["counts"] == {"complete": 4, "cached": 0, "failed": 1}
+    failed = result["jobs"][1]
+    assert failed["id"] == "baseline-1"
+    assert failed["returncode"] == 7
+    assert not Path(failed["directory"]).exists()
+    assert (Path(failed["attempt"]) / "work/model.in").is_file()
+    for entry in result["jobs"]:
+        if entry["status"] == "complete":
+            common.verify_stage(entry["directory"], recursive=True)
+
+
+@pytest.mark.parametrize("options", [
+    {"workers": 0}, {"workers": -1}, {"workers": True}, {"workers": 1.5},
+    {"threads": 0}, {"threads": True}, {"cpu_affinity": "bogus"},
+    {"cpu_list": "0"}, {"workers": 10**6},
+])
+def test_invalid_allocation_fails_before_launch(setup, options):
+    with pytest.raises(ValueError):
+        invoke(setup, **options)
+    assert not setup["run"].exists()
+
+
+def test_affinity_uses_parent_policy_and_sanitizes_only_child_env(setup, monkeypatch):
+    from eht_axion.producer import affinity, jobs
+    cpus = sorted(os.sched_getaffinity(0))[:2]
+    if len(cpus) < 2:
+        pytest.skip("needs two allowed CPUs")
+    allocations = [[cpus[0]], [cpus[1]]]
+    allocate_calls, prefix_calls, commands = [], [], []
+    original_prefix = affinity.launch_prefix
+    original_execute = jobs._execute
+
+    def allocate(workers, threads, mode="none", cpu_list=None):
+        allocate_calls.append((workers, threads, mode, cpu_list))
+        return allocations
+
+    def prefix(cpu_set):
+        prefix_calls.append(cpu_set)
+        return original_prefix(cpu_set)
+
+    def execute(command, cwd, env, stdout, stderr, timeout):
+        assert command[0] == original_prefix(allocations[0])[0]
+        assert Path(command[0]).is_absolute()
+        assert command[1] == "--cpu-list"
+        assert command[2] in {str(cpu) for cpu in cpus}
+        assert command[3] == str(setup["build"] / "RAPTOR")
+        assert env["OMP_PROC_BIND"] == "close"
+        assert env["OMP_PLACES"] == "cores"
+        assert "GOMP_CPU_AFFINITY" not in env
+        assert not any(k.startswith("_PARENT_RAPTOR") for k in env)
+        commands.append(command)
+        return original_execute(command, cwd, env, stdout, stderr, timeout)
+
+    monkeypatch.setattr(affinity, "allocate_cpu_sets", allocate)
+    monkeypatch.setattr(affinity, "launch_prefix", prefix)
+    monkeypatch.setattr(jobs, "_execute", execute)
+    monkeypatch.setenv("OMP_PROC_BIND", "spread")
+    monkeypatch.setenv("OMP_PLACES", "threads")
+    monkeypatch.setenv("GOMP_CPU_AFFINITY", "old-invalid-mask")
+    setup["mode"].write_text("overlap")
+    result = invoke(setup, baseline_tasks(setup, 4), workers=2, threads=1,
+                    cpu_affinity="physical", cpu_list=",".join(map(str, cpus)))
+    assert result["counts"]["complete"] == 4
+    assert allocate_calls == [(2, 1, "physical", ",".join(map(str, cpus)))]
+    assert prefix_calls == allocations
+    assert result["cpu_sets"] == allocations
+    for entry in result["jobs"]:
+        mask = allocations[entry["worker_slot"]]
+        destination = Path(entry["directory"])
+        assert entry["cpu_set"] == entry["actual_cpu_set"] == mask
+        assert json.loads((destination / "actual-affinity.json").read_text()) == mask
+        assert json.loads((destination / "binding-environment.json").read_text()) == {
+            "OMP_PROC_BIND": "close", "OMP_PLACES": "cores", "GOMP_CPU_AFFINITY": None}
+        receipt = json.loads((Path(entry["attempt"]) / "result.json").read_text())
+        assert receipt["cpu_set"] == receipt["actual_cpu_set"] == mask
+        assert receipt["omp_proc_bind"] == "close"
+        assert receipt["omp_places"] == "cores"
+        assert common.verify_stage(destination)["config"]["cpu_set"] == mask
+    assert os.environ["GOMP_CPU_AFFINITY"] == "old-invalid-mask"
+    # Cache hits complete much faster than original subprocesses. Slot identity
+    # must stay deterministic instead of following completion-order refill.
+    setup["mode"].write_text("failure")
+    again = invoke(setup, baseline_tasks(setup, 4), workers=2, threads=1,
+                   cpu_affinity="physical", cpu_list=",".join(map(str, cpus)))
+    assert again["counts"] == {"complete": 0, "cached": 4, "failed": 0}
+    assert [e["cpu_set"] for e in again["jobs"]] == [allocations[i % 2] for i in range(4)]
+    assert os.environ["OMP_PROC_BIND"] == "spread"
+    assert os.environ["OMP_PLACES"] == "threads"
+
+
+@pytest.mark.parametrize("allocation", [[[0], [0]], [[0, 1], [2]], [None, [1]], [[0]]])
+def test_malformed_policy_allocation_rejected(setup, monkeypatch, allocation):
+    from eht_axion.producer import affinity
+    monkeypatch.setattr(affinity, "allocate_cpu_sets", lambda *a, **kw: allocation)
+    with pytest.raises(ValueError, match="CPU|affinity"):
+        invoke(setup, workers=2, threads=1, cpu_affinity="logical")
+    assert not setup["run"].exists()
+
+
+def _assert_process_stopped(pid):
+    # A killed grandchild may remain a zombie until its external reaper runs.
+    for _ in range(100):
+        try:
+            state = Path(f"/proc/{pid}/stat").read_text().split(") ", 1)[1].split()[0]
+        except FileNotFoundError:
+            return
+        if state == "Z":
+            return
+        time.sleep(.02)
+    pytest.fail(f"process {pid} is still running")
+
+
+def test_parallel_timeout_kills_descendants_but_continues_selected_prefix(setup):
+    setup["mode"].write_text("timeout")
+    result = invoke(setup, baseline_tasks(setup, 3), workers=2, threads=1, timeout_seconds=1.5)
+    assert result["counts"] == {"complete": 0, "cached": 0, "failed": 3}
+    for entry in result["jobs"]:
+        receipt = json.loads((Path(entry["attempt"]) / "result.json").read_text())
+        assert receipt["timed_out"] is True
+        assert receipt["returncode"] == -9
+        _assert_process_stopped(receipt["pid"])
+        child = setup["mode"].parent / f"{entry['id']}.child.pid"
+        assert child.is_file()
+        _assert_process_stopped(int(child.read_text()))
+
+
+@pytest.mark.parametrize("exception_type", [KeyboardInterrupt, SystemExit])
+def test_main_cancellation_kills_all_groups_joins_and_stops_launches(setup, monkeypatch, exception_type):
+    from eht_axion.producer import jobs
+    setup["mode"].write_text("timeout")
+    real_wait = jobs.wait
+    called = False
+
+    def interrupt(fs, **kwargs):
+        nonlocal called
+        if called:
+            return real_wait(fs, **kwargs)
+        called = True
+        deadline = time.monotonic() + 10
+        while len(list(setup["mode"].parent.glob("baseline-*.child.pid"))) < 2:
+            if time.monotonic() > deadline:
+                pytest.fail("fake subprocesses did not start")
+            time.sleep(.02)
+        raise exception_type("test cancellation")
+
+    monkeypatch.setattr(jobs, "wait", interrupt)
+    with pytest.raises(exception_type, match="test cancellation"):
+        invoke(setup, baseline_tasks(setup, 5), workers=2, threads=1)
+    receipts = list((setup["run"] / "attempts").glob("*/*/result.json"))
+    assert len(receipts) == 2
+    for path in receipts:
+        receipt = json.loads(path.read_text())
+        assert receipt["cancelled"] is True
+        assert receipt["complete"] is False
+        assert receipt["returncode"] == -9
+        _assert_process_stopped(receipt["pid"])
+        child = setup["mode"].parent / f"{receipt['task_id']}.child.pid"
+        _assert_process_stopped(int(child.read_text()))
+        assert (path.parent / "work/model.in").is_file()
+    assert not list((setup["run"] / "jobs").glob("*.building-*"))
+    assert not list((setup["run"] / "jobs").glob("*.lock"))
+    assert not any(t.name.startswith("raptor-job") for t in threading.enumerate())
+    assert common._VERIFICATION.get() is None
+
+
+def test_real_main_thread_sigint_cancels_eight_fake_groups_and_joins(setup):
+    if len(os.sched_getaffinity(0)) < 8:
+        pytest.skip("eight workers require eight allowed CPUs")
+    setup["mode"].write_text("timeout")
+    payload = json.dumps({"tasks": baseline_tasks(setup, 10), "build": str(setup["build"]),
+                          "run": str(setup["run"]), "marker": str(setup["mode"].parent / "joined.json")})
+    harness = '''
+import json, sys, threading
+from pathlib import Path
+from eht_axion.pipeline import common
+from eht_axion.producer.jobs import run_jobs
+p = json.loads(sys.argv[1])
+try:
+    run_jobs({"tasks": p["tasks"]}, Path(p["build"]), Path(p["run"]), workers=8, threads=1)
+except KeyboardInterrupt:
+    workers = [t.name for t in threading.enumerate() if t.name.startswith("raptor-job")]
+    Path(p["marker"]).write_text(json.dumps({"workers": workers,
+        "session_closed": common._VERIFICATION.get() is None,
+        "temporaries_closed": not common._STAGE_TEMPORARIES.get()}))
+    sys.exit(130)
+else:
+    sys.exit("expected SIGINT cancellation")
+'''
+    process = subprocess.Popen([sys.executable, "-c", harness, payload],
+                               cwd=Path(__file__).resolve().parents[1],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, start_new_session=True)
+    try:
+        deadline = time.monotonic() + 20
+        while len(list(setup["mode"].parent.glob("baseline-*.child.pid"))) < 8:
+            if process.poll() is not None:
+                out, err = process.communicate()
+                pytest.fail(f"runner exited before readiness: {out}\n{err}")
+            if time.monotonic() > deadline:
+                pytest.fail("eight fake groups did not start")
+            time.sleep(.02)
+        os.kill(process.pid, signal.SIGINT)
+        out, err = process.communicate(timeout=15)
+        assert process.returncode == 130, (out, err)
+        marker = json.loads((setup["mode"].parent / "joined.json").read_text())
+        assert marker == {"workers": [], "session_closed": True, "temporaries_closed": True}
+        receipts = list((setup["run"] / "attempts").glob("*/*/result.json"))
+        assert len(receipts) == 8
+        assert len(list((setup["run"] / "attempts").iterdir())) == 8
+        for path in receipts:
+            receipt = json.loads(path.read_text())
+            assert receipt["cancelled"] is True
+            assert receipt["complete"] is False
+            assert receipt["returncode"] == -9
+            assert receipt["pid"] == receipt["process_group"]
+            _assert_process_stopped(receipt["pid"])
+            child = setup["mode"].parent / f"{receipt['task_id']}.child.pid"
+            _assert_process_stopped(int(child.read_text()))
+            assert (path.parent / "work/model.in").is_file()
+        assert not list((setup["run"] / "jobs").iterdir())
+    finally:
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGKILL)
+        process.communicate(timeout=10)
+        # Keep failures in this test from leaking fake processes, whose groups
+        # intentionally differ from the runner's session.
+        for child in setup["mode"].parent.glob("baseline-*.child.pid"):
+            try:
+                os.killpg(os.getpgid(int(child.read_text())), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
+def test_cpu_observation_unions_thread_masks_not_only_openmp_leader(tmp_path, monkeypatch):
+    from eht_axion.producer import jobs
+    task_root = tmp_path / "123/task"
+    task_root.mkdir(parents=True)
+    for tid in (123, 124, 125):
+        (task_root / str(tid)).mkdir()
+    original_glob = Path.glob
+
+    def glob(path, pattern):
+        if path == Path("/proc/123/task"):
+            return original_glob(task_root, pattern)
+        return original_glob(path, pattern)
+
+    def mask(tid):
+        if tid == 125:
+            raise ProcessLookupError()
+        return {0} if tid == 123 else {2, 4}
+
+    monkeypatch.setattr(Path, "glob", glob)
+    monkeypatch.setattr(jobs.os, "sched_getaffinity", mask)
+    assert jobs._observed_cpu_set(123) == [0, 2, 4]
+
+
+def test_receipt_observes_all_thread_masks_with_single_core_leader(setup):
+    cpus = sorted(os.sched_getaffinity(0))[:2]
+    if len(cpus) < 2:
+        pytest.skip("needs two allowed CPUs")
+    setup["mode"].write_text("thread-binding")
+    result = invoke(setup, workers=1, threads=2, cpu_affinity="logical",
+                    cpu_list=",".join(map(str, cpus)))
+    assert result["counts"]["complete"] == 1
+    entry = result["jobs"][0]
+    assert entry["actual_cpu_set"] == cpus
+    assert json.loads((Path(entry["directory"]) / "leader-affinity.json").read_text()) == cpus[:1]
+    receipt = json.loads((Path(entry["attempt"]) / "result.json").read_text())
+    assert receipt["actual_cpu_set"] == receipt["cpu_set"] == cpus
+
+
+def test_production_memory_guard_uses_actual_selected_inflight(production, monkeypatch):
+    from eht_axion.producer import affinity
+    setup, plan = production
+    calls = []
+
+    def reject(workers):
+        calls.append(workers)
+        raise ValueError("synthetic memory headroom failure")
+
+    monkeypatch.setattr(affinity, "check_memory", reject)
+    with pytest.raises(ValueError, match="headroom"):
+        run_jobs(plan, setup["build"], setup["run"], workers=4, threads=1, max_jobs=2)
+    assert calls == [2]
+    assert not setup["run"].exists()
+    # An empty authorized prefix has no in-flight memory demand.
+    result = run_jobs(plan, setup["build"], setup["run"], workers=4, threads=1, max_jobs=0)
+    assert result["selected_tasks"] == 0
+    assert calls == [2]
+
+
+def test_tasks_only_skips_production_memory_guard(setup, monkeypatch):
+    from eht_axion.producer import affinity
+
+    def reject(*args, **kwargs):
+        pytest.fail("synthetic tasks-only API must not call memory guard")
+
+    monkeypatch.setattr(affinity, "check_memory", reject)
+    assert invoke(setup)["counts"]["complete"] == 1
+
+
+def test_none_clears_unsigned_inherited_binding_and_keeps_binary_command(setup, monkeypatch):
+    from eht_axion.producer import jobs
+    original = jobs._execute
+    inherited = {"OMP_PROC_BIND": "spread", "OMP_PLACES": "threads", "GOMP_CPU_AFFINITY": "0"}
+    for key, value in inherited.items():
+        monkeypatch.setenv(key, value)
+
+    def execute(command, cwd, env, stdout, stderr, timeout):
+        assert command[0] == str(setup["build"] / "RAPTOR")
+        assert all(key not in env for key in inherited)
+        return original(command, cwd, env, stdout, stderr, timeout)
+
+    monkeypatch.setattr(jobs, "_execute", execute)
+    result = invoke(setup, workers=1, threads=1)
+    assert result["counts"]["complete"] == 1
+    job = setup["run"] / "jobs/baseline"
+    assert json.loads((job / "binding-environment.json").read_text()) == dict.fromkeys(inherited)
+    for key, value in inherited.items():
+        assert os.environ[key] == value
+    monkeypatch.setenv("OMP_PROC_BIND", "true")
+    assert invoke(setup, threads=1)["counts"]["cached"] == 1
+
+
+def test_per_job_source_checks_do_not_rescan_all_selected_sources(setup, monkeypatch):
+    from eht_axion.producer import jobs
+    tasks = baseline_tasks(setup, 5)
+    sources = []
+    for i, task in enumerate(tasks):
+        path = setup["source"].with_name(f"fluid-{i}.dat")
+        path.write_bytes(b"synthetic")
+        sources.append(path)
+        task["source_path"] = str(path)
+    original = jobs._assert_sources_unchanged
+    scans = []
+
+    def check(paths):
+        scans.append(set(paths).intersection(sources))
+        original(paths)
+
+    monkeypatch.setattr(jobs, "_assert_sources_unchanged", check)
+    result = invoke(setup, tasks, workers=3, threads=1)
+    assert result["counts"]["complete"] == 5
+    assert scans[0] == set(sources)  # one main-thread root-guard closure
+    assert len(scans) == 1 + 2 * len(tasks)
+    assert all(len(scan) == 1 for scan in scans[1:])

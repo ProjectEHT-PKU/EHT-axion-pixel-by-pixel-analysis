@@ -12,12 +12,21 @@ import platform
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 
 SCHEMA_VERSION = 1
 _VERIFICATION = ContextVar("content_verification_session", default=None)
 _STAGE_TEMPORARIES = ContextVar("active_stage_temporaries", default=())
+
+
+class _VerificationRecords(dict):
+    """Shared across copied worker contexts; protect once-only content reads."""
+
+    def __init__(self):
+        super().__init__()
+        self.lock = threading.RLock()
 
 
 def _file_identity(path):
@@ -37,7 +46,7 @@ def verification_session():
     if current is not None:
         yield
         return
-    records = {}
+    records = _VerificationRecords()
     token = _VERIFICATION.set(records)
     try:
         yield
@@ -49,8 +58,14 @@ def verification_session():
 
 
 def sha256(path: Path) -> str:
-    path = Path(path).resolve(strict=True)
     records = _VERIFICATION.get()
+    guard = records.lock if records is not None else contextlib.nullcontext()
+    with guard:
+        return _sha256_verified(path, records)
+
+
+def _sha256_verified(path, records):
+    path = Path(path).resolve(strict=True)
     # Atomic stage temporaries move on publish; never bind them to session paths.
     memoize = records is not None and not any(
         path.is_relative_to(root) for root in _STAGE_TEMPORARIES.get()

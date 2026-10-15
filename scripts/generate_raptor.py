@@ -18,7 +18,9 @@ def main(argv=None):
     plan["source_roots"] = [str(args.source_root)]
     plan["expected_core_commit"] = args.expected_commit
     summary = {"counts": plan["counts"], "requirements": plan["requirements"],
-               "warnings": plan["warnings"], "run_root": str(args.run_root)}
+               "warnings": plan["warnings"], "run_root": str(args.run_root),
+               "scheduling": {"workers": args.workers, "threads_per_worker": args.threads,
+                              "affinity": args.cpu_affinity, "cpu_sets": args.cpu_sets}}
     print(json.dumps(summary, indent=2, allow_nan=False))
     if args.plan:
         return 0
@@ -32,10 +34,18 @@ def main(argv=None):
     if shutil.disk_usage(existing).free < required:
         raise ValueError(f"Insufficient free space: require at least {required} bytes "
                          "for conservative headroom")
+    if not args.convert_only:
+        from eht_axion.producer.affinity import check_memory
+
+        per_worker = max(int(2.5 * 1024**3),
+                         2 * plan["requirements"]["per_process_memory_lower_bound_bytes"])
+        check_memory(args.workers, per_worker)
     save_request(args, plan)
     if not args.convert_only:
         result = run_jobs(plan, args.run_root / "build", args.run_root, max_jobs=args.max_jobs,
-                          threads=args.threads, timeout_seconds=args.timeout_seconds)
+                          threads=args.threads, workers=args.workers,
+                          cpu_affinity=args.cpu_affinity, cpu_list=args.cpu_list,
+                          timeout_seconds=args.timeout_seconds)
         print(json.dumps(result["counts"], indent=2))
         if not result["complete"]:
             return 1

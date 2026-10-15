@@ -32,7 +32,11 @@ def options(kind, argv=None):
                             help="Deliver already complete jobs; no launch")
         parser.add_argument("--max-jobs", type=int,
                             help="Run at most this many planned tasks; incomplete data not delivered")
-        parser.add_argument("--threads", type=int)
+        parser.add_argument("--threads", type=int, help="OpenMP threads per RAPTOR process")
+        parser.add_argument("--workers", type=int, help="Concurrent RAPTOR processes, independent of threads")
+        parser.add_argument("--cpu-affinity", choices=["none", "physical", "logical"],
+                            help="Disjoint per-worker CPU sets; physical avoids SMT siblings")
+        parser.add_argument("--cpu-list", help="Restrict allocation to CPU IDs/ranges, e.g. 0-47")
         parser.add_argument("--timeout-seconds", type=float)
     add_environment_options(parser)
     args = parser.parse_args(argv)
@@ -86,10 +90,21 @@ def options(kind, argv=None):
                     raise ValueError(f"Provide --{key.replace('_', '-')} or ${paths[key]}")
             if args.threads is None:
                 args.threads = int(environment.get("EHT_RAPTOR_THREADS", "2"))
+            if args.workers is None:
+                args.workers = int(environment.get("EHT_RAPTOR_WORKERS", "1"))
+            if args.cpu_affinity is None:
+                args.cpu_affinity = environment.get("EHT_RAPTOR_CPU_AFFINITY", "none")
+            if args.cpu_list is None:
+                args.cpu_list = environment.get("EHT_RAPTOR_CPU_LIST") or None
             if args.timeout_seconds is None and environment.get("EHT_RAPTOR_TIMEOUT_SECONDS"):
                 args.timeout_seconds = float(environment["EHT_RAPTOR_TIMEOUT_SECONDS"])
-            if args.threads < 1 or (args.max_jobs is not None and args.max_jobs < 1):
-                raise ValueError("threads and max-jobs must be positive")
+            if (args.threads < 1 or args.workers < 1
+                    or (args.max_jobs is not None and args.max_jobs < 1)):
+                raise ValueError("workers, threads and max-jobs must be positive")
+            from eht_axion.producer.affinity import allocate_cpu_sets
+
+            args.cpu_sets = allocate_cpu_sets(args.workers, args.threads,
+                                             args.cpu_affinity, args.cpu_list)
     except (ValueError, OSError, KeyError) as error:
         parser.error(str(error))
     args.config_data = config

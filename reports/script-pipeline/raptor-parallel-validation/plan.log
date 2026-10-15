@@ -1,0 +1,118 @@
+✨ Pixi task (generate-raptor in raptor-build): python scripts/generate_raptor.py --plan --workers 8 --threads 6 --cpu-affinity physical
+{
+  "counts": {
+    "snapshots": 141,
+    "baseline": 282,
+    "response": 18048,
+    "background": 141,
+    "total": 18330
+  },
+  "requirements": {
+    "source_sha256_required_at_execution": true,
+    "table_sha256_required_at_execution": true,
+    "build_sha256_required_at_execution": true,
+    "live_rehash_required_at_execution": true,
+    "free_space_check_owner": "caller",
+    "output_stokes_lower_bound_bytes": 6542400000,
+    "per_process_memory_lower_bound_bytes": 602800128,
+    "unique_source_bytes": 97347834252,
+    "official_setup_args": [
+      "--code=bhac",
+      "--metric=mks",
+      "--int=rk4",
+      "--grid=SMR",
+      "--rad=pol",
+      "--sf=sfc",
+      "--bflip=plus",
+      "--sigma-cut=1.0",
+      "--thetae-min=0.001",
+      "--thetae-max=100.0",
+      "--uniform=0"
+    ],
+    "build_command": [
+      "make"
+    ],
+    "label_time_offset_tg": 14850.0
+  },
+  "warnings": [
+    "Plan IDs do not verify input content; execution must bind live source/table/build SHA256.",
+    "Footer/payload lower-bound checks do not validate fluid values or AMR forest semantics.",
+    "Radial CSV spin/provenance cannot be inferred from alpha,r,R columns; configured spins are declarations.",
+    "High table spin=0.99 intentionally differs from actual fluid spin=0.9375 (explicit migration benchmark).",
+    "No radial amplitudes were renormalized; ray-radius coverage remains a core runtime check.",
+    "Resource estimates are lower bounds only; caller must check disk/RAM with overhead and concurrency.",
+    "This plan builds and launches nothing and uses no old scientific outputs."
+  ],
+  "run_root": "/home/canoziia/GRMHD_DATA/production/benchmark-211-m65",
+  "scheduling": {
+    "workers": 8,
+    "threads_per_worker": 6,
+    "affinity": "physical",
+    "cpu_sets": [
+      [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      [
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      [
+        12,
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      [
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      [
+        24,
+        25,
+        26,
+        27,
+        28,
+        29
+      ],
+      [
+        30,
+        31,
+        32,
+        33,
+        34,
+        35
+      ],
+      [
+        36,
+        37,
+        38,
+        39,
+        40,
+        41
+      ],
+      [
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    ]
+  }
+}

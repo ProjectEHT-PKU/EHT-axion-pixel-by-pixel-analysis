@@ -1,0 +1,284 @@
+{
+  "schema": 1,
+  "run_root": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned",
+  "build_dir": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/build",
+  "jobs": [
+    {
+      "id": "831eacb89f976518ac5c6ebd2f8b1bee2eafe0a8c6cb8189f8c4e409171cf53b",
+      "directory": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/jobs/831eacb89f976518ac5c6ebd2f8b1bee2eafe0a8c6cb8189f8c4e409171cf53b",
+      "worker_slot": 0,
+      "cpu_set": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "threads": 6,
+      "status": "complete",
+      "attempt": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/attempts/831eacb89f976518ac5c6ebd2f8b1bee2eafe0a8c6cb8189f8c4e409171cf53b/attempt-1rconzwg",
+      "returncode": 0,
+      "actual_cpu_set": [
+        0,
+        5
+      ],
+      "process_wall_seconds": 74.8211010940031,
+      "pid": 49683,
+      "wall_seconds": 76.37800449299903
+    },
+    {
+      "id": "6fc4ab158ce36093d5f39b5e8adba75c26a6815fa33416cc7be03210cd946a5d",
+      "directory": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/jobs/6fc4ab158ce36093d5f39b5e8adba75c26a6815fa33416cc7be03210cd946a5d",
+      "worker_slot": 1,
+      "cpu_set": [
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "threads": 6,
+      "status": "complete",
+      "attempt": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/attempts/6fc4ab158ce36093d5f39b5e8adba75c26a6815fa33416cc7be03210cd946a5d/attempt-wb93454e",
+      "returncode": 0,
+      "actual_cpu_set": [
+        6,
+        11
+      ],
+      "process_wall_seconds": 78.87528749800185,
+      "pid": 49681,
+      "wall_seconds": 80.13085156500165
+    },
+    {
+      "id": "6b221cacfaaa4d09e8b249390841415fa1df5a85e38f3f908e51be7bf2fe3539",
+      "directory": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/jobs/6b221cacfaaa4d09e8b249390841415fa1df5a85e38f3f908e51be7bf2fe3539",
+      "worker_slot": 2,
+      "cpu_set": [
+        12,
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "threads": 6,
+      "status": "complete",
+      "attempt": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/attempts/6b221cacfaaa4d09e8b249390841415fa1df5a85e38f3f908e51be7bf2fe3539/attempt-sv5dt2yp",
+      "returncode": 0,
+      "actual_cpu_set": [
+        12,
+        16
+      ],
+      "process_wall_seconds": 76.59784844399837,
+      "pid": 49680,
+      "wall_seconds": 77.84009037000214
+    },
+    {
+      "id": "31b40fc5599e853d4526f1e92cf74ad654be2a4e1bb97d4ce79195d7e40f6983",
+      "directory": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/jobs/31b40fc5599e853d4526f1e92cf74ad654be2a4e1bb97d4ce79195d7e40f6983",
+      "worker_slot": 3,
+      "cpu_set": [
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "threads": 6,
+      "status": "complete",
+      "attempt": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/attempts/31b40fc5599e853d4526f1e92cf74ad654be2a4e1bb97d4ce79195d7e40f6983/attempt-z3le3me0",
+      "returncode": 0,
+      "actual_cpu_set": [
+        18,
+        23
+      ],
+      "process_wall_seconds": 74.85742471400226,
+      "pid": 49684,
+      "wall_seconds": 76.40355612599888
+    },
+    {
+      "id": "8f1bc90c8ca3e9ea9c7e2c3a0c1b544833071d8445a272ef892deb1afb26bd6d",
+      "directory": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/jobs/8f1bc90c8ca3e9ea9c7e2c3a0c1b544833071d8445a272ef892deb1afb26bd6d",
+      "worker_slot": 4,
+      "cpu_set": [
+        24,
+        25,
+        26,
+        27,
+        28,
+        29
+      ],
+      "threads": 6,
+      "status": "complete",
+      "attempt": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/attempts/8f1bc90c8ca3e9ea9c7e2c3a0c1b544833071d8445a272ef892deb1afb26bd6d/attempt-5r85geam",
+      "returncode": 0,
+      "actual_cpu_set": [
+        24,
+        29
+      ],
+      "process_wall_seconds": 77.27887792399997,
+      "pid": 49685,
+      "wall_seconds": 78.60083175900218
+    },
+    {
+      "id": "3aad50b87ea49627bb66435589b9909c20c164dde50f42a410780ad25617ed24",
+      "directory": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/jobs/3aad50b87ea49627bb66435589b9909c20c164dde50f42a410780ad25617ed24",
+      "worker_slot": 5,
+      "cpu_set": [
+        30,
+        31,
+        32,
+        33,
+        34,
+        35
+      ],
+      "threads": 6,
+      "status": "complete",
+      "attempt": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/attempts/3aad50b87ea49627bb66435589b9909c20c164dde50f42a410780ad25617ed24/attempt-_69zjlsx",
+      "returncode": 0,
+      "actual_cpu_set": [
+        30,
+        35
+      ],
+      "process_wall_seconds": 79.9079525950001,
+      "pid": 49678,
+      "wall_seconds": 81.09935074299938
+    },
+    {
+      "id": "df8d1f9482ca2c868729d617058e8145331d2861598880c290c04ceae40d55a1",
+      "directory": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/jobs/df8d1f9482ca2c868729d617058e8145331d2861598880c290c04ceae40d55a1",
+      "worker_slot": 6,
+      "cpu_set": [
+        36,
+        37,
+        38,
+        39,
+        40,
+        41
+      ],
+      "threads": 6,
+      "status": "complete",
+      "attempt": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/attempts/df8d1f9482ca2c868729d617058e8145331d2861598880c290c04ceae40d55a1/attempt-dibzcjs_",
+      "returncode": 0,
+      "actual_cpu_set": [
+        36,
+        40
+      ],
+      "process_wall_seconds": 77.58934835299806,
+      "pid": 49682,
+      "wall_seconds": 78.85614481399898
+    },
+    {
+      "id": "5e722c1c33187e8e121e5d9f761823d77d19d8c157dccb99b616975c120dde63",
+      "directory": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/jobs/5e722c1c33187e8e121e5d9f761823d77d19d8c157dccb99b616975c120dde63",
+      "worker_slot": 7,
+      "cpu_set": [
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ],
+      "threads": 6,
+      "status": "complete",
+      "attempt": "/home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/attempts/5e722c1c33187e8e121e5d9f761823d77d19d8c157dccb99b616975c120dde63/attempt-fiu0vj2g",
+      "returncode": 0,
+      "actual_cpu_set": [
+        42,
+        46
+      ],
+      "process_wall_seconds": 76.39700036200156,
+      "pid": 49679,
+      "wall_seconds": 77.56961531599882
+    }
+  ],
+  "counts": {
+    "complete": 8,
+    "cached": 0,
+    "failed": 0
+  },
+  "selected_tasks": 8,
+  "planned_tasks": 8,
+  "workers": 8,
+  "threads": 6,
+  "cpu_affinity": "physical",
+  "cpu_sets": [
+    [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    [
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    [
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+    ],
+    [
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    [
+      24,
+      25,
+      26,
+      27,
+      28,
+      29
+    ],
+    [
+      30,
+      31,
+      32,
+      33,
+      34,
+      35
+    ],
+    [
+      36,
+      37,
+      38,
+      39,
+      40,
+      41
+    ],
+    [
+      42,
+      43,
+      44,
+      45,
+      46,
+      47
+    ]
+  ],
+  "cpu_list": null,
+  "scheduling": {
+    "policy": "bounded-rolling",
+    "peak_in_flight": 8,
+    "wall_seconds": 81.10904066200237
+  },
+  "complete": true,
+  "process_run": true,
+  "scientific_validation": false
+}

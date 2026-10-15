@@ -48,7 +48,10 @@ cp .env.raptor.example .env.raptor
 | EHT_RADIAL_HIGH | ../radial-function/reference/result_a=0.99_l1m1.txt |
 | EHT_RUN_ID | benchmark-211-m65 |
 | EHT_OUTPUT_ROOT | ../eht-pipeline-runs |
-| EHT_RAPTOR_THREADS | 2 |
+| EHT_RAPTOR_THREADS | 2（每进程） |
+| EHT_RAPTOR_WORKERS | 1（保守默认，可用CLI指定8） |
+| EHT_RAPTOR_CPU_AFFINITY | physical |
+| EHT_PRODUCTION_ROOT | /home/canoziia/GRMHD_DATA/production/benchmark-211-m65（14TB盘） |
 
 生成端专用变量填写到`.env.raptor`，共享输出根保留在`.env`。
 也可直接指定`--run-root`/`EHT_PRODUCTION_ROOT`。优先级为：
@@ -77,7 +80,7 @@ pixi run -e raptor-build generate-raptor --no-env-file --plan \
 ## 目录
 
 ```text
-../eht-pipeline-runs/production/<run-id>/
+/home/canoziia/GRMHD_DATA/production/<run-id>/
   config.yaml                    不覆盖的科学配置快照
   requests/                      每次调用的追加记录
   build/                         官方setup产物、binary、源码快照和receipt
@@ -107,9 +110,16 @@ plan读取快照footer和两个小CSV，检查真实自旋/时间、alpha覆盖�
 打印任务数和资源下界；**不完整读取97GB快照、不创建run、不build、不运行模拟**。
 实际执行时再完整hash所消费输入，每个调用内共享同一快照的任务只hash一次。
 
+本机已将生成输出设置到14TB盘的EHT_PRODUCTION_ROOT；不影响原分析.env的输出位置。
+修改run ID前若已设置EHT_PRODUCTION_ROOT，需同时改该root（或CLI --run-root），否则root优先。
+
 生产profile全范围：141快照，18,048响应任务，282baseline（100和400各141），
 共18,330任务。高分辨率仅background state0，不生成16相位。
-所有任务串行调度，每个RAPTOR使用指定OpenMP线程；未做pilot前不承诺耗时/RAM。
+任务支持有界并发：`--workers`是同时运行的RAPTOR进程数，`--threads`是每进程OpenMP线程数。
+`--cpu-affinity physical`按实际可用CPU拓扑分配不重叠物理核，避免SMT兄弟重复使用；
+`logical`允许分配逻辑CPU，`none`不绑核。可用`--cpu-list 0-47`进一步限制。
+线程总数不能超分配CPU；没有足够物理核时明确报错，不静默降级。
+Linux执行前检查host/cgroup内存余量。并发吞吐以实测为准，不承诺线性加速。
 计划中的RAM/空间是下界，不是实测；执行前另留磁盘余量。
 
 ## 构建（不运行快照）
@@ -139,6 +149,20 @@ pixi run -e raptor-build generate-raptor
 
 前N项按规划顺序选，不表示完成某个alpha的16相位；先列plan核对。
 默认顺序每快照先100/400baseline，再各alpha16相位。
+可以明确指定并发与绑核，例如本机48物理核的配置：
+
+```bash
+pixi run -e raptor-build generate-raptor --workers 8 --threads 6 --cpu-affinity physical
+```
+
+这条命令会运行完整计划；先用`--max-jobs N`限制任务数或单独准备pilot任务清单。
+`max-jobs`是计划前缀长度，不是并发数；原计划前缀包含baseline，不能冒充某α的8相位。
+每worker独立CPU集合，通过taskset在exec前应用，并设置OMP_PROC_BIND=close/OMP_PLACES=cores。
+任务i固定分到slot i%workers，避免恢复时缓存任务完成很快导致CPU分配变化；
+各slot完成后领取自己的下一个任务，内存/同时运行数仍受workers上限约束。
+绑定集合写入任务身份，恢复使用相同workers/threads/CPU策略；改变布局应另建run。
+超时/取消会终止所有运行进程组、停止补新任务并等待回收；单任务失败单独记录。
+
 恢复使用同一命令、同一run和配置；已成功任务校验后跳过，失败任务重新尝试。
 旧任务存在但配置/binary/source变了则拒绝，不自动覆盖或重签。
 任务有独占锁；不要在未检查进程前手删锁。

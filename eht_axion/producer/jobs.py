@@ -1,4 +1,4 @@
-"""Serial, per-job atomic RAPTOR runner; never a transaction over the whole run.
+"""Bounded concurrent, per-job atomic RAPTOR runner; never a run transaction.
 
 The build is produced by the core-owned setup/make Python entry point. This
 module only consumes its immutable, declared products. Failed attempts remain
@@ -7,6 +7,8 @@ and the success/schema receipts, never mere directory or HDF5 existence.
 """
 from __future__ import annotations
 
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from contextvars import ContextVar, copy_context
 import json
 import math
 import os
@@ -16,6 +18,7 @@ import shutil
 import signal
 import subprocess
 import tempfile
+import threading
 import time
 
 from ..pipeline import common
@@ -303,18 +306,98 @@ def _kill_group(process):
     process.wait()
 
 
-def _execute(command, cwd, env, stdout, stderr, timeout):
-    with stdout.open("xb") as out, stderr.open("xb") as err:
-        process = subprocess.Popen(command, cwd=cwd, env=env, stdout=out, stderr=err,
-                                   shell=False, start_new_session=True)
+class _JobCancelled(BaseException):
+    """Internal cancellation; the scheduler propagates the original cause."""
+
+
+class _Processes:
+    """Invocation-local registry, including the spawn/cancel race."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.processes = set()
+        self.cancelled = threading.Event()
+        self.cause = None
+
+    def check(self):
+        if self.cancelled.is_set():
+            raise _JobCancelled()
+
+    def cancel(self, cause):
+        with self.lock:
+            if self.cause is None:
+                self.cause = cause
+            self.cancelled.set()
+            processes = list(self.processes)
+        # Do not hold the registry lock while waiting for children.
+        for process in processes:
+            _kill_group(process)
+
+
+_EXECUTION = ContextVar("producer_job_execution", default=None)
+
+
+def _observed_cpu_set(pid):
+    """OpenMP binds each TID separately; the leader mask may be one core."""
+    cpus = set()
+    for entry in (Path("/proc") / str(pid) / "task").glob("[0-9]*"):
         try:
-            return process.wait(timeout=timeout), False
-        except subprocess.TimeoutExpired:
+            cpus.update(os.sched_getaffinity(int(entry.name)))
+        except ProcessLookupError:
+            # OpenMP threads can disappear between enumeration and observation.
+            continue
+    return sorted(cpus) if cpus else None
+
+
+def _execute(command, cwd, env, stdout, stderr, timeout):
+    """Keep the six-argument API used by measurement wrappers and fake jobs."""
+    execution = _EXECUTION.get()
+    registry, receipt = execution if execution is not None else (_Processes(), {})
+    started = time.perf_counter()
+    with stdout.open("xb") as out, stderr.open("xb") as err:
+        with registry.lock:
+            registry.check()
+            process = subprocess.Popen(command, cwd=cwd, env=env, stdout=out, stderr=err,
+                                       shell=False, start_new_session=True)
+            registry.processes.add(process)
+        receipt.update(pid=process.pid, process_group=process.pid)
+        try:
+            while True:
+                registry.check()
+                if hasattr(os, "sched_getaffinity"):
+                    try:
+                        observed = _observed_cpu_set(process.pid)
+                        requested = receipt.get("cpu_set")
+                        # taskset runs after Popen; OpenMP then narrows each TID
+                        # mask. Ignore the inherited pre-taskset broad mask, but
+                        # accept an observed union that is a requested subset.
+                        if observed is not None and (requested is None or
+                                                     set(observed).issubset(requested)):
+                            receipt["actual_cpu_set"] = observed
+                    except ProcessLookupError:
+                        pass
+                remaining = None if timeout is None else timeout - (time.perf_counter() - started)
+                if remaining is not None and remaining <= 0:
+                    _kill_group(process)
+                    receipt.update(returncode=process.returncode, timed_out=True)
+                    return process.returncode, True
+                try:
+                    code = process.wait(timeout=.1 if remaining is None else min(.1, remaining))
+                    receipt["returncode"] = code
+                    registry.check()
+                    return code, False
+                except subprocess.TimeoutExpired:
+                    continue
+        except BaseException as exc:
+            if not isinstance(exc, Exception):
+                registry.cancel(exc)
             _kill_group(process)
-            return process.returncode, True
-        except BaseException:
-            _kill_group(process)
+            receipt["returncode"] = process.returncode
             raise
+        finally:
+            receipt["process_wall_seconds"] = time.perf_counter() - started
+            with registry.lock:
+                registry.processes.discard(process)
 
 
 def _assert_sources_unchanged(paths):
@@ -324,8 +407,25 @@ def _assert_sources_unchanged(paths):
         common.sha256(path)
 
 
-def _run_jobs(plan, build_dir, run_root, *, max_jobs, threads, timeout_seconds):
+def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affinity,
+              cpu_list, timeout_seconds):
+    from .affinity import allocate_cpu_sets, launch_prefix
+
+    workers = _integer(workers, "workers", 1)
     threads = _integer(threads, "threads", 1)
+    cpu_sets = allocate_cpu_sets(workers, threads, mode=cpu_affinity, cpu_list=cpu_list)
+    if len(cpu_sets) != workers:
+        raise ValueError("CPU allocation must provide one set per worker")
+    allocated = set()
+    for cpu_set in cpu_sets:
+        if cpu_set is None:
+            if cpu_affinity != "none":
+                raise ValueError("Explicit affinity requires a CPU set for every worker")
+            continue
+        if len(cpu_set) != threads or len(set(cpu_set)) != threads or allocated.intersection(cpu_set):
+            raise ValueError("Worker CPU sets must have threads distinct, nonoverlapping CPUs")
+        allocated.update(cpu_set)
+    prefixes = [launch_prefix(cpu_set) if cpu_set is not None else [] for cpu_set in cpu_sets]
     if max_jobs is not None:
         _integer(max_jobs, "max_jobs")
     if timeout_seconds is not None and (
@@ -338,6 +438,11 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, threads, timeout_seconds):
     prepared = [_prepare_task(task) for task in tasks]
     if len({t[0]["id"] for t in prepared}) != len(prepared):
         raise ValueError("Duplicate task ids")
+    if "config" in plan and prepared:
+        from .affinity import check_memory
+        # Tasks-only plans are synthetic API fixtures. Real production plans
+        # must also be safe when invoked directly, bypassing the CLI guard.
+        check_memory(min(workers, len(prepared)))
     common.reject_directory_symlinks(build_dir)
     common.reject_directory_symlinks(run_root)
     build_dir, run_root = Path(build_dir).resolve(strict=True), Path(run_root).resolve()
@@ -386,64 +491,154 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, threads, timeout_seconds):
             root = Path(root).resolve(strict=True)
             if root == run_root or root.is_relative_to(run_root) or run_root.is_relative_to(root):
                 raise ValueError(f"Run root overlaps protected input root: {root}")
+    # Prehash the shared closure on the main thread before copying its session
+    # into workers. Per-job checks must not scan every other task's raw inputs.
+    _assert_sources_unchanged(closure)
+    common.runtime_identity()
+    base_closure = list(common.source_closure(base_inputs))
     env = os.environ.copy()
+    # "none" means unbound, not an unsigned policy inherited from the caller.
+    # Never mutate os.environ: other invocations may run in this interpreter.
+    for key in ("OMP_PROC_BIND", "OMP_PLACES", "GOMP_CPU_AFFINITY"):
+        env.pop(key, None)
     env.update(OMP_NUM_THREADS=str(threads), OMP_DYNAMIC="FALSE", MKL_NUM_THREADS="1",
                OPENBLAS_NUM_THREADS="1", BLIS_NUM_THREADS="1", NUMEXPR_NUM_THREADS="1",
                VECLIB_MAXIMUM_THREADS="1")
-    results = []
-    for task, config, task_inputs in prepared:
-        destination = run_root / "jobs" / task["id"]
-        attempt_parent = run_root / "attempts" / task["id"]
+    if cpu_affinity != "none":
+        env.update(OMP_PROC_BIND="close", OMP_PLACES="cores")
+    registry = _Processes()
+    results = [None] * len(prepared)
+    # Deterministic slot assignment preserves pinned cache identity on resume:
+    # task i always uses slot i % workers, regardless of completion timing.
+    next_indices = list(range(workers))
+    active = {}
+    peak = 0
+    started = time.perf_counter()
+    executor = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="raptor-job")
+
+    def submit(slot):
+        nonlocal peak
+        registry.check()
+        index = next_indices[slot]
+        next_indices[slot] += workers
+        # A Context cannot be entered concurrently. Each task gets a fresh copy
+        # of the main session, including an independent stage-temporary stack.
+        context = copy_context()
+        future = executor.submit(context.run, _run_job, prepared[index], build_dir, run_root,
+                                 binary, grid, header, constants, base_inputs, base_closure,
+                                 threads, cpu_affinity, cpu_sets[slot], prefixes[slot], slot,
+                                 env, timeout_seconds, registry)
+        active[future] = (index, slot)
+        peak = max(peak, len(active))
+
+    try:
+        for slot in range(min(workers, len(prepared))):
+            submit(slot)
+        while active:
+            done, _ = wait(active, return_when=FIRST_COMPLETED)
+            # Collect every observed failure/cancellation before launching more.
+            free = []
+            for future in sorted(done, key=lambda f: active[f][0]):
+                index, slot = active.pop(future)
+                results[index] = future.result()
+                free.append(slot)
+            for slot in sorted(free):
+                if next_indices[slot] < len(prepared):
+                    submit(slot)
+    except BaseException as exc:
+        registry.cancel(exc)
+        for future in active:
+            future.cancel()
+        raise registry.cause
+    finally:
+        # Even on main-thread KeyboardInterrupt, all worker receipts and stage
+        # cleanup finish before verification_session checks its shared records.
+        executor.shutdown(wait=True, cancel_futures=True)
+    counts = {status: sum(r["status"] == status for r in results)
+              for status in ("complete", "cached", "failed")}
+    return {"schema": 1, "run_root": str(run_root), "build_dir": str(build_dir), "jobs": results,
+            "counts": counts, "selected_tasks": len(prepared), "planned_tasks": len(plan["tasks"]),
+            "workers": workers, "threads": threads, "cpu_affinity": cpu_affinity,
+            "cpu_sets": cpu_sets, "cpu_list": cpu_list,
+            "scheduling": {"policy": "bounded-deterministic-slots", "peak_in_flight": peak,
+                           "wall_seconds": time.perf_counter() - started},
+            "complete": counts["failed"] == 0, "process_run": counts["complete"] > 0,
+            "scientific_validation": False}
+
+
+def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, base_inputs,
+             base_closure, threads, cpu_affinity, cpu_set, prefix, slot, env,
+             timeout_seconds, registry):
+    task, config, task_inputs = prepared
+    destination = run_root / "jobs" / task["id"]
+    attempt_parent = run_root / "attempts" / task["id"]
+    task.update(core_constants=constants, core_constants_source=str(header))
+    inputs = base_inputs + task_inputs
+    closure = base_closure + list(common.source_closure(task_inputs))
+    config.update(threads=threads, output_adapter_schema=1)
+    if cpu_affinity != "none":
+        # Worker count is scheduling only; CPU mask/binding can affect floating
+        # point execution and is conservatively part of the job cache identity.
+        config.update(cpu_affinity=cpu_affinity, cpu_set=cpu_set,
+                      omp_proc_bind="close", omp_places="cores")
+    started = time.perf_counter()
+    attempt = temporary = receipt = None
+    execution_token = None
+    result = {"id": task["id"], "directory": str(destination), "worker_slot": slot,
+              "cpu_set": cpu_set, "threads": threads}
+    try:
+        registry.check()
         common.reject_directory_symlinks(attempt_parent)
-        task.update(core_constants=constants, core_constants_source=str(header))
-        inputs = base_inputs + task_inputs
-        config.update(threads=threads, output_adapter_schema=1)
-        attempt = temporary = None
-        receipt = None
-        try:
-            with common.stage_directory(destination, "producer-job", config, inputs) as temporary:
-                if temporary is None:
-                    # A generic complete manifest alone is insufficient.
-                    common.require_declared_outputs(destination, [destination / "success.json",
-                                                                 destination / "output.json"])
-                    success = json.loads((destination / "success.json").read_text())
-                    if (success.get("schema") != 1 or success.get("returncode") != 0
-                            or success.get("timed_out") is not False
-                            or success.get("output_validated") is not True):
-                        raise ValueError("Cached job lacks a successful process receipt")
-                    validated = validate_job_output(destination, task)
-                    common.require_declared_outputs(destination, [destination / validated["hdf5"],
-                                                                 destination / validated["spectrum"],
-                                                                 destination / "model.in",
-                                                                 destination / "grid_mks.in",
-                                                                 destination / "task.json"])
-                    if (destination / "model.in").read_text() != serialize_parameters(task["parameters"]):
-                        raise ValueError("Cached job model.in differs from task")
-                    if json.loads((destination / "task.json").read_text()) != config:
-                        raise ValueError("Cached task receipt differs from task config")
-                    if common.sha256(destination / "grid_mks.in") != common.sha256(grid):
-                        raise ValueError("Cached job grid differs from declared build grid")
-                    if json.loads((destination / "output.json").read_text()) != validated:
-                        raise ValueError("Cached output validation metadata differs")
-                    _assert_sources_unchanged(closure)
-                    results.append({"id": task["id"], "status": "cached", "directory": str(destination)})
-                    continue
+        with common.stage_directory(destination, "producer-job", config, inputs) as temporary:
+            registry.check()
+            if temporary is None:
+                # A generic complete manifest alone is insufficient.
+                common.require_declared_outputs(destination, [destination / "success.json",
+                                                             destination / "output.json"])
+                success = json.loads((destination / "success.json").read_text())
+                if (success.get("schema") != 1 or success.get("returncode") != 0
+                        or success.get("timed_out") is not False
+                        or success.get("output_validated") is not True):
+                    raise ValueError("Cached job lacks a successful process receipt")
+                validated = validate_job_output(destination, task)
+                common.require_declared_outputs(destination, [destination / validated["hdf5"],
+                                                             destination / validated["spectrum"],
+                                                             destination / "model.in",
+                                                             destination / "grid_mks.in",
+                                                             destination / "task.json"])
+                if (destination / "model.in").read_text() != serialize_parameters(task["parameters"]):
+                    raise ValueError("Cached job model.in differs from task")
+                if json.loads((destination / "task.json").read_text()) != config:
+                    raise ValueError("Cached task receipt differs from task config")
+                if common.sha256(destination / "grid_mks.in") != common.sha256(grid):
+                    raise ValueError("Cached job grid differs from declared build grid")
+                if json.loads((destination / "output.json").read_text()) != validated:
+                    raise ValueError("Cached output validation metadata differs")
+                _assert_sources_unchanged(closure)
+                result.update(status="cached")
+            else:
                 attempt_parent.mkdir(parents=True, exist_ok=True)
                 attempt = Path(tempfile.mkdtemp(prefix="attempt-", dir=attempt_parent))
-                command = [str(binary), "model.in", task["source_path"], str(task["output_slot"])]
+                command = prefix + [str(binary), "model.in", task["source_path"], str(task["output_slot"])]
                 receipt = {"schema": 1, "task_id": task["id"], "command": command,
-                           "started_unix": time.time(), "threads": threads,
+                           "started_unix": time.time(), "threads": threads, "worker_slot": slot,
+                           "cpu_affinity": cpu_affinity, "cpu_set": cpu_set, "actual_cpu_set": None,
+                           "omp_proc_bind": env.get("OMP_PROC_BIND"),
+                           "omp_places": env.get("OMP_PLACES"),
                            "timeout_seconds": timeout_seconds, "inputs": common.describe_inputs(inputs),
                            "returncode": None, "timed_out": False, "complete": False}
                 _json(attempt / "input.json", receipt)
+                execution_token = _EXECUTION.set((registry, receipt))
                 try:
                     _json(temporary / "task.json", config)
                     (temporary / "model.in").write_text(serialize_parameters(task["parameters"]))
                     shutil.copyfile(grid, temporary / "grid_mks.in")
                     _assert_sources_unchanged(closure)
+                    registry.check()
                     code, timed_out = _execute(command, temporary, env, attempt / "stdout.log",
                                                attempt / "stderr.log", timeout_seconds)
                     receipt.update(returncode=code, timed_out=timed_out)
+                    registry.check()
                     if timed_out:
                         raise RuntimeError(f"RAPTOR timed out after {timeout_seconds} seconds")
                     if code != 0:
@@ -455,47 +650,58 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, threads, timeout_seconds):
                     shutil.copyfile(attempt / "stdout.log", temporary / "stdout.log")
                     shutil.copyfile(attempt / "stderr.log", temporary / "stderr.log")
                     _assert_sources_unchanged(closure)
-                except BaseException:
+                    registry.check()
+                except BaseException as exc:
+                    if not isinstance(exc, Exception):
+                        registry.cancel(exc)
                     # Preserve partial HDF and exact model input before common
                     # cleans the failed transaction. Never mark this tree complete.
                     shutil.copytree(temporary, attempt / "work", symlinks=True)
                     raise
-            receipt.update(complete=True, finished_unix=time.time())
-            _json(attempt / "result.json", receipt)
-            results.append({"id": task["id"], "status": "complete", "directory": str(destination),
-                            "attempt": str(attempt), "returncode": 0})
-        except Exception as exc:
-            if attempt is not None:
-                receipt.update(error=f"{type(exc).__name__}: {exc}", finished_unix=time.time())
-                _json(attempt / "result.json", receipt)
-            results.append({"id": task["id"], "status": "failed", "directory": str(destination),
-                            "attempt": None if attempt is None else str(attempt),
-                            "returncode": None if receipt is None else receipt["returncode"],
-                            "error": f"{type(exc).__name__}: {exc}"})
-        except BaseException as exc:
-            if attempt is not None:
-                receipt.update(error=f"{type(exc).__name__}: {exc}", cancelled=True,
-                               finished_unix=time.time())
-                _json(attempt / "result.json", receipt)
-            raise
-    counts = {status: sum(r["status"] == status for r in results)
-              for status in ("complete", "cached", "failed")}
-    return {"schema": 1, "run_root": str(run_root), "build_dir": str(build_dir), "jobs": results,
-            "counts": counts, "selected_tasks": len(prepared), "planned_tasks": len(plan["tasks"]),
-            "complete": counts["failed"] == 0, "process_run": counts["complete"] > 0,
-            "scientific_validation": False}
+        if receipt is not None:
+            receipt.update(complete=True)
+            _finish_receipt(attempt, receipt, started)
+            result.update(status="complete", attempt=str(attempt), returncode=0,
+                          actual_cpu_set=receipt["actual_cpu_set"],
+                          process_wall_seconds=receipt.get("process_wall_seconds"),
+                          pid=receipt.get("pid"))
+    except Exception as exc:
+        if receipt is not None:
+            receipt.update(error=f"{type(exc).__name__}: {exc}")
+            _finish_receipt(attempt, receipt, started)
+        result.update(status="failed", attempt=None if attempt is None else str(attempt),
+                      returncode=None if receipt is None else receipt["returncode"],
+                      error=f"{type(exc).__name__}: {exc}")
+    except BaseException as exc:
+        registry.cancel(exc)
+        if receipt is not None:
+            receipt.update(error=f"{type(exc).__name__}: {exc}", cancelled=True)
+            _finish_receipt(attempt, receipt, started)
+        raise
+    finally:
+        if execution_token is not None:
+            _EXECUTION.reset(execution_token)
+    result["wall_seconds"] = time.perf_counter() - started
+    return result
+
+
+def _finish_receipt(attempt, receipt, started):
+    receipt.update(finished_unix=time.time(), wall_seconds=time.perf_counter() - started)
+    _json(attempt / "result.json", receipt)
 
 
 def run_jobs(plan: dict, build_dir: Path, run_root: Path, *, max_jobs: int | None = None,
-             threads: int = 2, timeout_seconds: float | None = None) -> dict:
-    """Run only the first max_jobs tasks, serially, with invocation-local hashes.
+             workers: int = 1, threads: int = 2, cpu_affinity: str = "none",
+             cpu_list: str | None = None, timeout_seconds: float | None = None) -> dict:
+    """Run the authorized task prefix with bounded concurrency and shared hashes.
 
     No real data is copied, no shell is used, no old successful stage is rebuilt.
-    ``complete`` refers to the selected prefix only; counts/planned_tasks expose
-    partial pilot authorization. Operational failures are returned per task;
-    invalid plans/root/build fail before launch. Cancellation kills the process
-    group and propagates after saving the attempt receipt.
+    ``max_jobs`` selects tasks, not workers. Operational failures are returned
+    independently per task; invalid plans/root/build fail before launch.
+    Cancellation kills all active process groups, saves attempts, joins workers,
+    then propagates. Each logical worker slot owns a fixed disjoint CPU set.
     """
     with common.verification_session():
-        return _run_jobs(plan, build_dir, run_root, max_jobs=max_jobs, threads=threads,
+        return _run_jobs(plan, build_dir, run_root, max_jobs=max_jobs, workers=workers,
+                         threads=threads, cpu_affinity=cpu_affinity, cpu_list=cpu_list,
                          timeout_seconds=timeout_seconds)
