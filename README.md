@@ -22,18 +22,27 @@ configurations are rejected rather than silently overwritten.
 ```bash
 pixi install --locked
 pixi run check
+# First use only; do not overwrite an existing .env.
 cp .env.example .env
 # Review .env; enable EHT_TRUST_PICKLE=true only for the trusted supplied inputs.
-set -a
-source .env
-set +a
 pixi run pipeline
 ```
 
-The recommended settings live in your ignored `.env`, exported by your shell.
-Explicit script arguments override `EHT_*` variables; Python never executes `.env`.
-The official `.env.example` is tracked. Use the `pixi run` tasks below; no interactive
-shell activation is required.
+Analysis-stage scripts automatically read the repository root's ignored `.env` on
+each invocation; no manual shell loading is needed. Precedence is **CLI > exported
+shell environment > env file**. Parsing uses `python-dotenv` with `interpolate=False`:
+no shell execution or variable expansion. File-supplied relative paths use the
+repository root; CLI and externally exported relative paths use the current working
+directory. There is no current-directory env-file search.
+
+Use `--env-file PATH` to replace the default file selection, or `--no-env-file` to
+disable file loading without clearing the external environment (provide required
+inputs explicitly via CLI for a self-contained run). The env-file selector itself
+is relative to the current working directory.
+The tracked `.env.example` contains analysis/shared settings only; producer scripts
+read root `.env` then `.env.raptor`, with the latter overriding file values. For the
+one-time producer template setup, see the [generation guide](docs/raptor-generation.md).
+Use the unchanged `pixi run` tasks; no interactive shell activation is required.
 
 For another machine, obtain the provided scientific dataset first; see the
 [download appendix](docs/PIXI_QUICKSTART.md). Local data links and `.pixi/` are not

@@ -84,7 +84,23 @@ pixi run python scripts/my_analysis.py
 
 `raptor_tools.py`、`process_eht_ensemble.py`和`plot_saved_limits.py`是单独处理已有数据的
 低级工具，不负责全run的缓存调度；主研究步骤使用上表带cache的脚本。
-参数解析留在脚本，复用模块不依赖它。没有`eht-pipeline`console命令、`python -m
+参数解析和本机env加载留在脚本入口，复用科学模块不依赖它们。
+六个主分析阶段及`run_all.py`每次自动读取仓库`ROOT/.env`；
+`build-raptor`和`generate-raptor`入口依次读取`ROOT/.env`、`ROOT/.env.raptor`，
+仍使用`pixi run -e raptor-build ...`，任务名和环境名不变。
+首次复制并审阅模板后无需手动导出或shell加载；`.env.example`只含分析/共享设置，
+生成端设置另见`.env.raptor.example`及[生成端指南](raptor-generation.md)。
+
+优先级为**CLI > shell已导出的环境 > 文件**，生成端后一个文件覆盖前一个文件值。
+解析采用`python-dotenv`、`interpolate=False`，不执行shell、不展开变量，也不搜索cwd。
+文件提供的相对路径锚定仓库ROOT；CLI及外部环境提供的相对路径仍以cwd为基准。
+`--env-file PATH`替代默认文件选择（生成端默认两文件均被替代），选择器PATH相对cwd；
+`--no-env-file`禁用文件加载，独立运行仍需CLI显式提供所需输入，外部环境不会被清除。
+布尔校验和pickle信任/重建/复用guard不变，详见[工程安全契约](ENGINEERING_SAFETY.md)。
+
+这些默认值属于主研究/生成脚本入口；直接导入函数、运行交互Python或上节自写脚本
+不会因此自动加载env文件。低级转换、迁移、独立绘图等工具仍使用各自显式参数。
+没有`eht-pipeline`console命令、`python -m
  eht_axion.pipeline`统一入口、editable安装或项目distribution元数据。
 
 依赖、测试搜索路径及代码检查规则全部保存在`pixi.toml`中。

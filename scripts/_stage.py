@@ -1,7 +1,4 @@
-"""Research-stage options: explicit arguments override exported environment values.
-
-.env is intentionally loaded by the user's shell, not implicitly executed by Python.
-"""
+"""Research-stage options: CLI > exported environment > safely parsed project .env."""
 
 from pathlib import Path
 import argparse
@@ -9,6 +6,7 @@ import os
 
 import _bootstrap  # noqa: F401
 from eht_axion.pipeline.workflow import run_stage
+from _environment import add_environment_options, resolve_environment
 
 
 ENVIRONMENT_OPTIONS = {
@@ -22,8 +20,9 @@ ENVIRONMENT_OPTIONS = {
 }
 
 
-def environment_boolean(name):
-    value = os.environ.get(name, "").strip().lower()
+def environment_boolean(name, environment=None):
+    values = os.environ if environment is None else environment
+    value = values.get(name, "").strip().lower()
     if value in {"", "0", "false", "no", "off"}:
         return False
     if value in {"1", "true", "yes", "on"}:
@@ -48,25 +47,30 @@ def parse_options(stage, argv=None):
             default=None,
             help=f"Overrides ${ENVIRONMENT_OPTIONS[option]}; --no-* explicitly disables it",
         )
+    add_environment_options(parser)
     args = parser.parse_args(argv)
+    try:
+        environment = resolve_environment(args)
+    except (ValueError, OSError) as exc:
+        parser.error(str(exc))
     for option, name in ENVIRONMENT_OPTIONS.items():
         if getattr(args, option) is not None:
             continue  # Do not even parse a stale/invalid environment value if CLI overrides it.
         if option in {"config", "input_root", "raptor_input_root", "output_root"}:
-            value = os.environ.get(name, "").strip()
+            value = environment.get(name, "").strip()
             setattr(args, option, Path(value) if value else None)
         else:
             try:
-                setattr(args, option, environment_boolean(name))
+                setattr(args, option, environment_boolean(name, environment))
             except ValueError as exc:
                 parser.error(str(exc))
     for option in ("config", "output_root"):
         if getattr(args, option) is None:
             parser.error(
-                f"Set {ENVIRONMENT_OPTIONS[option]} in the shell or pass --{option.replace('_', '-')}"
+                f"Set {ENVIRONMENT_OPTIONS[option]} in .env or pass --{option.replace('_', '-')}"
             )
     if stage in {"all", "eht"} and args.input_root is None:
-        parser.error("Set EHT_INPUT_ROOT in the shell or pass --input-root")
+        parser.error("Set EHT_INPUT_ROOT in .env or pass --input-root")
     if stage in {"raptor", "background"} and args.input_root is None and args.raptor_input_root is None:
         parser.error("Set EHT_INPUT_ROOT/EHT_RAPTOR_INPUT_ROOT or pass the corresponding input root")
     return args

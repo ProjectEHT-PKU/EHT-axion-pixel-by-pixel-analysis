@@ -24,13 +24,20 @@ pixi install --locked -e raptor-build
 `-e raptor-build`选择包含C编译器、GSL、HDF5、make和rsync的生成环境。
 默认分析环境没有新增编译工具依赖。
 
-不要覆盖已有.env。可把以下项加入自己的.env，审阅后显式导出：
+本机已有`.env`和`.env.raptor`配置时，不要覆盖它们，直接运行下节的plan命令即可。
+在新机器上可选部署生成端时，只需首次复制模板一次并填写真实路径：
 
 ```bash
-set -a
-source .env
-set +a
+# 仅创建尚不存在的本机文件；已有文件请直接审阅，不要覆盖。
+cp .env.example .env
+cp .env.raptor.example .env.raptor
 ```
+
+`.env.example`只含分析/共享设置（如`EHT_OUTPUT_ROOT`）；
+`.env.raptor.example`包含production config、源码、fluid、radial表、run ID和线程数。
+审阅本机文件后，今后每次直接`pixi run`，不需要手动导出或shell加载。
+生成入口自动依次读取`ROOT/.env`、`ROOT/.env.raptor`；分析入口只读`ROOT/.env`。
+`ROOT`固定为仓库根目录，不会搜索cwd或其父目录。
 
 | 变量 | 当前机器可用示例 |
 |---|---|
@@ -43,20 +50,29 @@ set +a
 | EHT_OUTPUT_ROOT | ../eht-pipeline-runs |
 | EHT_RAPTOR_THREADS | 2 |
 
-如果现有.env还没有生成端选项，不要覆盖它；本机可先在终端显式设置：
+生成端专用变量填写到`.env.raptor`，共享输出根保留在`.env`。
+也可直接指定`--run-root`/`EHT_PRODUCTION_ROOT`。优先级为：
+**CLI > shell已导出的环境变量 > `.env.raptor` > `.env`**。
+外部已导出的旧值会遮住文件更新，必要时先检查并清除相应外部变量。
+文件提供的相对路径以仓库ROOT为基准；CLI和外部环境提供的相对路径仍以cwd为基准。
+
+解析使用`python-dotenv`且`interpolate=False`：只读取变量值，不执行shell，也不展开变量。
+请写实际路径，不依赖`$HOME`、`${VAR}`或命令替换。
+`--env-file PATH`用一个文件替代默认两文件，选择器PATH本身相对cwd；
+自定义文件内的相对路径仍锚定ROOT。`--no-env-file`禁用文件loader，
+不会清除外部环境；要独立于本机文件运行，仍需用CLI显式给出所需输入，不能依赖模板：
 
 ```bash
-export EHT_PRODUCTION_CONFIG=configs/production.yaml
-export EHT_RAPTOR_SOURCE_ROOT=../raptor
-export EHT_GRMHD_ROOT=/home/canoziia/GRMHD_DATA/a094-high
-export EHT_RADIAL_LOW=../radial-function/reference/result_a=0.9375_l1m1.txt
-export EHT_RADIAL_HIGH=../radial-function/reference/result_a=0.99_l1m1.txt
-export EHT_RUN_ID=benchmark-211-m65
-export EHT_RAPTOR_THREADS=2
+pixi run -e raptor-build generate-raptor --no-env-file --plan \
+  --config configs/production.yaml --source-root ../raptor \
+  --run-root ../eht-pipeline-runs/production/benchmark-211-m65 \
+  --fluid-root /home/canoziia/GRMHD_DATA/a094-high \
+  --radial-low ../radial-function/reference/result_a=0.9375_l1m1.txt \
+  --radial-high ../radial-function/reference/result_a=0.99_l1m1.txt --threads 2
 ```
 
-也可直接指定 `--run-root`/EHT_PRODUCTION_ROOT。CLI优先于环境；相对路径以当前cwd为准。
-Python不加载或执行.env。生成阶段不用EHT的pickle输入，不需要trust-pickle。
+以上只规划，不授权执行真实快照。生成阶段不用EHT的pickle输入，不需要trust-pickle；
+自动读取文件也不会替后续分析授权pickle或关闭现有安全检查。
 
 ## 目录
 
@@ -78,13 +94,16 @@ run根只是容器，不能当成可整目录rebuild的stage。
 
 ## 先规划（不执行C）
 
-导出上述变量后：
+本机当前配置可直接使用；入口会自动读取已有`.env`和`.env.raptor`，无需先手动加载：
 
 ```bash
 pixi run -e raptor-build generate-raptor --plan
 ```
 
-它读取快照footer和两个小CSV，检查真实自旋/时间、alpha覆盖、参数与路径，
+需要单独配置文件时可用`pixi run -e raptor-build generate-raptor --env-file /path/to/local.env --plan`，
+该文件替代默认两文件，需包含本次所需的共享和生成端设置。
+
+plan读取快照footer和两个小CSV，检查真实自旋/时间、alpha覆盖、参数与路径，
 打印任务数和资源下界；**不完整读取97GB快照、不创建run、不build、不运行模拟**。
 实际执行时再完整hash所消费输入，每个调用内共享同一快照的任务只hash一次。
 

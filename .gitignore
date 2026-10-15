@@ -25,9 +25,10 @@ runs/
 *.pdf
 *.old
 
-# Machine/user-specific shell environment; publish only the reviewed example.
+# Machine/user-specific dotenv data; publish only reviewed examples.
 .env
 .env.*
 !.env.example
+!.env.raptor.example
 
 # Pixi manifests and text/SVG validation evidence remain tracked.

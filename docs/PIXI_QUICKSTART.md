@@ -90,26 +90,37 @@ EHT_REUSE_IMPORTED=false
 模板默认false，不因加载环境变量就默认授权执行pickle。
 `EHT_REBUILD`和`EHT_REUSE_IMPORTED`通常保持false；需要时用命令行临时开启。
 
-`.env`是本机配置，不进入Git；官方只提交`.env.example`。物理方法和数值参数仍放在
+`.env`是本机配置，不进入Git；`.env.example`只包含分析/共享设置。
+可选生成端另用`.env.raptor.example`和本机`.env.raptor`，见[RAPTOR生成端指南](raptor-generation.md)。
+物理方法和数值参数仍放在
 `configs/research.yaml`，`.env`不替代科学配置文件。科学配置使用YAML；只有Pixi自身的
 依赖和任务配置仍是`pixi.toml`，那是Pixi规定的格式，不需要日常修改。
 代码仅支持观测EVPA日差固定为0的假设，配置无需`observation`选项；
 观测标准差、协方差仍然参与计算，不是把观测误差设为0。
 不要在同一mapping中重复写同一个参数名；读取器会拒绝重复键，避免后值静默覆盖前值。
 
-### 3.2 加载到当前 shell
+### 3.2 脚本自动读取本机配置
 
-在项目根目录中加载`.env`。Bash、Zsh使用以下命令（也可在tmux中执行）：
+六个主分析阶段和`run_all.py`每次启动都会自动读取**仓库ROOT下的`.env`**。
+首次复制并审阅模板后即可直接`pixi run`；新终端或修改文件后都不需要手动导出或加载。
+脚本不向cwd或其父目录搜索`.env`。生成端则依次读取`ROOT/.env`、`ROOT/.env.raptor`，
+后者叠加前者；分析入口不读取`.env.raptor`。
+
+解析使用`python-dotenv`且`interpolate=False`，只读取变量值，**不执行shell、不展开变量**。
+路径请填写实际值，不要依赖`$HOME`、`${VAR}`或命令替换。文件提供的相对路径统一以仓库ROOT为基准，
+即使自定义env文件放在别处也一样；CLI和外部已导出的环境变量中的相对路径仍以当前cwd为基准。
+
+可用`--env-file PATH`替代默认文件选择（生成端也不会再叠加默认两文件），
+`PATH`本身相对当前cwd。`--no-env-file`禁用文件加载，不会清除外部环境变量；
+要独立于本机env文件运行，请显式给出所需CLI输入，例如：
 
 ```bash
-set -a
-source .env
-set +a
+pixi run pipeline --env-file /path/to/local.env
+pixi run pipeline --no-env-file --config configs/research.yaml \
+  --input-root data/inputs --output-root ../eht-pipeline-runs --no-trust-pickle
 ```
 
-`set -a`让变量自动导出给Python/Pixi子进程；仅`source .env`而不export，Python看不到普通shell变量。
-每个新终端需要加载一次，修改`.env`后也要重新加载。关闭自动导出不会取消已有变量。
-**只source可信的本机文件**：shell会执行文件内容，Python脚本不会自动查找或执行`.env`。
+上例保持pickle授权关闭；若输入含pickle，仍须确认可信后显式使用`--trust-pickle`。
 
 ### 3.3 顺序执行，不再重复填写路径
 
@@ -122,8 +133,9 @@ pixi run inference     # ⑤ 六条限制曲线
 pixi run figures       # ⑥ 图片与表格
 ```
 
-脚本按以下优先级选择设置：**显式命令行参数 > 当前shell中的`EHT_*`环境变量**。
-环境变量没有值且必要参数未指定时会报出缺少的名称，而不是猜测输入或输出。
+脚本按以下优先级选择设置：**显式命令行参数 > shell已导出的`EHT_*`环境变量 > env文件值**。
+旧终端中已导出的值会遮住文件修改；遇到配置不符时先检查这些外部变量。
+各来源都未提供必要参数时会报出缺少的名称，而不是猜测输入或输出。
 参数覆盖仅影响这次命令，不会修改`.env`或shell：
 
 ```bash
@@ -135,18 +147,18 @@ pixi run inference --no-rebuild --no-reuse-imported
 
 布尔环境变量支持true/false、1/0、yes/no、on/off，不区分大小写；非法值明确报错。
 `--no-*`可以关闭环境中已设为true的选项。对同一次运行的后续步骤使用同一配置/输出，
-例如临时换输出位置计算后，画图也应指定相同输出，或统一修改`.env`并重新加载。
+例如临时换输出位置计算后，画图也应指定相同输出，或统一修改`.env`，下一次调用自动读取。
 
 ## 4. 一次执行整条主链
 
 ```bash
-# 已按第3节加载并确认.env后：
+# 已按第3节填写并确认.env后，脚本自动读取：
 pixi run pipeline
 ```
 
 `pixi run pipeline`只是`python scripts/run_all.py`的任务别名，不是安装的统一CLI。
 其他步骤同样由Pixi直接运行对应脚本，无需项目安装或交互环境激活。
-脚本参数可临时覆盖.env导出的配置/路径/安全开关；计算与缓存机制仍在可复用模块中。
+脚本参数可临时覆盖自动读取的env文件或外部环境中的配置/路径/安全开关；计算与缓存机制仍在可复用模块中。
 
 默认顺序就是上述①至⑥。重复执行时，配置/输入/代码一致且输出校验通过的阶段会显示
 `CACHE HIT`。只要修改了配置或代码，可能收到 `Stale cache`，不是程序故障。
@@ -243,7 +255,7 @@ inputs/
   transport/snapshot-2110-res-400/...
 ```
 
-其他alpha和日期同样已由我们整理好；合作者只需填写实际路径，再按第3节加载`.env`。
+其他alpha和日期同样已由我们整理好；合作者只需填写实际路径，再按第3节直接`pixi run`，脚本自动读取`.env`。
 数据放在代码目录的`data/inputs/`时，可以保留模板的`EHT_INPUT_ROOT=data/inputs`。
 
 **交付注意：**本机的规范输入目前是链接到原始归档的视图，不是独立可搬运的数据包。

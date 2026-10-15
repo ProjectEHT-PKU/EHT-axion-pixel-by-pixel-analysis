@@ -1,4 +1,4 @@
-"""Exported .env settings are defaults; explicit script arguments always win."""
+"""CLI and exports retain priority above automatically parsed dotenv defaults."""
 
 from pathlib import Path
 import subprocess
@@ -7,10 +7,13 @@ import os
 
 import pytest
 import _stage
+import _environment
 
 
 @pytest.fixture(autouse=True)
-def clean_environment(monkeypatch):
+def clean_environment(monkeypatch, tmp_path):
+    # Never let tests consume the user's actual local dotenv or science outputs.
+    monkeypatch.setattr(_environment, "ROOT", tmp_path)
     for name in _stage.ENVIRONMENT_OPTIONS.values():
         monkeypatch.delenv(name, raising=False)
 
@@ -147,7 +150,7 @@ def test_local_dotenv_is_not_automatically_executed(tmp_path):
         environment.pop(name, None)
     environment.pop("PYTHONPATH", None)
     result = subprocess.run(
-        [sys.executable, str(root / "scripts/run_all.py")],
+        [sys.executable, str(root / "scripts/run_all.py"), "--no-env-file"],
         cwd=tmp_path,
         env=environment,
         capture_output=True,

@@ -59,11 +59,9 @@ then open a terminal in the repository root:
 pixi install --locked
 pixi run help
 pixi run check
+# First use only; keep any existing .env.
 cp .env.example .env
 # Review paths and enable EHT_TRUST_PICKLE only for trusted inputs.
-set -a
-source .env
-set +a
 pixi run pipeline
 ```
 
@@ -84,19 +82,33 @@ library needed statsmodels; current processing and regression do not.
 
 Pixi activation sets Agg rendering and two BLAS/OpenMP threads. Run long computations
 in tmux on Linux/macOS or a suitable persistent terminal/job scheduler. Use `pixi run`
-tasks; interactive environment activation is not required. Export the reviewed `.env`
-in your current shell before running the stages.
+tasks; interactive environment activation is not required. The main analysis scripts
+automatically read the reviewed repository-root `.env` on each invocation.
 
 Pickle is executable: only enable `--trust-pickle` for inputs whose source you trust.
 SHA-256 detects corruption/changes but does not establish trust.
 
-Main research-stage scripts use command-line arguments over exported `EHT_*`
-environment values. Python does not auto-load `.env`; source a trusted local file
-in the shell as shown above. Destructive/reuse options default false and can be
-explicitly disabled with `--no-rebuild`/`--no-reuse-imported`. Numerical choices
-remain in the YAML science config, not environment variables.
+Main research-stage scripts use **CLI > exported `EHT_*` environment > env-file
+values**. Analysis reads `ROOT/.env`; producer scripts read `ROOT/.env` followed by
+`ROOT/.env.raptor` (later file values win, but never override exported values).
+`ROOT` is the repository root, not the caller's cwd; no cwd/ancestor search occurs.
+`python-dotenv` parses values with `interpolate=False`: no shell execution, command
+substitution or variable expansion. Relative paths supplied by files are anchored to
+`ROOT`; relative CLI paths and externally exported paths remain cwd-relative.
 
-Individual stages use the same exported configuration:
+`--env-file PATH` replaces the default file selection, including both producer files;
+the selector path itself is cwd-relative. `--no-env-file` disables file loading, not
+external environment values. For a self-contained no-file run, pass required
+config/input/output paths explicitly on the CLI. `.env.example` contains only
+analysis/shared settings; optional production settings belong in `.env.raptor`
+(copied once from `.env.raptor.example`). See the [producer guide](raptor-generation.md).
+
+Destructive/reuse options still default false and can be explicitly disabled with
+`--no-rebuild`/`--no-reuse-imported`; pickle still requires explicit trust. Boolean
+values accept true/false, 1/0, yes/no, on/off case-insensitively and reject invalid
+values. Numerical choices remain in the YAML science config, not environment variables.
+
+Individual stages automatically read the same configuration:
 
 ```bash
 pixi run raptor

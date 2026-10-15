@@ -1,15 +1,15 @@
-"""Direct producer script options; CLI overrides exported EHT_*; never source .env."""
+"""Producer options: CLI > exports > project .env.raptor > project .env data."""
 from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 import re
 
 import _bootstrap  # noqa: F401
 from eht_axion.pipeline.common import reject_directory_symlinks
 from eht_axion.producer.config import read_production_config
+from _environment import add_environment_options, resolve_environment
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,19 +34,24 @@ def options(kind, argv=None):
                             help="Run at most this many planned tasks; incomplete data not delivered")
         parser.add_argument("--threads", type=int)
         parser.add_argument("--timeout-seconds", type=float)
+    add_environment_options(parser)
     args = parser.parse_args(argv)
+    try:
+        environment = resolve_environment(args, producer=True)
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
     for key, env in paths.items():
-        if getattr(args, key) is None and os.environ.get(env):
-            setattr(args, key, Path(os.environ[env]))
+        if getattr(args, key) is None and environment.get(env):
+            setattr(args, key, Path(environment[env]))
     if args.config is None:
         args.config = ROOT / "configs/production.yaml"
     if args.source_root is None:
         args.source_root = ROOT.parent / "raptor"
     if args.run_root is None:
-        run_id = args.run_id or os.environ.get("EHT_RUN_ID")
+        run_id = args.run_id or environment.get("EHT_RUN_ID")
         if not run_id or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}", run_id):
             parser.error("Provide --run-root/EHT_PRODUCTION_ROOT, or a safe --run-id/EHT_RUN_ID")
-        output = Path(os.environ.get("EHT_OUTPUT_ROOT", str(ROOT.parent / "eht-pipeline-runs")))
+        output = Path(environment.get("EHT_OUTPUT_ROOT", str(ROOT.parent / "eht-pipeline-runs")))
         args.run_root = output / "production" / run_id
     try:
         reject_directory_symlinks(args.run_root)
@@ -59,8 +64,8 @@ def options(kind, argv=None):
             raise ValueError("Unexpected RAPTOR source lock repository")
         args.expected_commit = lock["commit"]
         protected = [ROOT, args.source_root]
-        if os.environ.get("EHT_INPUT_ROOT"):
-            protected.append(Path(os.environ["EHT_INPUT_ROOT"]).resolve(strict=True))
+        if environment.get("EHT_INPUT_ROOT"):
+            protected.append(Path(environment["EHT_INPUT_ROOT"]).resolve(strict=True))
         for name in ("fluid_root", "radial_low", "radial_high"):
             path = getattr(args, name)
             if path is not None:
@@ -80,9 +85,9 @@ def options(kind, argv=None):
                 if getattr(args, key) is None:
                     raise ValueError(f"Provide --{key.replace('_', '-')} or ${paths[key]}")
             if args.threads is None:
-                args.threads = int(os.environ.get("EHT_RAPTOR_THREADS", "2"))
-            if args.timeout_seconds is None and os.environ.get("EHT_RAPTOR_TIMEOUT_SECONDS"):
-                args.timeout_seconds = float(os.environ["EHT_RAPTOR_TIMEOUT_SECONDS"])
+                args.threads = int(environment.get("EHT_RAPTOR_THREADS", "2"))
+            if args.timeout_seconds is None and environment.get("EHT_RAPTOR_TIMEOUT_SECONDS"):
+                args.timeout_seconds = float(environment["EHT_RAPTOR_TIMEOUT_SECONDS"])
             if args.threads < 1 or (args.max_jobs is not None and args.max_jobs < 1):
                 raise ValueError("threads and max-jobs must be positive")
     except (ValueError, OSError, KeyError) as error:
