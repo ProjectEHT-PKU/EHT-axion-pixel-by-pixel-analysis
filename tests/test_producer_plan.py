@@ -74,7 +74,7 @@ def test_task_contract_and_physical_time(inputs, tmp_path):
         params = task["parameters"]
         assert len(params) == 19
         assert all(set(entry) == {"unit", "value"} for entry in params.values())
-        assert params["MBH"] == {"unit": "(Msun)", "value": 6.2e9}
+        assert params["MBH"] == {"unit": "(Msun)", "value": 6.5e9}
         assert params["DISTANCE"] == {"unit": "(kpc)", "value": 16800.0}
         assert params["CAM_SIZE_X"] == {"unit": "(Rg)", "value": 46.2261}
         assert params["IMG_WIDTH"]["value"] == task["resolution"]

@@ -28,7 +28,7 @@ def test_new_benchmark_and_unchanged_analysis_values(profile):
     assert research["physical"]["mass_solar"] == 6.5e9
     assert research["image"]["initial_fov_rg"] == 46.2262
     expected = deepcopy(research)
-    expected["physical"]["mass_solar"] = 6.2e9
+    expected["physical"]["mass_solar"] = 6.5e9
     expected["image"]["initial_fov_rg"] = 46.2261
     assert {k: v for k, v in profile.items() if k != "producer"} == expected
     assert profile["inference"]["principal_n"] == 2

@@ -94,7 +94,7 @@ def test_delivery_shapes_axes_labels_and_ancestry(delivered):
         assert len([e for e in record["inputs"] if e["path"].endswith("manifest.json")]) == shape[0]*shape[1]
 
 
-@pytest.mark.parametrize("key,value", [("mass_solar", 6.5e9), ("distance_mpc", 16.9)])
+@pytest.mark.parametrize("key,value", [("mass_solar", 6.2e9), ("distance_mpc", 16.9)])
 def test_generated_physics_cannot_be_silently_changed(delivered, key, value):
     config, run, _ = delivered
     changed = deepcopy(config)

@@ -39,9 +39,21 @@ set +a
 | EHT_GRMHD_ROOT | /home/canoziia/GRMHD_DATA/a094-high |
 | EHT_RADIAL_LOW | ../radial-function/reference/result_a=0.9375_l1m1.txt |
 | EHT_RADIAL_HIGH | ../radial-function/reference/result_a=0.99_l1m1.txt |
-| EHT_RUN_ID | benchmark-211 |
+| EHT_RUN_ID | benchmark-211-m65 |
 | EHT_OUTPUT_ROOT | ../eht-pipeline-runs |
 | EHT_RAPTOR_THREADS | 2 |
+
+如果现有.env还没有生成端选项，不要覆盖它；本机可先在终端显式设置：
+
+```bash
+export EHT_PRODUCTION_CONFIG=configs/production.yaml
+export EHT_RAPTOR_SOURCE_ROOT=../raptor
+export EHT_GRMHD_ROOT=/home/canoziia/GRMHD_DATA/a094-high
+export EHT_RADIAL_LOW=../radial-function/reference/result_a=0.9375_l1m1.txt
+export EHT_RADIAL_HIGH=../radial-function/reference/result_a=0.99_l1m1.txt
+export EHT_RUN_ID=benchmark-211-m65
+export EHT_RAPTOR_THREADS=2
+```
 
 也可直接指定 `--run-root`/EHT_PRODUCTION_ROOT。CLI优先于环境；相对路径以当前cwd为准。
 Python不加载或执行.env。生成阶段不用EHT的pickle输入，不需要trust-pickle。
@@ -140,8 +152,8 @@ res400为(T,1,400,400,4)时间分片，保留单state轴。缺任务不零填充
 ```bash
 pixi run pipeline --config configs/production.yaml \
   --input-root data/inputs \
-  --raptor-input-root ../eht-pipeline-runs/production/benchmark-211/data \
-  --output-root ../eht-pipeline-runs/production/benchmark-211/analysis \
+  --raptor-input-root ../eht-pipeline-runs/production/benchmark-211-m65/data \
+  --output-root ../eht-pipeline-runs/production/benchmark-211-m65/analysis \
   --trust-pickle
 ```
 
@@ -152,7 +164,8 @@ labels传给fit，不使用默认标签；后续inference/plot lineage保持到b
 
 ## 科学配置与缓存注意
 
-production.yaml明确是新benchmark：6.2e9 Msun、16.8Mpc、FOV46.2261，
+production.yaml默认质量为6.5e9 Msun、距离16.8Mpc，与2025 EHT 2018 Paper II主模型库一致。
+相机FOV仍明确固定46.2261 Rg（不是固定角FOV），因此质量变化会改变角宽。
 低五云表spin.9375、高三.99，背景仍.9375；其它后处理几何沿用旧值，
 不表示beam/EHT角尺度已科学校准。
 

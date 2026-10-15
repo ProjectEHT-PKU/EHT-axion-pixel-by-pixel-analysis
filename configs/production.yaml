@@ -1,9 +1,10 @@
 # New producer benchmark, NOT a change or calibration of configs/research.yaml.
-# Explicit migration benchmark: MBH=6.2e9 Msun, D=16.8 Mpc, camera=46.2261 Rg.
+# New fiducial: MBH=6.5e9 Msun, D=16.8 Mpc, as in EHT 2018 Paper II (2025).
+# Camera width remains explicitly 46.2261 Rg; its angular size changes with MBH.
 # All other analysis values are copied unchanged from research.yaml. This profile
 # is not evidence of a real scientific run or permission to reuse old outputs.
 physical:
-  mass_solar: 6200000000.0
+  mass_solar: 6500000000.0
   distance_mpc: 16.8
   label_step_tg: 0.1
 
