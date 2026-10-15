@@ -106,6 +106,26 @@ def test_failed_attempt_retained_and_resume_reruns(setup, mode, returncode):
     assert len(list((setup["run"] / "attempts/baseline").iterdir())) == 2
 
 
+def test_parent_analysis_container_manifest_allows_production_child(setup):
+    setup["run"] = setup["run"].parent / "output-container/production/pilot"
+    container = setup["run"].parents[1]
+    container.mkdir()
+    record = {"layout": "canonical-run-v1", "completion": "See individual stage manifests"}
+    (container / "manifest.json").write_text(json.dumps(record))
+    result = invoke(setup)
+    assert result["counts"]["complete"] == 1
+    assert json.loads((container / "manifest.json").read_text()) == record
+
+
+def test_actual_stage_ancestor_still_refused(setup):
+    parent = setup["run"].parent / "completed"
+    with common.stage_directory(parent, "scientific-stage", {}) as temp:
+        (temp / "result.txt").write_text("immutable")
+    setup["run"] = parent / "production/pilot"
+    with pytest.raises(ValueError, match="existing output stage"):
+        invoke(setup)
+
+
 def test_max_jobs_only_selects_first_n(setup):
     second = deepcopy(setup["task"])
     second["id"] = "second"

@@ -1,0 +1,56 @@
+{
+  "counts": {
+    "snapshots": 141,
+    "baseline": 282,
+    "response": 18048,
+    "background": 141,
+    "total": 18330
+  },
+  "requirements": {
+    "source_sha256_required_at_execution": true,
+    "table_sha256_required_at_execution": true,
+    "build_sha256_required_at_execution": true,
+    "live_rehash_required_at_execution": true,
+    "free_space_check_owner": "caller",
+    "output_stokes_lower_bound_bytes": 6542400000,
+    "per_process_memory_lower_bound_bytes": 602800128,
+    "unique_source_bytes": 97347834252,
+    "official_setup_args": [
+      "--code=bhac",
+      "--metric=mks",
+      "--int=rk4",
+      "--grid=SMR",
+      "--rad=pol",
+      "--sf=sfc",
+      "--bflip=plus",
+      "--sigma-cut=1.0",
+      "--thetae-min=0.001",
+      "--thetae-max=100.0",
+      "--uniform=0"
+    ],
+    "build_command": [
+      "make"
+    ],
+    "label_time_offset_tg": 14850.0
+  },
+  "warnings": [
+    "Plan IDs do not verify input content; execution must bind live source/table/build SHA256.",
+    "Footer/payload lower-bound checks do not validate fluid values or AMR forest semantics.",
+    "Radial CSV spin/provenance cannot be inferred from alpha,r,R columns; configured spins are declarations.",
+    "High table spin=0.99 intentionally differs from actual fluid spin=0.9375 (explicit migration benchmark).",
+    "No radial amplitudes were renormalized; ray-radius coverage remains a core runtime check.",
+    "Resource estimates are lower bounds only; caller must check disk/RAM with overhead and concurrency.",
+    "This plan builds and launches nothing and uses no old scientific outputs."
+  ],
+  "run_root": "/home/canoziia/MyProject/PHYS/eht-pipeline-runs/production/pilot-m65-t1600-res100-t16-v2"
+}
+MEASURED_RAPTOR {"command": ["/home/canoziia/MyProject/PHYS/eht-pipeline-runs/production/pilot-m65-t1600-res100-t16-v2/build/RAPTOR", "model.in", "/home/canoziia/GRMHD_DATA/a094-high/data001600.dat", "0"], "cwd_at_execution": "/home/canoziia/MyProject/PHYS/eht-pipeline-runs/production/pilot-m65-t1600-res100-t16-v2/jobs/14d970498e984a87f6bbb1fe7e3843d51479ecedb01e78beece89dba184870d5.building-0ejb_kpn", "omp_threads": "16", "wall_seconds": 38.99095874200066, "user_cpu_seconds": 488.876754, "system_cpu_seconds": 1.855132, "cpu_seconds": 490.73188600000003, "average_cpu_cores": 12.585786598558007, "average_cpu_percent_one_core": 1258.5786598558007, "average_utilization_of_16_threads_percent": 78.66116624098754, "wait4_peak_rss_kib": 2122564, "sampled_peak_rss_kib": 2129320, "sampled_peak_hwm_kib": 2129320, "sampled_max_threads": 16, "samples": 77, "timing_scope": "RAPTOR child only; excludes Python preflight/hash/validation", "linux_wait4_rss_unit": "KiB"}
+COMPLETE producer-job: /home/canoziia/MyProject/PHYS/eht-pipeline-runs/production/pilot-m65-t1600-res100-t16-v2/jobs/14d970498e984a87f6bbb1fe7e3843d51479ecedb01e78beece89dba184870d5
+{
+  "complete": 1,
+  "cached": 0,
+  "failed": 0
+}
+Selected task prefix completed; full delivery waits for the remaining jobs.
+
+EXIT=0

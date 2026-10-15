@@ -343,9 +343,24 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, threads, timeout_seconds):
     build_dir, run_root = Path(build_dir).resolve(strict=True), Path(run_root).resolve()
     if run_root == build_dir or run_root.is_relative_to(build_dir):
         raise ValueError("Run container must not be inside the immutable build")
-    if any((parent / name).exists() or (parent / name).is_symlink()
-           for parent in [run_root, *run_root.parents] for name in ("manifest.json", "stage.json")):
-        raise ValueError("Refusing to use an existing output stage as a run container/ancestor")
+    for parent in [run_root, *run_root.parents]:
+        for name in ("manifest.json", "stage.json"):
+            marker = parent / name
+            if not marker.exists() and not marker.is_symlink():
+                continue
+            # The analysis output root has a descriptive container manifest,
+            # not a completed/replaceable scientific stage. Its production child
+            # is an intended location, but never write in an actual stage tree.
+            if marker.is_symlink():
+                raise ValueError("Refusing an output stage symlink ancestor")
+            record = json.loads(marker.read_text())
+            container = (name == "manifest.json" and parent != run_root
+                         and record.get("layout") == "canonical-run-v1"
+                         and record.get("complete") is not True
+                         and "schema" not in record and "stage" not in record
+                         and "outputs" not in record)
+            if not container:
+                raise ValueError("Refusing to use an existing output stage as a run container/ancestor")
     manifest = common.verify_stage(build_dir, recursive=True, allow_imported=False)
     binary, grid, header = _build_products(build_dir, manifest)
     constants = read_core_constants(header)
