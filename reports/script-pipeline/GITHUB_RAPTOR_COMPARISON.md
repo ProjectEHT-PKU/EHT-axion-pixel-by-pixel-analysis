@@ -1,5 +1,21 @@
 # GitHub RAPTOR仓库与实际生产工程对照
 
+## 恢复挂载后的直接diff更新
+
+已重新只读访问原2025工程，不再受下文初查时挂载为空的限制：
+
+- core pol_rte_integrator.c去除注释/空白后的7252个词法token与GitHub完全相同；dirty差异为排版和注释实验内容，未发现活跃代码差异。
+- core model/bhac/definitions.h确有活跃变化：SIGMA_CUT从1改1000。
+- 但生产raptor_run/definitions.h仍为SIGMA_CUT1，与GitHub逐字节相同；run makefile优先在运行目录取此header。因此不能把core模板1000直接说成这批生产实际cut1000。
+- 生产run的definitions.h/model.c/model_definitions.h/model_functions.h/model_global_vars.h/makefile/NormR.csv与GitHub逐字节相同。
+- 生产Run.py只把扫描列表从GitHub低五点改为末次[.1]，没有改变物理参数；model.in在运行后删除（脚本本来如此）。
+- 高表NormR_0.99.csv挂载版、本机EHT_ZC、Radial.1输出SHA均为0ff8b6c...，完整一致。
+- 本地额外h5tonpy.py、分析文件及test运行目录未在GitHub完整跟踪，仍需整理。
+
+关键源码/表已复制到临时只读审查快照`/tmp/eht-production-source-lT8cxx`，未运行或修改挂载代码。
+HEAD相同且活跃token相同仍不提供历史binary的完整构建证明，makefile/header重编译问题仍需处理。
+
+
 本轮只读检查GitHub、临时克隆及此前实际生产文件核查证据。未修改远端、未推送、未执行旧Run.py/RAPTOR，也未改生产数据。
 
 ## 1. 组织里的实际结构
