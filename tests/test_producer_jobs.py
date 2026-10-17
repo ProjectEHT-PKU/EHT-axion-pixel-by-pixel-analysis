@@ -57,7 +57,9 @@ if mode == "thread-binding":
     os.sched_setaffinity(0, {{cpus[0]}})
     def bound_thread(cpu):
         os.sched_setaffinity(0, {{cpu}})
-        time.sleep(1)
+        # Keep daemon affinity present until this short fake process exits;
+        # host contention must not make it disappear before the last sample.
+        threading.Event().wait(30)
     for cpu in cpus[1:]:
         threading.Thread(target=bound_thread, args=(cpu,), daemon=True).start()
     time.sleep(.3)

@@ -1,0 +1,17 @@
+{
+  "planned": 18330,
+  "counts": {
+    "/home/canoziia/PHYS-production/results/m65-211": {
+      "jobs": 18234,
+      "res100": 18189,
+      "res400": 45
+    },
+    "/home/canoziia/GRMHD_DATA/production/pilot-m65-t3000-res400-t16": {
+      "jobs": 96,
+      "res100": 0,
+      "res400": 96
+    }
+  },
+  "bad_count": 0,
+  "bad": []
+}

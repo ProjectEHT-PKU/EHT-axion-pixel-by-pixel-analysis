@@ -205,6 +205,24 @@ EHT输入仍是已有data/inputs；新RAPTOR root显式覆盖只影响模拟和b
 生成数据也不能用analysis-only profile绕过一致性检查。
 labels传给fit，不使用默认标签；后续inference/plot lineage保持到binary/fluid/table。
 
+## 多机器结果汇合
+
+当不同机器的任务保存在不同run中，使用明确的多个来源进行交付：
+
+```bash
+pixi run -e raptor-build merge-raptor \
+  --plan /home/canoziia/PHYS-production/control/full-plan.json \
+  --job-root /home/canoziia/PHYS-production/results/m65-211 \
+  --job-root /home/canoziia/GRMHD_DATA/production/pilot-m65-t3000-res400-t16 \
+  --output-root /home/canoziia/GRMHD_DATA/production/m65-211-merged
+```
+
+它不会启动C计算，不移动或重签原任务。每个计划任务必须恰好来自一个run，
+每个run分别验证真实build、参数及原始输入；缺失、重复或不一致都拒绝。
+新目录的`data/`保持原规范布局，`sources.json`记录各任务来源，
+`inventory/`列出完整交付。后续分析的`--raptor-input-root`指向该`data/`即可。
+原HDF及manifest必须保留，不能转换后直接删除仍在祖先链中的文件。
+
 ## 科学配置与缓存注意
 
 production.yaml默认质量为6.5e9 Msun、距离16.8Mpc，与2025 EHT 2018 Paper II主模型库一致。

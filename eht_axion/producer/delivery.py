@@ -14,9 +14,9 @@ from ..pipeline.layout import alpha_label
 from ..pipeline.raptor import convert_hdf5
 
 
-def _job_files(run_root, task, build_inputs):
+def _job_files(run_root, task, build_inputs, verified=None):
     directory = Path(run_root) / "jobs" / task["id"]
-    record = verify_stage(directory, recursive=True, allow_imported=False)
+    record = verify_stage(directory, recursive=True, allow_imported=False, _seen=verified)
     from .jobs import _prepare_task
 
     prepared, expected, raw_inputs = _prepare_task(task)
@@ -68,30 +68,67 @@ def _identity(config, *, alpha, resolution, labels, times, state_count):
     )
 
 
-def deliver_stokes(plan, run_root):
-    """Publish only complete groups; missing jobs never become padded images."""
-    root = Path(run_root)
+def deliver_stokes(plan, run_root, *, job_roots=None, output_root=None):
+    """Publish verified groups, preserving each job's real build/source ancestry.
+
+    Optional job_roots merges independent runs without copying or re-signing
+    their job receipts. Every planned task must exist in exactly one source.
+    output_root is a new delivery container, never a source run or raw directory.
+    """
+    from ..pipeline.common import reject_directory_symlinks, source_closure
+
+    root = Path(run_root).resolve()
+    roots = [root] if job_roots is None else [Path(p).resolve(strict=True) for p in job_roots]
+    if not roots or len(set(roots)) != len(roots):
+        raise ValueError("Delivery requires distinct nonempty job roots")
+    target = root if output_root is None else Path(output_root).absolute()
+    reject_directory_symlinks(target)
+    target = target.resolve()
+    if output_root is not None:
+        for source in roots:
+            if target == source or target.is_relative_to(source) or source.is_relative_to(target):
+                raise ValueError("Delivery output must be disjoint from source job roots")
     config = plan["config"]
     tasks = plan["tasks"]
     outputs = []
     with verification_session():
-        # The no-launch conversion entrypoint enforces the same production/build
-        # binding as execution. Integrity alone cannot certify the selected model.
         from .jobs import _build_products, _prepare_task, _validate_plan_binding
 
-        build_dir = root / "build"
-        build_manifest = verify_stage(build_dir, recursive=True, allow_imported=False)
-        binary, grid_path, header = _build_products(build_dir, build_manifest)
-        prepared = [_prepare_task(task) for task in tasks]
-        _validate_plan_binding(plan, prepared, build_manifest, build_dir, grid_path)
-        build_inputs = [manifest_path(build_dir), binary, grid_path, header]
-        lookup = {}
+        lookup, task_sources, assignments = {}, {}, {source: [] for source in roots}
         for task in tasks:
             key = (task["kind"], task["resolution"], task["label"], task.get("alpha"),
                    task["phase_index"])
-            if key in lookup:
+            if key in lookup or task["id"] in task_sources:
                 raise ValueError("Duplicate planned task")
+            matches = [source for source in roots
+                       if (source / "jobs" / task["id"]).exists()
+                       or (source / "jobs" / task["id"]).is_symlink()]
+            if len(matches) != 1:
+                raise ValueError(f"Expected exactly one source for task {task['id']}, found {len(matches)}")
+            source = matches[0]
             lookup[key] = task
+            task_sources[task["id"]] = source
+            assignments[source].append(task)
+        build_inputs, verified = {}, set()
+        for source, selected in assignments.items():
+            if not selected:
+                continue
+            build_dir = source / "build"
+            build_manifest = verify_stage(build_dir, recursive=True, allow_imported=False, _seen=verified)
+            binary, grid_path, header = _build_products(build_dir, build_manifest)
+            _validate_plan_binding(plan, [_prepare_task(t) for t in selected],
+                                   build_manifest, build_dir, grid_path)
+            build_inputs[source] = [manifest_path(build_dir), binary, grid_path, header]
+        # Reject delivery roots inside any actual consumed raw/code source tree.
+        if output_root is not None:
+            sources = [Path(t["source_path"]) for t in tasks]
+            sources += [Path(t["table_path"]) for t in tasks if t.get("table_path")]
+            sources += [p for values in build_inputs.values() for p in values]
+            for source in source_closure(sources):
+                if (source == target or source.is_relative_to(target)
+                        or target.is_relative_to(source.parent)):
+                    raise ValueError(f"Delivery output overlaps a consumed source: {source}")
+        source_records = [dict(task_id=t["id"], root=str(task_sources[t["id"]])) for t in tasks]
         response_res = config["producer"]["response"]["resolution"]
         background_res = config["producer"]["background"]["resolution"]
         snap = config["producer"]["snapshots"]
@@ -109,13 +146,14 @@ def deliver_stokes(plan, run_root):
                     selected += [lookup[("response", resolution, label, alpha, k)] for k in range(16)]
                 row = []
                 for task in selected:
-                    hdf, receipt = _job_files(root, task, build_inputs)
+                    source = task_sources[task["id"]]
+                    hdf, receipt = _job_files(source, task, build_inputs[source], verified)
                     row.append(hdf)
                     inputs += [receipt, hdf]
                 grid.append(row)
                 times.append(baseline["time_tg"])
             alias = config["background"]["alpha"] if alpha is None else alpha
-            base = root / "data" / "raptor" / f"res-{resolution}" / alpha_label(alias)
+            base = target / "data" / "raptor" / f"res-{resolution}" / alpha_label(alias)
             if alpha is None:
                 destination = base / f"t{group_labels[0]}-t{group_labels[-1]}"
                 filename = f"stokes-t{group_labels[0]}-t{group_labels[-1]}.npy"
@@ -130,6 +168,11 @@ def deliver_stokes(plan, run_root):
                     if filename != "stokes.npy":
                         result["stokes"].rename(temp / filename)
                     (temp / "generated.json").write_text(json.dumps(identity, indent=2) + "\n")
+                    used = {t["id"] for label in group_labels for t in tasks
+                            if t["label"] == label and t["resolution"] == resolution
+                            and (t["kind"] == "baseline" or t.get("alpha") == alpha)}
+                    (temp / "sources.json").write_text(json.dumps(
+                        [r for r in source_records if r["task_id"] in used], indent=2) + "\n")
             outputs.append(destination / filename)
     return outputs
 
