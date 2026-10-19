@@ -7,6 +7,7 @@ cache/transaction management to its caller; report.json is written last.
 from __future__ import annotations
 
 import json
+import math
 import pickle
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
@@ -25,6 +26,61 @@ FIELDS = ("zbl", "prior_fwhm", "sys_noise", "MEM", "TV", "T2V", "l1")
 RANK_OFFSETS = {95: (2, 0), 96: (1, 1), 100: (-4, 4), 101: (-1, 1)}
 FINAL_OFFSETS = {95: (1, 0), 96: (0, 1), 100: (-1, 2), 101: (0, 0)}
 HISTORICAL_RECTANGLES = ((48, 55, 10, 19),)
+
+
+def validate_geometry_contract(
+    expected_shape: int | None = None,
+    angular_fov_uas: float | None = None,
+    pixel_size_uas: float | None = None,
+) -> None:
+    """Validate declared angular geometry without IO or a mass/distance model.
+
+    All three values must be supplied together, or all omitted for the legacy
+    shape-inferred API. Angular sizes are in microarcseconds, NOT Rg. The caller
+    separately converts angular FOV to the explicit ``run_eht_stage(fov=...)``
+    value in Rg; this helper neither guesses nor recalibrates that conversion.
+    """
+    supplied = (expected_shape is not None, angular_fov_uas is not None,
+                pixel_size_uas is not None)
+    if not any(supplied):
+        return
+    if not all(supplied):
+        raise ValueError("expected_shape, angular_fov_uas and pixel_size_uas "
+                         "must be all supplied or all None")
+    if (isinstance(expected_shape, (bool, np.bool_))
+            or not isinstance(expected_shape, (int, np.integer)) or expected_shape < 2):
+        raise ValueError("expected_shape must be an integer >= 2 (not bool or float)")
+    for name, value in (("angular_fov_uas", angular_fov_uas), ("pixel_size_uas", pixel_size_uas)):
+        if (isinstance(value, (bool, np.bool_))
+                or not isinstance(value, (int, float, np.integer, np.floating))):
+            raise ValueError(f"{name} must be finite and positive (not bool or string)")
+        try:
+            valid = math.isfinite(value) and value > 0
+        except OverflowError:
+            valid = False
+        if not valid:
+            raise ValueError(f"{name} must be finite and positive")
+    try:
+        extent = int(expected_shape) * float(pixel_size_uas)
+        consistent = math.isfinite(extent) and math.isclose(
+            extent, float(angular_fov_uas), rel_tol=1e-12, abs_tol=0.0)
+    except OverflowError:
+        consistent = False
+    if not consistent:
+        raise ValueError("expected_shape * pixel_size_uas must equal angular_fov_uas")
+
+
+def _check_declared_shape(raw: Mapping, expected_shape: int | None, path: Path) -> None:
+    """Check every supplied Stokes channel before any image calculation."""
+    if expected_shape is None:
+        return
+    for field in ("I_data", "Q_data", "U_data", "V_data"):
+        if field == "V_data" and field not in raw:
+            continue
+        shape = np.shape(raw[field])
+        if shape[:2] != (expected_shape, expected_shape):
+            raise ValueError(f"{path}: {field} raw shape {shape[:2]} != "
+                             f"expected_shape ({expected_shape}, {expected_shape})")
 
 
 def metadata_identities(metadata: Sequence[Mapping]) -> list[tuple]:
@@ -281,6 +337,9 @@ def run_eht_stage(
     weighting: str = "intensity",
     inherit_2d_mask: bool = False,
     fov: float = 32.6868,
+    expected_shape: int | None = None,
+    angular_fov_uas: float | None = None,
+    pixel_size_uas: float | None = None,
     radial_max: float | None = None,
     window_degrees: int = 10,
     angular_bins: int = 360,
@@ -306,13 +365,25 @@ def run_eht_stage(
     quadrature.  Otherwise use polarization.aperture_operator/integrate_stokes;
     missing parent APIs are an error, never an implicit historical fallback.
     All persisted arrays are float64 (counts/indices int64, mask bool).
+
+    ``expected_shape``, ``angular_fov_uas`` and ``pixel_size_uas`` form an
+    optional all-or-none declaration, checked before IO and against each raw
+    Stokes image before calculations. ``fov`` remains a separate explicit Rg
+    extent for masks/apertures, not the angular extent. No M/D is required here.
     """
+    validate_geometry_contract(expected_shape, angular_fov_uas, pixel_size_uas)
+    if expected_shape is not None:
+        expected_shape = int(expected_shape)
+        angular_fov_uas, pixel_size_uas = float(angular_fov_uas), float(pixel_size_uas)
     if not trust_pickle:
         raise ValueError("pickle can execute code: explicitly set trust_pickle=True / --trust-pickle")
     if centering != "ensemble" or weighting not in ("intensity", "flux"):
         raise ValueError("centering must be 'ensemble'; weighting must be 'intensity' or 'flux'")
-    if min(topset_size, batch_size, pixel_batch_size, angular_bins) <= 0:
-        raise ValueError("sizes must be positive")
+    for name, value in (("topset_size", topset_size), ("batch_size", batch_size),
+                        ("pixel_batch_size", pixel_batch_size), ("angular_bins", angular_bins)):
+        if (isinstance(value, (bool, np.bool_))
+                or not isinstance(value, (int, np.integer)) or value <= 0):
+            raise ValueError(f"{name}: sizes must be positive integers")
     if not np.isfinite(fov) or fov <= 0:
         raise ValueError("fov must be finite and positive")
     rank_offsets = dict(RANK_OFFSETS if rank_offsets is None else rank_offsets)
@@ -338,6 +409,11 @@ def run_eht_stage(
         "input_dir": str(input_dir.resolve()), "topset_size": topset_size,
         "centering": centering, "ddof": 0, "weighting": weighting,
         "inherit_2d_mask": inherit_2d_mask, "fov": fov, "radial_max": radial_max,
+        "expected_shape": expected_shape, "angular_fov_uas": angular_fov_uas,
+        "pixel_size_uas": pixel_size_uas,
+        "geometry": {"mode": "legacy" if expected_shape is None else "declared",
+                     "expected_shape": expected_shape, "angular_fov_uas": angular_fov_uas,
+                     "pixel_size_uas": pixel_size_uas, "fov_rg": fov},
         "window_degrees": window_degrees, "angular_bins": angular_bins, "angle_roll": angle_roll,
         "rank_offsets": rank_offsets, "final_offsets": final_offsets,
         "relocation": "fixed; never refitted", "mask_options": mask_options,
@@ -353,7 +429,9 @@ def run_eht_stage(
         orders, rank_summaries, rank_intensity = [], [], []
         shape = n = None
         for day in DAYS:
-            raw = _load_day(input_eht_file(input_dir, day))
+            path = input_eht_file(input_dir, day)
+            raw = _load_day(path)
+            _check_declared_shape(raw, expected_shape, path)
             common, order = align_metadata(raw["meta_data"], common)
             current_shape = raw["I_data"].shape[0]
             if shape is not None and current_shape != shape:
@@ -411,7 +489,9 @@ def run_eht_stage(
             raise ValueError("aperture operator shape must be (angular_bins, H*H)")
         summaries_2d, final_intensity = [], []
         for day, order in zip(DAYS, orders):
-            raw = _load_day(input_eht_file(input_dir, day))
+            path = input_eht_file(input_dir, day)
+            raw = _load_day(path)
+            _check_declared_shape(raw, expected_shape, path)
             # Detect metadata changes between ranking and final-product passes.
             _, checked_order = align_metadata(raw["meta_data"], common)
             if not np.array_equal(order, checked_order) or raw["I_data"].shape[:2] != (shape, shape):

@@ -177,13 +177,14 @@ def deliver_stokes(plan, run_root, *, job_roots=None, output_root=None):
     return outputs
 
 
-def generated_inputs(paths, config, *, alpha, resolution):
+def generated_inputs(paths, config, *, alpha, resolution, verified=None):
     """Validate generated source identity, return declared edges and real labels.
 
     Legacy raw data remains usable without producer configuration. A production
     profile must never consume unlabeled legacy raw data by silent fallback.
     """
     paths = [Path(p) for p in paths]
+    seen = set() if verified is None else verified
     inputs, labels = list(paths), []
     generated = [(p.parent / "generated.json").is_file() for p in paths]
     if not any(generated):
@@ -205,7 +206,7 @@ def generated_inputs(paths, config, *, alpha, resolution):
         raise ValueError("Generated RAPTOR inputs require their production science profile")
     for path in paths:
         directory = path.parent
-        verify_stage(directory, recursive=True, allow_imported=False)
+        verify_stage(directory, recursive=True, allow_imported=False, _seen=seen)
         metadata = directory / "generated.json"
         require_declared_outputs(directory, [path, metadata])
         record = json.loads(metadata.read_text())
@@ -228,12 +229,43 @@ def generated_inputs(paths, config, *, alpha, resolution):
     return list(dict.fromkeys(inputs)), labels
 
 
-def validate_processed_source(manifest, config, *, alpha, resolution):
+def input_cadence_hours(paths, config):
+    """Derive generated-frame spacing from footer times, never a fixed label step.
+
+    Historical inputs without generated metadata retain an explicit configured
+    label convention. Generated inputs must provide complete uniform time grids.
+    Callers also use generated_inputs() to verify identity and ancestry.
+    """
+    from ..pipeline.constants import PhysicalScale
+
+    times = []
+    paths = [Path(p) for p in paths]
+    flags = [(p.parent / "generated.json").is_file() for p in paths]
+    if any(flags):
+        if not all(flags):
+            raise ValueError("Mixed generated and legacy time grids")
+        for path in paths:
+            times.extend(json.loads((path.parent / "generated.json").read_text())["times_tg"])
+        delta = np.diff(np.asarray(times, dtype=float))
+        if (not len(delta) or not np.isfinite(delta).all() or np.any(delta <= 0)
+                or not np.allclose(delta, delta[0], rtol=1e-12, atol=0)):
+            raise ValueError("Background requires a uniform finite footer-time grid")
+        cadence_tg = float(delta[0])
+    else:
+        if "producer" in config:
+            raise ValueError("Production profile requires generated footer times")
+        from ..pipeline.layout import _LABEL_STEP
+
+        cadence_tg = _LABEL_STEP * config["physical"]["label_step_tg"]
+    return cadence_tg * PhysicalScale(**config["physical"]).tg_hours
+
+
+def validate_processed_source(manifest, config, *, alpha, resolution, verified=None):
     """Recheck producer contracts from independent inference/verify entrypoints."""
     raw = [Path(e["path"]) for e in manifest["inputs"] if Path(e["path"]).suffix == ".npy"]
     if not raw:
         raise ValueError("Preprocess stage declares no raw Stokes input")
-    required, _ = generated_inputs(raw, config, alpha=alpha, resolution=resolution)
+    required, _ = generated_inputs(raw, config, alpha=alpha, resolution=resolution, verified=verified)
     actual = {Path(e["path"]).resolve() for e in manifest["inputs"]}
     if actual != {p.resolve() for p in required}:
         raise ValueError("Preprocess source lineage omits generated identity or contains foreign inputs")

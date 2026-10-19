@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 ALPHAS = np.array((0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.44))
+# Historical fit-product normalization; active pipelines pass producer metadata.
 AXION_NORM = 0.1
 TIME_CONVERSION = 0.112411
 
@@ -26,8 +27,25 @@ def omega(alpha: float, n_principal: int = 2) -> float:
     return alpha * (1 - alpha**2 / (2 * n_principal**2))
 
 
-def cloud_amplitude_scaling(alpha: float) -> float:
-    return 0.03 * (alpha / 0.05) ** (7 / 4)
+def cloud_amplitude_scaling(
+    alpha: float,
+    *,
+    coefficient: float = 0.03,
+    pivot_alpha: float = 0.05,
+    exponent: float = 7 / 4,
+) -> float:
+    """Cloud amplitude model with historical defaults for API compatibility.
+
+    Active inference supplies these model choices explicitly from configuration;
+    they are not derived from the black-hole mass or distance.
+    """
+    for name, value in (("alpha", alpha), ("coefficient", coefficient),
+                        ("pivot_alpha", pivot_alpha)):
+        if isinstance(value, (bool, np.bool_)) or not np.isfinite(value) or value <= 0:
+            raise ValueError(f"{name} must be positive and finite")
+    if isinstance(exponent, (bool, np.bool_)) or not np.isfinite(exponent):
+        raise ValueError("exponent must be finite")
+    return coefficient * (alpha / pivot_alpha) ** exponent
 
 
 def _load_dictionary(path: Path) -> Mapping[float, NDArray[np.floating]]:
@@ -109,6 +127,7 @@ def evpa_templates(
     day_gap_hours: float = 24.0,
     pair_separation_hours: float = 120.0,
     n_principal: int = 2,
+    reference_norm: float = AXION_NORM,
 ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
     """Return two-epoch signal templates and their propagated uncertainties.
 
@@ -120,7 +139,15 @@ def evpa_templates(
     Corrected phases advance by omega*time; legacy retains the extra /2.
     Exposure is a rectangular time average. The first pair midpoint is the
     phase origin, absorbing the unobservable common cosine-to-sine shift.
+
+    ``reference_norm`` is the positive fit-product amplitude normalization;
+    both signal and uncertainty scale inversely with it. Its historical default
+    is retained for API compatibility, not fixed for active inference, which
+    passes the producer metadata explicitly.
     """
+    if (isinstance(reference_norm, (bool, np.bool_))
+            or not np.isfinite(reference_norm) or reference_norm <= 0):
+        raise ValueError("reference_norm must be positive and finite")
     phase_count = (16 if legacy else 64) if phase_count is None else phase_count
     if isinstance(phase_count, bool) or not isinstance(phase_count, (int, np.integer)) or phase_count < 2:
         raise ValueError("phase_count must be an integer >= 2")
@@ -156,7 +183,7 @@ def evpa_templates(
         2
         * np.sin(time_conversion * angular_frequency / 2 * day_gap_hours)
         * np.sinc(exposure / np.pi)
-        / AXION_NORM
+        / reference_norm
     )
     phase_first = initial_phase + phase[0]
     phase_second = (

@@ -11,7 +11,10 @@ from numpy.typing import NDArray
 from scipy.linalg import cho_factor, cho_solve, eigh, solve_triangular
 from scipy.special import logsumexp
 
-from .model import ALPHAS, TIME_CONVERSION, cloud_amplitude_scaling, evpa_templates, load_fit_parameters
+from .model import (
+    ALPHAS, AXION_NORM, TIME_CONVERSION, cloud_amplitude_scaling, evpa_templates,
+    load_fit_parameters,
+)
 from .observations import (
     ObservationData,
     diagonal_pair_covariances,
@@ -23,6 +26,13 @@ from .statistics import normalized_posterior_cdf, posterior_upper_limit
 
 @dataclass(frozen=True)
 class LimitOptions:
+    """Inference options with historical public-API defaults.
+
+    Active pipelines explicitly supply ``reference_norm`` from producer metadata
+    and the cloud model parameters from inference configuration. These model
+    choices are not derived from black-hole mass or distance.
+    """
+
     legacy: bool = False
     prior: str = "log-uniform"
     coupling_points: int = 60
@@ -44,6 +54,10 @@ class LimitOptions:
     combine_epochs_by_product: bool | None = None
     include_parameter_logdet: bool | None = None
     posterior_method: str | None = None
+    reference_norm: float = AXION_NORM
+    cloud_coefficient: float = 0.03
+    cloud_pivot_alpha: float = 0.05
+    cloud_exponent: float = 1.75
 
 
 def _legacy_quadratic(residual: NDArray, covariance: NDArray) -> float:
@@ -217,13 +231,16 @@ def calculate_from_products(
             legacy_shared_uncertainty=options.shared_epoch_uncertainty,
             time_conversion=options.time_conversion, exposure_hours=options.exposure_hours,
             day_gap_hours=options.day_gap_hours, pair_separation_hours=options.pair_separation_hours,
-            n_principal=options.n_principal,
+            n_principal=options.n_principal, reference_norm=options.reference_norm,
         )
         if signal.ndim != (3 if dimension == "1d" else 4):
             raise ValueError("fit spatial shape does not match dimension")
         signal = signal.reshape(signal.shape[0], 2, -1)
         signal_std = signal_std.reshape(signal_std.shape[0], 2, -1)
-        scale = cloud_amplitude_scaling(float(alpha))
+        scale = cloud_amplitude_scaling(
+            float(alpha), coefficient=options.cloud_coefficient,
+            pivot_alpha=options.cloud_pivot_alpha, exponent=options.cloud_exponent,
+        )
         signal = signal * scale
         signal_std = signal_std * scale
         resolved_phase_count = signal.shape[0]

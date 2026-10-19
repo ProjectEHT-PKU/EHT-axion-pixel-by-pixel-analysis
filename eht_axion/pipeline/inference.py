@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 import numpy as np
 from ..limits import LimitOptions, calculate_from_products
-from .constants import PhysicalScale
+from .constants import PhysicalScale, analysis_geometry
 from .common import (
     stage_directory, verify_stage, sha256, manifest_path, reject_directory_symlinks,
     require_declared_outputs,
@@ -70,7 +70,8 @@ def validate_run_lineage(output_root, alphas, *, allow_imported=False):
         if generation_profile is not None:
             from ..producer.delivery import validate_processed_source
 
-            validate_processed_source(processed, generation_profile, alpha=alpha, resolution=100)
+            validate_processed_source(processed, generation_profile, alpha=alpha, resolution=100,
+                                      verified=seen)
         elif any(Path(e["path"]).name == "generated.json" for e in processed["inputs"]):
             raise ValueError("Generated inference lineage lacks its production science profile")
         _check_lineage(verified(layout.response(alpha)), _stage_files(layout.processed(alpha)))
@@ -91,7 +92,8 @@ def validate_run_lineage(output_root, alphas, *, allow_imported=False):
 
         validate_processed_source(bg_processed, generation_profile,
                                   alpha=generation_profile["background"]["alpha"],
-                                  resolution=generation_profile["background"]["source_resolution"])
+                                  resolution=generation_profile["background"]["source_resolution"],
+                                  verified=seen)
     elif any(Path(e["path"]).name == "generated.json" for e in bg_processed["inputs"]):
         raise ValueError("Generated background lineage lacks its production science profile")
     _check_lineage(
@@ -110,6 +112,14 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
 
     settings = config["inference"]
     physical = PhysicalScale(**config["physical"])
+    geometry = analysis_geometry(config)
+    cloud = config.get("cloud", {"coefficient": 0.03, "pivot_alpha": 0.05,
+                                 "exponent": 1.75, "reference_norm": 0.1})
+    if "producer" in config:
+        if "cloud" not in config:
+            cloud = dict(cloud, reference_norm=config["producer"]["response"]["reference_norm"])
+        elif cloud["reference_norm"] != config["producer"]["response"]["reference_norm"]:
+            raise ValueError("Template normalization differs from generated response")
     background_dir = layout.background
     verified(background_dir)
     require_declared_outputs(background_dir, [background_dir / "summary.json"])
@@ -130,6 +140,10 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
         day_gap_hours=settings["day_gap_hours"],
         pair_separation_hours=settings["pair_separation_hours"],
         n_principal=settings["principal_n"],
+        reference_norm=cloud["reference_norm"],
+        cloud_coefficient=cloud["coefficient"],
+        cloud_pivot_alpha=cloud["pivot_alpha"],
+        cloud_exponent=cloud["exponent"],
         std_covariance="covariance",
     )
     inputs = [manifest_path(background_dir), background_dir / "summary.json"]
@@ -149,50 +163,50 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
         "weighting": config["aperture"]["weighting"],
         "window_degrees": config["aperture"]["window_degrees"],
         "angular_bins": config["aperture"]["angular_bins"],
-        "radial_max": config["aperture"]["radial_max_rg"],
-        "fov": config["image"]["final_fov_rg"],
+        "radial_max": geometry["aperturefit"]["radial_max"],
+        "fov": geometry["aperturefit"]["fov"],
         "inherit_2d_mask": config["eht"]["inherit_2d_mask_in_1d"],
         "min_radius": config["eht"]["min_radius_rg"],
         "intensity_fraction": config["eht"]["intensity_fraction"],
         "historical_mask": config["eht"]["historical_mask"],
     }
+    if "eht_input" in config:
+        contract = config["eht_input"]
+        expected_eht.update(expected_shape=contract["shape"], angular_fov_uas=contract["fov_uas"],
+                            pixel_size_uas=contract["pixel_size_uas"], angle_roll=contract["angle_roll"],
+                            rank_offsets=contract["rank_offsets"], final_offsets=contract["final_offsets"],
+                            exclude_columns=contract["exclude_columns"],
+                            exclusion_rectangles=contract["exclusion_rectangles"])
+    expected_eht = json.loads(json.dumps(expected_eht))
     if any(eht_manifest["config"].get(k) != v for k, v in expected_eht.items()):
         raise ValueError("Current config differs from completed EHT stage; rebuild upstream")
-    expected_preprocess = dict(
-        sigma=config["image"]["gaussian_sigma_rg"],
-        init_fov=config["image"]["initial_fov_rg"],
-        final_fov=config["image"]["final_fov_rg"],
-        final_shape=config["image"]["final_shape"],
-        rotation_angle=float(np.deg2rad(config["image"]["rotation_degrees"])),
-    )
-    expected_fit = dict(
-        fov=config["image"]["final_fov_rg"],
-        weighting=config["aperture"]["weighting"],
-        radial_max=config["aperture"]["radial_max_rg"],
-        window_degrees=config["aperture"]["window_degrees"],
-        angular_bins=360,
-    )
+    expected_preprocess = geometry["image_preprocess"]
+    expected_fit = geometry["aperturefit"]
     from ..producer.delivery import generated_inputs, validate_processed_source
 
     for alpha in config["data"]["alphas"]:
         processed = verified(layout.processed(alpha))
-        validate_processed_source(processed, config, alpha=alpha, resolution=100)
+        validate_processed_source(processed, config, alpha=alpha, resolution=100, verified=seen)
         if processed["config"] != expected_preprocess:
             raise ValueError("Current image config differs from RAPTOR preprocessing")
         fitted = verified(layout.response(alpha))
         raw_inputs = [Path(e["path"]) for e in processed["inputs"]
                       if Path(e["path"]).suffix == ".npy"]
-        _, labels = generated_inputs(raw_inputs, config, alpha=alpha, resolution=100)
+        _, labels = generated_inputs(raw_inputs, config, alpha=alpha, resolution=100, verified=seen)
         effective_fit = dict(expected_fit)
         if labels is not None:
             effective_fit["snapshot_labels"] = labels
         if fitted["config"] != effective_fit:
             raise ValueError("Current aperture config differs from RAPTOR response fits")
         _check_lineage(fitted, _stage_files(layout.processed(alpha)))
+    from ..producer.delivery import input_cadence_hours
+
+    bg_raw = [Path(e["path"]) for e in verified(layout.background_processed)["inputs"]
+              if Path(e["path"]).suffix == ".npy"]
     if (
         background["lag"] != config["background"]["lag_frames"]
         or background["method"] != config["background"]["method"]
-        or not np.isclose(background["cadence_hours"], 10 * physical.label_step_tg * physical.tg_hours)
+        or not np.isclose(background["cadence_hours"], input_cadence_hours(bg_raw, config))
     ):
         raise ValueError("Background product differs from current time/model config")
     background_manifest = verified(background_dir)
@@ -204,7 +218,7 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
         raise ValueError("Current background source differs from completed stage")
     bg_processed = verified(layout.background_processed)
     validate_processed_source(bg_processed, config, alpha=config["background"]["alpha"],
-                              resolution=config["background"]["source_resolution"])
+                              resolution=config["background"]["source_resolution"], verified=seen)
     if bg_processed["config"] != dict(expected_preprocess, state_indices=[0]):
         raise ValueError("Current image config differs from background preprocessing")
     _check_lineage(
@@ -234,6 +248,8 @@ def run_inference(output_root, config, *, rebuild=False, reuse_imported=False):
     effective = {
         "options": asdict(options),
         "physical": physical.metadata(),
+        "derived_geometry": geometry,
+        "cloud": cloud,
         "background": background,
         "aperture": config["aperture"],
         "eht": config["eht"],
