@@ -1,0 +1,8 @@
+✨ Pixi task (research-polarization in eht-research): python scripts/research_eht_polarization.py --config configs/eht-polarization-study.yaml --output-root /home/canoziia/GRMHD_DATA/analysis/eht-polarization-study-v1 --trust-pickle --study-id full4800-source-fits
+day 95: {'all4800': 4800, 'legacy_evpa': 1572, 'datafit_perday': 2608, 'datafit_shared': 1989, 'bestI': 1}
+day 96: {'all4800': 4800, 'legacy_evpa': 1572, 'datafit_perday': 2124, 'datafit_shared': 1989, 'bestI': 1}
+day 100: {'all4800': 4800, 'legacy_evpa': 1572, 'datafit_perday': 2148, 'datafit_shared': 1989, 'bestI': 1}
+day 101: {'all4800': 4800, 'legacy_evpa': 1572, 'datafit_perday': 2228, 'datafit_shared': 1989, 'bestI': 1}
+COMPLETE research:eht-polarization: /home/canoziia/GRMHD_DATA/analysis/eht-polarization-study-v1
+
+EXIT=0

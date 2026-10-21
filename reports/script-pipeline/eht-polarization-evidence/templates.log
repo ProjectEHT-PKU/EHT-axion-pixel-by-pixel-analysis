@@ -1,0 +1,22 @@
+✨ Pixi task (raptor in default): python scripts/process_raptor.py --config configs/eht-observed-research.yaml --raptor-input-root /home/canoziia/GRMHD_DATA/production/m65-211-merged/data --output-root /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1 --no-rebuild --no-reuse-imported: (Preprocess RAPTOR Stokes, fit response and summarize templates)
+COMPLETE raptor:preprocess: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/processed/alpha-0.10
+COMPLETE raptor:fit: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/response/alpha-0.10
+COMPLETE raptor:preprocess: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/processed/alpha-0.15
+COMPLETE raptor:fit: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/response/alpha-0.15
+COMPLETE raptor:preprocess: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/processed/alpha-0.20
+COMPLETE raptor:fit: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/response/alpha-0.20
+COMPLETE raptor:preprocess: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/processed/alpha-0.25
+COMPLETE raptor:fit: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/response/alpha-0.25
+COMPLETE raptor:preprocess: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/processed/alpha-0.30
+COMPLETE raptor:fit: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/response/alpha-0.30
+COMPLETE raptor:preprocess: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/processed/alpha-0.35
+COMPLETE raptor:fit: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/response/alpha-0.35
+COMPLETE raptor:preprocess: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/processed/alpha-0.40
+COMPLETE raptor:fit: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/response/alpha-0.40
+COMPLETE raptor:preprocess: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/processed/alpha-0.44
+COMPLETE raptor:fit: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/response/alpha-0.44
+COMPLETE raptor:summarize: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/templates/1d
+COMPLETE raptor:summarize: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1/raptor/templates/2d
+Results: /home/canoziia/GRMHD_DATA/analysis/eht-observed-research-templates-v1
+
+EXIT=0

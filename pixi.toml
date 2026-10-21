@@ -57,6 +57,14 @@ build-raptor = "python scripts/build_raptor.py"
 generate-raptor = "python scripts/generate_raptor.py"
 merge-raptor = "python scripts/merge_raptor_runs.py"
 
+[feature.eht-research.dependencies]
+astropy = ">=6,<8"
+
+[feature.eht-research.tasks]
+research-polarization = "python scripts/research_eht_polarization.py"
+research-observed = "python scripts/research_observed_limits.py"
+
 [environments]
 default = { features = [] }
 raptor-build = { features = ["raptor-build"] }
+eht-research = { features = ["eht-research"] }
