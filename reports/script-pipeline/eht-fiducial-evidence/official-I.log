@@ -1,0 +1,323 @@
+Warning: No NFFT installed!
+Welcome to eht-imaging!
+
+Loading uvfits:  /home/canoziia/GRMHD_DATA/EHT_DATA/official-2023-D01-01/SR2_M87_2017_101_lo_hops_zbl-dtcal+selfcal.uvfits
+no IF in uvfits header!
+POLREP_UVFITS: circ
+Number of uvfits Correlation Products: 4
+Warning: Specified total compact flux density exceeds total flux density measured on AA-AP!
+Self-calibrating the LMT to a Gaussian model for LMT-SMT...
+U-V flagged 135/170 visibilities
+Computing the Model Visibilities with direct Fourier Transform...
+Producing clean visibilities from image with direct FT . . .
+Not Using Multiprocessing
+
+Scan 00/21 : [                              ]0%
+Scan 01/21 : [-                             ]4%
+Scan 02/21 : [--                            ]9%
+Scan 03/21 : [----                          ]14%
+Scan 04/21 : [-----                         ]19%
+Scan 05/21 : [------                        ]23%
+Scan 06/21 : [--------                      ]28%
+Scan 07/21 : [---------                     ]33%
+Scan 08/21 : [-----------                   ]38%
+Scan 09/21 : [------------                  ]42%
+Scan 10/21 : [--------------                ]47%
+Scan 11/21 : [---------------               ]52%
+Scan 12/21 : [-----------------             ]57%
+Scan 13/21 : [------------------            ]61%
+Scan 14/21 : [-------------------           ]66%
+Scan 15/21 : [---------------------         ]71%
+Scan 16/21 : [----------------------        ]76%
+Scan 17/21 : [------------------------      ]80%
+Scan 18/21 : [-------------------------     ]85%
+Scan 19/21 : [---------------------------   ]90%
+Scan 20/21 : [----------------------------  ]95%
+self_cal time: 0.062309 s
+No Calibration  Data for PV !
+No Calibration  Data for SM !
+Round 1: Imaging with visibility amplitudes and closure quantities...
+Initializing imager data products . . .
+U-V flagged 20/170 visibilities
+U-V flagged 150/170 visibilities
+==============================
+Imager run 1
+Imaging . . .
+time: 1.330626 s
+J: 26.504401
+chi2_amp : 18.55 chi2_cphase : 1.63 chi2_logcamp : 2.33
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+==============================
+Imager run 2
+Imaging . . .
+time: 1.250908 s
+J: 25.579639
+chi2_amp : 17.62 chi2_cphase : 1.35 chi2_logcamp : 2.20
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+==============================
+Imager run 3
+Imaging . . .
+time: 1.108589 s
+J: 25.677114
+chi2_amp : 17.55 chi2_cphase : 1.38 chi2_logcamp : 2.23
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+==============================
+Imager run 4
+Imaging . . .
+time: 1.279539 s
+J: 25.691251
+chi2_amp : 17.49 chi2_cphase : 1.39 chi2_logcamp : 2.23
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+No stations specified in self cal: defaulting to calibrating all stations!
+Computing the Model Visibilities with direct Fourier Transform...
+Producing clean visibilities from image with direct FT . . .
+Not Using Multiprocessing
+
+Scan 00/22 : [                              ]0%
+Scan 01/22 : [-                             ]4%
+Scan 02/22 : [--                            ]9%
+Scan 03/22 : [---                           ]13%
+Scan 04/22 : [-----                         ]18%
+Scan 05/22 : [------                        ]22%
+Scan 06/22 : [--------                      ]27%
+Scan 07/22 : [---------                     ]31%
+Scan 08/22 : [----------                    ]36%
+Scan 09/22 : [------------                  ]40%
+Scan 10/22 : [-------------                 ]45%
+Scan 11/22 : [---------------               ]50%
+Scan 12/22 : [----------------              ]54%
+Scan 13/22 : [-----------------             ]59%
+Scan 14/22 : [------------------            ]63%
+Scan 15/22 : [--------------------          ]68%
+Scan 16/22 : [---------------------         ]72%
+Scan 17/22 : [-----------------------       ]77%
+Scan 18/22 : [------------------------      ]81%
+Scan 19/22 : [-------------------------     ]86%
+Scan 20/22 : [---------------------------   ]90%
+Scan 21/22 : [----------------------------  ]95%
+self_cal time: 1.540944 s
+Round 2: Imaging with visibilities and closure quantities...
+Initializing imager data products . . .
+U-V flagged 20/170 visibilities
+U-V flagged 150/170 visibilities
+==============================
+Imager run 1
+Imaging . . .
+time: 1.451969 s
+J: 28.160350
+chi2_cphase : 0.63 chi2_logcamp : 0.65 chi2_vis : 1.67
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+==============================
+Imager run 2
+Imaging . . .
+time: 1.435131 s
+J: 28.541236
+chi2_cphase : 0.60 chi2_logcamp : 0.65 chi2_vis : 1.59
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+==============================
+Imager run 3
+Imaging . . .
+time: 1.285984 s
+J: 28.572614
+chi2_cphase : 0.61 chi2_logcamp : 0.65 chi2_vis : 1.63
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+==============================
+Imager run 4
+Imaging . . .
+time: 1.134027 s
+J: 28.568966
+chi2_cphase : 0.61 chi2_logcamp : 0.65 chi2_vis : 1.59
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+No stations specified in self cal: defaulting to calibrating all stations!
+Computing the Model Visibilities with direct Fourier Transform...
+Producing clean visibilities from image with direct FT . . .
+Not Using Multiprocessing
+
+Scan 00/22 : [                              ]0%
+Scan 01/22 : [-                             ]4%
+Scan 02/22 : [--                            ]9%
+Scan 03/22 : [---                           ]13%
+Scan 04/22 : [-----                         ]18%
+Scan 05/22 : [------                        ]22%
+Scan 06/22 : [--------                      ]27%
+Scan 07/22 : [---------                     ]31%
+Scan 08/22 : [----------                    ]36%
+Scan 09/22 : [------------                  ]40%
+Scan 10/22 : [-------------                 ]45%
+Scan 11/22 : [---------------               ]50%
+Scan 12/22 : [----------------              ]54%
+Scan 13/22 : [-----------------             ]59%
+Scan 14/22 : [------------------            ]63%
+Scan 15/22 : [--------------------          ]68%
+Scan 16/22 : [---------------------         ]72%
+Scan 17/22 : [-----------------------       ]77%
+Scan 18/22 : [------------------------      ]81%
+Scan 19/22 : [-------------------------     ]86%
+Scan 20/22 : [---------------------------   ]90%
+Scan 21/22 : [----------------------------  ]95%
+self_cal time: 1.197093 s
+Computing the Model Visibilities with direct Fourier Transform...
+Producing clean visibilities from image with direct FT . . .
+Not Using Multiprocessing
+
+Scan 00/22 : [                              ]0%
+Scan 01/22 : [-                             ]4%
+Scan 02/22 : [--                            ]9%
+Scan 03/22 : [---                           ]13%
+Scan 04/22 : [-----                         ]18%
+Scan 05/22 : [------                        ]22%
+Scan 06/22 : [--------                      ]27%
+Scan 07/22 : [---------                     ]31%
+Scan 08/22 : [----------                    ]36%
+Scan 09/22 : [------------                  ]40%
+Scan 10/22 : [-------------                 ]45%
+Scan 11/22 : [---------------               ]50%
+Scan 12/22 : [----------------              ]54%
+Scan 13/22 : [-----------------             ]59%
+Scan 14/22 : [------------------            ]63%
+Scan 15/22 : [--------------------          ]68%
+Scan 16/22 : [---------------------         ]72%
+Scan 17/22 : [-----------------------       ]77%
+Scan 18/22 : [------------------------      ]81%
+Scan 19/22 : [-------------------------     ]86%
+Scan 20/22 : [---------------------------   ]90%
+Scan 21/22 : [----------------------------  ]95%
+self_cal time: 0.062051 s
+Rounds 3+4: Imaging with visibilities and closure quantities...
+Initializing imager data products . . .
+U-V flagged 20/170 visibilities
+U-V flagged 150/170 visibilities
+==============================
+Imager run 1
+Imaging . . .
+time: 1.169224 s
+J: 21.390965
+chi2_cphase : 0.56 chi2_logcamp : 0.57 chi2_vis : 0.57
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+==============================
+Imager run 2
+Imaging . . .
+time: 1.308680 s
+J: 21.451033
+chi2_cphase : 0.57 chi2_logcamp : 0.57 chi2_vis : 0.58
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+==============================
+Imager run 3
+Imaging . . .
+time: 1.485572 s
+J: 21.424288
+chi2_cphase : 0.56 chi2_logcamp : 0.58 chi2_vis : 0.57
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+==============================
+Imager run 4
+Imaging . . .
+time: 1.383742 s
+J: 21.456922
+chi2_cphase : 0.55 chi2_logcamp : 0.58 chi2_vis : 0.58
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+Computing the Model Visibilities with direct Fourier Transform...
+Producing clean visibilities from image with direct FT . . .
+Not Using Multiprocessing
+
+Scan 00/22 : [                              ]0%
+Scan 01/22 : [-                             ]4%
+Scan 02/22 : [--                            ]9%
+Scan 03/22 : [---                           ]13%
+Scan 04/22 : [-----                         ]18%
+Scan 05/22 : [------                        ]22%
+Scan 06/22 : [--------                      ]27%
+Scan 07/22 : [---------                     ]31%
+Scan 08/22 : [----------                    ]36%
+Scan 09/22 : [------------                  ]40%
+Scan 10/22 : [-------------                 ]45%
+Scan 11/22 : [---------------               ]50%
+Scan 12/22 : [----------------              ]54%
+Scan 13/22 : [-----------------             ]59%
+Scan 14/22 : [------------------            ]63%
+Scan 15/22 : [--------------------          ]68%
+Scan 16/22 : [---------------------         ]72%
+Scan 17/22 : [-----------------------       ]77%
+Scan 18/22 : [------------------------      ]81%
+Scan 19/22 : [-------------------------     ]86%
+Scan 20/22 : [---------------------------   ]90%
+Scan 21/22 : [----------------------------  ]95%
+self_cal time: 2.355387 s
+Initializing imager data products . . .
+U-V flagged 20/170 visibilities
+U-V flagged 150/170 visibilities
+==============================
+Imager run 1
+Imaging . . .
+time: 1.453144 s
+J: 18.467036
+chi2_cphase : 0.55 chi2_logcamp : 0.56 chi2_vis : 0.41
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+==============================
+Imager run 2
+Imaging . . .
+time: 1.234218 s
+J: 18.759371
+chi2_cphase : 0.56 chi2_logcamp : 0.55 chi2_vis : 0.41
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+==============================
+Imager run 3
+Imaging . . .
+time: 1.439114 s
+J: 18.461432
+chi2_cphase : 0.56 chi2_logcamp : 0.56 chi2_vis : 0.41
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+==============================
+Imager run 4
+Imaging . . .
+time: 1.421554 s
+J: 18.340237
+chi2_cphase : 0.56 chi2_logcamp : 0.56 chi2_vis : 0.41
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+Computing the Model Visibilities with direct Fourier Transform...
+Producing clean visibilities from image with direct FT . . .
+Not Using Multiprocessing
+
+Scan 00/22 : [                              ]0%
+Scan 01/22 : [-                             ]4%
+Scan 02/22 : [--                            ]9%
+Scan 03/22 : [---                           ]13%
+Scan 04/22 : [-----                         ]18%
+Scan 05/22 : [------                        ]22%
+Scan 06/22 : [--------                      ]27%
+Scan 07/22 : [---------                     ]31%
+Scan 08/22 : [----------                    ]36%
+Scan 09/22 : [------------                  ]40%
+Scan 10/22 : [-------------                 ]45%
+Scan 11/22 : [---------------               ]50%
+Scan 12/22 : [----------------              ]54%
+Scan 13/22 : [-----------------             ]59%
+Scan 14/22 : [------------------            ]63%
+Scan 15/22 : [--------------------          ]68%
+Scan 16/22 : [---------------------         ]72%
+Scan 17/22 : [-----------------------       ]77%
+Scan 18/22 : [------------------------      ]81%
+Scan 19/22 : [-------------------------     ]86%
+Scan 20/22 : [---------------------------   ]90%
+Scan 21/22 : [----------------------------  ]95%
+self_cal time: 2.066909 s
+Building NX table
+No NX table in saved uvfits
+COMPLETE research:official-eht-I: /home/canoziia/GRMHD_DATA/analysis/eht-official-I-apr11-v132-v1
+
+EXIT=0

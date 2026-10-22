@@ -1,0 +1,87 @@
+{
+  "status": "verified",
+  "scope": "EHT 2017 field/feed rotation coefficients only; seven requested station codes. No coefficients or signs inferred from memory.",
+  "software": {
+    "name": "eht-imaging / ehtim",
+    "version": "1.3.2",
+    "git_ref": "v1.3.2",
+    "git_commit": "c8c7a89ea96da0c3f0217e95c41ce8d3e7ca8765",
+    "verification": "Downloaded pinned upstream obs_simulate.py and io/load.py are byte-identical to the supplied local ehtim-1.3.2 source."
+  },
+  "units": {
+    "fr_par": "dimensionless multiplier of parallactic angle",
+    "fr_elev": "dimensionless multiplier of elevation angle",
+    "fr_off": "degrees in ehtim tarr / array text files, NOT radians",
+    "el_angles": "radians in make_jones / make_jones_inverse",
+    "par_angles": "radians in make_jones / make_jones_inverse",
+    "phi": "radians after converting fr_off with DEGREE = pi/180"
+  },
+  "table": [
+    {"site": "AA", "station": "ALMA", "receiver_location": "Cassegrain", "fr_par": 1, "fr_elev": 0, "fr_off": 0},
+    {"site": "AP", "station": "APEX", "receiver_location": "Nasmyth-Right", "fr_par": 1, "fr_elev": 1, "fr_off": 0},
+    {"site": "AZ", "station": "SMT", "receiver_location": "Nasmyth-Right", "fr_par": 1, "fr_elev": 1, "fr_off": 0},
+    {"site": "LM", "station": "LMT", "receiver_location": "Nasmyth-Left", "fr_par": 1, "fr_elev": -1, "fr_off": 0},
+    {"site": "PV", "station": "PV / IRAM 30 m", "receiver_location": "Nasmyth-Left", "fr_par": 1, "fr_elev": -1, "fr_off": 0},
+    {"site": "SM", "station": "SMA", "receiver_location": "Nasmyth-Left", "fr_par": 1, "fr_elev": -1, "fr_off": 45},
+    {"site": "JC", "station": "JCMT", "receiver_location": "Cassegrain", "fr_par": 1, "fr_elev": 0, "fr_off": 0}
+  ],
+  "equation": {
+    "paper_VII_equation_5": "phi = f_el * theta_el + f_par * psi_par + phi_off",
+    "ehtim_radians": "phi = fr_elev * el_angles + fr_par * par_angles + fr_off * (pi/180)",
+    "paper_VII_equation_4": "J = G D Phi; G = diag(G_R,G_L); D = [[1,D_R],[D_L,1]]; Phi = diag(exp(-i*phi),exp(+i*phi))",
+    "make_jones_when_not_frcal": "fr_angle = phi; fr_angle_D = 0",
+    "make_jones_when_frcal_and_not_dcal": "fr_angle = 0; fr_angle_D = 2*phi; J = [[G_R, D_R*G_R*exp(+2i*phi)], [D_L*G_L*exp(-2i*phi), G_L]]",
+    "sign_provenance": "The +/- signs above are transcribed from Paper VII Eq. (4) and upstream make_jones, not assigned by mount-name convention.",
+    "code_locations": "obs_simulate.py:749-756, 759-763; inverse implementation:881-889"
+  },
+  "sources": [
+    {
+      "id": "paper_VII_original_published",
+      "title": "First M87 Event Horizon Telescope Results. VII. Polarization of the Ring",
+      "citation": "Event Horizon Telescope Collaboration et al. 2021, The Astrophysical Journal Letters 910:L12 (48pp), 2021 March 20",
+      "url": "https://doi.org/10.3847/2041-8213/abe71d",
+      "publisher_url": "https://iopscience.iop.org/article/10.3847/2041-8213/abe71d",
+      "pdf_url": "https://iopscience.iop.org/article/10.3847/2041-8213/abe71d/pdf",
+      "evidence": "Original published PDF rendered pages inspected: page 3 Eqs. (4)-(5), page 4 Table 1, Field Rotation Parameters for the EHT Stations. Table header explicitly gives phi_off in degrees. All seven rows agree with the upstream array file, including SMA +45 degrees.",
+      "local_pdf": "/tmp/eht-official-method/PaperVII.pdf",
+      "local_rendered_pages": ["/tmp/eht-official-method/pageimages/VII-03.png", "/tmp/eht-official-method/pageimages/VII-04.png"],
+      "metadata_verification_url": "https://api.crossref.org/works/10.3847/2041-8213/abe71d",
+      "metadata_note": "Crossref queried online; title, DOI and original version-of-record publisher PDF link verified. Existing local published PDF used for visual table/equation verification; PDF not redownloaded."
+    },
+    {
+      "id": "official_exact_station_code_array",
+      "url": "https://raw.githubusercontent.com/achael/eht-imaging/c8c7a89ea96da0c3f0217e95c41ce8d3e7ca8765/arrays/EHT2017_template.txt",
+      "local_file": "/tmp/eht-fiducial-rebuild/feed-rotation-sources/EHT2017_template.txt",
+      "sha256": "a5fcb2ae7e991d2fdd259187d37bf0253a5ff2212f1f71084afeff1d9e0c85e7",
+      "evidence": "Header FR_PAR FR_EL FR_OFF and explicit AA, AP, AZ, JC, LM, PV, SM rows. Used only these seven requested rows; other rows are outside this report."
+    },
+    {
+      "id": "official_array_unit_header_crosscheck",
+      "url": "https://raw.githubusercontent.com/achael/eht-imaging/c8c7a89ea96da0c3f0217e95c41ce8d3e7ca8765/arrays/EHT2017.txt",
+      "local_file": "/tmp/eht-fiducial-rebuild/feed-rotation-sources/EHT2017.txt",
+      "sha256": "a5eade30d6fd7a16abded53e180c60e2aa8587980b4ed254390affd4e12390be",
+      "evidence": "Header FR_PAR_ANGLE FR_ELEV_ANGLE FR_OFFSET[d]; full station names match all seven template coefficients. EHT2017_m87.txt and EHT2017_calibration.txt downloaded too and agree for these stations."
+    },
+    {
+      "id": "official_make_jones",
+      "url": "https://raw.githubusercontent.com/achael/eht-imaging/c8c7a89ea96da0c3f0217e95c41ce8d3e7ca8765/ehtim/observing/obs_simulate.py",
+      "local_file": "/tmp/eht-fiducial-rebuild/feed-rotation-sources/obs_simulate.py",
+      "sha256": "a30189e22ffdc0bf79158b4513a4ef9e6bc241865da752c72d29e3af96f2f9a2",
+      "evidence": "Explicit plus-separated phi formula and multiplication of fr_off by ehc.DEGREE; frcal=True,dcal=False doubles phi for the leakage terms."
+    },
+    {
+      "id": "official_array_and_uvfits_loader",
+      "url": "https://raw.githubusercontent.com/achael/eht-imaging/c8c7a89ea96da0c3f0217e95c41ce8d3e7ca8765/ehtim/io/load.py",
+      "local_file": "/tmp/eht-fiducial-rebuild/feed-rotation-sources/load.py",
+      "sha256": "541c254b04a1adf5c2aecd9c95451c9466e41d78ec5ca03c5ed6ffbf02d280d3",
+      "evidence": "Array loader lines 852-856 maps file columns 6,7,8 directly into fr_par,fr_elev,fr_off without conversion. UVFITS loader lines 1080-1090 initializes all three to zero, with an explicit TODO for actual telescope parameters."
+    }
+  ],
+  "handoff_notes": [
+    "For the supplied ehtim 1.3.2 UVFITS loader, restore the three tarr feed-rotation fields by exact site-code match using this table before a leakage calculation that uses field rotation.",
+    "Do not store SMA fr_off as pi/4: store 45. The Jones implementation performs degrees-to-radians conversion.",
+    "Nonzero tarr rotation coefficients are still needed when frcal=True and dcal=False because the leakage terms rotate at twice phi. This does not by itself imply the already-corrected data should receive the field rotation correction again.",
+    "This verification establishes geometry/signs/units only, not completeness of a scientific reconstruction pipeline."
+  ],
+  "execution_limits": "All network requests used curl --max-time 20 and small response limits; only /tmp evidence/report files written; no installs, project script edits, pixi edits, goal operations, or scientific reconstruction."
+}

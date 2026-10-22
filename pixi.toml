@@ -60,6 +60,9 @@ merge-raptor = "python scripts/merge_raptor_runs.py"
 [feature.eht-research.dependencies]
 astropy = ">=6,<8"
 
+[feature.eht-rebuild.pypi-dependencies]
+ehtim = "==1.3.2"
+
 [feature.eht-research.tasks]
 research-polarization = "python scripts/research_eht_polarization.py"
 research-observed = "python scripts/research_observed_limits.py"
@@ -68,3 +71,4 @@ research-observed = "python scripts/research_observed_limits.py"
 default = { features = [] }
 raptor-build = { features = ["raptor-build"] }
 eht-research = { features = ["eht-research"] }
+eht-rebuild = { features = ["eht-research", "eht-rebuild"] }

@@ -1,0 +1,813 @@
+Warning: No NFFT installed!
+Welcome to eht-imaging!
+
+Loading fits image:  /home/canoziia/GRMHD_DATA/analysis/eht-official-I-cleanpol-apr11-v132-v2/official-I-pre-restoration.fits
+Loading uvfits:  /home/canoziia/GRMHD_DATA/analysis/eht-official-I-cleanpol-apr11-v132-v2/official-I-gaincal-clean-pol.uvfits
+no IF in uvfits header!
+POLREP_UVFITS: circ
+Number of uvfits Correlation Products: 4
+No NX table in uvfits!
+U-V flagged 20/170 visibilities
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 3.432249 s
+J: -51.664170
+chi2_m : 8.25 chi2_pvis : 8.21
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.20900031111933 5.633278559691599
+
+leakage_cal time: 2.444887 s
+ROUND 1 chi2 {'pvis': 4.99357934322184, 'm': 4.727021334695443} deltaD 0.059148018681793826 QUchange 3.6284331888715644
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 2.953692 s
+J: -61.950634
+chi2_m : 3.56 chi2_pvis : 3.49
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+7.638042327385182 4.021585970591257
+
+leakage_cal time: 1.351247 s
+ROUND 2 chi2 {'pvis': 3.133897981137852, 'm': 3.1065578107281953} deltaD 0.008246684984330146 QUchange 0.7650675725191038
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.302529 s
+J: -62.890127
+chi2_m : 3.14 chi2_pvis : 3.09
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.07238665408556 3.9414388673323133
+
+leakage_cal time: 1.549695 s
+ROUND 3 chi2 {'pvis': 2.9422903382609897, 'm': 2.9383722495003477} deltaD 0.0055602096727444894 QUchange 0.08110292646622397
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.166721 s
+J: -63.266007
+chi2_m : 2.95 chi2_pvis : 2.92
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.23189953883744 3.907357121524212
+
+leakage_cal time: 1.914082 s
+ROUND 4 chi2 {'pvis': 2.8701254055945196, 'm': 2.883969731444293} deltaD 0.0028209319240800924 QUchange 0.022563611958195198
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.143581 s
+J: -63.393352
+chi2_m : 2.90 chi2_pvis : 2.86
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.32264725625475 3.8963307512504466
+
+leakage_cal time: 1.644094 s
+ROUND 5 chi2 {'pvis': 2.8388101388633324, 'm': 2.8614048756594284} deltaD 0.0014165258541159083 QUchange 0.011058303055570063
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.166657 s
+J: -63.475520
+chi2_m : 2.88 chi2_pvis : 2.84
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.521539422702965 3.8892241288710068
+
+leakage_cal time: 1.663090 s
+ROUND 6 chi2 {'pvis': 2.7905682353574206, 'm': 2.8133342645283315} deltaD 0.002716145253004009 QUchange 0.028936229477878734
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.107702 s
+J: -63.594310
+chi2_m : 2.83 chi2_pvis : 2.78
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.577375645131564 3.8813796980442463
+
+leakage_cal time: 1.387589 s
+ROUND 7 chi2 {'pvis': 2.7690393151306996, 'm': 2.80604841431842} deltaD 0.0006580038742294554 QUchange 0.006225811538774052
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.104344 s
+J: -63.630793
+chi2_m : 2.80 chi2_pvis : 2.77
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.575128567557433 3.8870317426168444
+
+leakage_cal time: 1.337723 s
+ROUND 8 chi2 {'pvis': 2.7774400207393355, 'm': 2.799432258114244} deltaD 0.00035176647315996465 QUchange 0.005761069032485452
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.103510 s
+J: -63.625609
+chi2_m : 2.81 chi2_pvis : 2.77
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.594429676636356 3.8821348699831573
+
+leakage_cal time: 1.340504 s
+ROUND 9 chi2 {'pvis': 2.7665981077816624, 'm': 2.8017936972859667} deltaD 0.0003893381343788543 QUchange 0.004943439051157883
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.115302 s
+J: -63.642210
+chi2_m : 2.79 chi2_pvis : 2.77
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.597393235453353 3.8866043956474803
+
+leakage_cal time: 1.346716 s
+ROUND 10 chi2 {'pvis': 2.7723510777106646, 'm': 2.7946765608417294} deltaD 0.0003676586645167598 QUchange 0.004934840360329178
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.102964 s
+J: -63.640099
+chi2_m : 2.81 chi2_pvis : 2.77
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.616990352091332 3.8816677331648934
+
+leakage_cal time: 1.341890 s
+ROUND 11 chi2 {'pvis': 2.7614069997889277, 'm': 2.7971204647776435} deltaD 0.00036963041657179135 QUchange 0.005384279823400987
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 2.927589 s
+J: -63.778572
+chi2_m : 2.73 chi2_pvis : 2.69
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.758124306680457 3.8046190316519346
+
+leakage_cal time: 1.344403 s
+ROUND 12 chi2 {'pvis': 2.6334962716713433, 'm': 2.6641742306911493} deltaD 0.0016967747690292212 QUchange 0.4274658068537812
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.102005 s
+J: -63.905845
+chi2_m : 2.67 chi2_pvis : 2.63
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.80344011137269 3.798927057010495
+
+leakage_cal time: 1.495838 s
+ROUND 13 chi2 {'pvis': 2.6168412541086723, 'm': 2.6572885510065576} deltaD 0.0006378471107189597 QUchange 0.008529662663635824
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.134184 s
+J: -63.936529
+chi2_m : 2.65 chi2_pvis : 2.62
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.82099724629538 3.8042687193052984
+
+leakage_cal time: 2.069659 s
+ROUND 14 chi2 {'pvis': 2.6208969441259504, 'm': 2.6493506773014044} deltaD 0.0004956344587385927 QUchange 0.008872428246435306
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.126465 s
+J: -63.941444
+chi2_m : 2.66 chi2_pvis : 2.62
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.840653342929604 3.7992718526761795
+
+leakage_cal time: 1.394028 s
+ROUND 15 chi2 {'pvis': 2.609783450817548, 'm': 2.6514442971179473} deltaD 0.0004167612509196656 QUchange 0.006439669356009207
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.109346 s
+J: -63.958413
+chi2_m : 2.64 chi2_pvis : 2.62
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.843719069762201 3.804850439996349
+
+leakage_cal time: 1.334170 s
+ROUND 16 chi2 {'pvis': 2.6169449781655794, 'm': 2.6453730872638483} deltaD 0.000351281619923868 QUchange 0.006083916405260648
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.102249 s
+J: -63.955371
+chi2_m : 2.66 chi2_pvis : 2.61
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.858814749346179 3.8000158530108106
+
+leakage_cal time: 1.340616 s
+ROUND 17 chi2 {'pvis': 2.6069663756927666, 'm': 2.6492471734309433} deltaD 0.0003696792888857295 QUchange 0.0060624308428753725
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.103433 s
+J: -63.969662
+chi2_m : 2.64 chi2_pvis : 2.61
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.859214296190013 3.804713829534901
+
+leakage_cal time: 1.329461 s
+ROUND 18 chi2 {'pvis': 2.6134779113743565, 'm': 2.6439924730835354} deltaD 0.0003150942229148573 QUchange 0.004902757633215427
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.103984 s
+J: -63.965773
+chi2_m : 2.65 chi2_pvis : 2.61
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.87186371698197 3.800835490499706
+
+leakage_cal time: 1.333285 s
+ROUND 19 chi2 {'pvis': 2.6053281742285295, 'm': 2.647368491286378} deltaD 0.0003107811472449589 QUchange 0.004830445254538456
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.107213 s
+J: -63.977508
+chi2_m : 2.64 chi2_pvis : 2.61
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.871904778311688 3.805260737165678
+
+leakage_cal time: 1.641537 s
+ROUND 20 chi2 {'pvis': 2.6115328965487863, 'm': 2.642385149534212} deltaD 0.00030037320367079696 QUchange 0.004799008639288951
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.110785 s
+J: -63.973515
+chi2_m : 2.65 chi2_pvis : 2.61
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.884670004682382 3.801209251910924
+
+leakage_cal time: 1.544385 s
+ROUND 21 chi2 {'pvis': 2.603109974074212, 'm': 2.6460325988910913} deltaD 0.00032458315464448383 QUchange 0.005708088629176965
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 2.425653 s
+J: -64.079668
+chi2_m : 2.51 chi2_pvis : 2.47
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.722433781753093 3.6672517118406303
+
+leakage_cal time: 1.335713 s
+ROUND 22 chi2 {'pvis': 2.4768255080365136, 'm': 2.518536529260242} deltaD 0.0009377657015874717 QUchange 0.21685023968920147
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.129661 s
+J: -64.077539
+chi2_m : 2.52 chi2_pvis : 2.47
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.712042404439027 3.66310300388262
+
+leakage_cal time: 1.338181 s
+ROUND 23 chi2 {'pvis': 2.4729503991319697, 'm': 2.5236903482818187} deltaD 0.0005495543587977111 QUchange 0.025128132529804934
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.102316 s
+J: -64.078748
+chi2_m : 2.51 chi2_pvis : 2.48
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.697138322116349 3.668355495402066
+
+leakage_cal time: 1.358645 s
+ROUND 24 chi2 {'pvis': 2.483360970003105, 'm': 2.5203990920333097} deltaD 0.0002862645719669788 QUchange 0.005730484101372904
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.108190 s
+J: -64.067373
+chi2_m : 2.53 chi2_pvis : 2.48
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.707162167394948 3.664465135117596
+
+leakage_cal time: 1.347580 s
+ROUND 25 chi2 {'pvis': 2.475762697686875, 'm': 2.5235124431224025} deltaD 0.0003016359441529906 QUchange 0.004601758541134188
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.110619 s
+J: -64.077766
+chi2_m : 2.52 chi2_pvis : 2.48
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.698368192650488 3.668093159878089
+
+leakage_cal time: 1.654083 s
+ROUND 26 chi2 {'pvis': 2.482768513666845, 'm': 2.520560948025227} deltaD 0.00025446840493495513 QUchange 0.003882849279729546
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.105160 s
+J: -64.070369
+chi2_m : 2.53 chi2_pvis : 2.48
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.707807296388665 3.6644405645325255
+
+leakage_cal time: 1.371028 s
+ROUND 27 chi2 {'pvis': 2.4756264946968067, 'm': 2.5235424029099516} deltaD 0.0002632700909864643 QUchange 0.004110564630801153
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.127097 s
+J: -64.079931
+chi2_m : 2.52 chi2_pvis : 2.48
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.699225583866305 3.6679751122819413
+
+leakage_cal time: 1.703878 s
+ROUND 28 chi2 {'pvis': 2.4824578617463926, 'm': 2.5205489395019653} deltaD 0.0002552848310260373 QUchange 0.0038363509896895153
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.119020 s
+J: -64.072318
+chi2_m : 2.53 chi2_pvis : 2.48
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.709412173311943 3.6640905501379035
+
+leakage_cal time: 1.397427 s
+ROUND 29 chi2 {'pvis': 2.4748243656308424, 'm': 2.5238053018757767} deltaD 0.0002808331457365847 QUchange 0.005468202045197934
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.108804 s
+J: -64.082848
+chi2_m : 2.52 chi2_pvis : 2.48
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.70022158657118 3.6677063876634386
+
+leakage_cal time: 1.654218 s
+ROUND 30 chi2 {'pvis': 2.481909835427635, 'm': 2.520676745270149} deltaD 0.00026511148326587925 QUchange 0.0039842990213419215
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.111775 s
+J: -64.074989
+chi2_m : 2.53 chi2_pvis : 2.48
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.709867997064364 3.6642171148424034
+
+leakage_cal time: 1.394155 s
+ROUND 31 chi2 {'pvis': 2.474941906471092, 'm': 2.523598400260394} deltaD 0.00025378117015764965 QUchange 0.004650361278600605
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 2.152251 s
+J: -64.033550
+chi2_m : 2.45 chi2_pvis : 2.41
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.618088489379895 3.601313915335524
+
+leakage_cal time: 1.337517 s
+ROUND 32 chi2 {'pvis': 2.4204550694077223, 'm': 2.454906515457014} deltaD 0.001473577578568669 QUchange 0.20612881223443982
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.116016 s
+J: -64.026075
+chi2_m : 2.47 chi2_pvis : 2.41
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.637145653418518 3.5925489943280353
+
+leakage_cal time: 1.683921 s
+ROUND 33 chi2 {'pvis': 2.404004671606489, 'm': 2.4593047349461963} deltaD 0.0006681264747923195 QUchange 0.010185559946823285
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.109172 s
+J: -64.049570
+chi2_m : 2.44 chi2_pvis : 2.41
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.60861679678537 3.6001214265993804
+
+leakage_cal time: 1.383500 s
+ROUND 34 chi2 {'pvis': 2.420478857188681, 'm': 2.456761344672111} deltaD 0.00039057743955845417 QUchange 0.011760799360189237
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.103959 s
+J: -64.030313
+chi2_m : 2.47 chi2_pvis : 2.41
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.624565239084756 3.593722885490595
+
+leakage_cal time: 1.337530 s
+ROUND 35 chi2 {'pvis': 2.408274514263855, 'm': 2.4607148122197753} deltaD 0.0003762924153629805 QUchange 0.006014112343884517
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.104046 s
+J: -64.047382
+chi2_m : 2.45 chi2_pvis : 2.41
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.60280003523409 3.5991853090501933
+
+leakage_cal time: 1.531087 s
+ROUND 36 chi2 {'pvis': 2.4206135886755207, 'm': 2.458747548204259} deltaD 0.0003999388072108875 QUchange 0.008177256005239225
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.119211 s
+J: -64.032571
+chi2_m : 2.47 chi2_pvis : 2.42
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.617400865955759 3.593918917673479
+
+leakage_cal time: 1.968571 s
+ROUND 37 chi2 {'pvis': 2.41018897998198, 'm': 2.4614867630622084} deltaD 0.00033381359750477826 QUchange 0.0048744694076679656
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.107485 s
+J: -64.047912
+chi2_m : 2.45 chi2_pvis : 2.42
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.59642665168859 3.5998590954221124
+
+leakage_cal time: 1.338581 s
+ROUND 38 chi2 {'pvis': 2.42292218780023, 'm': 2.4587750281058085} deltaD 0.00038656202360454065 QUchange 0.009074950084064119
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.106109 s
+J: -64.033190
+chi2_m : 2.47 chi2_pvis : 2.42
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.610985844862022 3.5943712116314432
+
+leakage_cal time: 1.336167 s
+ROUND 39 chi2 {'pvis': 2.412246507223163, 'm': 2.461521075122392} deltaD 0.000329202171450451 QUchange 0.004687503069184931
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.107672 s
+J: -64.051918
+chi2_m : 2.45 chi2_pvis : 2.42
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.582018675826191 3.6005465323699815
+
+leakage_cal time: 1.367892 s
+ROUND 40 chi2 {'pvis': 2.4271358116656545, 'm': 2.4601816115819504} deltaD 0.0005365778571471585 QUchange 0.02290437199427253
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.124014 s
+J: -64.034203
+chi2_m : 2.47 chi2_pvis : 2.42
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.601229180807985 3.5937740114229095
+
+leakage_cal time: 2.581787 s
+ROUND 41 chi2 {'pvis': 2.41368059536533, 'm': 2.4627300436140276} deltaD 0.00042020974640765606 QUchange 0.005977703424278813
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 2.382804 s
+J: -64.186111
+chi2_m : 2.33 chi2_pvis : 2.28
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.324991528563263 3.455464808157341
+
+leakage_cal time: 1.336623 s
+ROUND 42 chi2 {'pvis': 2.307212192460622, 'm': 2.362570797383565} deltaD 0.002742045447237232 QUchange 0.21721962746898574
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.107052 s
+J: -64.131213
+chi2_m : 2.37 chi2_pvis : 2.30
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.323804446260407 3.4509741845839335
+
+leakage_cal time: 1.337162 s
+ROUND 43 chi2 {'pvis': 2.300682894975823, 'm': 2.3675425990628574} deltaD 0.0004602893096224896 QUchange 0.013592183666504679
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.108908 s
+J: -64.137750
+chi2_m : 2.36 chi2_pvis : 2.30
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.30408116906016 3.4542104104151035
+
+leakage_cal time: 1.336207 s
+ROUND 44 chi2 {'pvis': 2.3097120262565687, 'm': 2.366224359860458} deltaD 0.00031944575972044125 QUchange 0.0045198448879755675
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.105619 s
+J: -64.126380
+chi2_m : 2.38 chi2_pvis : 2.30
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.294832323218191 3.448865533058334
+
+leakage_cal time: 1.336549 s
+ROUND 45 chi2 {'pvis': 2.304577665283603, 'm': 2.3740494783749138} deltaD 0.00035415554604017655 QUchange 0.00965533858955449
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.103683 s
+J: -64.128341
+chi2_m : 2.36 chi2_pvis : 2.31
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.28364826050188 3.4522297467256085
+
+leakage_cal time: 1.345479 s
+ROUND 46 chi2 {'pvis': 2.3116675529494604, 'm': 2.370310221286747} deltaD 0.00025752402640528667 QUchange 0.0037174115169494783
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.120054 s
+J: -64.120975
+chi2_m : 2.37 chi2_pvis : 2.31
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.28513692837058 3.4490503217131914
+
+leakage_cal time: 1.963414 s
+ROUND 47 chi2 {'pvis': 2.3067621907322207, 'm': 2.371534827891322} deltaD 0.00038324057053126624 QUchange 0.008917721650582808
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.106757 s
+J: -64.126328
+chi2_m : 2.37 chi2_pvis : 2.31
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.268688354960712 3.4513026951109484
+
+leakage_cal time: 1.417936 s
+ROUND 48 chi2 {'pvis': 2.3136931137841854, 'm': 2.3715427273029044} deltaD 0.0002749748261876755 QUchange 0.003667641124833009
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.133864 s
+J: -64.116283
+chi2_m : 2.38 chi2_pvis : 2.31
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.264749039164572 3.448279981195334
+
+leakage_cal time: 1.861846 s
+ROUND 49 chi2 {'pvis': 2.310572481980675, 'm': 2.375912369286513} deltaD 0.00016593868627373993 QUchange 0.004545815784674383
+Initializing imager data products . . .
+==============================
+Imager run 1
+Imaging Polarization: switching image polrep to Stokes!
+Imaging . . .
+time: 0.108625 s
+J: -64.117743
+chi2_m : 2.37 chi2_pvis : 2.31
+CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH
+==============================
+Finding leakage for sites: ['AZ', 'LM', 'PV']
+Minimizing...
+8.258796821983417 3.4508457326726423
+
+leakage_cal time: 1.340192 s
+ROUND 50 chi2 {'pvis': 2.3153462740841846, 'm': 2.3725481332042624} deltaD 0.00019065281500235508 QUchange 0.0030653098899847105
+COMPLETE eht-fiducial-rebuild: /home/canoziia/GRMHD_DATA/analysis/eht-official-PD-warmstart-apr11-v132-v1
+
+EXIT=0
