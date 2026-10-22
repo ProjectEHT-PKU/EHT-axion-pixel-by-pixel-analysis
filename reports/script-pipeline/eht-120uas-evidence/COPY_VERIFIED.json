@@ -1,0 +1,30 @@
+{
+  "schema": "eht-copyback-verified-v1",
+  "complete": true,
+  "identity": "06a8f63baa95b7ab959c951e31ea45e6b6933a3db06455e54a65fe8c7a328af0",
+  "verified_utc": "2026-10-22T19:14:17.204774+00:00",
+  "copied_root": "/home/canoziia/GRMHD_DATA/analysis/eht-uncertainty-remote-v1",
+  "results_root": "/home/canoziia/GRMHD_DATA/analysis/eht-uncertainty-remote-v1/results/full4000-v1",
+  "certified_tasks": 4000,
+  "days": {
+    "100": 1000,
+    "101": 1000,
+    "95": 1000,
+    "96": 1000
+  },
+  "attempt_count": 4015,
+  "statuses": {
+    "certified": 4000,
+    "uncertified": 15
+  },
+  "verified_output_and_source_files": 24164,
+  "verified_bytes": 1241843797,
+  "finish_sha256": "f6f9c2a73ed42250767828f2e9973df0796504514f6bcf8e9c6b75c080de6676",
+  "batch_sha256": "8ef597771b868a2f65784def6a3af3d5e500225a5f9b0f57245786b263e578ce",
+  "full_attempt_outputs_SHA_verified": true,
+  "exported_inputs_SHA_verified": true,
+  "runtime_code_files_SHA_verified": true,
+  "excluded": "Reproducible .pixi binary environment only; dependency source hashes/versions retained in batch.json",
+  "remote_originals_preserved": true,
+  "scientifically_certified": false
+}

@@ -1,0 +1,122 @@
+# New-root-only 120 uas observed RESEARCH template profile; no ray tracing.
+# Producer/physical/camera identity is unchanged from eht-observed-research.yaml.
+# 64 pixels across 120 uas => 1.875 uas/pixel; circular aperture radius 60 uas.
+# Gaussian FWHM19 uas is an ADDITIONAL matching-kernel approximation to the
+# EHT already-19-uas display products, NOT a certified effective PSF.
+# EHT120 native-coordinate/centroid adapter and geometry evidence are pending
+# parent completion. This config is NOT evidence of completed EHT processing.
+# Zero offsets below are explicit no-shift placeholders, not old pixel offsets.
+# angle_roll=-90 retains the existing theory aperture-bin convention only.
+# Historical mask hyperparameters remain declared; no old EHT mask is consumed.
+# Only RAPTOR postprocess/fit/summaries and background preparation are authorized.
+physical:
+  mass_solar: 6500000000.0
+  distance_mpc: 16.8
+  label_step_tg: 0.1
+
+data:
+  alphas: [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.44]
+
+image:
+  initial_fov_rg: 46.2261
+  final_fov_uas: 120.0
+  final_shape: 64
+  rotation_degrees: 108.0
+  gaussian_fwhm_uas: 19.0  # Paper VII eht-imaging comparison kernel; NOT certified effective PSF.
+
+aperture:
+  weighting: intensity
+  window_degrees: 10
+  radial_max_fraction: 1.0  # Multiplies final half-FOV, independent of matching kernel.
+  angular_bins: 360
+
+eht:
+  topset_size: 1572
+  min_radius_rg: 2.0
+  intensity_fraction: 0.1
+  historical_mask: true
+  inherit_2d_mask_in_1d: false
+  angular_offset: 4
+  covariance_ridge: 0.0
+
+eht_input:
+  shape: 64
+  fov_uas: 120.0
+  pixel_size_uas: 1.875
+  angle_roll: -90
+  rank_offsets: {"95": [0, 0], "96": [0, 0], "100": [0, 0], "101": [0, 0]}
+  final_offsets: {"95": [0, 0], "96": [0, 0], "100": [0, 0], "101": [0, 0]}
+  exclude_columns: 5
+  exclusion_rectangles: [[48, 55, 10, 19]]
+
+cloud:
+  coefficient: 0.03
+  pivot_alpha: 0.05
+  exponent: 1.75
+  reference_norm: 0.1
+
+background:
+  alpha: 0.3
+  source_resolution: 400
+  lag_frames: 3
+  method: mle
+
+inference:
+  phase_count: 64
+  coupling_points: 120
+  coupling_min: 0.0072992700729927005
+  coupling_max: 1000.0
+  prior: log-uniform
+  principal_n: 2  # First scope: existing model.omega(alpha, 2), no eigenfrequency substitution.
+  exposure_hours: 6.0
+  day_gap_hours: 24.0
+  pair_separation_hours: 120.0
+
+producer:
+  build:
+    model: bhac
+    metric: mks
+    integrator: rk4
+    grid: SMR
+    polarized: true
+    sfc: true
+    magnetic_polarity: plus
+    sigma_cut: 1.0
+    thetae_min: 0.001
+    thetae_max: 100.0
+    uniform_output: false
+  plasma:
+    mass_unit_g: 3.0e+25
+    r_low: 1.0
+    r_high: 1.0
+    inclination_degrees: 163.0
+    frequency_hz: 230.0e+9
+    step_size: 0.005
+  snapshots:
+    start: 1600
+    stop: 3000
+    step: 10
+  response:
+    resolution: 100
+    phase_count: 16
+    reference_norm: 0.1
+  background:
+    resolution: 400
+  radial_tables:
+    low: {spin: 0.9375}
+    high: {spin: 0.99}
+  alpha_table:
+    '0.10': low
+    '0.15': low
+    '0.20': low
+    '0.25': low
+    '0.30': low
+    '0.35': high
+    '0.40': high
+    '0.44': high
+  # Raw grid_mks.in coordinates, before core multiplies angles by 2*pi.
+  grid:
+    nxlone: [96, 48, 48]
+    xprobmin: [0.17395330712343798, 0.0, 0.0]
+    xprobmax: [7.824046010856292, 0.5, 1.0]
+    hslope: 0.0

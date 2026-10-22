@@ -1,0 +1,86 @@
+{
+  "complete": true,
+  "scope": "All final declared outputs SHA verified; full input lineage verified by primary/native original execution, not redundantly rehashed",
+  "stages": [
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-mc-summary-v1",
+      "stage": "research:eht-fixed-D-ensemble",
+      "complete": true,
+      "outputs": 92,
+      "bytes": 2793501453,
+      "manifest_sha256": "64185cdeb4a36884e3a07597c3e7589cc8e3676ad73896f7c42d12953714e77c"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-mc-figures-v1",
+      "stage": "research:eht-fixed-D-mc-figures",
+      "complete": true,
+      "outputs": 6,
+      "bytes": 1338301,
+      "manifest_sha256": "f0f4cdfe5d3806bd5770ba58cdc2120fd7d53114974ec6a9d7987158a64734c5"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-observed-limits-v1",
+      "stage": "research:eht120-observed-limits",
+      "complete": true,
+      "outputs": 35,
+      "bytes": 25514862,
+      "manifest_sha256": "4b97c4203af7419d8ccaefea6443bcd436e066314465375efeac3f2ead21d860"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-observed-limits-native-v1",
+      "stage": "research:eht120-observed-limits",
+      "complete": true,
+      "outputs": 35,
+      "bytes": 25540573,
+      "manifest_sha256": "37a33f2cedd6b620460897d51d53dde6ee172f3af8ee186ade8da7832a0cd5a2"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-observed-limits-gridcheck-v1",
+      "stage": "research:eht120-limit-numerics",
+      "complete": true,
+      "outputs": 27,
+      "bytes": 89491784,
+      "manifest_sha256": "442bd9b5bb574d491a8c8171d940def9353b619b2603023de7cc5639894e9421"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-observed-limits-priorcheck-v1",
+      "stage": "research:eht120-limit-numerics",
+      "complete": true,
+      "outputs": 27,
+      "bytes": 96446413,
+      "manifest_sha256": "17f34015a19fa63db9d4eb4a0613bb8d63ac1c28806012c37e69099e48f737fc"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-observed-covcheck-v1",
+      "stage": "research:eht120-covariance-check",
+      "complete": true,
+      "outputs": 2,
+      "bytes": 29020,
+      "manifest_sha256": "b8a0a7c8a170f50b6038e7fdc8275f0f4ace92e6755877b7eae099419d48c3f3"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-results-summary-v1",
+      "stage": "research:eht120-results-summary",
+      "complete": true,
+      "outputs": 9,
+      "bytes": 855798,
+      "manifest_sha256": "6039ef6ecdfaf24354c3c37385fe3c63573dbeef13974f3380818e2b05052faf"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-observed-templates-v1/raptor/templates/1d",
+      "stage": "raptor:summarize",
+      "complete": true,
+      "outputs": 2,
+      "bytes": 142819,
+      "manifest_sha256": "20923848215738371e0409257fbffbb33c643f652b4fc8eae0556748f177fd42"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-observed-templates-v1/raptor/templates/2d",
+      "stage": "raptor:summarize",
+      "complete": true,
+      "outputs": 2,
+      "bytes": 1577538,
+      "manifest_sha256": "33d0b741c18bd31379b1321a4f5bd9dd73aedc20d2454a9072d73c8c9341c8b3"
+    }
+  ]
+}

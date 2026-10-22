@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import numpy as np
+import pytest
 
 import refine_eht_d_tolerance as w
 
@@ -10,6 +11,7 @@ import refine_eht_d_tolerance as w
 def test_tight_options_are_scoped_to_d(monkeypatch, tmp_path):
     import scipy.optimize as opt
     from eht_axion.research import eht_official as core
+    pytest.importorskip('ehtim')
     from ehtim.calibrating import pol_cal_new
     actual = Mock(return_value=SimpleNamespace(fun=1., jac=np.array([1e-7]), nit=8,
         nfev=10, njev=10, success=True, status=0, message='ftol', x=np.zeros(1)))

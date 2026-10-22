@@ -1,0 +1,23 @@
+E501 Line too long (112 > 110)
+  --> scripts/check_eht_mc_covariance.py:85:111
+   |
+83 |                         baseline = np.asarray(source_report['results'][f'observed-{mode}-{dim}']['log10_c95'])
+84 |                         key = f'{half}-{mode}-{dim}'
+85 |                         results[key] = dict(alphas=a.tolist(), log10_c95=cuts.tolist(), c95=(10**cuts).tolist(),
+   |                                                                                                               ^^
+86 |                                             delta_dex=(cuts-baseline).tolist())
+87 |                         table += [dict(half=half, mode=mode, dimension=dim, alpha=float(x),
+   |
+
+E501 Line too long (111 > 110)
+  --> scripts/start_eht_120_templates.py:95:111
+   |
+93 |                              record, [CONFIG, Path(__file__).resolve()] +
+94 |                              [manifest_path(layout.templates(d)) for d in ('1d', '2d')] +
+95 |                              [manifest_path(OUTPUT / 'background-unmasked' / d) for d in ('1d', '2d')]) as out:
+   |                                                                                                               ^
+96 |             if out is not None:
+97 |                 (out / 'report.json').write_text(json.dumps(record, indent=2) + '\n')
+   |
+
+Found 2 errors.
