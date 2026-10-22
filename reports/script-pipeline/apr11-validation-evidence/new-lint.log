@@ -1,0 +1,95 @@
+E501 Line too long (153 > 110)
+   --> scripts/validate_eht_apr11.py:182:111
+    |
+180 | …t 220e9 < base.rf < 240e9:
+181 | …
+182 | ….tarr['site']) or not set(base.tarr['site']) <= set(c['solve_sites']+c['fixed_sites']):
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+183 | …
+184 | …
+    |
+
+E501 Line too long (112 > 110)
+   --> scripts/validate_eht_apr11.py:210:111
+    |
+208 |             chi_before = pol_chi2(current, image, 'direct')
+209 |             current = pol_cal.leakage_cal(noisy.copy(), image, sites=c['solve_sites'],
+210 |                 leakage_tol=c['leakage_tol'], inverse=c['leakage_inverse'], ttype='direct', show_solution=False)
+    |                                                                                                               ^^
+211 |         np.testing.assert_allclose(image.imvec, fixed.imvec, rtol=1e-12, atol=1e-15)
+212 |         if not np.all(np.isfinite(image.qvec+1j*image.uvec)) or np.any(np.hypot(image.qvec, image.uvec) >= fixed.imvec):
+    |
+
+E501 Line too long (120 > 110)
+   --> scripts/validate_eht_apr11.py:212:111
+    |
+210 |                 leakage_tol=c['leakage_tol'], inverse=c['leakage_inverse'], ttype='direct', show_solution=False)
+211 |         np.testing.assert_allclose(image.imvec, fixed.imvec, rtol=1e-12, atol=1e-15)
+212 |         if not np.all(np.isfinite(image.qvec+1j*image.uvec)) or np.any(np.hypot(image.qvec, image.uvec) >= fixed.imvec):
+    |                                                                                                               ^^^^^^^^^^
+213 |             raise ValueError('nonphysical mcv result')
+214 |         if list(current.tarr['site']) != list(base.tarr['site']):
+    |
+
+E501 Line too long (151 > 110)
+   --> scripts/validate_eht_apr11.py:219:111
+    |
+217 | …arr['site'], c['fixed_sites'])] != 0):
+218 | …
+219 | …ous.qvec-1j*previous.uvec)/max(np.linalg.norm(previous.qvec+1j*previous.uvec), 1e-30))
+    |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+220 | …xels=projected,
+221 | …mizers=actual,
+    |
+
+E501 Line too long (120 > 110)
+   --> scripts/validate_eht_apr11.py:224:111
+    |
+222 |             chi2_before_D=chi_before, chi2_after_D=pol_chi2(current, image, 'direct'),
+223 |             relative_qu_change=rel, max_delta_d=float(np.max(abs(d-previous_d))),
+224 |             dterms={str(s): [[float(z.real), float(z.imag)] for z in pair] for s, pair in zip(current.tarr['site'], d)})
+    |                                                                                                               ^^^^^^^^^^
+225 |         dump(out/f'round-{k:03d}.json', row)
+226 |         if k % 10 == 0 or k == plan['rounds']:
+    |
+
+E501 Line too long (116 > 110)
+   --> scripts/validate_eht_apr11.py:234:111
+    |
+232 |         raw_uncorrected_model_mismatch=residuals(noisy, image), calibrated=residuals(current, image),
+233 |         covariance='diagonal rescaling approximation; raw mismatch is NOT a forward-Jones fit'))
+234 |     dump(out/'termination.json', dict(rounds=plan['rounds'], reason='fixed_budget', scientifically_converged=False))
+    |                                                                                                               ^^^^^^
+
+E501 Line too long (198 > 110)
+   --> scripts/validate_eht_apr11.py:248:111
+    |
+246 | …
+247 | …
+248 | …ot True or audit.get('selection_sha256') != plan['selection_sha256'] or audit.get('hashes') != plan['hashes']:
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+249 | …ective selection')
+250 | …
+    |
+
+E501 Line too long (119 > 110)
+   --> scripts/validate_eht_apr11.py:261:111
+    |
+259 |         plan['runtime_code_hashes'] = {str(p): digest(p) for p in code}
+260 |         inputs = [Path(p) for p in plan['hashes']] + [audit_file] + code
+261 |         with common().stage_directory(Path(plan['output_root']), 'research:eht-apr11-validation', plan, inputs) as out:
+    |                                                                                                               ^^^^^^^^^
+262 |             if out is None:
+263 |                 raise FileExistsError('existing stage forbidden')
+    |
+
+E501 Line too long (119 > 110)
+  --> tests/test_eht_apr11_validation.py:54:111
+   |
+54 | @pytest.mark.parametrize('key,value', [('unknown',1), ('schema',2), ('maxit',True), ('fsys',.02), ('norm_reg','true')])
+   |                                                                                                               ^^^^^^^^^
+55 | def test_reject_config(planned, key, value):
+56 |     c = yaml.safe_load(planned.config.read_text())
+   |
+
+Found 9 errors.
