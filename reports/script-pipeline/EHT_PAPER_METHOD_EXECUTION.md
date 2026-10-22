@@ -100,9 +100,11 @@ Fixed-D reference pilot:
   This metadata inconsistency is documented, not patched in executed source or
   re-signed. Use actual trace and declared wrapper plan for execution identity.
 
-A second Gemini code check was requested after implementation; the provider
-returned retryable Cloudflare520. Initial independent plan review completed and
-is retained; do not describe the second check as completed until it actually is.
+The second Gemini code review initially hit a retryable Cloudflare520; after
+backoff/retry it COMPLETED and wrote GEMINI_IMPLEMENTATION_REVIEW.md. Verdict:
+I/fiducial P/D APPROVED with no remaining execution blocker; fixed-D pilot wrapper
+valid but full1000 ensemble GATED pending optimizer-quality checks and summaries.
+The report is copied into eht-paper-evidence/; no scientific source was changed.
 
 ## Remaining outputs to implement/validate
 
