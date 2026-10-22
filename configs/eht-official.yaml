@@ -1,0 +1,44 @@
+# Gemini review: APPROVE WITH MANDATORY CONDITIONS; see GEMINI_PLAN_REVIEW.md.
+# Fixed-D MC numerical schedule still needs a pilot before full ensemble execution.
+# No science is launched by --plan. Execution requires an external --review-file.
+input_root: /home/canoziia/GRMHD_DATA/EHT_DATA/official-2023-D01-01
+input_receipt: /home/canoziia/GRMHD_DATA/EHT_DATA/official-2023-D01-01/four-day-inputs-verified.json
+feed_rotation_file: /home/canoziia/GRMHD_DATA/EHT_DATA/official-2023-D01-01/reference/feed-rotation.json
+official_script: /home/canoziia/GRMHD_DATA/EHT_DATA/official-2019-D01-02/eht-imaging_pipeline.py
+inputs:
+  95: [SR2_M87_2017_095_lo_hops_zbl-dtcal+selfcal.uvfits, a749309931dbaa506b7a1575e1eef49af97b3ea62ded1fa717efadbaa2fdd5b4]
+  96: [SR2_M87_2017_096_lo_hops_zbl-dtcal+selfcal.uvfits, 2376a3300ce49e458efc3f4403d98dce62cdd9b045f982f0ed73efd199ef6947]
+  100: [SR2_M87_2017_100_lo_hops_zbl-dtcal+selfcal.uvfits, 1987e2e25ed47b90dbc13a2216a131e25fbc5b6a2a807d009e81dc579f766937]
+  101: [SR2_M87_2017_101_lo_hops_zbl-dtcal+selfcal.uvfits, 5cf936dce926b5b13a0f39065096da1f836ab52ca95fdfffef581057029e8d5b]
+npix: 64
+fov_uas: 120.0
+flux_jy: 0.6
+fsys: 0.005
+solve_sites: [AZ, LM, PV]
+fixed_sites: [AA, AP, SM, JC]
+p_data: {pvis: 1.0, m: 1.0}
+p_reg: {hw: 100.0, ptv: 1.0}
+norm_reg: true
+initial_m: 0.1
+initial_evpa_deg: 0.0
+rounds: 50
+# Explicit numerical restart schedule, not a uniquely paper-mandated schedule.
+restart_rounds: [2, 12, 22, 32, 42]
+restart_blur_uas: 20.0
+# I-weighted fractional-complex-P restart: physical-domain initialization only,
+# not literal Q/U-only convolution with restored I; objective unchanged.
+restart_domain_epsilon: 0.00000001
+# Numerical per-call upper limit, not a uniquely paper/Table6-mandated value.
+maxit: 500
+stop: 0.00000001
+# Remove -sum(data weights)-HW*ln(2) in the objective only; gradient unchanged.
+shift_objective_constant: true
+uv_min: 100000000.0
+display_blur_uas: 19.0
+uncertainty_draws: 1000
+seed: 20210405
+covariance_ddof: 1
+# Gemini-locked default follows ehtim cerror: 1% SD per real/imag component;
+# modulus RMS is sqrt(2)*1%. Explicit alternative complex_rms divides by sqrt(2).
+residual_d_sigma: 0.01
+residual_d_convention: per_component_sd
