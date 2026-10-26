@@ -1,0 +1,55 @@
+{
+  "complete": true,
+  "scope": "Declared output SHA checks for seven completed study stages; source outputs separately verified at execution",
+  "stages": [
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-joint-days-inputs-v1",
+      "complete": true,
+      "stage": "research:joint-day-inputs",
+      "outputs": 16,
+      "manifest_sha256": "5b98dfdc1773bcbcc9e0966e008e07367191f9791193b2332c50e7cb511ac17b"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-joint-days-alpha030-v1",
+      "complete": true,
+      "stage": "research:joint-day-study",
+      "outputs": 94,
+      "manifest_sha256": "181965d6bc648200315563cc99a9f1d0946adecf7c02356a752d7729336e4d53"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-joint-days-allalpha-v1",
+      "complete": true,
+      "stage": "research:joint-day-study",
+      "outputs": 710,
+      "manifest_sha256": "52803c0907b1e6ca9d026c04e0325ec08675b0f6172e2457790b81073d14c430"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-joint-days-alpha030-grid-v1",
+      "complete": true,
+      "stage": "research:joint-day-study",
+      "outputs": 94,
+      "manifest_sha256": "99fffd549cc58f1d19a4404280c4c0ab1b9089db7a8d919ed617dd681e22889d"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-joint-days-statecheck-v1",
+      "complete": true,
+      "stage": "research:joint-day-state-support",
+      "outputs": 66,
+      "manifest_sha256": "ebc2beaf9e7d1d78092149b19d828614212f0a243715370b4353fbbfaf6c420e"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-joint-days-state-diagnostics-v1",
+      "complete": true,
+      "stage": "research:joint-day-state-diagnostics",
+      "outputs": 1,
+      "manifest_sha256": "aec51d0dea9ebd20ca1a263e5d81fbdf213e0b9f04cac8ea2102c6eb44a0c0c8"
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-joint-days-results-v1",
+      "complete": true,
+      "stage": "research:joint-day-summary",
+      "outputs": 83,
+      "manifest_sha256": "a59396b14568b7a0ac2be14509db79aab32c4086e0b318df3a131ddece488e9e"
+    }
+  ]
+}
