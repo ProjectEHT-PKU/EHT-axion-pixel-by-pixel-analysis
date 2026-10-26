@@ -1,0 +1,33 @@
+{
+  "complete": true,
+  "stages": [
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-background-reassessment-v2",
+      "complete": true,
+      "outputs": 1040,
+      "manifest_sha256": "e071979e7bb00338b59f62951a540be27d1efc056465f8cc601f0c74d56f79cd",
+      "source_identity_unchanged": true
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-background-embargo-check-v1",
+      "complete": true,
+      "outputs": 1,
+      "manifest_sha256": "e1d60eeaf599f3dac404588aaf6ee187edcc99f7b8face909455079e2ce48d54",
+      "source_identity_unchanged": true
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-background-gridcheck-v1",
+      "complete": true,
+      "outputs": 66,
+      "manifest_sha256": "4b0f1dbc201b0841c0887723582caac78670a74278cbf6107ebcdb20160d952e",
+      "source_identity_unchanged": true
+    },
+    {
+      "root": "/home/canoziia/GRMHD_DATA/analysis/eht-background-reassessment-results-v1",
+      "complete": true,
+      "outputs": 20,
+      "manifest_sha256": "0c6517c315733e84d8c4d969ab1fc8d1785644d43d5b72a9e15f1e65200e338a",
+      "source_identity_unchanged": true
+    }
+  ]
+}
