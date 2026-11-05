@@ -31,8 +31,10 @@ def _spd(value, size, name):
     matrix = _array(value, name)
     if matrix.shape != (size, size):
         raise ValueError(f"{name} must have shape {(size, size)}")
-    if not np.allclose(matrix, matrix.T, rtol=1e-12, atol=1e-14):
-        raise ValueError(f"{name} must be symmetric")
+    # Scale before subtraction: no unit-size absolute floor or overflow.
+    scale = np.max(np.abs(matrix))
+    if scale and np.max(np.abs(matrix / scale - matrix.T / scale)) > 1e-12:
+        raise ValueError(f"{name} must be symmetric relative to its matrix scale")
     return matrix, np.linalg.cholesky(matrix)
 
 
@@ -40,7 +42,9 @@ def contrast_observation(daily_means, daily_cov, H):
     """Return (H @ means, full contrast covariance), without angular wrapping.
 
     Daily means/covariances have shapes (4,N)/(4,N,N). H has K independent
-    zero-sum rows (K <= 3). Shared-day off-diagonal contrast blocks are retained.
+    zero-sum rows (K <= 3), checked relative to each row's largest entry.
+    Covariance symmetry is checked relative to each matrix's largest entry;
+    no symmetrization or repair is performed. Shared-day blocks are retained.
     """
     means = _array(daily_means, "daily_means")
     cov = _array(daily_cov, "daily_cov")
@@ -50,8 +54,11 @@ def contrast_observation(daily_means, daily_cov, H):
     n = means.shape[1]
     if cov.shape != (4, n, n):
         raise ValueError("daily_cov must have shape (4,N,N)")
-    if (h.ndim != 2 or h.shape[1] != 4 or not 1 <= h.shape[0] <= 3
-            or not np.allclose(h.sum(axis=1), 0, rtol=0, atol=1e-12)
+    if h.ndim != 2 or h.shape[1] != 4 or not 1 <= h.shape[0] <= 3:
+        raise ValueError("H must have 1..3 independent zero-sum rows and four columns")
+    row_scale = np.max(np.abs(h), axis=1)
+    scaled_h = h / np.where(row_scale > 0, row_scale, 1.)[:, None]
+    if (np.any(np.abs(scaled_h.sum(axis=1)) > 1e-12)
             or np.linalg.matrix_rank(h) != len(h)):
         raise ValueError("H must have 1..3 independent zero-sum rows and four columns")
     for block in cov:
@@ -208,12 +215,19 @@ def calculate_joint_days(
         residual = solve_triangular(chol, (y - b).T, lower=True).T
         whitened = solve_triangular(chol, signals.reshape(-1, d).T, lower=True)
         whitened = whitened.T.reshape(signals.shape)
-        q0 = np.einsum("md,md->m", residual, residual)
-        cross = np.einsum("md,pmd->pm", residual, whitened)
-        power = np.einsum("pmd,pmd->pm", whitened, whitened)
+        if not np.isfinite(residual).all() or not np.isfinite(whitened).all():
+            raise ValueError("empirical whitened residuals and signals must be finite")
         for i, coupling in enumerate(c):
-            q = q0[None, :] - 2 * coupling * cross + coupling**2 * power
-            q = np.maximum(q, 0)  # quadratic cancellation roundoff, not covariance repair
+            # Direct residuals avoid cancellation in q0 - 2*c*cross + c**2*power.
+            # Only one P*M*D residual cube is allocated, never C*P*M*D.
+            with np.errstate(over="ignore", invalid="ignore"):
+                difference = coupling * whitened
+                if not np.isfinite(difference).all():
+                    raise ValueError("empirical coupling-scaled whitened signal is nonfinite")
+                np.subtract(residual[None, :, :], difference, out=difference)
+                q = np.einsum("pmd,pmd->pm", difference, difference)
+            if not np.isfinite(q).all():
+                raise ValueError("empirical residual quadratic is nonfinite")
             phase_like[i] = logsumexp(-.5 * (q + norm) + np.log(w), axis=1)
             min_chi2[i] = q.min(axis=1)
     else:

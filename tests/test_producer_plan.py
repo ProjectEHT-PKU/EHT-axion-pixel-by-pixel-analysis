@@ -131,8 +131,8 @@ def test_explicit_hashes_once_per_unique_file(inputs, monkeypatch):
 
 def test_first_scope_rejects_incompatible_resolution(inputs):
     config, fluid, tables = inputs
-    config["producer"]["response"]["resolution"] = 400
-    with pytest.raises(ValueError, match="response.resolution=100"):
+    config["producer"]["response"]["resolution"] = 800
+    with pytest.raises(ValueError, match="response.resolution in"):
         plan_generation(config, fluid, tables)
 
 

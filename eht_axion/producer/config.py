@@ -109,10 +109,13 @@ def validate_production_config(config):
     if p["response"]["phase_count"] != 16:
         raise ValueError("producer.response.phase_count must be 16 (core pi/8 convention)")
     _number(p["response"]["reference_norm"], "producer.response.reference_norm")
-    if p["response"]["reference_norm"] != 0.1:
-        raise ValueError("Producer first scope requires response.reference_norm=0.1 (analysis AXION_NORM)")
-    if p["response"]["resolution"] != 100 or p["background"]["resolution"] != 400:
-        raise ValueError("Producer first scope requires response.resolution=100 "
+    # Research response pilots may explicitly select any finite positive norm.
+    # The default profile remains .1; plan/job identities bind the actual norm.
+    # This generalizes the producer contract, not the linear-response inference.
+    # Explicit research grid generalization, not a core bug fix or inference change.
+    # The unchanged production profile remains100; background stays400.
+    if p["response"]["resolution"] not in (100, 200, 400) or p["background"]["resolution"] != 400:
+        raise ValueError("Producer requires response.resolution in {100,200,400} "
                          "and background.resolution=400")
     if p["background"]["resolution"] != config["background"]["source_resolution"]:
         raise ValueError("producer.background.resolution must match analysis background.source_resolution")

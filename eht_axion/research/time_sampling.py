@@ -26,6 +26,8 @@ def _bounds(t, centers, width):
     if (not np.isfinite(width) or width < 0 or not np.isfinite(c).all()
             or np.any(c - width / 2 < t[0]) or np.any(c + width / 2 > t[-1])):
         raise ValueError('finite nonnegative exposure must lie wholly inside time range')
+    if width > 0 and np.any(c + width / 2 <= c - width / 2):
+        raise ValueError('exposure width below time resolution')
     return c
 
 
@@ -71,7 +73,9 @@ def integrate_stokes_at(times, stokes, centers, width=6.):
 
     All times/widths in hours; shape centers.shape + stokes.shape[1:]. Spatial
     and channel axes are untouched (including singleton phase/state0 axis).
-    Only the current exposure's endpoint frames are materialized.
+    Only the current exposure's endpoint frames are materialized. Positive
+    widths whose floating-point endpoints collapse are rejected; width=0 is
+    point interpolation.
     """
     return _average(times, stokes, centers, width, 0.)
 
@@ -82,6 +86,8 @@ def average_modulated_response(centers, coefftimes, complexcoeff, omega, width=6
     omega is radians/hour, NOT dimensionless omega(alpha). A phase realization
     is real(output*exp(i*psi)). Caller supplies fit normalization/cloud scaling;
     this function deliberately does not normalize, select columns or add noise.
+    Positive widths with collapsed floating-point endpoints are rejected;
+    width=0 evaluates the modulated interpolant at the requested centers.
     """
     return _average(coefftimes, complexcoeff, centers, width, omega)
 
