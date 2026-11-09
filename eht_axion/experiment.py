@@ -44,7 +44,13 @@ SCHEMA = {
         "initial_m", "initial_evpa_deg", "rounds", "restart_rounds", "restart_blur_uas",
         "restart_domain_epsilon", "maxit", "stop", "shift_objective_constant", "uv_min",
         "uncertainty_draws", "seed", "covariance_ddof", "residual_d_sigma", "residual_d_convention",
+        "refine", "monte_carlo",
     },
+    "eht_imaging.refine": {"outer_rounds", "gap_atol", "maxiter", "check_every", "time_limit",
+                           "d_optimizer"},
+    "eht_imaging.refine.d_optimizer": {"ftol", "gtol", "maxiter", "maxcor", "maxls", "maxfun"},
+    "eht_imaging.monte_carlo": {"initial_p_fraction", "gap_atol", "maxiter", "check_every", "time_limit",
+                                "retry_maxiter", "retry_time_limit"},
     "analysis": {"rotation_degrees", "aperture", "features", "cloud", "background", "inference"},
     "analysis.aperture": {"window_degrees", "radial_max_fraction"},
     "analysis.features": {"mask_mode", "intensity_fraction", "polarization_fraction",
@@ -59,6 +65,9 @@ EHT_DAYS = (95, 96, 100, 101)
 # The 1D observable uses one-degree aperture bins (an angle grid, not a parameter);
 # aperture EVPAs are always intensity weighted (EHT VII).
 ANGULAR_BINS = 360
+# Solver settings of eht_refine.py / eht_sample.py: recorded in their own plans,
+# not in the flat parameter set of the imaging stages.
+EHT_SOLVER_SECTIONS = ("refine", "monte_carlo")
 # Machine-local eht-imaging locations; recorded in the imaging plan, never in YAML.
 EHT_LOCATIONS = ("input_root", "input_receipt", "feed_rotation_file", "official_script")
 
@@ -234,6 +243,23 @@ def _validate_eht_imaging(config):
     if (not isinstance(restarts, list) or len(set(restarts)) != len(restarts)
             or any(type(r) is not int or not 2 <= r <= c["rounds"] for r in restarts)):
         raise ValueError("eht_imaging.restart_rounds must be distinct rounds in [2, rounds]")
+    refine = _section(config, "eht_imaging.refine")
+    for key in ("outer_rounds", "maxiter", "check_every"):
+        _integer(refine[key], f"eht_imaging.refine.{key}")
+    for key in ("gap_atol", "time_limit"):
+        _positive(refine[key], f"eht_imaging.refine.{key}")
+    d_optimizer = _section(config, "eht_imaging.refine.d_optimizer")
+    for key in ("maxiter", "maxcor", "maxls", "maxfun"):
+        _integer(d_optimizer[key], f"eht_imaging.refine.d_optimizer.{key}")
+    for key in ("ftol", "gtol"):
+        _positive(d_optimizer[key], f"eht_imaging.refine.d_optimizer.{key}")
+    mc = _section(config, "eht_imaging.monte_carlo")
+    for key in ("maxiter", "check_every", "retry_maxiter"):
+        _integer(mc[key], f"eht_imaging.monte_carlo.{key}")
+    for key in ("gap_atol", "time_limit", "retry_time_limit"):
+        _positive(mc[key], f"eht_imaging.monte_carlo.{key}")
+    _number(mc["initial_p_fraction"], "eht_imaging.monte_carlo.initial_p_fraction", low=0, high=1,
+            open_low=True, open_high=True)
     # A fixed convention, kept in the YAML because it is part of the recorded imaging
     # parameter set of the (not re-runnable) EHT imaging stages.
     _choice(c["residual_d_convention"], "eht_imaging.residual_d_convention", ("per_component_sd",))
@@ -381,7 +407,7 @@ def eht_imaging_parameters(config, locations):
     parameters = {key: str(locations[key]) for key in EHT_LOCATIONS}
     parameters["inputs"] = c["inputs"]
     parameters.update(npix=image["shape"], fov_uas=image["fov_uas"])
-    for key in SCHEMA["eht_imaging"] - {"inputs"}:
+    for key in SCHEMA["eht_imaging"] - {"inputs", *EHT_SOLVER_SECTIONS}:
         parameters[key] = c[key]
     parameters["display_blur_uas"] = image["blur_fwhm_uas"]
     return {key: parameters[key] for key in _EHT_PARAMETER_ORDER}

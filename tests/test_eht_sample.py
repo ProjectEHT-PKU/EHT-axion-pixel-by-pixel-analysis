@@ -46,6 +46,10 @@ def test_bundle_bytes_seeds_and_4000_unique_tasks(tmp_path):
     science = batch.science_settings(SCRIPT.parents[1] / 'experiment.yaml')
     assert science['sites'] == ['AA', 'AP', 'AZ', 'JC', 'LM', 'PV', 'SM']
     assert (science['draws_per_day'], science['seed'], science['fsys']) == (1000, 20210405, .005)
+    # The settings recorded in the batch config of eht-uncertainty-remote-v1.
+    assert science['monte_carlo'] == dict(initial_p_fraction=.05, gap_atol=1e-6, maxiter=50000,
+                                          check_every=500, time_limit=600., retry_maxiter=200000,
+                                          retry_time_limit=1800.)
     verified, lineage = batch.verify_bundle(root, science)
     assert verified == b
     assert all(f['readonly_mode'] for f in lineage['files'].values())
@@ -80,9 +84,9 @@ def test_receipts_retry_and_tiny_exact_solver(tmp_path):
     problem = opt.CartesianProblem(intensity, (2, 2),
                 {name: (np.zeros(4, complex), np.ones(4), A) for name in ('pvis', 'm')}, 1., 4.)
     task = dict(id='95-0000', day='95', draw=0, dterms={})
-    config = dict(maxiter=1, time_limit=10, gap_atol=1e-8)
+    config = dict(maxiter=1, time_limit=10, gap_atol=1e-8, retry_maxiter=7, retry_time_limit=20.)
     assert batch.attempt_budget(config, 1) == (1, 10)
-    assert batch.attempt_budget(config, 2) == (200000, 1800.)
+    assert batch.attempt_budget(config, 2) == (7, 20.)
     parent = tmp_path / 'attempts' / task['id']
     interrupted = parent / 'attempt-0001'
     interrupted.mkdir(parents=True)

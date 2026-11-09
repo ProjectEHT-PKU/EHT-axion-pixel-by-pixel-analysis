@@ -14,6 +14,7 @@ import inspect
 import json
 from pathlib import Path
 import re
+import time
 
 import numpy as np
 
@@ -269,14 +270,49 @@ def _adapt_forward_source(source):
     return adapted
 
 
-def _forward_solver():
-    """Compile a private two-line adaptation; leave upstream globals untouched."""
+class _RecordingOptimizer:
+    """scipy.optimize stand-in for the private solver namespace only.
+
+    minimize() merges the explicit options into the official ones and records
+    every call; every other attribute is the real scipy.optimize.
+    """
+
+    def __init__(self, module, options, records):
+        self._module, self._options, self._records = module, dict(options), records
+        self._started = time.monotonic()
+
+    def __getattr__(self, name):
+        return getattr(self._module, name)
+
+    def minimize(self, fun, x0, *args, **kwargs):
+        options = dict(kwargs.get("options") or {})
+        options.update(self._options)
+        kwargs["options"] = options
+        initial = float(fun(x0))
+        result = self._module.minimize(fun, x0, *args, **kwargs)
+        self._records.append(dict(
+            call=len(self._records) + 1, options=options, initial_objective=initial,
+            initial_coordinates=np.asarray(x0).tolist(), objective=float(result.fun),
+            g_inf=float(np.max(abs(result.jac))), nit=int(result.nit), nfev=int(result.nfev),
+            njev=int(result.njev), success=bool(result.success), status=int(result.status),
+            message=str(result.message), seconds=time.monotonic() - self._started,
+            final_coordinates=np.asarray(result.x).tolist()))
+        return result
+
+
+def _forward_solver(optimizer=None):
+    """Compile a private two-line adaptation; leave upstream globals untouched.
+
+    ``optimizer`` (optional) replaces scipy.optimize inside the private copy only.
+    """
     _library()
     from ehtim.calibrating import pol_cal_new
     source = inspect.getsource(pol_cal_new.leakage_cal_new)
     adapted = _adapt_forward_source(source)
     filename = str(Path(pol_cal_new.__file__).resolve()) + ":explicit-zero-prior"
     namespace = dict(vars(pol_cal_new))
+    if optimizer is not None:
+        namespace["opt"] = optimizer
     exec(compile(adapted, filename, "exec"), namespace)
     receipt = dict(ehtim="1.3.2", upstream_function="pol_cal_new.leakage_cal_new",
                    upstream_file=str(Path(pol_cal_new.__file__).resolve()),
@@ -296,15 +332,22 @@ def forward_solver_identity():
     return _forward_solver()[1]
 
 
-def fit_forward_d(base, image, *, sites):
+def fit_forward_d(base, image, *, sites, optimizer_options, records=None):
     """Official nonlinear forward RL/LR fit, fixed errors, V=0, NO D prior.
 
     Always solve against a fresh gain-calibrated base, not the preceding
     corrected output. Corrected marginals follow the official inverse Jones.
-    Optimizer stopping options are official defaults; callers may record the
-    optimizer via their existing instrumentation, not a second solver here.
+    ``optimizer_options`` None keeps the official L-BFGS-B options; a dict
+    (experiment.yaml eht_imaging.refine.d_optimizer) overrides them, and every
+    optimizer call is then appended to ``records``.
     """
-    leakage_cal_new, identity = _forward_solver()
+    optimizer = None
+    if optimizer_options is not None:
+        import scipy.optimize
+
+        optimizer = _RecordingOptimizer(scipy.optimize, optimizer_options,
+                                        [] if records is None else records)
+    leakage_cal_new, identity = _forward_solver(optimizer)
     work, original = _weight_copy(base)
     sites = list(sites)
     present = set(work.data["t1"]) | set(work.data["t2"])
@@ -319,6 +362,7 @@ def fit_forward_d(base, image, *, sites):
                           ttype="direct", use_grad=True, show_solution=False, apply_solution=True)
     _finish_correction(out, base, original, "official_full_forward_RL_LR")
     return _metadata(out, d_prior="explicit zero prior and gradient", d_solve_sites=sites,
+                     d_optimizer_options="official" if optimizer_options is None else dict(optimizer_options),
                      forward_solver_identity=identity,
                      forward_errors="fixed native input marginal sigmas")
 

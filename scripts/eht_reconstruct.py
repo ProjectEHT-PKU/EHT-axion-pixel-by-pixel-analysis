@@ -328,7 +328,7 @@ def run_fiducial(base, fixed, c, core, eh, out):
         corrected = core.apply_fixed_d(noisy_base.copy(), dterms) if dterms else noisy_base.copy()
         image, optimizers = image_p(core.make_imaging_obs(corrected), fixed, init, c, eh)
         # Fit TOTAL D against the same uncorrected noisy base, fixed errors.
-        solved = core.fit_forward_d(noisy_base.copy(), image, sites=c['solve_sites'])
+        solved = core.fit_forward_d(noisy_base.copy(), image, sites=c['solve_sites'], optimizer_options=None)
         dterms = d_dictionary({str(row['site']): [row['dr'], row['dl']]
                               for row in solved.tarr if str(row['site']) in c['solve_sites']})
         dump(out / f'round-{r:02d}-dterms.json', dterms)

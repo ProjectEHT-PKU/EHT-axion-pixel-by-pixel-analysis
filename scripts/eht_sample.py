@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """EHT imaging, D-term Monte Carlo: fixed-I/fixed-D P images for every D draw (4 days x draws).
 
-Science values (draw count, seed, fsys, uv cut, D-term statistics, sky grid and
-display blur) come from experiment.yaml; the input bundle holds the four verified
-fiducial I/obs/D products. Input-only: no export, SSH, D fit or thermal draw.
+Science values (draw count, seed, fsys, uv cut, D-term statistics, sky grid,
+display blur and the P solver settings eht_imaging.monte_carlo) come from
+experiment.yaml; the input bundle (eht_export_bundle.py) holds the four verified
+fiducial I/obs/D products. Execution options (workers, threads, memory) are CLI.
+Input-only: no export, SSH, D fit or thermal draw.
 
 Receipts use a custom batch schema, NOT common.stage_directory manifests.
 A floating-point gap certificate is numerical, not scientific acceptance.
@@ -42,7 +44,7 @@ def science_settings(config_path):
                 uv_min=c['uv_min'], fsys=c['fsys'], covariance_ddof=c['covariance_ddof'],
                 residual_component_sigma=c['residual_d_sigma'], solve_sites=c['solve_sites'],
                 sites=sorted(c['solve_sites'] + c['fixed_sites']),
-                draws_per_day=c['uncertainty_draws'], seed=c['seed'])
+                draws_per_day=c['uncertainty_draws'], seed=c['seed'], monte_carlo=c['monte_carlo'])
 
 
 def encoded(value):
@@ -145,7 +147,9 @@ def enumerate_tasks(draws):
 
 
 def attempt_budget(config, numerical_attempt):
-    return (config['maxiter'], config['time_limit']) if numerical_attempt == 1 else (200000, 1800.)
+    if numerical_attempt == 1:
+        return config['maxiter'], config['time_limit']
+    return config['retry_maxiter'], config['retry_time_limit']
 
 
 def verified_receipt(directory, task, identity):
@@ -221,8 +225,10 @@ def run_attempt(root, bundle, task, directory, config, identity, numerical_attem
             obs = core.make_imaging_obs(core.apply_fixed_d(noisy, terms))
             problem = opt.exact_cartesian_problem(fixed, obs)
             maxiter, limit = attempt_budget(config, numerical_attempt)
-            P, report, trace = opt.solve_problem(problem, .05 * fixed.imvec.astype(complex),
-                gap_atol=config['gap_atol'], maxiter=maxiter, time_limit=limit, check_every=500,
+            initial = config['initial_p_fraction'] * fixed.imvec.astype(complex)
+            P, report, trace = opt.solve_problem(problem, initial,
+                gap_atol=config['gap_atol'], maxiter=maxiter, time_limit=limit,
+                check_every=config['check_every'],
                 callback=lambda row: atomic(directory / 'progress.json', row))
             image = fixed.copy()
             image.add_qu(P.real.reshape(fixed.ydim, fixed.xdim), P.imag.reshape(fixed.ydim, fixed.xdim))
@@ -233,7 +239,8 @@ def run_attempt(root, bundle, task, directory, config, identity, numerical_attem
                         unused_station_draws=sorted(set(task['dterms']) - present),
                         raw_statistics=driver.image_statistics(image),
                         display_statistics=driver.image_statistics(display),
-                        science_acceptance=False, initial_P='0.05 I real, no warm start',
+                        science_acceptance=False,
+                        initial_P=f"{config['initial_p_fraction']:g} I real, no warm start",
                         worker_lifetime_peak_rss_gib=(
                             resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20))
             atomic(directory / 'certificate.json', cert)
@@ -308,9 +315,8 @@ def controller(args, out):
     science = science_settings(args.config)
     bundle, snapshot = verify_bundle(args.bundle_root, science)
     configure_threads(args.threads)
-    config = dict(draws_per_day=science['draws_per_day'], seed=science['seed'], gap_atol=args.gap_atol,
-                  maxiter=args.maxiter, time_limit=args.time_limit,
-                  retry_maxiter=200000, retry_time_limit=1800., threads=args.threads)
+    config = dict(draws_per_day=science['draws_per_day'], seed=science['seed'], **science['monte_carlo'],
+                  threads=args.threads)
     plan = dict(schema='eht-uncertainty-batch-plan-v1', snapshot=snapshot,
                 source_identity=source_identity(), config=config, science=science,
                 source_kind=bundle['source_kind'], canonical_common_manifest=False)
@@ -446,19 +452,15 @@ def main(argv=None):
                    help='attempt cap; full draw plan retained, no partial finish receipt')
     p.add_argument('--resume', action='store_true',
                    help='explicit resume intent; same-identity resume is safe')
-    p.add_argument('--gap-atol', type=float, default=1e-6)
-    p.add_argument('--maxiter', type=int, default=50000)
-    p.add_argument('--time-limit', type=float, default=600.)
     p.add_argument('--max-active-memory-gib', type=float, default=100.)
     args = p.parse_args(argv)
     import math
     if args.config is None:
         args.config = _BOOTSTRAP / 'experiment.yaml'
-    if (min(args.workers, args.threads, args.maxiter) < 1
+    if (min(args.workers, args.threads) < 1
             or (args.task_limit is not None and args.task_limit < 1)
-            or not all(math.isfinite(v) and v > 0 for v in
-                       (args.gap_atol, args.time_limit, args.max_active_memory_gib, args.resource_wait))):
-        p.error('positive finite budgets/tolerance required')
+            or not all(math.isfinite(v) and v > 0 for v in (args.max_active_memory_gib, args.resource_wait))):
+        p.error('positive workers, threads, memory and wait required')
     args.bundle_root = args.bundle_root.resolve()
     out = args.output_root.resolve()
     if out.is_relative_to(args.bundle_root) or args.bundle_root.is_relative_to(out):

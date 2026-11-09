@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Exact convex P refinement of verified archived fits; one day per new root.
+"""EHT imaging: exact convex P refinement and D refits of a fiducial stage; one day per new root.
 
-No blur restart, sampling, or science-acceptance threshold. Coupled D uses the
-original zero-prior forward fit; each changed D defines a fresh convex problem.
+Produces the "tightD" fiducial D terms used for the D-term Monte Carlo. Each
+round solves the fixed-I/fixed-D P problem to a certified duality gap, then refits
+D (official zero-prior forward fit) against the same P; each changed D defines a
+fresh convex problem. All numerical settings (rounds, P solver budget and
+tolerance, D optimizer options) come from experiment.yaml eht_imaging.refine; the
+command line only names the input and output roots. No blur restart, sampling or
+science-acceptance threshold.
 """
 import argparse
 from importlib import metadata
@@ -12,58 +17,45 @@ import sys
 
 from _bootstrap import ROOT
 import eht_reconstruct as original
+from eht_axion import experiment
 from eht_axion.pipeline import common
 from eht_axion.research import eht_optimizer as solver
 
 
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--mode', choices=('fiducial', 'fixed-d'), required=True)
+    p.add_argument('--config', type=Path, default=experiment.DEFAULT_PATH, help='default: experiment.yaml')
     p.add_argument('--day', type=int, choices=original.DAYS, required=True)
-    for name in ('source-root', 'i-root', 'output-root'):
-        p.add_argument('--'+name, type=Path, required=True)
-    p.add_argument('--draw-id', type=int)
-    p.add_argument('--outer-rounds', type=int, default=2)
-    p.add_argument('--gap-atol', type=float, default=1e-6)
-    p.add_argument('--maxiter', type=int, default=20000)
-    p.add_argument('--check-every', type=int, default=500)
-    p.add_argument('--time-limit', type=float, default=300)
+    p.add_argument('--source-root', type=Path, required=True, help='completed fiducial stage of this day')
+    p.add_argument('--i-root', type=Path, required=True, help='completed I stage of this day')
+    p.add_argument('--output-root', type=Path, required=True, help='new directory')
     return p
 
 
 def build_plan(a):
-    import math
-    if (min(a.outer_rounds, a.maxiter, a.check_every) < 1
-            or not math.isfinite(a.gap_atol) or a.gap_atol < 0
-            or not math.isfinite(a.time_limit) or a.time_limit <= 0
-            or (a.mode == 'fiducial' and a.draw_id is not None)
-            or (a.draw_id is not None and a.draw_id < 0)):
-        raise ValueError('invalid numerical budget or draw selection')
+    config = experiment.read_experiment(a.config)
+    refine = config['eht_imaging']['refine']
     source = common.verify_stage(a.source_root, recursive=True)
     im, files = original.stage_inputs(a.i_root, 'I', a.day, original.I_PRODUCTS)
-    stage = source['stage']
-    allowed = ('research:eht-official:fiducial',) if a.mode == 'fiducial' else (
-        'research:eht-official:fiducial', 'research:eht-official:uncertainty',
-        'research:eht-fixed-d')
-    if stage not in allowed or source['config']['day'] != a.day:
-        raise ValueError('source mode/day mismatch')
+    if source['stage'] != 'research:eht-official:fiducial' or source['config']['day'] != a.day:
+        raise ValueError('source must be the fiducial stage of the same day')
     c = source['config']['parameters']
     if c != im['config']['parameters']:
         raise ValueError('source and I configurations differ')
+    locations = {key: c[key] for key in experiment.EHT_LOCATIONS}
+    if c != json.loads(json.dumps(experiment.eht_imaging_parameters(config, locations))):
+        raise ValueError('source imaging parameters differ from experiment.yaml eht_imaging')
+    # The exact convex solver (eht_optimizer) implements exactly these weights.
     if c['p_data'] != {'pvis': 1, 'm': 1} or c['p_reg'] != {'hw': 100, 'ptv': 1} or c['norm_reg'] is not True:
-        raise ValueError('only exact frozen paper weights supported')
+        raise ValueError('the exact P solver implements only the Paper VII weights')
     recorded = {Path(r['path']).resolve() for r in common.describe_inputs(
         common.source_closure([common.manifest_path(a.source_root)]))}
     if any((a.i_root/n).resolve() not in recorded for n in original.I_PRODUCTS):
         raise ValueError('source does not descend from this same I stage')
-    draw = a.draw_id
-    rawname = 'final-raw-IQU.fits' if draw is None else f'draw-{draw:04d}-raw-IQU.fits'
-    dname = 'final-dterms.json' if draw is None else 'all-draws.json'
+    rawname, dname = 'final-raw-IQU.fits', 'final-dterms.json'
     consumed = [a.source_root/rawname, a.source_root/dname]
     common.require_declared_outputs(a.source_root, consumed)
-    if draw is not None and draw >= len(json.loads(consumed[1].read_text())['draws']):
-        raise ValueError('draw outside frozen samples')
-    paths = [*files, common.manifest_path(a.source_root), *consumed, Path(__file__),
+    paths = [*files, common.manifest_path(a.source_root), *consumed, Path(__file__), a.config,
              Path(original.__file__), ROOT/'pixi.lock', Path(c['feed_rotation_file']),
              *sorted((ROOT/'eht_axion').rglob('*.py'))]
     # Full Python/package metadata closure, without hashing every native .so.
@@ -84,16 +76,17 @@ def build_plan(a):
     for path in common.source_closure(paths):
         if path == destination or path.is_relative_to(destination) or destination.is_relative_to(path):
             raise ValueError('source/output overlap')
-    return dict(day=a.day, mode=a.mode, parameters=c, rawname=rawname, dname=dname,
+    return dict(day=a.day, parameters=c, refine=refine, rawname=rawname, dname=dname,
                 inputs=common.describe_inputs(paths),
                 cli={k: str(v) if isinstance(v, Path) else v for k, v in vars(a).items()},
                 scope='floating-point fixed-I/D objective certificate; not interval/image uncertainty',
-                D_budget='explicit outer budget; joint D optimality not verified')
+                D_budget='explicit outer budget; joint D optimality not verified',
+                D_goal='numeric stationarity diagnostic only, not D uncertainty or global joint optimum')
 
 
 def run(a, plan, core, eh, out):
     import numpy as np
-    c = plan['parameters']
+    c, refine = plan['parameters'], plan['refine']
     fixed = eh.image.load_fits(str(a.i_root/original.I_PRODUCTS[0]))
     original.validate_fixed(fixed, c, eh)
     image = eh.image.load_fits(str(a.source_root/plan['rawname']))
@@ -104,22 +97,22 @@ def run(a, plan, core, eh, out):
     base = original.load_gaincal_base(a.i_root/original.I_PRODUCTS[1], c, eh)
     base = base.flag_uvdist(uv_min=c['uv_min'])
     data = json.loads((a.source_root/plan['dname']).read_text())
-    if a.draw_id is not None:
-        data = {s: [v['R'], v['L']] for s, v in data['draws'][a.draw_id].items()}
     present = set(map(str, base.tarr['site']))
     dterms = original.d_dictionary({s: v for s, v in data.items() if s in present})
-    steps = []
+    steps, d_records = [], []
+
     def problem(d):
         obs = core.make_imaging_obs(core.apply_fixed_d(core.add_fsys(base.copy(), c['fsys']), d))
         return solver.exact_cartesian_problem(fixed, obs, eh)
-    count = a.outer_rounds+1 if a.mode == 'fiducial' else 1
+
+    count = refine['outer_rounds'] + 1
     for r in range(1, count+1):
         label = 'final-P' if r == count else f'round-{r:02d}'
         before = image.qvec+1j*image.uvec
         # New problem, B/b, steps, duals and LB history on EVERY call.
         p, report, trace = solver.solve_problem(problem(dterms), before,
-            gap_atol=a.gap_atol, maxiter=a.maxiter, check_every=a.check_every,
-            time_limit=a.time_limit, callback=lambda row: print(
+            gap_atol=refine['gap_atol'], maxiter=refine['maxiter'], check_every=refine['check_every'],
+            time_limit=refine['time_limit'], callback=lambda row: print(
                 f'PDHG day={a.day} call={r} '+json.dumps(row, allow_nan=False), flush=True))
         image = fixed.copy()
         image.add_qu(p.real.reshape(fixed.ydim, fixed.xdim), p.imag.reshape(fixed.ydim, fixed.xdim))
@@ -127,8 +120,9 @@ def run(a, plan, core, eh, out):
         row = dict(call=r, P=report, trace=trace,
                    raw_QU_delta_L2=float(np.linalg.norm(p-before)),
                    statistics=original.image_statistics(image))
-        if a.mode == 'fiducial' and r < count:
-            solved = core.fit_forward_d(core.add_fsys(base.copy(), c['fsys']), image, sites=c['solve_sites'])
+        if r < count:
+            solved = core.fit_forward_d(core.add_fsys(base.copy(), c['fsys']), image, sites=c['solve_sites'],
+                                        optimizer_options=refine['d_optimizer'], records=d_records)
             new = original.d_dictionary({str(t['site']): [t['dr'], t['dl']]
                                         for t in solved.tarr if str(t['site']) in c['solve_sites']})
             # SAME physical P endpoint, different declared fixed-D objectives.
@@ -144,14 +138,14 @@ def run(a, plan, core, eh, out):
         original.dump(out/(label+'-dterms.json'), dterms)
         steps.append(row)
         original.dump(out/'steps.json', steps)
+        original.dump(out/'D-optimizer-records.json', d_records)
     original.save_image(image, out/'final', c, eh)
     original.dump(out/'final-dterms.json', dterms)
     # Small archive: no matrices, duals, per-iteration images, or duplicate I.
     np.savez_compressed(out/'best-P.npz', P=p)
     original.dump(out/'termination.json', dict(
         all_P_numerically_certified=all(s['P']['numerically_certified'] for s in steps),
-        joint_D_optimality='not verified' if a.mode == 'fiducial' else 'not applicable: frozen D',
-        D_refitted=a.mode == 'fiducial', outer_rounds=a.outer_rounds if a.mode == 'fiducial' else 0,
+        joint_D_optimality='not verified', D_refitted=True, outer_rounds=refine['outer_rounds'],
         reason='explicit outer budget; final P aligned with last D', blur_restarts=False))
     return steps
 
@@ -170,7 +164,7 @@ def main(argv=None):
             package_sources = Path(module.__file__).resolve().parent.rglob('*.py')
             if any(str(p.resolve()) not in declared for p in package_sources):
                 raise ValueError('actual imported package outside declared closure')
-        with common.stage_directory(a.output_root, 'research:eht-convex:'+a.mode, plan,
+        with common.stage_directory(a.output_root, 'research:eht-convex:fiducial', plan,
                                     [Path(r['path']) for r in plan['inputs']]) as out:
             if out is None:
                 raise FileExistsError(a.output_root)

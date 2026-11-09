@@ -213,7 +213,7 @@ def test_forward_objective_gradient_and_injected_recovery(toy, monkeypatch):
 
     monkeypatch.setattr(pol_cal_new.opt, "minimize", capture)
     before = measured.copy()
-    fitted = core.fit_forward_d(measured, image, sites=("AZ", "LM", "PV"))
+    fitted = core.fit_forward_d(measured, image, sites=("AZ", "LM", "PV"), optimizer_options=None)
     assert pol_cal_new.leakage_cal_new is original_solver
     assert fitted.official_metadata["d_prior"] == "explicit zero prior and gradient"
     assert fitted.official_metadata["forward_solver_identity"] == core.forward_solver_identity()
@@ -251,7 +251,7 @@ def test_forward_source_receipt_and_fail_closed():
 
 def test_forward_zero_leakage_recovery(toy):
     obs, image = toy
-    fitted = core.fit_forward_d(obs, image, sites=("AZ", "LM", "PV"))
+    fitted = core.fit_forward_d(obs, image, sites=("AZ", "LM", "PV"), optimizer_options=None)
     np.testing.assert_allclose(fitted.tarr["dr"], 0, atol=1e-10)
     np.testing.assert_allclose(fitted.tarr["dl"], 0, atol=1e-10)
     np.testing.assert_allclose(coherency(fitted), coherency(obs), atol=1e-12)
@@ -352,6 +352,6 @@ def test_validation(toy):
     model = image.copy()
     model.add_pol_image(np.ones((2, 2)), "V")
     with pytest.raises(ValueError, match="V=0"):
-        core.fit_forward_d(obs, model, sites=("AZ", "LM", "PV"))
+        core.fit_forward_d(obs, model, sites=("AZ", "LM", "PV"), optimizer_options=None)
     with pytest.raises(ValueError, match="four daily"):
         core.d_distribution({"day": {}}, ddof=1)

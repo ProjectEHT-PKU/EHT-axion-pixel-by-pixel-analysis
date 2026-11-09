@@ -57,7 +57,8 @@ def test_exact_oracles_and_diagonal_certificate():
     f0, g0 = p0.physical(np.zeros(6, complex))
     assert f0 == 0 and np.all(g0 == 0)
     assert o.Split(p0).cert(np.zeros(6, complex))['gap'] == 0
-    P, report, trace = o.solve_problem(p0, intensity*x, gap_atol=1e-8, maxiter=6000, check_every=100)
+    P, report, trace = o.solve_problem(p0, intensity*x, gap_atol=1e-8, maxiter=6000, check_every=100,
+                                       time_limit=300)
     assert report['numerically_certified'] and report['best_gap'] <= 1e-8
     assert np.all(abs(P) < intensity)
     assert all(b['best_lower'] >= a['best_lower'] for a, b in zip(trace, trace[1:]))
@@ -79,7 +80,8 @@ def test_real_132_tiny_objective_and_baseline(toy):
     # Independent upstream analytic-gradient optimizer, only on this 2x2 toy.
     baseline = minimize(im.objfunc, im._xinit, jac=im.objgrad, method='L-BFGS-B',
                         options={'maxiter': 2000, 'ftol': 1e-14, 'gtol': 1e-10})
-    P, report, trace = o.solve_problem(p, initial, gap_atol=1e-7, maxiter=20000, check_every=100)
+    P, report, trace = o.solve_problem(p, initial, gap_atol=1e-7, maxiter=20000, check_every=100,
+                                       time_limit=300)
     assert report['numerically_certified']
     official = float(baseline.fun)+2+100*np.log(2)
     assert report['best_lower'] <= official+1e-9

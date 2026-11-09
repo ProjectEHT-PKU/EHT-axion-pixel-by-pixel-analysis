@@ -83,9 +83,12 @@ def test_eht_imaging_parameters_flat_set_with_shared_grid(config):
                                     "inputs"]
     assert (parameters["npix"], parameters["fov_uas"], parameters["display_blur_uas"]) == (64, 120.0, 19.0)
     assert parameters["uncertainty_draws"] == 1000
-    for key, value in config["eht_imaging"].items():
+    imaging = {k: v for k, v in config["eht_imaging"].items() if k not in ("refine", "monte_carlo")}
+    for key, value in imaging.items():
         assert parameters[key] == value
-    assert len(parameters) == len(config["eht_imaging"]) + 3 + len(LOCATIONS)
+    # The solver settings of eht_refine/eht_sample are not part of the imaging parameter set.
+    assert len(parameters) == len(imaging) + 3 + len(LOCATIONS)
+    assert "refine" not in parameters and "monte_carlo" not in parameters
     with pytest.raises(ValueError, match="locations"):
         eht_imaging_parameters(config, {})
 
@@ -143,3 +146,31 @@ def test_sky_grid_must_fit_in_camera(config):
     config["shared"]["image"]["fov_uas"] = 1000.0
     with pytest.raises(ValueError, match="camera"):
         validate(config)
+
+
+def test_library_signatures_have_no_numeric_default_values():
+    """Scientific values come from experiment.yaml, never from library defaults."""
+    import ast
+    from pathlib import Path
+
+    allowed = {
+        ("producer/jobs.py", "run_jobs", "threads"), ("producer/jobs.py", "run_jobs", "workers"),  # execution
+        ("pipeline/raptor.py", "fit_phase_dft", "phase_axis"),  # array layout
+        ("producer/plan.py", "append_task", "phase"),  # baseline tasks have phase 0 by definition
+        ("research/eht_official.py", "tlist", "t_gather"),  # mirrors the ehtim method signature
+    }
+    found = []
+    for path in sorted((Path(experiment.__file__).parent).rglob("*.py")):
+        relative = str(path.relative_to(Path(experiment.__file__).parent))
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, ast.FunctionDef) or node.name.startswith("_"):
+                continue
+            args = node.args
+            pairs = list(zip(args.args[len(args.args) - len(args.defaults):], args.defaults))
+            pairs += [(a, d) for a, d in zip(args.kwonlyargs, args.kw_defaults) if d is not None]
+            for arg, default in pairs:
+                value = default.value if isinstance(default, ast.Constant) else None
+                if (isinstance(value, (int, float)) and not isinstance(value, bool)
+                        and (relative, node.name, arg.arg) not in allowed):
+                    found.append(f"{relative}:{node.name}({arg.arg}={value})")
+    assert not found

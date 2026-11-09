@@ -99,6 +99,27 @@ eht_imaging:  # observation input: Paper IV/VII method (fixed I, D-term solution
   covariance_ddof: 1
   residual_d_sigma: 0.01         # ehtim cerror convention: 1% SD per real/imag component
   residual_d_convention: per_component_sd
+  refine:                        # eht_refine.py: exact convex P solve + D refits ("tightD" fiducial)
+    outer_rounds: 100            # P solve / D refit alternations before the final P solve
+    gap_atol: 1.0e-06            # P duality-gap certificate tolerance
+    maxiter: 20000               # P solver iterations per call
+    check_every: 500             # P solver certificate cadence (iterations)
+    time_limit: 300.0            # P solver seconds per call
+    d_optimizer:                 # scipy L-BFGS-B options of every D refit
+      ftol: 1.0e-13
+      gtol: 1.0e-09
+      maxiter: 10000
+      maxcor: 50
+      maxls: 50
+      maxfun: 100000
+  monte_carlo:                   # eht_sample.py: one exact P solve per D draw
+    initial_p_fraction: 0.05     # initial P = this fraction x fixed I (real), no warm start
+    gap_atol: 1.0e-06
+    maxiter: 50000
+    check_every: 500
+    time_limit: 600.0
+    retry_maxiter: 200000        # second numerical attempt of an uncertified draw
+    retry_time_limit: 1800.0
 
 analysis:  # combines both inputs: from simulated images and EHT ensembles to limits on c
   rotation_degrees: 108.0        # rotate simulated images onto the sky

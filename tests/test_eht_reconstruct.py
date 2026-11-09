@@ -323,9 +323,10 @@ def test_fiducial_total_d_solves_against_fresh_base_and_final_p_only(tmp_path, c
         obs.noisy = True
         return obs
 
-    def solve(obs, image, sites):
+    def solve(obs, image, sites, optimizer_options):
         assert obs is not base and obs.noisy and not getattr(obs, 'corrected', False)
         assert sites == config['solve_sites']
+        assert optimizer_options is None  # the fiducial stage uses the official D optimizer options
         fits.append(obs)
         return SimpleNamespace(tarr=tarr)
 

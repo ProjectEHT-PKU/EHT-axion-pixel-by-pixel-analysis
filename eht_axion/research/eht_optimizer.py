@@ -206,15 +206,14 @@ def steps(s):
     return tau, sd, st
 
 
-def solve_problem(problem, initialP, gap_atol=1e-6, maxiter=20000,
-                  check_every=1000, time_limit=300, gap_rtol=0., callback=None):
+def solve_problem(problem, initialP, *, gap_atol, maxiter, check_every, time_limit, callback=None):
     """Return best feasible physical P, report, scalar-only checkpoint trace.
 
     Best primal and best feasible lower bound may come from different iterations;
     their pairing is valid. No full-image history or dual storage is returned.
     """
-    if (not np.isfinite([gap_atol, gap_rtol, time_limit]).all()
-            or gap_atol < 0 or gap_rtol < 0 or time_limit <= 0
+    if (not np.isfinite([gap_atol, time_limit]).all()
+            or gap_atol < 0 or time_limit <= 0
             or type(maxiter) is not int or maxiter < 1
             or type(check_every) is not int or check_every < 1):
         raise ValueError('invalid numerical budget/tolerances')
@@ -244,7 +243,7 @@ def solve_problem(problem, initialP, gap_atol=1e-6, maxiter=20000,
         trace.append(row)
         if callback is not None:
             callback(dict(row))
-        return row['best_gap'] <= gap_atol+gap_rtol*abs(bestp)
+        return row['best_gap'] <= gap_atol
     certified = checkpoint(0)
     k = 0
     while not certified and k < maxiter and time.monotonic()-started < time_limit:
@@ -263,7 +262,7 @@ def solve_problem(problem, initialP, gap_atol=1e-6, maxiter=20000,
     report = dict(initial=initial, best_primal=saved, best_lower=bestlb, best_gap=gap,
                   best_primal_iteration=bestpi, best_lower_iteration=bestli,
                   iterations=k, seconds=time.monotonic()-started, theta=THETA,
-                  gap_atol=gap_atol, gap_rtol=gap_rtol, numerically_certified=certified,
+                  gap_atol=gap_atol, gap_rtol=0., numerically_certified=certified,
                   termination='gap' if certified else ('maxiter' if k == maxiter else 'time_limit'),
                   certificate='floating-point primal/historical dual lower; not interval arithmetic')
     return s.I*bestx, report, trace
