@@ -27,8 +27,9 @@ pixi run verify PATH/TO/STAGE              # check this stage's outputs
 pixi run verify PATH/TO/STAGE --recursive  # also re-hash every input and upstream stage
 ```
 
-`scripts/verify_products.py` prints the manifest after a successful check; it never
-recomputes data.
+`scripts/verify_products.py` runs the check in one verification session (each file is
+hashed once, however many stages declare it), prints the manifest after a successful
+check, and never recomputes data.
 
 ## Details
 
