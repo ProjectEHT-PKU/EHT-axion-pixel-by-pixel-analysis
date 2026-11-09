@@ -62,7 +62,7 @@ use them without repeating definitions.
 | 1D, 2D | aperture-sector observable (360 one-degree sectors) and pixel observable (64 × 64 grid) |
 | feature | one selected sector (1D) or pixel (2D) used in the likelihood |
 | GRMHD background | $\sigma_\mathrm{bg}$, EVPA scatter of lagged axion-off frames on the selected features |
-| zero-data control | the same likelihood with day differences set to zero (`null-comparison`) |
+| zero-data control | the same likelihood with day differences set to zero (`zero-data` in file names) |
 
 ## Related pages
 

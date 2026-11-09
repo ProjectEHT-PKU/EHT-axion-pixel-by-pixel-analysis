@@ -6,7 +6,7 @@ bundle (eht_export_bundle.py); the fiducial D terms are refined by eht_refine.py
 
 Scientific parameters: experiment.yaml (eht_imaging + shared.image). Machine-local
 locations (uvfits directory, input receipt, feed-rotation table, official script)
-come from CLI options or .env (EHT_IMAGING_*). Not a bitwise historical reproduction.
+come from CLI options or .env (EHT_IMAGING_*). Not a bitwise reproduction of the published images.
 
 --plan only verifies/hashes inputs; no optional imaging import or output writes.
 Execute only after external review. A --review-file records that external decision;
@@ -146,7 +146,7 @@ def build_plan(args):
                 output_root=str(destination), inputs=provenance.describe_inputs(inputs),
                 cli={k: [str(p) for p in v] if isinstance(v, list) else str(v) if isinstance(v, Path) else v
                      for k, v in vars(args).items()},
-                scope='Paper IV/VII method implementation; not bitwise historical; review not inferred',
+                scope='Paper IV/VII method implementation; not a bitwise reproduction; review not inferred',
                 display=f"additional {c['display_blur_uas']:g}uas I/Q/U kernel, NOT an effective PSF",
                 scientifically_converged=False)
 
@@ -167,7 +167,7 @@ def run_i(plan, core, eh, out):
     validate_fixed(fixed, c, eh)
     if not np.isclose(fixed.rf, native.rf, rtol=0, atol=1.):
         raise ValueError('final fixed I frequency differs from the native observation')
-    # The old pipeline excludes PV in its last selfcal. This additional solve is
+    # The official script excludes PV in its last self-calibration. This additional solve is
     # explicit, on untapered scan-averaged data, against the SAME restored fixed I.
     # Exclude extended-flux zero baselines BEFORE solving compact-model gains;
     # the unchanged official I workflow above may still use its zero baselines.

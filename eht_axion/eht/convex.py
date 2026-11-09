@@ -257,7 +257,7 @@ def solve_problem(problem, initialP, *, gap_atol, maxiter, check_every, time_lim
             certified = checkpoint(k)
     if trace[-1]['iteration'] != k:
         certified = checkpoint(k)
-    # Re-evaluate the actual returned primal against the best historical LB.
+    # Re-evaluate the returned primal against the best lower bound found.
     saved = problem.physical(s.I*bestx)[0]
     gap = checked_gap(saved, bestlb)
     report = dict(initial=initial, best_primal=saved, best_lower=bestlb, best_gap=gap,
@@ -265,5 +265,5 @@ def solve_problem(problem, initialP, *, gap_atol, maxiter, check_every, time_lim
                   iterations=k, seconds=time.monotonic()-started, theta=THETA,
                   gap_atol=gap_atol, gap_rtol=0., numerically_certified=certified,
                   termination='gap' if certified else ('maxiter' if k == maxiter else 'time_limit'),
-                  certificate='floating-point primal/historical dual lower; not interval arithmetic')
+                  certificate='floating-point best primal minus best dual lower bound; not interval')
     return s.I*bestx, report, trace

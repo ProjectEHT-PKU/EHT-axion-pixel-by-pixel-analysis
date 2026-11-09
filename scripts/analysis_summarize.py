@@ -55,15 +55,15 @@ def plot_limits(out, report):
     fig, axes = plt.subplots(1, 2, figsize=(14, 6), layout="constrained")
     for ax, dim in zip(axes, ("1d", "2d")):
         for mode, color in zip(MODES, ("C0", "C1", "C2")):
-            for center, style in (("observed", "-"), ("null-comparison", "--")):
-                row = report["results"][f"{center}-{mode}-{dim}"]
+            for data, style in (("observed", "-"), ("zero-data", "--")):
+                row = report["results"][f"{data}-{mode}-{dim}"]
                 ax.plot(
                     row["alphas"],
                     row["c95"],
                     style,
                     color=color,
                     marker="o",
-                    label=f"{mode}: {center}",
+                    label=f"{mode}: {data}",
                 )
         ax.set(
             xlabel=r"$\alpha$",
@@ -73,8 +73,8 @@ def plot_limits(out, report):
         )
         ax.grid(alpha=0.2)
         ax.legend(fontsize=8)
-    fig.suptitle("Conditional observed credible limits / matched NULL controls")
-    fig.savefig(out / "limits-observed-null.png", dpi=160)
+    fig.suptitle("Credible limits: observed data and zero-data control")
+    fig.savefig(out / "limits.png", dpi=160)
     plt.close(fig)
 
 
@@ -236,7 +236,6 @@ def run(args):
         "verification": (
             "completed small stage outputs only; raw lineage inherited, not rehashed"
         ),
-        "canonical_NULL_modified": False,
         "calibration_certification": False,
     }
     with provenance.stage_directory(
@@ -315,7 +314,7 @@ def run(args):
             ("Observed centers away from branch seams do not validate "
             "every prior-predictive Gaussian tail."),
             "",
-            "![Limits](limits-observed-null.png)",
+            "![Limits](limits.png)",
             "",
             "![Saved fits](alpha030-fits.png)",
         ]

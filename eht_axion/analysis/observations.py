@@ -3,8 +3,8 @@
 The D-term Monte Carlo draws give, per day and feature, a circular mean EVPA and
 the population scatter of the draws (not the error of the mean). Days are
 treated as independent: the pair covariance is the sum of the two daily
-covariances and equal draw indices have no paired meaning. The matched NULL
-observation has the same covariance and zero day differences.
+covariances and equal draw indices have no paired meaning. The zero-data control
+has the same features and covariance and day differences set to zero.
 """
 from __future__ import annotations
 
@@ -78,7 +78,7 @@ def branch_risk(pairs, covariances):
 
 
 def build_observations(samples, selected_indices, *, resultant_min):
-    """Build actual later-minus-earlier pairs and exactly matched zero-center NULL.
+    """Build the observed later-minus-earlier pair differences and the zero-data control.
 
     Selection depends only on concentration, not the size of day differences.
     No covariance ridge, eigenvalue clipping, or data-dependent tuning is used.
@@ -113,7 +113,7 @@ def build_observations(samples, selected_indices, *, resultant_min):
             raise ValueError("Pair working covariance is not strictly positive definite") from exc
     observed = ObservationData(means, tuple(np.sqrt(np.diag(c)) for c in covs), covs,
                                pairs, pair_covs, indices[good])
-    null = replace(observed, pair_differences=tuple(np.zeros_like(v) for v in pairs))
+    zero_data = replace(observed, pair_differences=tuple(np.zeros_like(v) for v in pairs))
     metadata = {
         "days": list(DAYS), "sample_counts": [len(v) for v in samples],
         "resultant": np.stack([v[2][good] for v in daily]).tolist(),
@@ -130,4 +130,4 @@ def build_observations(samples, selected_indices, *, resultant_min):
         "branch_risk": branch_risk(pairs, pair_covs),
         "regularization": "none", "resultant_min": float(resultant_min),
     }
-    return observed, null, metadata
+    return observed, zero_data, metadata

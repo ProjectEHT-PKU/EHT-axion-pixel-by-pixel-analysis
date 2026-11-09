@@ -1,6 +1,6 @@
 """RAPTOR task planning: read-only BHAC snapshot/radial-table checks and the JSON task list.
 
-No build, subprocess, output directory, old-output discovery or simulation is
+No build, subprocess, output directory, discovery of earlier outputs or simulation is
 performed here. Execution must hash live source/table/build bytes and bind those
 hashes to its own session records. Only the small BHAC footers and the radial
 tables are read here.
@@ -308,6 +308,6 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
             "No radial amplitudes were renormalized; ray-radius coverage remains a core runtime check.",
             "Resource estimates are lower bounds only; "
             "caller must check disk/RAM with overhead and concurrency.",
-            "This plan builds and launches nothing and uses no old scientific outputs.",
+            "This plan builds and launches nothing and reads no earlier scientific outputs.",
         ],
     }

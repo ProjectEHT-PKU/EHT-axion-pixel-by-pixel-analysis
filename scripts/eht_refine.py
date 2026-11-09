@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """EHT imaging: exact convex P refinement and D refits of a fiducial stage; one day per new root.
 
-Produces the "tightD" fiducial D terms used for the D-term Monte Carlo. Each
+Produces the refined ("tightD") fiducial D terms used for the D-term Monte Carlo. Each
 round solves the fixed-I/fixed-D P problem to a certified duality gap, then refits
 D (official zero-prior forward fit) against the same P; each changed D defines a
 fresh convex problem. All numerical settings (rounds, P solver budget and

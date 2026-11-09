@@ -119,7 +119,8 @@ always; snapshot hashes when the plan contains them), compares the build grid fi
 macros with the plan, and checks memory headroom. The SHA-256 of every snapshot and table
 is recorded in the manifest of each job that reads it. Each task runs in its own
 stage directory `jobs/<task id>/` with inputs build manifest, binary, `grid_mks.in`,
-`definitions.h`, snapshot and table. RAPTOR is called as
+`definitions.h`, snapshot and table. The run root may not lie inside a stage directory
+(no ancestor may contain a `manifest.json`). RAPTOR is called as
 `RAPTOR model.in <snapshot> <output slot>` in a temporary directory; if it exits
 successfully, its output is validated (next section) and the stage is published. A failed
 attempt is preserved under `attempts/<task id>/attempt-*/` (logs, receipt and the partial

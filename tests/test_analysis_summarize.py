@@ -18,13 +18,13 @@ from analysis_summarize import (
 def toy_report():
     return {
         "results": {
-            f"{center}-{mode}-{dim}": {
+            f"{data}-{mode}-{dim}": {
                 "alphas": [0.1, 0.3],
                 "c95": [10.0, 1.0],
                 "log10_c95": [1.0, 0.0],
                 "features": 2,
             }
-            for center in ("observed", "null-comparison")
+            for data in ("observed", "zero-data")
             for mode in MODES
             for dim in ("1d", "2d")
         }
@@ -74,7 +74,7 @@ def test_plots_and_saved_fit_extraction(tmp_path):
     assert rows[0]["null_chi2"] == 0.1
     plot_limits(tmp_path, toy_report())
     plot_fits(tmp_path, diagnostics)
-    for name in ("limits-observed-null.png", "alpha030-fits.png"):
+    for name in ("limits.png", "alpha030-fits.png"):
         assert (tmp_path / name).stat().st_size > 1000
 
 

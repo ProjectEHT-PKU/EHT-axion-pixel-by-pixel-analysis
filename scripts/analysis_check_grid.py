@@ -30,8 +30,8 @@ def load_observation(path):
         differences, pairs = z['pair_differences'], tuple(z['pair_covariances'])
         selected = z['selected_indices']
     observed = ObservationData(means, std, cov, differences, pairs, selected)
-    null = ObservationData(means, std, cov, np.zeros_like(differences), pairs, selected)
-    return observed, null
+    zero_data = ObservationData(means, std, cov, np.zeros_like(differences), pairs, selected)
+    return observed, zero_data
 
 
 OVERRIDES = ('phase_count', 'coupling_points', 'coupling_max')
@@ -73,18 +73,18 @@ def run(args):
             inputs += [provenance.manifest_path(root), root/'templates.npz']
         inputs += sorted((Path(__file__).resolve().parents[1]/'eht_axion').rglob('*.py'))
         identity = dict(changed=changed, source=str(args.source),
-            source_verified='completed result outputs + recorded producer inputs; no raw RT rehash',
-            same_selected_observations=True, same_covariance=True, canonical_NULL_modified=False)
+            source_verified='completed result outputs and recorded inputs; raw lineage not re-hashed',
+            same_selected_observations=True, same_covariance=True)
         with provenance.stage_directory(args.output_root, 'analysis:check-grid',
                                     identity, inputs, verify_lineage=False) as out:
             results, rows = {}, []
             for dim in ('1d', '2d'):
-                observed, null = load_observation(args.source/f'observations-{dim}.npz')
+                observed, zero_data = load_observation(args.source/f'observations-{dim}.npz')
                 alpha, amp, phase, _ = products[dim]
                 # Numerical check: only the declared grid/prior knobs differ; physical model fixed.
                 options = options_from_config(config, source_report['background_sigma_radians'][dim])
                 for mode in MODES:
-                    for label, data in [('observed', observed), ('null-comparison', null)]:
+                    for label, data in [('observed', observed), ('zero-data', zero_data)]:
                         a, cuts, diagnostic = calculate_observed(data, amp, phase, alphas=alpha,
                             dimension=dim, mode=mode, options=options)
                         key = f'{label}-{mode}-{dim}'
@@ -96,7 +96,7 @@ def run(args):
                         results[key] = dict(alphas=a.tolist(), c95=(10**cuts).tolist(),
                             log10_c95=cuts.tolist(),
                             delta_log10_c95=(cuts-baseline).tolist(), features=len(data.selected_indices))
-                        rows += [dict(center=label, mode=mode, dimension=dim, alpha=float(x),
+                        rows += [dict(data=label, mode=mode, dimension=dim, alpha=float(x),
                             log10_c95=float(y), c95=float(10**y), delta_log10_c95=float(delta))
                             for x, y, delta in zip(a, cuts, cuts-baseline)]
                         print(key, 'max delta dex', float(np.max(abs(cuts-baseline))), flush=True)

@@ -1,4 +1,4 @@
-"""Analysis: observed and matched-NULL limits on c from the EHT ensembles.
+"""Analysis: limits on c from the EHT ensembles, with the zero-data control.
 
 Inputs: the templates root of analysis_templates.py and the fixed-D EHT ensemble
 summary of eht_summarize.py. Feature selection, cloud model, background and the
@@ -89,19 +89,19 @@ def validate_templates(root, config, seen):
 
 
 def save_results(out, products, prepared, config, sigmas, identity):
-    """Run all six dimension/mode cases and their identical-C NULL controls."""
+    """Run all six dimension/mode cases, each with the zero-data control (same C, d = 0)."""
     results, table = {}, []
     for dim in ('1d', '2d'):
         alpha, amp, phase, _ = products[dim]
         selected, samples, coordinates, selection = prepared[dim]
-        observed, null, diagnostics = build_observations(
+        observed, zero_data, diagnostics = build_observations(
             samples, selected, resultant_min=identity['resultant_min'])
         positions = diagnostics['retained_initial_positions']
         np.savez(out / f'observations-{dim}.npz', selected_indices=observed.selected_indices,
                  coordinates=np.asarray(coordinates)[positions], means=observed.means,
                  standard_deviations=observed.standard_deviations, covariances=observed.covariances,
                  pair_differences=observed.pair_differences, pair_covariances=observed.pair_covariances,
-                 null_pair_differences=null.pair_differences, resultant=diagnostics['resultant'],
+                 zero_data_pair_differences=zero_data.pair_differences, resultant=diagnostics['resultant'],
                  sample_counts=diagnostics['sample_counts'],
                  local_branch_mean_minus_circular_radians=
                  diagnostics['local_branch_mean_minus_circular_radians'],
@@ -111,7 +111,7 @@ def save_results(out, products, prepared, config, sigmas, identity):
         sigmas[dim] = selected_background(out, dim, observed.selected_indices, config, sigmas[dim])
         options = options_from_config(config, sigmas[dim])
         for mode in MODES:
-            for label, data in (('observed', observed), ('null-comparison', null)):
+            for label, data in (('observed', observed), ('zero-data', zero_data)):
                 a, cuts, diagnostic = calculate_observed(
                     data, amp, phase, alphas=alpha, dimension=dim, mode=mode, options=options)
                 effective_covariances = diagnostic.get('effective_pair_covariances')
@@ -128,26 +128,26 @@ def save_results(out, products, prepared, config, sigmas, identity):
                 (out / f'{key}.json').write_text(json.dumps(diagnostic, indent=2, allow_nan=False)+'\n')
                 results[key] = dict(alphas=a.tolist(), c95=(10**cuts).tolist(),
                                     log10_c95=cuts.tolist(), features=len(observed.selected_indices))
-                table.extend(dict(center=label, mode=mode, dimension=dim, alpha=float(x),
+                table.extend(dict(data=label, mode=mode, dimension=dim, alpha=float(x),
                                   log10_c95=float(y), c95=float(10**y)) for x, y in zip(a, cuts))
                 print(key, cuts, flush=True)
     with (out / 'limits.csv').open('w', newline='') as stream:
         writer = csv.DictWriter(stream, fieldnames=[
-            'center', 'mode', 'dimension', 'alpha', 'log10_c95', 'c95'])
+            'data', 'mode', 'dimension', 'alpha', 'log10_c95', 'c95'])
         writer.writeheader()
         writer.writerows(table)
     plot_results(out, results)
     report = dict(identity, results=results,
                   supported_cases=[f'{mode}-{dim}' for dim in ('1d', '2d') for mode in MODES],
                   background_sigma_radians=sigmas,
-                  confidence=config['analysis']['inference']['credibility'],
-                  response_model_variance_included=False, canonical_null_modified=False,
+                  credibility=config['analysis']['inference']['credibility'],
+                  response_model_variance_included=False,
                   warnings=['D-draw scatter is working covariance, not calibrated measurement noise.',
                             'Independent days assumed; common generating D does not identify cross-day C.',
                             'Local EVPA Gaussian branch; no daily EVPA alignment or offset removal.',
                             'Finite prior/grid conditional credible bounds, not certified exclusions.',
-                            'cor_fixed_background is fixed scalar GRMHD noise, NOT canonical cor_grmhd '
-                            'signal variance.'])
+                            'cor_fixed_background adds a fixed scalar GRMHD background variance, '
+                            'not a response-model variance.'])
     (out / 'report.json').write_text(json.dumps(report, indent=2, allow_nan=False)+'\n')
     return report
 
@@ -160,15 +160,15 @@ def plot_results(out, results):
     fig, axes = plt.subplots(1, 2, figsize=(13, 5), layout='constrained')
     for ax, dim in zip(axes, ('1d', '2d')):
         for mode, color in zip(MODES, ('#2679b5', '#e58f24', '#467b46')):
-            for label, style in (('observed', '-'), ('null-comparison', '--')):
+            for label, style in (('observed', '-'), ('zero-data', '--')):
                 row = results[f'{label}-{mode}-{dim}']
                 ax.plot(row['alphas'], row['log10_c95'], style, color=color, marker='o',
                         markersize=3, label=f'{label}: {mode}')
         ax.set(xlabel='Axion alpha', ylabel='log10 c95', title=dim)
         ax.grid(alpha=.2)
         ax.legend(fontsize=7)
-    fig.suptitle('RESEARCH: actual day differences / matched NULL; working D-scatter covariance')
-    fig.savefig(out / 'observed-vs-null.png', dpi=160)
+    fig.suptitle('Observed day differences and zero-data control; D-term scatter covariance')
+    fig.savefig(out / 'observed-vs-zero-data.png', dpi=160)
     plt.close(fig)
 
 
@@ -256,7 +256,7 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     stride = features['pixel_stride']
     record = verify_stage(ensemble, recursive=True, _seen=verified)
     if record['stage'] != 'eht:ensemble':
-        raise ValueError('Unexpected EHT120 ensemble stage')
+        raise ValueError('Unexpected EHT ensemble stage')
     report_path = ensemble / 'report.json'
     require_declared_outputs(ensemble, [report_path])
     report = json.loads(report_path.read_text())
@@ -410,7 +410,7 @@ def run(args):
                         resultant_min=features['resultant_min'], centering=CENTERING,
                         pixel_stride=features['pixel_stride'],
                         ensemble=source_identity, covariance='D-draw population scatter; independent days',
-                        scope='working-covariance conditional research credible limits')
+                        scope='credible limits conditional on grid and prior; D-term scatter as covariance')
         project = Path(__file__).resolve().parents[1]
         inputs += source_inputs + background_inputs + [args.config.resolve(), Path(__file__).resolve()]
         inputs += sorted((project / 'eht_axion').rglob('*.py'))

@@ -31,9 +31,9 @@ def aperture_operator(*, shape: int, fov: float, radial_max: float, window_degre
     """Bilinear integration of r dr dphi over exactly centered pizza apertures.
 
     Angle zero is +x, increasing toward +y. Pixel centers are half a pixel
-    inside the FOV, matching ImageS. Edge clamping retains the historical spline
-    boundary convention. Both radial endpoints have trapezoidal half-weights;
-    the final radius is exact.
+    inside the FOV; sample points outside the pixel-centre grid use the nearest
+    boundary pixels. Both radial endpoints have trapezoidal half-weights; the
+    final radius is exact.
     """
     from scipy.sparse import csr_matrix
 

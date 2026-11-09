@@ -171,7 +171,7 @@ def build_raptor(source_root: Path, destination: Path, settings: dict, expected_
 
     Inputs in the manifest never refer to temporary build paths. Commit and all
     tracked byte hashes are signature inputs; the durable private source snapshot
-    is itself a declared stage output. Commands retain the historical temp cwd.
+    is itself a declared stage output. The commands run in the temporary stage directory.
     """
     settings = _settings(settings)
     source_root = Path(source_root).resolve(strict=True)
@@ -258,7 +258,7 @@ def build_raptor(source_root: Path, destination: Path, settings: dict, expected_
             "settings": settings, "actual_macros": actual, "toolchain": toolchain,
             "binary": {"path": str(destination / "RAPTOR"), "sha256": sha256(work / "RAPTOR")},
             "compiler_flags_file": str(destination / "compiler-flags.txt"),
-            "commands": commands, "command_cwd_history": str(work),
+            "commands": commands, "command_cwd": str(work),
             "runtime_cwd": str(destination), "tables_are_build_dependencies": False,
         }
         (work / "receipt.json").write_text(json.dumps(receipt, indent=2, allow_nan=False) + "\n")

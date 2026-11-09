@@ -113,8 +113,8 @@ def preprocess_frame(
     """Blur then inverse-map a square frame; actively rotate Q+iU by exp(2iθ).
 
     sigma is a Gaussian standard deviation in the same physical units as FOV,
-    not FWHM or pixels. Axis0 is x, axis1 is y. Nearest boundary extension and
-    bilinear resampling match the old ImageS blur=True path. No flux renorm.
+    not FWHM or pixels. Axis0 is x, axis1 is y. Gaussian blur with nearest-value
+    boundary extension, then bilinear resampling. No flux renormalization.
     """
     stokes = np.asarray(stokes)
     _real_dtype(stokes.dtype)
@@ -278,7 +278,7 @@ def fit_processed(
               snapshot_labels=labels.tolist(),
               angular_alignment="EHT: np.roll(aperture_evpa, -angular_bins//4, axis=-1)",
               angular_roll_bins=-angular_bins // 4,
-              operator_source="polarization.aperture_operator")
+              operator_source="eht_axion.analysis.aperture.aperture_operator")
     return result
 
 

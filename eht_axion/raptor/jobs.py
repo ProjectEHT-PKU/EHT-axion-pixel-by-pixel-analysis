@@ -82,7 +82,7 @@ def serialize_parameters(parameters: dict) -> str:
             or (p["IMG_WIDTH"] // 10) ** 2 > 2**31 - 1):
         raise ValueError("Square image resolution must be a positive multiple of 10")
     if p["MAX_LEVEL"] != 1:
-        raise ValueError("First-scope runner supports only MAX_LEVEL=1")
+        raise ValueError("The runner supports only MAX_LEVEL=1")
     if not 0 <= p["AXION_PHASE"] <= 15:
         raise ValueError("AXION_PHASE must be in 0..15")
     if p["AXION_NORM"] < 0 or p["AXION_ALPHA"] < 0 or p["AXION_OMEGA"] < 0:
@@ -212,7 +212,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
     p = config["raptor"]
     if manifest["config"].get("settings") != p["build"]:
         raise ValueError("Build settings differ from production plan")
-    # grid_mks.in's exact legacy field spellings are owned by the core.
+    # The field spellings of grid_mks.in are defined by the RAPTOR core.
     fields = {}
     for line in grid.read_text().splitlines():
         if not line.strip():
@@ -447,24 +447,11 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affi
     build_dir, run_root = Path(build_dir).resolve(strict=True), Path(run_root).resolve()
     if run_root == build_dir or run_root.is_relative_to(build_dir):
         raise ValueError("Run container must not be inside the immutable build")
+    # Never write inside a stage tree: no ancestor of the run root may hold a manifest.
     for parent in [run_root, *run_root.parents]:
-        for name in ("manifest.json",):
-            marker = parent / name
-            if not marker.exists() and not marker.is_symlink():
-                continue
-            # The analysis output root has a descriptive container manifest,
-            # not a completed/replaceable scientific stage. Its production child
-            # is an intended location, but never write in an actual stage tree.
-            if marker.is_symlink():
-                raise ValueError("Refusing an output stage symlink ancestor")
-            record = json.loads(marker.read_text())
-            container = (name == "manifest.json" and parent != run_root
-                         and record.get("layout") == "canonical-run-v1"
-                         and record.get("complete") is not True
-                         and "schema" not in record and "stage" not in record
-                         and "outputs" not in record)
-            if not container:
-                raise ValueError("Refusing to use an existing output stage as a run container/ancestor")
+        marker = parent / "manifest.json"
+        if marker.exists() or marker.is_symlink():
+            raise ValueError("Refusing to use an existing output stage as a run container/ancestor")
     manifest = provenance.verify_stage(build_dir, recursive=True)
     binary, grid, header = _build_products(build_dir, manifest)
     constants = read_core_constants(header)
@@ -694,7 +681,7 @@ def run_jobs(plan: dict, build_dir: Path, run_root: Path, *, max_jobs: int | Non
              cpu_list: str | None = None, timeout_seconds: float | None = None) -> dict:
     """Run the authorized task prefix with bounded concurrency and shared hashes.
 
-    No real data is copied, no shell is used, no old successful stage is rebuilt.
+    No data is copied, no shell is used, and a completed job stage is never rebuilt.
     ``max_jobs`` selects tasks, not workers. Operational failures are returned
     independently per task; invalid plans/root/build fail before launch.
     Cancellation kills all active process groups, saves attempts, joins workers,

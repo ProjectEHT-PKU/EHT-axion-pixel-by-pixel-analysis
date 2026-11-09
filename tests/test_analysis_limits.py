@@ -39,7 +39,7 @@ def test_population_scatter_not_mean_error_and_pi_invariance():
     np.testing.assert_allclose(moments(np.repeat(data[0], 3, axis=0))[1], cov, atol=1e-14)
 
 
-def test_independent_day_pair_sum_and_exact_matched_null():
+def test_independent_day_pair_sum_and_zero_data_control():
     data, centers = samples()
     obs, null, metadata = build_observations(data, np.array([4, 14]), resultant_min=.7)
     circular_means = np.array([.5 * np.angle(np.mean(np.exp(2j * v), axis=0)) for v in data])
@@ -271,7 +271,7 @@ def test_selected_background_exact_feature_domain(tmp_path, monkeypatch, dimensi
     assert meta['lag_hours'] == 24
 
 
-def test_save_all_six_cases_and_matched_null(tmp_path, monkeypatch):
+def test_save_all_six_cases_and_zero_data_control(tmp_path, monkeypatch):
     config = driver.read_experiment()
     data, _ = samples()
     alphas = np.array(config['shared']['alphas'])
@@ -295,7 +295,6 @@ def test_save_all_six_cases_and_matched_null(tmp_path, monkeypatch):
     assert len(report['supported_cases']) == 6
     assert len(report['results']) == 12
     assert report['response_model_variance_included'] is False
-    assert report['canonical_null_modified'] is False
     assert len((tmp_path / 'limits.csv').read_text().splitlines()) == 97
     for i in range(0, 12, 2):
         dim, mode, obs, options = calls[i]

@@ -1,4 +1,4 @@
-"""Merge completed multi-host RAPTOR jobs into canonical Stokes NPY; never launch C."""
+"""Deliver Stokes cubes from the completed job roots of several hosts into a new root; runs no RAPTOR."""
 from __future__ import annotations
 
 import argparse
@@ -36,7 +36,7 @@ def main(argv=None):
                              summary, inputs) as temporary:
             if temporary is not None:
                 (temporary / "index.json").write_text(json.dumps(summary, indent=2) + "\n")
-    print(f"MERGE_COMPLETE: {len(products)} canonical products in {args.output_root / 'data'}")
+    print(f"MERGE_COMPLETE: {len(products)} delivered products in {args.output_root / 'data'}")
     print("Original HDF5, input snapshots and manifests were preserved; no science rerun.")
     return 0
 

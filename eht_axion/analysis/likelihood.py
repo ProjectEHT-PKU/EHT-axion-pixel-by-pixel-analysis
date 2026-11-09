@@ -35,7 +35,7 @@ MODES = ("std", "cor", "cor_fixed_background")
 class LimitOptions:
     """Inference options. Every value is supplied by the caller
     (scripts/analysis_limits.options_from_config reads experiment.yaml); there
-    are no defaults and no alternative (historical) methods. Field order is the
+    are no defaults and no alternative methods. Field order is the
     recorded JSON order.
     """
 
@@ -104,7 +104,7 @@ def _selected_parameters(parameters: Mapping, indices: NDArray, dimension: str) 
         flat = value.reshape(2, -1)
         if np.any(indices >= flat.shape[-1]):
             raise ValueError("selected_indices exceed fit spatial grid")
-        # Match limits.py: indices address the FULL flattened product grid.
+        # Indices address the full flattened template grid.
         # Unselected NaN/zero-response pixels are not part of this likelihood.
         selected = flat[:, indices]
         result[alpha] = selected if dimension == "1d" else selected[:, None, :]
@@ -136,7 +136,7 @@ def calculate_observed(
 
     ``observations.pair_differences`` must have shape (2, N), in radians;
     covariance blocks are already selected, in radians squared. Fit products
-    retain their full spatial grids, indexed exactly as in the NULL API.
+    retain their full spatial grids; selected_indices index the flattened grid.
 
     ``std`` uses diag(C_pair); ``cor`` uses C_pair; ``cor_fixed_background`` uses C_pair + sigma_bg**2 I,
     with sigma_bg = radians(options.grmhd_sigma_degrees), fixed for all g/phi.
@@ -150,8 +150,8 @@ def calculate_observed(
     prior truncated to [coupling_min, coupling_max], integrated by trapezoids
     in g. The returned 95% bound is conditional on this finite grid/prior, not
     a frequentist coverage claim. Edge diagnostics do not certify convergence.
-    See the module WARNING about ensemble covariance, missing model variance
-    and EVPA branches.
+    See the module docstring for the scope of the covariance, the missing model
+    variance and the EVPA branch.
     """
     _validate_options(dimension, mode, options)
     alpha_grid = np.asarray(alphas, dtype=float)
@@ -245,7 +245,7 @@ def calculate_observed(
     effective = {key: value.item() if isinstance(value, np.generic) else value
                  for key, value in asdict(options).items()}
     diagnostics = {
-        "mode": mode, "dimension": dimension, "observation": "observed-research",
+        "mode": mode, "dimension": dimension,
         "data_nonzero_truth": bool(np.any(data != 0)), "data_radians": data.tolist(),
         "selected_indices": indices.tolist(), "effective_options": effective,
         "effective_pair_covariances": [c.tolist() for c in covariances],
@@ -263,8 +263,8 @@ def calculate_observed(
             "Working image-ensemble covariance is not calibrated observational sampling covariance.",
             "Excludes response model variance, cross-pair covariance and covariance-estimation uncertainty.",
             "Gaussian approximation on supplied principal EVPA branch; d-g*t residual is not rewrapped.",
-            "Finite-grid/prior conditional research constraint; "
-            "not a median expected limit or coverage claim.",
+            "Credible limit conditional on the finite grid and prior; "
+            "not a median expected limit or a coverage statement.",
         ],
     }
     return alpha_grid.copy(), np.asarray(cuts), diagnostics

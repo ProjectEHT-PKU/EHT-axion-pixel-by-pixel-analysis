@@ -249,7 +249,7 @@ at a boundary, limit in the last interval) are reported.
 ### Zero-data control
 
 For every case the same calculation is repeated with $d_1 = d_2 = 0$ and the same
-covariances and features (`null-comparison` in file names). It shows the limit that the
+covariances and features (`zero-data` in file names). It shows the limit that the
 covariance and templates alone would give, for comparison with the observed limit.
 
 ### Checks

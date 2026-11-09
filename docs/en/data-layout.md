@@ -117,27 +117,27 @@ TEMPLATES/
 LIMITS/                          stage analysis:limits
   observations-{1d,2d}.npz       selected_indices, coordinates, means, standard_deviations,
                                  covariances, pair_differences, pair_covariances,
-                                 null_pair_differences, resultant, sample_counts,
+                                 zero_data_pair_differences, resultant, sample_counts,
                                  local_branch_mean_minus_circular_radians, evpa_samples_radians
   observations-{1d,2d}.json      selection rules and diagnostics
   background-selected-{1d,2d}.npz  selected_indices, differences, sigma_radians, mean_radians,
                                  spatial_covariance
   background-selected-{1d,2d}.json lag, lag_hours, cadence_hours, sigma_radians, method
-  {observed,null-comparison}-{std,cor,cor_fixed_background}-{1d,2d}.npz
+  {observed,zero-data}-{std,cor,cor_fixed_background}-{1d,2d}.npz
                                  alphas, log10_c95, c95, couplings, log_likelihood,
                                  posterior_density, cdf
-  {observed,null-comparison}-{std,cor,cor_fixed_background}-{1d,2d}.json   full diagnostics
-  limits.csv                     center, mode, dimension, alpha, log10_c95, c95
-  observed-vs-null.png, report.json
+  {observed,zero-data}-{std,cor,cor_fixed_background}-{1d,2d}.json   full diagnostics
+  limits.csv                     data, mode, dimension, alpha, log10_c95, c95
+  observed-vs-zero-data.png, report.json
 GRID/, PRIOR/                    stage analysis:check-grid
   same case files as LIMITS (npz without log_likelihood), limits.csv with delta_log10_c95,
-  observed-vs-null.png, report.json
+  observed-vs-zero-data.png, report.json
 COV/                             stage analysis:check-covariance
   covariance-sensitivity.csv     half, mode, dimension, alpha, c95, delta_dex
   report.json
 SUMMARY/                         stage analysis:summary
   limits.csv, alpha030-chi2.csv, grid_vs_primary.csv, prior_vs_dense_grid.csv
-  limits-observed-null.png, alpha030-fits.png, report.json, RESULTS.md
+  limits.png, alpha030-fits.png, report.json, RESULTS.md
 ```
 
 Index conventions in the analysis:
@@ -147,7 +147,7 @@ Index conventions in the analysis:
 - 1D `selected_indices` are sector angles in degrees east of north.
 - `observations-*.npz` arrays with a day axis are ordered 95, 96, 100, 101; pair arrays
   are ordered (96−95, 101−100).
-- In `limits.csv` the column `center` holds `observed` or `null-comparison`.
+- In `limits.csv` the column `data` holds `observed` or `zero-data`.
 
 ## How to run
 

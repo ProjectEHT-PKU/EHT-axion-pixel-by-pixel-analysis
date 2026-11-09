@@ -28,9 +28,7 @@ def circular_difference(
 ) -> NDArray[np.floating] | np.floating:
     """Return ``first - second`` wrapped to ``[-period/2, period/2)``.
 
-    EVPA has period pi rather than 2*pi.  The implementation broadcasts and
-    supports both scalar and array inputs, unlike the historical ``CircleCalc``
-    helper.
+    EVPA has period pi rather than 2*pi. Scalars and arrays broadcast.
     """
     if not np.isfinite(period) or period <= 0:
         raise ValueError("period must be finite and positive")

@@ -7,7 +7,7 @@ experiment.yaml; the input bundle (eht_export_bundle.py) holds the four verified
 fiducial I/obs/D products. Execution options (workers, threads, memory) are CLI.
 Input-only: no export, SSH, D fit or thermal draw.
 
-Receipts use a custom batch schema, NOT common.stage_directory manifests.
+Receipts are this script's batch records (batch.json, taskreceipt.json, finish.json), not stage manifests.
 A floating-point gap certificate is numerical, not scientific acceptance.
 """
 from pathlib import Path
@@ -89,7 +89,7 @@ def verify_bundle(root, science):
     if not needed <= files.keys():
         raise ValueError('bundle references unlisted inputs')
     return b, dict(bundle_sha256=hashlib.sha256(raw).hexdigest(), files=files,
-                   lineage='byte-verified exported snapshot; original producer roots not imported live')
+                   lineage='bundle files verified by SHA-256; the source stages are not re-read')
 
 
 def configure_threads(n):

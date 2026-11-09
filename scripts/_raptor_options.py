@@ -112,7 +112,7 @@ def options(kind, argv=None):
 
 
 def save_request(args, plan=None):
-    """Append requests, never overwrite science configuration or old run results."""
+    """Append a request record; never overwrite the run's experiment file or earlier results."""
     import uuid
 
     args.run_root.mkdir(parents=True, exist_ok=True)

@@ -162,8 +162,8 @@ def test_build_contract_arguments_snapshot_and_stable_receipt(fixture, monkeypat
     calls = [json.loads(line) for line in (destination.parent / 'tool.log').read_text().splitlines()]
     assert all(not call['contaminated'] for call in calls)
     macro_call = next(call for call in calls if '-dM' in call['args'])
-    assert '-I' + receipt['command_cwd_history'] in macro_call['args']
-    assert '-I' + receipt['command_cwd_history'] + '/source/src' in macro_call['args']
+    assert '-I' + receipt['command_cwd'] in macro_call['args']
+    assert '-I' + receipt['command_cwd'] + '/source/src' in macro_call['args']
     assert '-O2' in macro_call['args']
     assert 'main.c' not in macro_call['args']
     assert '-c' not in macro_call['args']
