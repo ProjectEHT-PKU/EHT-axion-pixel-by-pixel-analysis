@@ -166,7 +166,7 @@ the official EHT script, which runs unchanged apart from two substitutions
 | Key | Value | Unit | Meaning | Read by |
 |---|---|---|---|---|
 | `rotation_degrees` | 108.0 | degree | rotation of the simulated images onto the sky (image and $Q+iU$) | `analysis_geometry` |
-| `aperture.window_degrees` | 10 | degree | full width of each aperture sector | theory aperture operator; `eht_summarize.py` |
+| `aperture.window_degrees` | 10 | degree | full width of each aperture sector | `analysis_geometry` → aperture operator (templates, sector EVPA and sector selection) |
 | `aperture.radial_max_fraction` | 1.0 | – | aperture radius as a fraction of the half field (60 µas) | as above |
 | `features.intensity_fraction` | 0.1 | – | keep where mean $I \ge 0.1 \times$ daily maximum | `analysis_limits.py` |
 | `features.polarization_fraction` | 0.2 | – | and mean $\lvert P\rvert \ge 0.2 \times$ daily maximum (0 selects by brightness only) | `analysis_limits.py` |
