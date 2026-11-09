@@ -1,4 +1,5 @@
 """Content hashing is invocation-local and rejects mutation, never mtime-trusting."""
+import json
 import os
 import time
 from pathlib import Path
@@ -77,3 +78,32 @@ def test_mutation_after_last_hash_caught_at_exit(tmp_path):
             sha256(source)
             time.sleep(.05)
             source.write_bytes(b"bbbb")
+
+
+def test_verify_products_hashes_a_shared_input_once(tmp_path, monkeypatch, capsys):
+    import verify_products
+    from eht_axion import provenance
+
+    raw = tmp_path / "raw.bin"
+    raw.write_bytes(b"shared input")
+    stages = []
+    for k in range(3):
+        stage = tmp_path / f"stage-{k}"
+        with provenance.stage_directory(stage, "test", {"k": k}, [raw]) as out:
+            (out / "value.txt").write_text(str(k))
+        stages.append(stage)
+    inputs = [s / "manifest.json" for s in stages]
+    with provenance.stage_directory(tmp_path / "top", "test", {}, inputs) as out:
+        (out / "value.txt").write_text("top")
+    reads, original = [], Path.open
+
+    def counting(path, *args, **kwargs):
+        if Path(path).resolve() == raw.resolve() and "b" in (args[0] if args else kwargs.get("mode", "r")):
+            reads.append(path)
+        return original(path, *args, **kwargs)
+
+    capsys.readouterr()
+    monkeypatch.setattr(Path, "open", counting)
+    verify_products.main([str(tmp_path / "top"), "--recursive"])
+    assert json.loads(capsys.readouterr().out)["stage"] == "test"
+    assert len(reads) == 1
