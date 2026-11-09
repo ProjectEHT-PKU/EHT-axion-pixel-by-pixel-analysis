@@ -142,7 +142,7 @@ This is `evpa_templates` and `cloud_amplitude_scaling` in `eht_axion/analysis/mo
 
 ### Feature selection
 
-`analysis_limits.py` reads the display19 ensemble of each day and selects features without
+`analysis_limits.py` reads the blurred-image ensemble of each day and selects features without
 looking at the size of the day differences. The EHT map $[y, x]$ is transposed to the
 template order $[x, y]$; the sky axes must equal the shared grid.
 

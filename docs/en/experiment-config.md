@@ -61,7 +61,7 @@ converted to $r_g$) must fit inside `raptor.camera_fov_rg`, and
 | `physical_scale` | `PhysicalScale`: $t_g = GM/c^3$ (8.893 h for the values below), angular size of $r_g$ (3.819 µas), conversions | analysis scripts, delivery cadence |
 | `ray_tracing_config` | `shared` physics keys (`mass_solar`, `distance_mpc`, `label_step_tg`, `alphas`, `principal_n`) plus the whole `raptor` section | RAPTOR plan, delivery identity (`generated.json`) |
 | `analysis_geometry` | preprocessing arguments (`sigma`, `init_fov`, `final_fov`, `final_shape`, `rotation_angle`, in $r_g$ and radians) and aperture arguments (`fov`, `radial_max`, `window_degrees`, `angular_bins`) | `analysis_templates.py`, `analysis_limits.py` |
-| `eht_imaging_parameters` | flat dictionary of the `eht_imaging` values (without `refine` and `monte_carlo`), the sky grid (`npix`, `fov_uas`, `display_blur_uas`) and four machine locations | EHT imaging stages, `eht_refine.py`, `eht_export_bundle.py` |
+| `eht_imaging_parameters` | flat dictionary of the `eht_imaging` values (without `refine` and `monte_carlo`), the sky grid (`npix`, `fov_uas`, `blur_fwhm_uas`) and four machine locations | EHT imaging stages, `eht_refine.py`, `eht_export_bundle.py` |
 
 `ANGULAR_BINS = 360` (one-degree aperture bins) and `EHT_DAYS = (95, 96, 100, 101)` are
 code constants in the same module, not YAML values. `EHT_DAYS` is the only list of the
@@ -79,7 +79,7 @@ analysis import it); validation requires `eht_imaging.inputs` to have exactly th
 | `principal_n` | 2 | – | principal quantum number $n$ of the 211 state in $\Omega(\alpha)=\alpha\,(1-\alpha^2/(2n^2))$ | RAPTOR `AXION_OMEGA`; signal model |
 | `image.shape` | 64 | pixels | side of the common sky grid | EHT imaging `npix`; analysis resampling; ensemble summary |
 | `image.fov_uas` | 120.0 | µas | field of view of the common sky grid (1.875 µas pixels) | EHT imaging (replaces 128 µas in the official script); analysis resampling and aperture |
-| `image.blur_fwhm_uas` | 19.0 | µas | FWHM of a circular Gaussian applied to the EHT images ("display19") and to the simulated images; an additional matching kernel, not an effective PSF | EHT `save_image`; analysis preprocessing $\sigma$ |
+| `image.blur_fwhm_uas` | 19.0 | µas | FWHM of a circular Gaussian applied to the EHT images (the "blurred" images) and to the simulated images; an additional matching kernel, not an effective PSF | EHT `save_image`; analysis preprocessing $\sigma$ |
 
 ### Section raptor
 

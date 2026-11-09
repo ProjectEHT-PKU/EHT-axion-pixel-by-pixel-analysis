@@ -413,7 +413,7 @@ def eht_imaging_parameters(config, locations):
     parameters.update(npix=image["shape"], fov_uas=image["fov_uas"])
     for key in SCHEMA["eht_imaging"] - {"inputs", *EHT_SOLVER_SECTIONS}:
         parameters[key] = c[key]
-    parameters["display_blur_uas"] = image["blur_fwhm_uas"]
+    parameters["blur_fwhm_uas"] = image["blur_fwhm_uas"]
     return {key: parameters[key] for key in _EHT_PARAMETER_ORDER}
 
 
@@ -421,6 +421,6 @@ _EHT_PARAMETER_ORDER = (
     "input_root", "input_receipt", "feed_rotation_file", "official_script", "inputs", "npix", "fov_uas",
     "gain_tol", "fsys", "solve_sites", "fixed_sites", "p_data", "p_reg", "norm_reg", "initial_m",
     "initial_evpa_deg", "rounds", "restart_rounds", "restart_blur_uas", "restart_domain_epsilon",
-    "maxit", "stop", "shift_objective_constant", "uv_min", "display_blur_uas", "uncertainty_draws",
+    "maxit", "stop", "shift_objective_constant", "uv_min", "blur_fwhm_uas", "uncertainty_draws",
     "seed", "covariance_ddof", "residual_d_sigma", "residual_d_convention",
 )

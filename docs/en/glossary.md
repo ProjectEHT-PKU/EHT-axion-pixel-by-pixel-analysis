@@ -47,7 +47,7 @@ use them without repeating definitions.
 | fixed I | the total-intensity image of the I stage; all later steps solve only for $P$ |
 | fiducial | the P/D alternation result of `eht_reconstruct.py --stage fiducial` |
 | tightD | the refined fiducial D terms of `eht_refine.py` |
-| display19 | images blurred with the 19 µas FWHM Gaussian `shared.image.blur_fwhm_uas` |
+| blurred image | image convolved with the circular Gaussian of FWHM `shared.image.blur_fwhm_uas` (19 µas); file names `*-blurred-IQU.fits` |
 | draw | one D-term sample and its certified P image; 1000 per day |
 | gap certificate | best primal objective minus best dual lower bound of the exact P solver, at most `gap_atol` |
 

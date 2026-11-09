@@ -50,7 +50,7 @@ def test_bundle_contract_files_and_eht_sample_acceptance(tmp_path):
     c = config['eht_imaging']
     assert (record['fsys'], record['covariance_ddof'], record['residual_component_sigma']) == (
         c['fsys'], c['covariance_ddof'], c['residual_d_sigma'])
-    assert record['image'] == dict(npix=64, fov_uas=120.0, additional_display_fwhm_uas=19.0)
+    assert record['image'] == dict(npix=64, fov_uas=120.0, blur_fwhm_uas=19.0)
     assert record['objective'] == dict(pvis=1.0, m=1.0, hw=100.0, ptv=1.0, norm_reg=True)
     assert list(record['days']) == ['95', '96', '100', '101']
     assert record['days']['96']['D_stage'] == str(d_roots[1].resolve())

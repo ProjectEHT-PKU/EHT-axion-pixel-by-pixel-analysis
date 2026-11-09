@@ -142,7 +142,7 @@ def build_plan(args):
                 cli={k: [str(p) for p in v] if isinstance(v, list) else str(v) if isinstance(v, Path) else v
                      for k, v in vars(args).items()},
                 scope='Paper IV/VII method implementation; not a bitwise reproduction; review not inferred',
-                display=f"additional {c['display_blur_uas']:g}uas I/Q/U kernel, NOT an effective PSF",
+                blur=f"additional {c['blur_fwhm_uas']:g}uas I/Q/U kernel, NOT an effective PSF",
                 scientifically_converged=False)
 
 
@@ -311,10 +311,10 @@ def d_dictionary(dterms):
 
 def save_image(image, prefix, c, eh):
     image.save_fits(str(prefix) + '-raw-IQU.fits')
-    b = c['display_blur_uas'] * eh.RADPERUAS
-    display = image.blur_circ(b, b)
-    display.save_fits(str(prefix) + '-display-IQU-additional19uas.fits')
-    return display
+    b = c['blur_fwhm_uas'] * eh.RADPERUAS
+    blurred = image.blur_circ(b, b)
+    blurred.save_fits(str(prefix) + '-blurred-IQU.fits')
+    return blurred
 
 
 def run_fiducial(base, fixed, c, core, eh, out):

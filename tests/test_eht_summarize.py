@@ -42,10 +42,10 @@ def sample_root(tmp_path, count=2):
             directory = results / 'attempts' / task['id'] / 'attempt-0001'
             directory.mkdir(parents=True)
             (directory / 'best-raw-IQU.fits').write_bytes(b'raw')
-            (directory / 'best-display-IQU-additional19uas.fits').write_bytes(b'display')
+            (directory / 'best-blurred-IQU.fits').write_bytes(b'blurred')
             (directory / 'certificate.json').write_text(json.dumps(
                 dict(solver=dict(numerically_certified=True, best_gap=0.), gap_atol=1e-6)))
-            names = ('best-raw-IQU.fits', 'best-display-IQU-additional19uas.fits', 'certificate.json')
+            names = ('best-raw-IQU.fits', 'best-blurred-IQU.fits', 'certificate.json')
             outputs = {n: sha(directory / n) for n in names}
             (directory / 'taskreceipt.json').write_text(json.dumps(dict(
                 task=task, identity=identity, status='certified', schema='eht-sample-task-v2',

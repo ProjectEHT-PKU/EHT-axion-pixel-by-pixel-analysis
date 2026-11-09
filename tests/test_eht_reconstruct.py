@@ -65,7 +65,7 @@ def test_plan_no_optional_import_no_writes(plan_args, monkeypatch):
     assert all(len(r['sha256']) == 64 for r in plan['inputs'])
     assert plan['parameters']['input_root'] == str(plan_args.input_root)
     assert (plan['parameters']['npix'], plan['parameters']['fov_uas']) == (64, 120.0)
-    assert plan['display'] == 'additional 19uas I/Q/U kernel, NOT an effective PSF'
+    assert plan['blur'] == 'additional 19uas I/Q/U kernel, NOT an effective PSF'
 
 
 def test_locations_are_required_absolute_paths(plan_args):

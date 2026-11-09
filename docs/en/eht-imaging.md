@@ -126,7 +126,7 @@ the gain-calibrated data with `uv_min` applied. Starting from $P = m_0\, I\, e^{
   (`fit_forward_d`), in which the D prior and its gradient are replaced by zero.
 
 A final P-only solve aligns the delivered image with the last D terms. Each round's D
-terms and raw and display images are written; `termination.json` records that the stop is
+terms and raw and blurred images are written; `termination.json` records that the stop is
 the fixed round budget.
 
 ### Refinement of the fiducial D terms
@@ -196,8 +196,8 @@ yet been checked.
   (`gap_atol`, `maxiter` 50000, `check_every`, `time_limit` 600 s). An uncertified draw gets
   one second attempt with `retry_maxiter` 200000 and `retry_time_limit` 1800 s; a task with
   two uncertified attempts or two errors is reported as exhausted;
-- writes, per certified draw, the raw and the display image (19 µas blur,
-  `best-display-IQU-additional19uas.fits`) and a certificate.
+- writes, per certified draw, the raw and the blurred image (`best-raw-IQU.fits`,
+  `best-blurred-IQU.fits`, blur `shared.image.blur_fwhm_uas`) and a certificate.
 
 The batch identity is the SHA-256 of the plan (bundle snapshot, science values, source and
 package file hashes, execution threads); `finish.json` is written only when all 4000 draws
@@ -211,8 +211,7 @@ its recorded science values equal those `eht_sample.py` derives from the current
 `experiment.yaml`, and that `finish.json` has the same identity and lists one certified
 receipt per draw. It checks the receipts, certificates and the SHA-256 of every consumed
 file, then reads the 1000
-display19 images per day (no further blur) and writes, per day under
-`native/display19/day-<day>/`:
+blurred images per day (no further blur) and writes, per day under `day-<day>/`:
 
 - `stokes.npy`: shape (1000, 64, 64, 4), axes draw, y, x, IQUV in the native FITS
   orientation (east offset decreases along x, north increases along y);

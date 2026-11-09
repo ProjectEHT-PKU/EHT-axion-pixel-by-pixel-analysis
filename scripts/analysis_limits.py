@@ -3,7 +3,7 @@
 Inputs: the templates root of analysis_templates.py and the fixed-D EHT ensemble
 summary of eht_summarize.py. Feature selection, cloud model, background and the
 inference grid/prior come from experiment.yaml (section analysis). The EHT images
-are used as reconstructed (Paper VII Sec. 5.2 centring = zero shift, 'native').
+are used as reconstructed (the Paper VII Sec. 5.2 alignment is a zero shift here).
 D-draw image scatter is a working covariance, not calibrated noise. Both day
 pairs share one phase nuisance parameter, marginalized after multiplying likelihoods.
 """
@@ -31,7 +31,7 @@ from eht_axion.raptor.layout import alpha_label
 
 
 # Paper VII Sec. 5.2 centring = zero shift in this reproduction: no registration.
-CENTERING = 'native'
+CENTERING = 'zero shift'
 
 
 def options_from_config(config, background_sigma_radians):
@@ -249,8 +249,8 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     """Read the EHT ensemble (eht_summarize.py) and select the likelihood features.
 
     Native[y,x] -> template[x,y], physical (-E,N). Recompute 1D using theory
-    CSR quadrature; native sector apertures are diagnostic only. Read display19 products,
-    matching the declared additional19uas theory kernel approximation.
+    CSR quadrature; native sector apertures are diagnostic only. The ensemble holds the
+    blurred EHT images (shared.image.blur_fwhm_uas, the same blur as the simulated images).
     """
     features = config['analysis']['features']
     stride = features['pixel_stride']
@@ -275,12 +275,8 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
         east_axis, north_axis, angles = z['east_uas'], z['north_uas'], z['angle_deg']
     if not np.array_equal(angles, np.arange(360)):
         raise ValueError('Audited North0/East90 aperture bins require identity mapping, no extra roll')
-    # Native (unshifted) ensemble products at the display19 resolution
-    # (EHT images blurred with shared.image.blur_fwhm_uas, like the simulated images).
-    mode = CENTERING
-    days = {str(d): dict(stokes=f'{mode}/display19/day-{d}/stokes.npy',
-                         evpa_1d=f'{mode}/display19/day-{d}/aperture.npz',
-                         evpa_2d=f'{mode}/display19/day-{d}/evpa.npy') for d in DAYS}
+    days = {str(d): dict(stokes=f'day-{d}/stokes.npy', evpa_1d=f'day-{d}/aperture.npz',
+                         evpa_2d=f'day-{d}/evpa.npy') for d in DAYS}
     geometry = analysis_geometry(config)
     if (report['rmax_uas'] != geometry['metadata']['radial_max_uas']
             or report['aperture_full_width_deg'] != config['analysis']['aperture']['window_degrees']):
@@ -366,7 +362,7 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
             angular_spacing=features['sector_spacing_degrees'],
             angular_offset=features['sector_offset_degrees'],
             coordinates='east/north uas; 1d template bin degrees',
-            no_evpa_alignment=True, adapter=dict(mode=mode, resolution='display19',
+            no_evpa_alignment=True, adapter=dict(centering=CENTERING, resolution='blurred',
                 spatial='native[y,x] -> template[x,y]', template_axes='(-E,N)',
                 angular='theory _integrate internal -90 once; output North0/East90',
                 inference_1d='recomputed bilinear CSR theory quadrature on transposed per-draw Stokes',

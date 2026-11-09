@@ -2,7 +2,7 @@
 """EHT imaging, D-term Monte Carlo: fixed-I/fixed-D P images for every D draw (4 days x draws).
 
 Science values (draw count, seed, fsys, uv cut, D-term statistics, sky grid,
-display blur and the P solver settings eht_imaging.monte_carlo) come from
+blur and the P solver settings eht_imaging.monte_carlo) come from
 experiment.yaml; the input bundle (eht_export_bundle.py) holds the four verified
 fiducial I/obs/D products. Execution options (workers, threads, memory) are CLI.
 Input-only: no export, SSH, D fit or thermal draw.
@@ -41,7 +41,7 @@ def science_settings(config_path):
 
     config = read_experiment(config_path)
     c, image = config['eht_imaging'], config['shared']['image']
-    return dict(npix=image['shape'], fov_uas=image['fov_uas'], display_blur_uas=image['blur_fwhm_uas'],
+    return dict(npix=image['shape'], fov_uas=image['fov_uas'], blur_fwhm_uas=image['blur_fwhm_uas'],
                 uv_min=c['uv_min'], fsys=c['fsys'], covariance_ddof=c['covariance_ddof'],
                 residual_component_sigma=c['residual_d_sigma'], solve_sites=c['solve_sites'],
                 fixed_sites=c['fixed_sites'], sites=sorted(c['solve_sites'] + c['fixed_sites']),
@@ -238,12 +238,12 @@ def run_attempt(root, bundle, task, directory, config, identity, numerical_attem
             image = fixed.copy()
             image.add_qu(P.real.reshape(fixed.ydim, fixed.xdim), P.imag.reshape(fixed.ydim, fixed.xdim))
             image.add_pol_image(np.zeros((fixed.ydim, fixed.xdim)), 'V')
-            display = driver.save_image(image, directory / 'best', science, eh)
+            blurred = driver.save_image(image, directory / 'best', science, eh)
             cert = dict(solver=report, gap_atol=config['gap_atol'], trace=trace,
                         numerical_attempt=numerical_attempt, budget=dict(maxiter=maxiter, time_limit=limit),
                         unused_station_draws=sorted(set(task['dterms']) - present),
                         raw_statistics=driver.image_statistics(image),
-                        display_statistics=driver.image_statistics(display),
+                        blurred_statistics=driver.image_statistics(blurred),
                         science_acceptance=False,
                         initial_P=f"{config['initial_p_fraction']:g} I real, no warm start",
                         worker_lifetime_peak_rss_gib=(

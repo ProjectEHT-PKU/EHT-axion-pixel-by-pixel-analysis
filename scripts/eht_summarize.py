@@ -6,9 +6,9 @@ The ensembles are the EHT input of the analysis (analysis_limits.py).
 pixi run -e eht-research eht-summarize --sample-root MC --output-root OUT
 MC is the output root of eht_sample.py; its batch must be finished and must have been
 made with the science values of the current experiment.yaml. Draw count, sky grid and
-aperture (radius, width) come from experiment.yaml. Only the display19 images (blurred with
+aperture (radius, width) come from experiment.yaml. Only the blurred images (blurred with
 shared.image.blur_fwhm_uas, like the simulated images) are summarized.
-Outputs: native/display19/day-D/{stokes.npy,evpa.npy,aperture.npz,global.npz},
+Outputs: day-D/{stokes.npy,evpa.npy,aperture.npz,global.npz},
 axes.npz, report.json (conventions, registration, scope).
 """
 from pathlib import Path
@@ -91,7 +91,7 @@ def verify_batch(root, settings, science):
                 or receipt['status'] != 'certified' or receipt['schema'] != 'eht-sample-task-v2'):
             raise ValueError('selected receipt identity/status mismatch')
         products = {}
-        for kind, name in [('display19', 'best-display-IQU-additional19uas.fits'),
+        for kind, name in [('blurred', 'best-blurred-IQU.fits'),
                            ('certificate', 'certificate.json')]:
             p = contained(directory, name)
             if provenance.sha256(p) != receipt['outputs'][name]:
@@ -111,12 +111,12 @@ def run(selected, out, settings):
     pixel = settings['fov_uas'] / n
     reference = None
     for d in en.DAYS:
-        directory = out / 'native' / 'display19' / ('day-' + d)
+        directory = out / ('day-' + d)
         directory.mkdir(parents=True)
         samples = np.lib.format.open_memmap(directory / 'stokes.npy', mode='w+',
                                            dtype='float64', shape=(draws, n, n, 4))
         for k in range(draws):
-            loaded = load_stokes_fits(selected[d][k]['display19'])
+            loaded = load_stokes_fits(selected[d][k]['blurred'])
             east, north = loaded['east_uas'], loaded['north_uas']
             if (loaded['stokes'].shape != (n, n, 4)
                     or not np.allclose(np.diff(east), -pixel, rtol=0, atol=1e-9)
@@ -133,7 +133,7 @@ def run(selected, out, settings):
         samples.flush()
         # Paper VII Sec. 5.2 centring = zero shift: the images are used as reconstructed.
         en.summarize(samples, *reference[:2], directory, settings['rmax_uas'], settings['window_degrees'])
-        print(f'SUMMARIZED native/display19/day-{d}', flush=True)
+        print(f'SUMMARIZED day-{d}', flush=True)
         del samples
     report = dict(schema='eht-ensemble-v2', days=list(en.DAYS), draws_per_day=draws,
                   rmax_uas=settings['rmax_uas'],
@@ -141,7 +141,7 @@ def run(selected, out, settings):
                   map_order='draw,y,x,IQUV; native FITS E decreases along x, N increases along y',
                   angle_convention='EVPA radians modulo pi, E of N; aperture angles degrees E of N; no roll',
                   registration='none: Paper VII Sec. 5.2 centring = zero shift; images used as reconstructed',
-                  resolution='existing additional19uas FWHM display products (shared.image.blur_fwhm_uas); '
+                  resolution='blurred products of eht_sample.py (shared.image.blur_fwhm_uas); '
                              'no blur applied here',
                   evpa_mask='EVPA NaN where I <= 0 or Q+iU = 0',
                   scope='conditional fixed-I D-term MC only; no thermal bootstrap, response variance, '

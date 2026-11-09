@@ -61,14 +61,14 @@ I<day>/                          stage eht:i
   shared-gains.npz, polarization-input.json
 PD<day>/                         stage eht:fiducial
   plan.json
-  round-<NN>-dterms.json, round-<NN>-raw-IQU.fits, round-<NN>-display-IQU-additional19uas.fits
-  final-raw-IQU.fits, final-display-IQU-additional19uas.fits, final-dterms.json
+  round-<NN>-dterms.json, round-<NN>-raw-IQU.fits, round-<NN>-blurred-IQU.fits
+  final-raw-IQU.fits, final-blurred-IQU.fits, final-dterms.json
   steps.json, termination.json
 D<day>/                          stage eht:refine
   plan.json
   round-<NN>-*.fits, round-<NN>-dterms.json          one per outer round (01 to 100)
   final-P-*.fits, final-P-dterms.json                final P solve
-  final-raw-IQU.fits, final-display-IQU-additional19uas.fits, final-dterms.json
+  final-raw-IQU.fits, final-blurred-IQU.fits, final-dterms.json
   best-P.npz, steps.json, D-optimizer-records.json, termination.json
 BUNDLE/                          no manifest; bundle.json instead
   bundle.json, feed-rotation.json, eht_export_bundle.py
@@ -78,11 +78,11 @@ MC/                              no manifest; batch receipts instead
   .controller.lock, batch.json, batch-plan.json, all-draws.json, tasks.jsonl, state.json, finish.json
   attempts/<day>-<draw>/attempt-<NNNN>/
     attempt.json, job.log, progress.json, certificate.json, taskreceipt.json
-    best-raw-IQU.fits, best-display-IQU-additional19uas.fits
+    best-raw-IQU.fits, best-blurred-IQU.fits
 ENSEMBLE/                        stage eht:ensemble
   axes.npz                       east_uas (64), north_uas (64), angle_deg (360)
   report.json, consumed-inputs.json
-  native/display19/day-<day>/
+  day-<day>/
     stokes.npy                   float64 (1000, 64, 64, 4): draw, y, x, IQUV
     evpa.npy                     float64 (1000, 64, 64): radians in [0, pi), NaN if I <= 0
     aperture.npz                 angle_deg (360), intensity (1000, 360), polarized_brightness (1000, 360)

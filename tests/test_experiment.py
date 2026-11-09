@@ -81,7 +81,7 @@ def test_eht_imaging_parameters_flat_set_with_shared_grid(config):
     parameters = eht_imaging_parameters(config, LOCATIONS)
     assert list(parameters)[:5] == ["input_root", "input_receipt", "feed_rotation_file", "official_script",
                                     "inputs"]
-    assert (parameters["npix"], parameters["fov_uas"], parameters["display_blur_uas"]) == (64, 120.0, 19.0)
+    assert (parameters["npix"], parameters["fov_uas"], parameters["blur_fwhm_uas"]) == (64, 120.0, 19.0)
     assert parameters["uncertainty_draws"] == 1000
     imaging = {k: v for k, v in config["eht_imaging"].items() if k not in ("refine", "monte_carlo")}
     for key, value in imaging.items():

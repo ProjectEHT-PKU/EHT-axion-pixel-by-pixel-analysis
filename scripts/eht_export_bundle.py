@@ -92,7 +92,7 @@ def bundle_record(config):
                 covariance_ddof=c['covariance_ddof'], residual_component_sigma=c['residual_d_sigma'],
                 fsys=c['fsys'],
                 image=dict(npix=image['shape'], fov_uas=image['fov_uas'],
-                           additional_display_fwhm_uas=image['blur_fwhm_uas']),
+                           blur_fwhm_uas=image['blur_fwhm_uas']),
                 objective=dict(pvis=c['p_data']['pvis'], m=c['p_data']['m'], hw=c['p_reg']['hw'],
                                ptv=c['p_reg']['ptv'], norm_reg=c['norm_reg']),
                 disclaimer='D calibration uncertainty under declared four-day scatter model, '
