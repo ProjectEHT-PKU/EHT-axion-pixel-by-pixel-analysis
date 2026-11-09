@@ -129,7 +129,6 @@ def test_unknown_section_and_field_rejected(config):
     (("analysis", "features", "sector_offset_degrees"), 10, "<= 9"),
     (("analysis", "features", "min_radius_rg"), 100.0, "inside the aperture"),
     (("analysis", "inference", "coupling_max"), 0.001, "coupling_max"),
-    (("analysis", "background", "method"), "legacy_hist", "one of"),
 ])
 def test_invalid_values_rejected(config, path, value, match):
     target = config

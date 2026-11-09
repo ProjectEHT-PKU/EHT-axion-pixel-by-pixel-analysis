@@ -68,6 +68,3 @@ class RunLayout:
     @property
     def background_processed(self):
         return self.root / "raptor" / "background"
-
-    def background_unmasked(self, dimension):
-        return self.root / "background-unmasked" / dimension

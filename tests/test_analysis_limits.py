@@ -176,15 +176,16 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     processed.mkdir(parents=True)
     np.save(processed / 'stokes.npy', np.ones((5, 1, 64, 64, 4)))
     geometry = driver.analysis_geometry(config)
+    delivered = tmp_path / 'raptor/res-400/alpha-0.30/t1600-t1690/stokes-t1600-t1690.npy'
     records[processed] = dict(stage='raptor:background-preprocess',
-                             config=dict(geometry['image_preprocess'], state_indices=[0]))
-    for dim in ('1d', '2d'):
-        directory = theory / 'background-unmasked' / dim
-        directory.mkdir(parents=True)
-        (directory / 'summary.json').write_text(json.dumps(dict(units='rad', domain=dim,
-            sigma=.01, cadence_hours=8., lag=3)))
-        np.savez(directory / 'evpa-difference.npz', sigma=.01)
-        records[directory] = dict(stage='raptor:background-unmasked')
+                             config=dict(geometry['image_preprocess'], state_indices=[0]),
+                             inputs=[dict(path=str(delivered)), dict(path=str(delivered.parent / 'x.json'))])
+    checked, cadences = [], []
+    monkeypatch.setattr(driver, 'validate_processed_source',
+                        lambda record, config, **kw: checked.append((record['stage'], kw['alpha'],
+                                                                     kw['resolution'])))
+    monkeypatch.setattr(driver, 'input_cadence_hours',
+                        lambda paths, config: cadences.append(paths) or 8.)
     for path in records:
         (path / 'manifest.json').write_text('{}')
     monkeypatch.setattr(driver, 'verify_stage', lambda path, **kw: records[path])
@@ -193,8 +194,13 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     valid2d[20, 35] = True
     products = {'1d': (None, None, None, np.ones(360, dtype=bool)),
                 '2d': (None, None, None, valid2d)}
-    prepared, _, _, sigmas, _ = driver.prepare_limit_inputs(ensemble, theory, config, products,
-                                                            verified=set())
+    prepared, _, _, sigmas, background_inputs = driver.prepare_limit_inputs(
+        ensemble, theory, config, products, verified=set())
+    assert checked == [('raptor:background-preprocess', 0.3, 400)]
+    assert cadences == [[delivered]]
+    assert sigmas == {dim: dict(stokes=str(processed / 'stokes.npy'), cadence_hours=8.)
+                      for dim in ('1d', '2d')}
+    assert delivered.parent / 'generated.json' in background_inputs
     selected, daily, coords, _ = prepared['2d']
     np.testing.assert_array_equal(selected, [20 * 64 + 35])
     np.testing.assert_allclose(daily[0], .002 * 35 + .004 * 20)
@@ -206,7 +212,6 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     assert not np.allclose(expected[indices], indices * .001)  # native sectors were deliberately different
     wrong = _integrate(maps, driver.theory_aperture_operator(config))
     assert not np.allclose(expected[indices], wrong[indices])
-    assert isinstance(sigmas['1d'], dict)  # actual selected sigma is derived only after R selection
     np.savez(ensemble / 'axes.npz', east_uas=-grid, north_uas=grid,
              angle_deg=np.roll(np.arange(360), -90))
     with pytest.raises(ValueError, match='no extra roll'):
@@ -254,13 +259,14 @@ def test_selected_background_exact_feature_domain(tmp_path, monkeypatch, dimensi
             return out
         monkeypatch.setattr(pol, 'integrate_stokes', integrated)
     sigma = driver.selected_background(tmp_path, dimension, selected, config,
-        dict(stokes=str(path), lag=3, cadence_hours=8., source_unmasked_sigma=99.))
+        dict(stokes=str(path), cadence_hours=8.))
     expected = values[3:] - values[:-3]
     assert sigma == pytest.approx(expected.std(ddof=0))
     with np.load(tmp_path / f'background-selected-{dimension}.npz') as z:
         np.testing.assert_allclose(z['differences'], expected, atol=1e-14)
     meta = json.loads((tmp_path / f'background-selected-{dimension}.json').read_text())
-    assert meta['unmasked_sigma_used'] is False
+    assert meta['lag'] == 3 and meta['lag_hours'] == 24.
+    assert 'source_unmasked_sigma' not in meta
     assert meta['sqrt2_correction'] is False
     assert meta['lag_hours'] == 24
 

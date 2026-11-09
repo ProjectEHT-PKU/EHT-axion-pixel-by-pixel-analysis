@@ -119,9 +119,8 @@ analysis:  # combines both inputs: from simulated images and EHT ensembles to li
     coefficient: 0.03
     pivot_alpha: 0.05
     exponent: 1.75
-  background:                    # GRMHD background from lagged axion-off frames
+  background:                    # GRMHD background: pooled MLE scatter of lagged axion-off frames
     lag_frames: 3                # 3 x 10 labels = 3 t_g ~ 26.7 h
-    method: mle
   inference:
     phase_count: 64              # marginalised axion phase grid
     coupling_points: 120

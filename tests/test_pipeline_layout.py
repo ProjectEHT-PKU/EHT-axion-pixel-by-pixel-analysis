@@ -47,7 +47,6 @@ def test_run_layout_directories(tmp_path):
     assert layout.response(0.44) == tmp_path / "raptor/response/alpha-0.44"
     assert layout.templates("2d") == tmp_path / "raptor/templates/2d"
     assert layout.background_processed == tmp_path / "raptor/background"
-    assert layout.background_unmasked("1d") == tmp_path / "background-unmasked/1d"
 
 
 def test_recursive_lineage_refuses_changed_source(tmp_path):

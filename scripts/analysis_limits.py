@@ -22,9 +22,9 @@ from eht_axion.limits import LimitOptions
 from eht_axion.pipeline.common import (
     manifest_path, require_declared_outputs, stage_directory, verification_session, verify_stage,
 )
-from eht_axion.pipeline.layout import alpha_label
+from eht_axion.pipeline.layout import BACKGROUND_DIRECTORY_ALPHA, alpha_label
 from eht_axion.pipeline.products import load_templates
-from eht_axion.producer.delivery import validate_processed_source
+from eht_axion.producer.delivery import input_cadence_hours, validate_processed_source
 from eht_axion.research.ensemble_limits import (
     DAYS, MODES, branch_risk, build_observations, covariance_diagnostics,
 )
@@ -189,10 +189,9 @@ def selected_background(out, dimension, selected, config, source):
     n = config['shared']['image']['shape']
     if maps.ndim != 5 or maps.shape[1:] != (1, n, n, 4):
         raise ValueError('Background requires processed (time,1,N,N,4) no-axion data')
-    lag = source['lag']
-    if (isinstance(lag, bool) or not isinstance(lag, int) or lag < 1 or lag >= len(maps)
-            or lag != config['analysis']['background']['lag_frames']):
-        raise ValueError('Background lag differs from configuration')
+    lag = config['analysis']['background']['lag_frames']
+    if lag >= len(maps):
+        raise ValueError('Background lag exceeds the number of axion-off frames')
     operator = None
     if dimension == '1d':
         operator = theory_aperture_operator(config)
@@ -216,11 +215,10 @@ def selected_background(out, dimension, selected, config, source):
     np.savez(out / f'background-selected-{dimension}.npz', selected_indices=selected,
              differences=differences, sigma_radians=sigma, mean_radians=center,
              spatial_covariance=np.cov(differences, rowvar=False, ddof=0))
-    metadata = dict(source, dimension=dimension, sigma_radians=sigma, mean_radians=center,
+    metadata = dict(source, dimension=dimension, lag=lag, sigma_radians=sigma, mean_radians=center,
                     lag_hours=lag * source['cadence_hours'], selected_indices=selected.tolist(),
                     method='pooled centered population MLE; fixed scalar pair-difference variance',
-                    cross_feature_covariance_used=False, sqrt2_correction=False,
-                    unmasked_sigma_used=False)
+                    cross_feature_covariance_used=False, sqrt2_correction=False)
     (out / f'background-selected-{dimension}.json').write_text(
         json.dumps(metadata, indent=2, allow_nan=False) + '\n')
     return sigma
@@ -388,29 +386,19 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     if processed_record['stage'] != 'raptor:background-preprocess':
         raise ValueError('Unexpected background preprocessing stage')
     preprocessing = {k: v for k, v in processed_record['config'].items() if k != 'state_indices'}
-    if preprocessing != geometry['image_preprocess']:
-        raise ValueError('Background preprocessing geometry mismatch')
+    if (preprocessing != geometry['image_preprocess']
+            or processed_record['config'].get('state_indices') != [0]):
+        raise ValueError('Background preprocessing geometry/state mismatch')
     stokes_path = processed / 'stokes.npy'
     require_declared_outputs(processed, [stokes_path])
-    sigmas, background_inputs = {}, [manifest_path(processed), stokes_path]
-    for dim in ('1d', '2d'):
-        directory = templates / 'background-unmasked' / dim
-        background = verify_stage(directory, recursive=True, _seen=verified)
-        if background['stage'] != 'raptor:background-unmasked':
-            raise ValueError('Unexpected fixed-background source stage')
-        summary = directory / 'summary.json'
-        diagnostic = directory / 'evpa-difference.npz'
-        require_declared_outputs(directory, [summary, diagnostic])
-        metadata = json.loads(summary.read_text())
-        if metadata['units'] != 'rad' or metadata['domain'] != dim:
-            raise ValueError('Fixed-background domain/units mismatch')
-        with np.load(diagnostic, allow_pickle=False) as z:
-            sigma = float(z['sigma'])
-        if sigma != metadata['sigma'] or not np.isfinite(sigma) or sigma < 0:
-            raise ValueError('Invalid fixed-background sigma')
-        sigmas[dim] = dict(stokes=str(stokes_path), cadence_hours=metadata['cadence_hours'],
-                           lag=metadata['lag'], source_unmasked_sigma=sigma)
-        background_inputs += [manifest_path(directory), summary, diagnostic]
+    # Frame spacing from the GRMHD snapshot times recorded with the delivered cubes.
+    validate_processed_source(processed_record, config, alpha=BACKGROUND_DIRECTORY_ALPHA,
+                              resolution=config['raptor']['background']['resolution'], verified=verified)
+    delivered = [Path(e['path']) for e in processed_record['inputs'] if Path(e['path']).suffix == '.npy']
+    cadence = input_cadence_hours(delivered, config)
+    background_inputs = [manifest_path(processed), stokes_path,
+                         *(path.parent / 'generated.json' for path in delivered)]
+    sigmas = {dim: dict(stokes=str(stokes_path), cadence_hours=cadence) for dim in ('1d', '2d')}
     return prepared, inputs, dict(stage=record['stage'], centering=CENTERING,
         background_selection='pooled scalar on final selected features, no response variance'), \
         sigmas, background_inputs

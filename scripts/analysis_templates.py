@@ -7,10 +7,9 @@ and writes, into a NEW output root, one verified stage per step:
   raptor/response/alpha-*       raptor:fit                    per-snapshot first-harmonic EVPA response
   raptor/templates/{1d,2d}      raptor:summarize              template mean/std over the snapshots
   raptor/background             raptor:background-preprocess  axion-off frames on the sky grid
-  background-unmasked/{1d,2d}   raptor:background-unmasked    lagged EVPA differences (all features)
 
-The selected-feature background sigma is computed later by analysis_limits.py on
-exactly the features used in the likelihood. No ray tracing, no EHT data.
+The GRMHD background sigma is computed by analysis_limits.py on exactly the
+features used in the likelihood, from raptor/background. No ray tracing, no EHT data.
 """
 from pathlib import Path
 import argparse
@@ -22,8 +21,8 @@ from eht_axion.pipeline.common import (
     manifest_path, reject_directory_symlinks, stage_directory, verification_session, verify_stage,
 )
 from eht_axion.pipeline.layout import BACKGROUND_DIRECTORY_ALPHA, RunLayout, input_raptor_files
-from eht_axion.pipeline.raptor import estimate_background, fit_processed, preprocess_cube, summarize_fits
-from eht_axion.producer.delivery import generated_inputs, input_cadence_hours
+from eht_axion.pipeline.raptor import fit_processed, preprocess_cube, summarize_fits
+from eht_axion.producer.delivery import generated_inputs
 
 
 def stage_inputs(directory):
@@ -77,18 +76,6 @@ def run(config_path, raptor_root, output_root):
                              params, inputs) as out:
             if out is not None:
                 preprocess_cube(cubes, out, **params)
-        background = config["analysis"]["background"]
-        cadence = input_cadence_hours(cubes, config)
-        for dim in ("1d", "2d"):
-            # Unmasked: every pixel / angular bin; the likelihood features are chosen later.
-            params = dict(lag=background["lag_frames"], cadence_hours=cadence, method=background["method"],
-                          domain=dim, mask=None)
-            if dim == "1d":
-                params.update(aperture)
-            with stage_directory(layout.background_unmasked(dim), "raptor:background-unmasked", params,
-                                 stage_inputs(layout.background_processed)) as out:
-                if out is not None:
-                    estimate_background(layout.background_processed / "stokes.npy", out, **params)
     summary = dict(experiment=str(Path(config_path).resolve()), raptor_input_root=str(raptor_root),
                    output_root=str(output_root), geometry=geometry)
     print(json.dumps(summary, indent=2), flush=True)

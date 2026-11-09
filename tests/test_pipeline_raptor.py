@@ -320,38 +320,6 @@ def test_summary_missing_samples(tmp_path):
         assert data["amplitude_mean"][0, 1] == 1
 
 
-def background_cube(angles):
-    angles = np.asarray(angles)
-    cube = np.ones((len(angles), 1, 2, 2, 4))
-    cube[..., 1] = np.cos(2 * angles)[:, None, None, None]
-    cube[..., 2] = np.sin(2 * angles)[:, None, None, None]
-    return cube
-
-
-def test_background_angular_mle_and_diagnostics(tmp_path):
-    angles = np.array([1.50, -1.50, -1.45, -1.45, 1.50, 1.48])
-    cube = background_cube(angles)
-    # Include a truly zero difference, and a zero-polarization pixel to exclude.
-    cube[:, :, 0, 0, 1:3] = 0
-    paths = [save(tmp_path / "a.npy", cube[:2]), save(tmp_path / "b.npy", cube[2:])]
-    result = raptor.estimate_background(paths, tmp_path / "bg", lag=1, bins=9)
-    assert result["metadata"].name == "summary.json"
-    assert result["diagnostics"].name == "evpa-difference.npz"
-    differences = (np.diff(angles) + np.pi / 2) % np.pi - np.pi / 2
-    meta = json.loads(result["metadata"].read_text())
-    assert isinstance(meta["sigma"], float)
-    assert meta["sigma"] == pytest.approx(np.std(differences))
-    assert meta["mean"] == pytest.approx(np.mean(differences))
-    assert meta["finite_count"] == 15
-    assert meta["zero_differences_retained"] is True
-    with np.load(result["diagnostics"], allow_pickle=False) as data:
-        assert set(data.files) == {"hist_counts", "hist_edges", "count", "mean", "sigma",
-                                   "mean_mle", "sigma_mle"}
-        assert data["hist_counts"].sum() == 15
-        assert data["hist_edges"].shape == (10,)
-        assert data["sigma"].shape == ()
-
-
 def test_hdf5_explicit_names_and_block_mapping(tmp_path):
     h5py = pytest.importorskip("h5py")
     p = tmp_path / "data.h5"

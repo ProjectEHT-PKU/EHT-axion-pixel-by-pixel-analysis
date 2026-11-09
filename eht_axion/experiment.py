@@ -51,7 +51,7 @@ SCHEMA = {
                           "min_radius_rg", "pixel_stride", "sector_spacing_degrees",
                           "sector_offset_degrees", "resultant_min"},
     "analysis.cloud": {"coefficient", "pivot_alpha", "exponent"},
-    "analysis.background": {"lag_frames", "method"},
+    "analysis.background": {"lag_frames"},
     "analysis.inference": {"phase_count", "coupling_points", "coupling_min", "coupling_max", "prior",
                            "credibility", "exposure_hours", "day_gap_hours", "pair_separation_hours"},
 }
@@ -262,7 +262,6 @@ def _validate_analysis(config):
     _number(cloud["exponent"], "analysis.cloud.exponent")
     background = _section(config, "analysis.background")
     _integer(background["lag_frames"], "analysis.background.lag_frames")
-    _choice(background["method"], "analysis.background.method", ("mle",))
     inference = _section(config, "analysis.inference")
     _integer(inference["phase_count"], "analysis.inference.phase_count", low=2)
     _integer(inference["coupling_points"], "analysis.inference.coupling_points", low=2)

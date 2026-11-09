@@ -1,6 +1,7 @@
 """Synthetic HDF delivery and downstream identity wiring, no real ray tracing."""
 from copy import deepcopy
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -8,7 +9,7 @@ import pytest
 from eht_axion.experiment import read_experiment
 from eht_axion.pipeline.common import stage_directory, verify_stage
 from eht_axion.pipeline.layout import input_raptor_files
-from eht_axion.producer.delivery import deliver_stokes, generated_inputs
+from eht_axion.producer.delivery import deliver_stokes, generated_inputs, input_cadence_hours
 from test_producer_outputs import write_products
 
 @pytest.fixture(scope="module")
@@ -154,9 +155,9 @@ def test_generated_data_reaches_templates_and_background(delivered, tmp_path):
     validate_processed_source(bg, profile, alpha=.3, resolution=400)
     assert bg["config"]["state_indices"] == [0]
     assert np.load(output / "raptor/background/stokes.npy", mmap_mode="r").shape == (2, 1, 8, 8, 4)
-    for dim in ("1d", "2d"):
-        unmasked = verify_stage(output / "background-unmasked" / dim, recursive=True)
-        assert unmasked["config"]["lag"] == 1 and unmasked["config"]["mask"] is None
+    assert not (output / "background-unmasked").exists()
+    delivered = [Path(e["path"]) for e in bg["inputs"] if e["path"].endswith(".npy")]
+    assert input_cadence_hours(delivered, profile) > 0
     with pytest.raises(FileExistsError):
         run_templates(path, run / "data", output)
 
