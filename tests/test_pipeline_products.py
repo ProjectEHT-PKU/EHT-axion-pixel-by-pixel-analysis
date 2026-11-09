@@ -9,7 +9,7 @@ def test_output_root_cannot_contain_input(tmp_path):
     raw = tmp_path / "raw.npy"
     np.save(raw, np.arange(5))
     with pytest.raises(ValueError, match="contains an input"):
-        with stage_directory(tmp_path, "test", {}, [raw], rebuild=True):
+        with stage_directory(tmp_path, "test", {}, [raw]):
             pass
     assert raw.is_file()
 

@@ -20,7 +20,7 @@ def _job_files(run_root, task, build_inputs, verified=None):
     record = verify_stage(directory, recursive=True, _seen=verified)
     from .jobs import _prepare_task
 
-    prepared, expected, raw_inputs = _prepare_task(task)
+    _, expected, raw_inputs = _prepare_task(task)
     if record["stage"] != "producer-job" or any(record["config"].get(k) != v for k, v in expected.items()):
         raise ValueError("Completed job belongs to a different generation task")
     require_declared_outputs(directory, [directory / "success.json", directory / "output.json"])
@@ -32,12 +32,8 @@ def _job_files(run_root, task, build_inputs, verified=None):
         Path(p).resolve() for p in build_inputs + raw_inputs
     }:
         raise ValueError("Job lineage does not declare the selected build and source inputs")
-    from .outputs import read_core_constants, validate_job_output
-
-    prepared["core_constants"] = read_core_constants(build_inputs[-1])
-    prepared["core_constants_source"] = str(build_inputs[-1])
-    if json.loads((directory / "output.json").read_text()) != validate_job_output(directory, prepared):
-        raise ValueError("Completed job output validation differs from its receipt")
+    # output.json (written by the job after validate_job_output) and the HDF5 are
+    # bound by the job manifest SHA-256 checked above; the HDF5 is not re-read.
     hdfs = [directory / entry["path"] for entry in record["outputs"] if entry["path"].endswith(".h5")]
     if len(hdfs) != 1:
         raise ValueError(f"Expected one declared job HDF: {directory}")

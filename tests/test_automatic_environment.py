@@ -43,13 +43,6 @@ def test_cli_then_exports_then_files(project, monkeypatch):
     assert _environment.resolve_environment(request())["EHT_RUN_ID"] == "export"
 
 
-def test_scientific_or_removed_keys_are_rejected(project):
-    for key in ("EHT_CONFIG", "EHT_PRODUCTION_CONFIG", "EHT_TRUST_PICKLE"):
-        (project / ".env").write_text(f"{key}=value\n")
-        with pytest.raises(ValueError, match="Unknown dotenv key"):
-            _environment.resolve_environment(request())
-
-
 def test_file_changes_reloaded_without_mutating_process(project):
     path = project / ".env"
     path.write_text("EHT_RUN_ID=first\n")

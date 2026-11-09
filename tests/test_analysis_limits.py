@@ -288,8 +288,9 @@ def test_save_all_six_cases_and_matched_null(tmp_path, monkeypatch):
 
     monkeypatch.setattr(driver, 'calculate_observed', calculate)
     monkeypatch.setattr(driver, 'plot_results', lambda *args: None)
+    monkeypatch.setattr(driver, 'selected_background', lambda out, dim, selected, config, source: source['s'])
     report = driver.save_results(tmp_path, products, prepared, config,
-                                  {'1d': .02, '2d': .03}, {'resultant_min': .7})
+                                  {'1d': dict(s=.02), '2d': dict(s=.03)}, {'resultant_min': .7})
     assert len(calls) == 12
     assert len(report['supported_cases']) == 6
     assert len(report['results']) == 12

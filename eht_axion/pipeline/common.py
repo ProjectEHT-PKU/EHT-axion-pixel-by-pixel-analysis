@@ -99,7 +99,7 @@ def describe_inputs(paths):
     return result
 
 
-def revision(stage=None):
+def revision():
     """Git commit plus a hash of every eht_axion source file (covers uncommitted edits)."""
     root = Path(__file__).resolve().parents[2]
     try:
@@ -127,8 +127,6 @@ def product_schema(path):
                 channels=["I", "Q", "U", "V"],
                 units="Original intensity units preserved; not independently verified",
             )
-        elif path.name == "evpa-1d.npy":
-            schema.update(axes=["ensemble", "angle"], units="rad", angle_period="pi")
         return schema
     if path.suffix == ".npz":
         with np.load(path, allow_pickle=False) as z:
@@ -160,7 +158,7 @@ def signature(stage, config, inputs):
         "schema": SCHEMA_VERSION,
         "config": config,
         "inputs": inputs,
-        "implementation": revision(stage),
+        "implementation": revision(),
         "runtime": runtime_identity(),
     }
     identity = dict(payload, implementation=payload["implementation"]["python_source_sha256"])
@@ -291,17 +289,23 @@ def verify_input_stages(paths):
 
 
 @contextlib.contextmanager
-def stage_directory(destination, stage, config, input_paths=(), *, rebuild=False):
+def stage_directory(destination, stage, config, input_paths=(), *, verify_lineage=True):
     """Yield temporary destination, or None for a verified cache hit.
 
     A manifest is committed last, and a stage is never consumed by mere directory
-    existence. Replacement preserves old data until the new directory is complete.
-    No hardlinks to inputs. Failed new stages are cleaned, old stages are untouched.
+    existence. No hardlinks to inputs. Failed new stages are cleaned; an existing
+    stage is never replaced (a different signature is an error).
+
+    Inputs named manifest.json are completed stages; with verify_lineage their
+    whole recorded lineage is re-hashed first. Small result checks that consume
+    already verified stage outputs pass verify_lineage=False: their declared
+    inputs (including those manifests) are still hashed and recorded.
     """
     reject_directory_symlinks(destination)
     destination = Path(destination).resolve()
     input_paths = list(input_paths)
-    verify_input_stages(input_paths)
+    if verify_lineage:
+        verify_input_stages(input_paths)
     # Replacing a directory must never replace its raw inputs, including via symlinks.
     for path in source_closure(input_paths):
         if path == destination or path.is_relative_to(destination):
@@ -319,10 +323,10 @@ def stage_directory(destination, stage, config, input_paths=(), *, rebuild=False
     temporary = None
     temporary_token = None
     try:
-        if destination.exists() and not rebuild:
+        if destination.exists():
             manifest = verify_stage(destination, recursive=True)
             if manifest["signature"] != key:
-                raise ValueError(f"Stale cache at {destination}; use a new output root or --rebuild")
+                raise ValueError(f"Stale cache at {destination}; use a new output root")
             print(f"CACHE HIT {stage}: {destination}", flush=True)
             yield None
             return
@@ -352,20 +356,10 @@ def stage_directory(destination, stage, config, input_paths=(), *, rebuild=False
             elapsed_seconds=time.perf_counter() - started,
         )
         (temporary / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
-        backup = destination.with_name(destination.name + ".previous")
-        if backup.exists() or backup.is_symlink():
-            raise ValueError(f"Backup already exists: {backup}; inspect before rebuilding")
-        if destination.exists():
-            destination.rename(backup)
-        try:
-            temporary.rename(destination)
-            temporary = None
-        except BaseException:
-            if backup.exists():
-                backup.rename(destination)
-            raise
-        if backup.exists():
-            shutil.rmtree(backup)
+        if destination.exists() or destination.is_symlink():
+            raise FileExistsError(f"Stage appeared while building: {destination}")
+        temporary.rename(destination)
+        temporary = None
         print(f"COMPLETE {stage}: {destination}", flush=True)
     finally:
         if temporary_token is not None:

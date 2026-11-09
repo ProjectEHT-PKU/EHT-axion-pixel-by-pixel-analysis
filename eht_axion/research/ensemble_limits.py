@@ -96,9 +96,6 @@ def build_observations(samples, selected_indices, *, resultant_min):
     pair_covs = (covs[0] + covs[1], covs[2] + covs[3])
     # Fail rather than silently repair singular/indefinite working covariances.
     for covariance in pair_covs:
-        eigenvalues = np.linalg.eigvalsh(covariance)
-        if not np.isfinite(eigenvalues).all() or eigenvalues[0] <= 0:
-            raise ValueError("Pair working covariance is not strictly positive definite")
         try:
             np.linalg.cholesky(covariance)
         except np.linalg.LinAlgError as exc:

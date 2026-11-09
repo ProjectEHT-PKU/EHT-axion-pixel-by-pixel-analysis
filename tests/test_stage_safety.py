@@ -8,9 +8,8 @@ from eht_axion.pipeline import common
 from eht_axion.pipeline.raptor import preprocess_cube
 
 
-@pytest.mark.parametrize("rebuild", [False, True])
 @pytest.mark.parametrize("kind", ["leaf", "ancestor", "existing"])
-def test_stage_rejects_all_directory_links_before_write(tmp_path, rebuild, kind):
+def test_stage_rejects_all_directory_links_before_write(tmp_path, kind):
     external = tmp_path / "external"
     link = tmp_path / "link"
     if kind == "existing":
@@ -18,7 +17,7 @@ def test_stage_rejects_all_directory_links_before_write(tmp_path, rebuild, kind)
     link.symlink_to(external, target_is_directory=True)
     destination = link / "stage" if kind == "ancestor" else link
     with pytest.raises(ValueError, match="shared directory symlink"):
-        with common.stage_directory(destination, "test", {}, rebuild=rebuild):
+        with common.stage_directory(destination, "test", {}):
             pytest.fail("must reject before writing")
     assert not (external / "stage").exists()
     if kind != "existing":
@@ -48,7 +47,7 @@ def test_runtime_change_invalidates_cache(tmp_path, monkeypatch):
             pass
 
 
-def test_rebuild_cannot_delete_recursive_raw_source(tmp_path):
+def test_existing_target_cannot_contain_recursive_raw_source(tmp_path):
     target = tmp_path / "target"
     target.mkdir()
     raw = target / "raw.txt"
@@ -57,21 +56,9 @@ def test_rebuild_cannot_delete_recursive_raw_source(tmp_path):
     with common.stage_directory(external, "test", {}, [raw]) as t:
         (t / "value.txt").write_text("derived")
     with pytest.raises(ValueError, match="contains an input"):
-        with common.stage_directory(target, "test", {}, [external / "manifest.json"], rebuild=True):
-            pytest.fail("must reject indirect raw containment before replacement")
+        with common.stage_directory(target, "test", {}, [external / "manifest.json"]):
+            pytest.fail("must reject indirect raw containment before any write")
     assert raw.read_text() == "must survive"
-    assert not (tmp_path / "target.previous").exists()
-
-
-def test_dangling_backup_never_replaced(tmp_path):
-    target = tmp_path / "stage"
-    backup = tmp_path / "stage.previous"
-    backup.symlink_to(tmp_path / "missing", target_is_directory=True)
-    with pytest.raises(ValueError, match="Backup already exists"):
-        with common.stage_directory(target, "test", {}, []) as t:
-            (t / "value.txt").write_text("new")
-    assert backup.is_symlink()
-    assert not target.exists()
 
 
 def test_stale_manifest_input_refused_before_child_write(tmp_path):

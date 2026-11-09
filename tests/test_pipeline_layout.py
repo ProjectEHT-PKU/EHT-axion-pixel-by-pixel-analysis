@@ -71,7 +71,7 @@ def test_stage_products_must_not_be_symlinks(tmp_path):
     assert not (tmp_path / "stage").exists()
 
 
-def test_rebuild_rejects_leaf_directory_link(tmp_path):
+def test_stage_rejects_leaf_directory_link(tmp_path):
     target = tmp_path / "shared"
     target.mkdir()
     (target / "keep.txt").write_text("original")
@@ -79,6 +79,6 @@ def test_rebuild_rejects_leaf_directory_link(tmp_path):
     leaf.parent.mkdir()
     leaf.symlink_to(target, target_is_directory=True)
     with pytest.raises(ValueError, match="shared directory symlink"):
-        with stage_directory(leaf, "test", {}, [], rebuild=True):
+        with stage_directory(leaf, "test", {}, []):
             pass
     assert (target / "keep.txt").read_text() == "original"

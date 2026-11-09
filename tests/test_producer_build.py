@@ -231,11 +231,6 @@ def test_failure_is_nonzero_and_transactional(fixture, monkeypatch):
     assert not list(destination.parent.glob('build.building-*'))
     monkeypatch.delenv('FAIL_BUILD')
     build_raptor(source, destination, BUILD, commit)
-    old = (destination / 'manifest.json').read_bytes()
-    monkeypatch.setenv('FAIL_BUILD', '1')
-    with pytest.raises(subprocess.CalledProcessError):
-        build_raptor(source, destination, BUILD, commit, rebuild=True)
-    assert (destination / 'manifest.json').read_bytes() == old
     verify_stage(destination)
 
 
@@ -245,16 +240,6 @@ def test_mismatch_macro_does_not_publish(fixture, monkeypatch):
     with pytest.raises(ValueError, match='macro mismatch: SIGMA_CUT'):
         build_raptor(source, destination, BUILD, commit)
     assert not destination.exists()
-
-
-def test_rebuild_headers_are_fresh_not_prior_stage_templates(fixture):
-    source, destination, commit = fixture
-    build_raptor(source, destination, BUILD, commit)
-    (destination / 'definitions.h').write_text('STALE header')
-    os.utime(destination / 'definitions.h', (2000000000, 2000000000))
-    build_raptor(source, destination, BUILD, commit, rebuild=True)
-    assert '#define metric (MKSBHAC)' in (destination / 'definitions.h').read_text()
-    verify_stage(destination)
 
 
 def test_rejects_source_symlink_and_unsafe_destination(fixture):

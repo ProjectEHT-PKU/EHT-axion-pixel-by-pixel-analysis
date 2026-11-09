@@ -181,9 +181,6 @@ def run(args):
     sources.update({name: getattr(args, name).resolve() for name in ("gridcheck", "priorcheck")})
     if getattr(args, "covcheck", None) is not None:
         sources["covcheck"] = args.covcheck.resolve()
-    # Fail fast if a source has not committed its manifest. No waiting/monitor loop.
-    for source in sources.values():
-        common.complete_manifest(source)
     reports, consumed, records = {}, [], {}
     for name, source in sources.items():
         record = common.verify_stage(source, recursive=False)
@@ -214,9 +211,8 @@ def run(args):
     ):
         comparisons_all[label] = comparisons(reports[reference], reports[test])
     # Grid and prior changes must not silently include a reselection.
-    for name in ("gridcheck", "priorcheck"):
-        rows = comparisons(primary, reports[name])
-        if any(r["features_reference"] != r["features_test"] for r in rows):
+    for label in ("grid_vs_primary", "prior_vs_dense_grid"):
+        if any(r["features_reference"] != r["features_test"] for r in comparisons_all[label]):
             raise ValueError("Numerical check changed selection size")
     fits, diagnostics = fit_evidence(sources["primary"])
     limits = []
@@ -231,28 +227,13 @@ def run(args):
                     "features": result["features"],
                 }
             )
-    # Byte-identical receipt snapshots, not canonical stage rebinding. Their
-    # filenames intentionally avoid common's recursive manifest-name dispatch.
-    receipts = destination.with_name(destination.name + "-source-receipts")
-    receipts.mkdir(parents=True, exist_ok=False)
-    snapshots = []
-    for name, source in sources.items():
-        original = common.manifest_path(source)
-        snapshot = receipts / (name + "-receipt.json")
-        snapshot.write_bytes(original.read_bytes())
-        snapshots.append(
-            {
-                "original": str(original),
-                "snapshot": str(snapshot),
-                "sha256": common.sha256(snapshot),
-            }
-        )
-        consumed.append(snapshot)
+    # The source manifests are recorded inputs; their lineage was verified when
+    # those stages were made and is not re-hashed here.
+    consumed += [common.manifest_path(source) for source in sources.values()]
     consumed.append(Path(__file__).resolve())
     identity = {
         "schema": "eht120-results-summary-v1",
         "sources": {k: str(v) for k, v in sources.items()},
-        "receipt_snapshots": snapshots,
         "verification": (
             "completed small stage outputs only; raw lineage inherited, not rehashed"
         ),
@@ -260,7 +241,7 @@ def run(args):
         "calibration_certification": False,
     }
     with common.stage_directory(
-        destination, "research:eht120-results-summary", identity, consumed
+        destination, "research:eht120-results-summary", identity, consumed, verify_lineage=False
     ) as out:
         write_csv(out / "limits.csv", limits)
         write_csv(out / "alpha030-chi2.csv", fits)

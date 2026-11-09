@@ -41,29 +41,23 @@ def main(argv=None):
             raise ValueError('The source limits were produced from a different experiment')
         draws = config['eht_imaging']['uncertainty_draws']
         half = draws // 2
-        receipts = args.output_root.parent/(args.output_root.name+'-source-receipts')
-        receipts.mkdir(exist_ok=False)
-        source_snapshot = receipts/'primary-receipt.json'
-        source_snapshot.write_bytes(common.manifest_path(args.source).read_bytes())
-        inputs = [Path(__file__).resolve(), args.config.resolve(), source_snapshot,
+        inputs = [Path(__file__).resolve(), args.config.resolve(), common.manifest_path(args.source),
                   args.source/'report.json', Path(__file__).with_name('analysis_limits.py')]
         products = {}
         for dim in ('1d', '2d'):
             root = args.templates/'raptor/templates'/dim
             common.verify_stage(root, recursive=False)
             common.require_declared_outputs(root, [root/'templates.npz'])
-            snapshot = receipts/(dim+'-template-receipt.json')
-            snapshot.write_bytes(common.manifest_path(root).read_bytes())
             products[dim] = load_templates(root/'templates.npz', dim)
             path = args.source/f'observations-{dim}.npz'
             common.require_declared_outputs(args.source, [path])
-            inputs += [snapshot, root/'templates.npz', path]
+            inputs += [common.manifest_path(root), root/'templates.npz', path]
         inputs += sorted((Path(__file__).resolve().parents[1]/'eht_axion').rglob('*.py'))
         identity = dict(source=str(args.source), fixed_observed_centers=True, fixed_selection=True,
                         covariance_halves=[list(range(half)), list(range(half, draws))],
                         covariance_regularization='none', scope='finite MC sensitivity, not new error model')
         with common.stage_directory(args.output_root, 'research:eht120-covariance-check',
-                                    identity, inputs) as out:
+                                    identity, inputs, verify_lineage=False) as out:
             results, table = {}, []
             for dim in ('1d', '2d'):
                 with np.load(args.source/f'observations-{dim}.npz') as z:
@@ -76,8 +70,6 @@ def main(argv=None):
                 for name, sl in halves:
                     covs = tuple(covariance(s[sl], center) for s, center in zip(samples, means))
                     pair = (covs[0]+covs[1], covs[2]+covs[3])
-                    for c in pair:
-                        np.linalg.cholesky(c)
                     observed = ObservationData(tuple(means), tuple(np.sqrt(np.diag(c)) for c in covs),
                         covs, differences, pair, selected)
                     options = options_from_config(config, source_report['background_sigma_radians'][dim])

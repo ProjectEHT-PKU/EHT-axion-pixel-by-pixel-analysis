@@ -166,8 +166,7 @@ def _verify_macros(text, settings):
     return actual
 
 
-def build_raptor(source_root: Path, destination: Path, settings: dict, expected_commit: str,
-                 *, rebuild=False) -> Path:
+def build_raptor(source_root: Path, destination: Path, settings: dict, expected_commit: str) -> Path:
     """Build clean pinned core with official setup; return the verified stage directory.
 
     Inputs in the manifest never refer to temporary build paths. Commit and all
@@ -187,7 +186,7 @@ def build_raptor(source_root: Path, destination: Path, settings: dict, expected_
                "sha256": hashlib.sha256(data).hexdigest()} for path, mode, data in records]
     env, compiler, toolchain = _toolchain()
     config = {"settings": settings, "source_commit": commit, "source_files": hashes, "toolchain": toolchain}
-    with stage_directory(destination, "producer-build", config, rebuild=rebuild) as work:
+    with stage_directory(destination, "producer-build", config) as work:
         if work is None:
             return destination
         snapshot = work / "source"

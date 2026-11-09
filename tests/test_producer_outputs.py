@@ -22,7 +22,8 @@ def make_task(source=None, *, phase=None, resolution=20):
                 label=1600, time_tg=1022., source_path=str(source), resolution=resolution,
                 alpha=.2 if enabled else None, omega=.197 if enabled else 0., norm=.1 if enabled else 0.,
                 phase_index=phase or 0, output_slot=phase + 1 if enabled else 0, parameters=p,
-                table_id="low" if enabled else None, table_path=None)
+                table_id="low" if enabled else None, table_path=None,
+                core_constants=dict(CORE_CONSTANTS), core_constants_source="test definitions.h")
 
 
 def write_products(directory, p, slot):

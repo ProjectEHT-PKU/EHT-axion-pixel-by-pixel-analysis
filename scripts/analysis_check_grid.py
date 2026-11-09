@@ -4,7 +4,8 @@
 --phase-count, --coupling-points and --coupling-max override analysis.inference;
 everything else must be the experiment that produced the source limits. No EHT
 reselection, covariance refit or raw RAPTOR read: the source result's outputs are
-verified once here, its raw producer closure was verified by that completed stage.
+verified here; its raw lineage was verified when that stage was made, so the
+source manifests are recorded as inputs without re-hashing their whole lineage.
 """
 import argparse
 import csv
@@ -60,36 +61,21 @@ def run(args):
         obsfiles = [args.source/f'observations-{d}.npz' for d in ('1d', '2d')]
         common.require_declared_outputs(args.source, [reportpath, *obsfiles])
         source_report = json.loads(reportpath.read_text())
-        # Explicit byte-identical source-receipt snapshots keep these numerical
-        # repeats from recursively reopening raw RT data via filename dispatch.
-        # They are receipts of completed result verification, NOT rebound stages.
-        receipts = args.output_root.parent / (args.output_root.name + '-source-receipts')
-        receipts.mkdir(exist_ok=False)
-        original_manifest = common.manifest_path(args.source)
-        snapshot = receipts / 'primary-source-receipt.json'
-        snapshot.write_bytes(original_manifest.read_bytes())
-        snapshots = [dict(original=str(original_manifest), snapshot=str(snapshot),
-                          sha256=common.sha256(snapshot))]
         products, inputs = {}, [Path(__file__).resolve(), args.config.resolve(),
-            snapshot, reportpath, *obsfiles,
+            common.manifest_path(args.source), reportpath, *obsfiles,
             Path(__file__).with_name('analysis_limits.py')]
         for dim in ('1d', '2d'):
             root = args.templates/'raptor/templates'/dim
             common.verify_stage(root, recursive=False)
             common.require_declared_outputs(root, [root/'templates.npz'])
             products[dim] = load_templates(root/'templates.npz', dim)
-            original_manifest = common.manifest_path(root)
-            snapshot = receipts / (dim + '-template-source-receipt.json')
-            snapshot.write_bytes(original_manifest.read_bytes())
-            snapshots.append(dict(original=str(original_manifest), snapshot=str(snapshot),
-                                  sha256=common.sha256(snapshot)))
-            inputs += [snapshot, root/'templates.npz']
+            inputs += [common.manifest_path(root), root/'templates.npz']
         inputs += sorted((Path(__file__).resolve().parents[1]/'eht_axion').rglob('*.py'))
-        identity = dict(changed=changed, source=str(args.source), receipt_snapshots=snapshots,
+        identity = dict(changed=changed, source=str(args.source),
             source_verified='completed result outputs + recorded producer inputs; no raw RT rehash',
             same_selected_observations=True, same_covariance=True, canonical_NULL_modified=False)
         with common.stage_directory(args.output_root, 'research:eht120-limit-numerics',
-                                    identity, inputs) as out:
+                                    identity, inputs, verify_lineage=False) as out:
             results, rows = {}, []
             for dim in ('1d', '2d'):
                 observed, null = load_observation(args.source/f'observations-{dim}.npz')

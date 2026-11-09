@@ -66,9 +66,7 @@ def validate_job_output(directory: Path, task: dict) -> dict:
 
     task['parameters'] contains the 19 core values or explicit {unit,value} records.
     output_slot is the output slot, while AXION_PHASE is the physical 0..15
-    phase (legacy flat task dictionaries may use phase_index as the slot).
-    Optional core_constants must come from a declared effective header;
-    direct callers without a build use the documented pinned-core constants.
+    phase. core_constants must come from the declared effective header of the build.
     """
     directory = Path(directory)
     p = {key: value["value"] if isinstance(value, dict) else value
@@ -79,14 +77,14 @@ def validate_job_output(directory: Path, task: dict) -> dict:
     mapping = hdf_mapping(resolution, p["FREQ_MIN"])
     if p["IMG_WIDTH"] != resolution or p["IMG_HEIGHT"] != resolution:
         raise ValueError("Task resolution differs from model image dimensions")
-    slot = task.get("output_slot", task["phase_index"])
+    slot = task["output_slot"]
     if isinstance(slot, bool) or not isinstance(slot, int) or not 0 <= slot <= 16:
         raise ValueError("output slot must be an integer in 0..16")
     hdf_relative = f"output/img_data_{slot}.h5"
     spec_relative = f"output/spectrum_{slot}_{p['INCLINATION']:.2f}.dat"
     hdf = _output_file(directory, hdf_relative)
     spectrum = _output_file(directory, spec_relative)
-    constants = dict(task.get("core_constants", CORE_CONSTANTS))
+    constants = dict(task["core_constants"])
     if set(constants) != set(CORE_CONSTANTS) or any(
         not np.isfinite(v) or v <= 0 for v in constants.values()
     ):
@@ -161,7 +159,7 @@ def validate_job_output(directory: Path, task: dict) -> dict:
             "spectrum_columns": ["frequency_hz", "I_Jy", "Q_Jy", "U_Jy", "V_Jy"],
             "optical_depth_channels": ["tau", "tauF"], "optical_depth_units": "dimensionless",
             "angular_pixel_area_sr": float(d_omega), "core_constants": constants,
-            "core_constants_source": task.get("core_constants_source", "pinned BHAC definitions.h"),
+            "core_constants_source": task["core_constants_source"],
             "hdf_integrated_flux_jy": integrated.tolist(), "spectrum_flux_jy": rows[0, 1:].tolist(),
             "frequency_hz": float(frequency), "snapshot_label": task.get("label"),
             "time_tg": task.get("time_tg"), "kind": task.get("kind"), "state_slot": slot,

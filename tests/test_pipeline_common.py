@@ -18,9 +18,10 @@ def test_atomic_stage_cache_and_invalidations(tmp_path):
         with stage_directory(out, "test", {"a": 2}, [source]):
             pass
     with pytest.raises(RuntimeError, match="injected"):
-        with stage_directory(out, "test", {"a": 2}, [source], rebuild=True) as temporary:
+        with stage_directory(tmp_path / "failed", "test", {"a": 2}, [source]) as temporary:
             (temporary / "value.txt").write_text("wrong")
             raise RuntimeError("injected")
+    assert not (tmp_path / "failed").exists()
     assert (out / "value.txt").read_text() == "product"
     assert not out.with_suffix(".lock").exists()
     (out / "value.txt").write_text("tampered")

@@ -136,7 +136,7 @@ def _prepare_task(task):
     if isinstance(task["time_tg"], bool) or not math.isfinite(task["time_tg"]):
         raise ValueError("Snapshot time_tg must be finite")
     resolution = _integer(task["resolution"], "resolution", 1)
-    slot = _integer(task.get("output_slot", task["phase_index"]), "output slot")
+    slot = _integer(task["output_slot"], "output slot")
     if slot > 16:
         raise ValueError("Output slot must be in 0..16")
     p = parameter_values(task["parameters"])
@@ -158,7 +158,7 @@ def _prepare_task(task):
             raise ValueError("Response requires positive norm and slot=AXION_PHASE+1")
         if task["alpha"] != p["AXION_ALPHA"] or task["omega"] != p["AXION_OMEGA"]:
             raise ValueError("Task alpha/omega and model parameters differ")
-        if "output_slot" in task and task["phase_index"] != p["AXION_PHASE"]:
+        if task["phase_index"] != p["AXION_PHASE"]:
             raise ValueError("Task phase_index differs from physical AXION_PHASE")
         table = Path(task["table_path"]).resolve(strict=True)
         if Path(p["AXION_TABLE"]).resolve(strict=True) != table:

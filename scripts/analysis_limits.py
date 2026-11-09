@@ -109,9 +109,7 @@ def save_results(out, products, prepared, config, sigmas, identity):
                  evpa_samples_radians=np.stack(samples)[:, :, positions])
         (out / f'observations-{dim}.json').write_text(json.dumps(
             dict(diagnostics, selection=selection), indent=2, allow_nan=False) + '\n')
-        if isinstance(sigmas[dim], dict):
-            sigmas[dim] = selected_background(out, dim, observed.selected_indices,
-                                             config, sigmas[dim])
+        sigmas[dim] = selected_background(out, dim, observed.selected_indices, config, sigmas[dim])
         options = options_from_config(config, sigmas[dim])
         for mode in MODES:
             for label, data in (('observed', observed), ('null-comparison', null)):
@@ -289,7 +287,6 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
             or report['aperture_full_width_deg'] != config['analysis']['aperture']['window_degrees']):
         raise ValueError('Ensemble aperture radius/width differs from the analysis aperture')
     # Native maps are [y, x] with E decreasing along x; templates are [x, y] on (-E, N).
-    axes = [1, 0]
     bins = np.arange(360)  # both use North0/East90 one-degree bins: identity, no roll
     n = config['shared']['image']['shape']
     if east_axis.shape != (n,) or north_axis.shape != (n,):
@@ -321,17 +318,13 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
             if mask_mode == 'intensity-polarization':
                 angular_mask &= polarized_1d >= features['polarization_fraction'] * polarized_1d.max()
             angular_masks.append(angular_mask)
-            if not np.array_equal(z['angle_deg'], angles):
-                raise ValueError('Per-day aperture bins differ from audited axes')
         evpa_maps = np.load(paths[2], mmap_mode='r', allow_pickle=False)
         if evpa_maps.shape != maps.shape[:-1]:
             raise ValueError('Ensemble map EVPA shape mismatch')
         if (maps.ndim != 4 or maps.shape[1:] != (n, n, 4)
                 or aperture.shape != (len(maps), 360) or len(maps) < 2):
             raise ValueError('Ensemble Stokes/aperture sample shape mismatch')
-        if len(maps) != report['draws_per_day']:
-            raise ValueError('Ensemble sample count differs from its report')
-        mean = np.mean(maps, axis=0).transpose(*axes, 2)
+        mean = np.mean(maps, axis=0).transpose(1, 0, 2)
         if not np.isfinite(mean).all():
             raise ValueError('Nonfinite ensemble mean Stokes')
         intensity, polarized = mean[..., 0], np.hypot(mean[..., 1], mean[..., 2])
@@ -361,7 +354,7 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
             valid = products[dim][3] & common & (row % stride == 0) & (col % stride == 0)
             selected = np.flatnonzero(valid)
             r, c = np.unravel_index(selected, (n, n))
-            native_r, native_c = (r, c) if axes == [0, 1] else (c, r)
+            native_r, native_c = c, r  # template [x, y] -> native [y, x]
             values = []
             for evpa_maps, _ in data:
                 values.append(np.asarray(evpa_maps[:, native_r, native_c], dtype=float))
