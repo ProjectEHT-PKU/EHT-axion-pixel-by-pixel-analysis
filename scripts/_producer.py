@@ -7,8 +7,8 @@ from pathlib import Path
 import re
 
 import _bootstrap  # noqa: F401
+from eht_axion.experiment import DEFAULT_PATH, read_experiment
 from eht_axion.pipeline.common import reject_directory_symlinks
-from eht_axion.producer.config import read_production_config
 from _environment import add_environment_options, resolve_environment
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,7 +17,9 @@ ROOT = Path(__file__).resolve().parents[1]
 def options(kind, argv=None):
     parser = argparse.ArgumentParser(
         description=f"{kind}: official RAPTOR build and Python task orchestration")
-    paths = {"config": "EHT_PRODUCTION_CONFIG", "source_root": "EHT_RAPTOR_SOURCE_ROOT",
+    parser.add_argument("--config", type=Path, default=DEFAULT_PATH,
+                        help="Experiment parameter file (default: experiment.yaml)")
+    paths = {"source_root": "EHT_RAPTOR_SOURCE_ROOT",
              "run_root": "EHT_PRODUCTION_ROOT", "fluid_root": "EHT_GRMHD_ROOT",
              "radial_low": "EHT_RADIAL_LOW", "radial_high": "EHT_RADIAL_HIGH"}
     for key, env in paths.items():
@@ -28,6 +30,8 @@ def options(kind, argv=None):
     parser.add_argument("--source-lock", type=Path, default=ROOT / "raptor-source.lock.json")
     if kind == "generate":
         parser.add_argument("--plan", action="store_true", help="Validate and list tasks; never launch C")
+        parser.add_argument("--plan-output", type=Path,
+                            help="With --plan: also write the frozen plan JSON (input of raptor_merge.py)")
         parser.add_argument("--convert-only", action="store_true",
                             help="Deliver already complete jobs; no launch")
         parser.add_argument("--max-jobs", type=int,
@@ -47,8 +51,6 @@ def options(kind, argv=None):
     for key, env in paths.items():
         if getattr(args, key) is None and environment.get(env):
             setattr(args, key, Path(environment[env]))
-    if args.config is None:
-        args.config = ROOT / "configs/production.yaml"
     if args.source_root is None:
         args.source_root = ROOT.parent / "raptor"
     if args.run_root is None:
@@ -62,14 +64,12 @@ def options(kind, argv=None):
         args.run_root = args.run_root.resolve()
         args.source_root = args.source_root.resolve(strict=True)
         args.config = args.config.resolve(strict=True)
-        config = read_production_config(args.config)
+        config = read_experiment(args.config)
         lock = json.loads(args.source_lock.read_text())
         if lock.get("repository") != "https://github.com/ProjectEHT-PKU/raptor":
             raise ValueError("Unexpected RAPTOR source lock repository")
         args.expected_commit = lock["commit"]
         protected = [ROOT, args.source_root]
-        if environment.get("EHT_INPUT_ROOT"):
-            protected.append(Path(environment["EHT_INPUT_ROOT"]).resolve(strict=True))
         for name in ("fluid_root", "radial_low", "radial_high"):
             path = getattr(args, name)
             if path is not None:
@@ -80,7 +80,7 @@ def options(kind, argv=None):
             if (source == args.run_root or source.is_relative_to(args.run_root)
                     or args.run_root.is_relative_to(source)):
                 raise ValueError(f"Production run root overlaps protected input/code root: {source}")
-        if (args.run_root / "manifest.json").exists() or (args.run_root / "stage.json").exists():
+        if (args.run_root / "manifest.json").exists():
             raise ValueError("Run root must be a container, not an existing stage")
         if kind == "generate":
             if args.plan and args.convert_only:

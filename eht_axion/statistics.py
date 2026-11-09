@@ -4,50 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
-from scipy.linalg import cho_factor, cho_solve
-from scipy.special import logsumexp
-
-
-def gaussian_log_likelihood(
-    residual: ArrayLike,
-    covariance: ArrayLike,
-    *,
-    include_logdet: bool = True,
-) -> float:
-    """Return a multivariate Gaussian log-likelihood up to ``n*log(2*pi)``.
-
-    The log determinant must be retained whenever covariance depends on a model
-    parameter.  Cholesky factorization both validates positive definiteness and
-    avoids explicitly constructing an inverse.
-    """
-    residual_array = np.asarray(residual, dtype=float)
-    covariance_array = np.asarray(covariance, dtype=float)
-    if residual_array.ndim != 1 or residual_array.size == 0:
-        raise ValueError("residual must be a nonempty 1-D array")
-    if covariance_array.shape != (residual_array.size, residual_array.size):
-        raise ValueError("covariance shape does not match residual")
-    if not np.all(np.isfinite(residual_array)) or not np.all(np.isfinite(covariance_array)):
-        raise ValueError("residual and covariance must be finite")
-    if not np.allclose(covariance_array, covariance_array.T, rtol=1e-12, atol=1e-14):
-        raise ValueError("covariance must be symmetric")
-    factor, lower = cho_factor(covariance_array, lower=True, check_finite=False)
-    solved = cho_solve((factor, lower), residual_array, check_finite=False)
-    value = float(residual_array @ solved)
-    if include_logdet:
-        value += float(2 * np.log(np.diag(factor)).sum())
-    return -0.5 * value
-
-
-def combine_independent_log_likelihoods(log_likelihoods: ArrayLike) -> float:
-    """Combine independent observations by multiplying their likelihoods."""
-    values = _validated_log_likelihood(log_likelihoods)
-    return float(values.sum())
-
-
-def marginalize_log_likelihood(log_likelihoods: ArrayLike, *, axis: int = -1):
-    """Average likelihood over a uniformly sampled nuisance parameter."""
-    values = _validated_log_likelihood(log_likelihoods)
-    return logsumexp(values, axis=axis) - np.log(values.shape[axis])
 
 
 def _validated_log_likelihood(values: ArrayLike) -> NDArray[np.floating]:

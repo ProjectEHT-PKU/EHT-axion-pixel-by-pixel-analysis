@@ -418,6 +418,3 @@ def write_d_samples(samples, json_path, csv_path):
 
 
 # Descriptive aliases for consumers using the original planning names.
-stokes_for_imaging = make_imaging_obs
-solve_d_forward = fit_forward_d
-compute_d_distribution = d_distribution

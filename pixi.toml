@@ -21,26 +21,8 @@ OPENBLAS_NUM_THREADS = "2"
 OMP_NUM_THREADS = "2"
 PYTHONUNBUFFERED = "1"
 
-[tasks]
-help = { cmd = "python scripts/run_all.py --help", description = "Show direct-script configuration and path options" }
-migrate = { cmd = "python scripts/migrate_data.py", description = "Create canonical input/run layout without modifying original data" }
-verify = { cmd = "python scripts/verify_products.py", description = "Verify a completed stage: pixi run verify PATH" }
-pipeline = { cmd = "python scripts/run_all.py", description = "Run research stages in sequence; no installed package or unified CLI" }
-raptor = { cmd = "python scripts/process_raptor.py", description = "Preprocess RAPTOR Stokes, fit response and summarize templates" }
-eht = { cmd = "python scripts/process_eht.py", description = "Process EHT image ensembles (requires --trust-pickle)" }
-background = { cmd = "python scripts/estimate_background.py", description = "Estimate intrinsic GRMHD background from state0" }
-observations = { cmd = "python scripts/build_observations.py", description = "Construct selected day differences and covariance" }
-inference = { cmd = "python scripts/calculate_limits.py", description = "Compute six limits from cached physical products" }
-figures = { cmd = "python scripts/plot_limits.py", description = "Plot six curves from numerical results" }
-diagnostics = { cmd = "python scripts/plot_diagnostics.py", description = "Plot intermediate physical diagnostics" }
-convergence = { cmd = "python scripts/check_convergence.py", description = "Check coupling and phase grid convergence" }
-transport = { cmd = "python scripts/transport_diagnostics.py", description = "Figure-4 transport diagnostics" }
-convert-hdf5 = { cmd = "python scripts/raptor_tools.py convert", description = "Convert explicitly mapped HDF5 Stokes datasets" }
-compare = { cmd = "python scripts/compare_original_limits.py", description = "Compare saved original and new null limit curves" }
-test = { cmd = 'python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=. scripts"', description = "Run tests; discovery and local source paths are configured here" }
-lint = { cmd = "ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts", description = "Check code using explicit rules; no external Ruff configuration" }
-check = { depends-on = ["test", "lint"], description = "Run tests and lint" }
-
+# Tasks are listed in process order; scientific parameters: experiment.yaml.
+# Process 1 (RAPTOR) needs -e raptor-build; process 2 (eht-imaging) -e eht-rebuild.
 [feature.raptor-build]
 platforms = ["linux-64"]
 
@@ -53,9 +35,9 @@ pkg-config = "*"
 rsync = "*"
 
 [feature.raptor-build.tasks]
-build-raptor = "python scripts/build_raptor.py"
-generate-raptor = "python scripts/generate_raptor.py"
-merge-raptor = "python scripts/merge_raptor_runs.py"
+raptor-build = { cmd = "python scripts/raptor_build.py", description = "1.1 Build the pinned RAPTOR core" }
+raptor-generate = { cmd = "python scripts/raptor_generate.py", description = "1.2 Plan/run RAPTOR jobs and deliver Stokes cubes" }
+raptor-merge = { cmd = "python scripts/raptor_merge.py", description = "1.3 Merge job roots of several hosts into delivered cubes" }
 
 [feature.eht-research.dependencies]
 astropy = ">=6,<8"
@@ -63,9 +45,26 @@ astropy = ">=6,<8"
 [feature.eht-rebuild.pypi-dependencies]
 ehtim = "==1.3.2"
 
+[feature.eht-rebuild.tasks]
+eht-reconstruct = { cmd = "python scripts/eht_reconstruct.py", description = "2.1 Paper VII imaging: --stage I / fiducial / uncertainty, one day per root" }
+eht-refine = { cmd = "python scripts/eht_refine.py", description = "2.2 Exact convex P refinement of a fiducial/draw" }
+eht-refine-d = { cmd = "python scripts/eht_refine_d.py", description = "2.3 D-term tolerance study on top of eht-refine" }
+eht-sample = { cmd = "python scripts/eht_sample.py", description = "2.4 Fixed-D Monte Carlo: one P image per D draw (4 x 1000)" }
+
 [feature.eht-research.tasks]
-research-polarization = "python scripts/research_eht_polarization.py"
-research-observed = "python scripts/research_observed_limits.py"
+eht-summarize = { cmd = "python scripts/eht_summarize.py", description = "2.5 Summarize the draws into EHT ensembles for the analysis" }
+
+# Process 3 (analysis) and maintenance tasks; default environment.
+[tasks]
+analysis-templates = { cmd = "python scripts/analysis_templates.py", description = "3.1 Templates and GRMHD background from delivered RAPTOR data" }
+analysis-limits = { cmd = "python scripts/analysis_limits.py", description = "3.2 Feature selection, likelihood and limits on c" }
+analysis-check-grid = { cmd = "python scripts/analysis_check_grid.py", description = "3.3 Re-evaluate limits on a denser grid / wider prior (CLI overrides)" }
+analysis-check-covariance = { cmd = "python scripts/analysis_check_covariance.py", description = "3.4 Split-ensemble covariance sensitivity" }
+analysis-summarize = { cmd = "python scripts/analysis_summarize.py", description = "3.5 Summary tables and figures" }
+verify = { cmd = "python scripts/verify_products.py", description = "Verify a completed stage: pixi run verify PATH" }
+test = { cmd = 'python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=. scripts"', description = "Run tests; discovery and local source paths are configured here" }
+lint = { cmd = "ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts", description = "Check code using explicit rules; no external Ruff configuration" }
+check = { depends-on = ["test", "lint"], description = "Run tests and lint" }
 
 [environments]
 default = { features = [] }

@@ -2,12 +2,8 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-from scipy.ndimage import gaussian_filter
 
-from eht_axion.research.polarimetry import (
-    aperture_curves, blur_stokes_fwhm, complex_stokes_mean, estimate_translation,
-    evpa, evpa_tick_vectors, load_stokes_fits, shift_stokes,
-)
+from eht_axion.research.polarimetry import aperture_curves, evpa, load_stokes_fits, shift_stokes
 
 
 def test_native_fits(tmp_path):
@@ -50,48 +46,21 @@ def test_native_fits(tmp_path):
         load_stokes_fits(path)
 
 
-def test_evpa_and_ticks():
+def test_evpa():
     assert_allclose(evpa([1, 0, -1, 0], [0, 1, 0, -1]), np.arange(4)*np.pi/4)
-    dx, dy = evpa_tick_vectors([1, 0, -1], [0, 1, 0])
-    assert_allclose(dx, [0, np.sqrt(.5), 1])
-    assert_allclose(dy, [1, np.sqrt(.5), 0], atol=1e-15)
     assert np.isnan(evpa([0, np.nan, 1], [0, 1, np.inf])).all()
-    image = np.zeros((1, 2, 4))
-    image[0, :, 1:3] = [[-1, .1], [-1, -.1]]
-    assert complex_stokes_mean(image) == -1 + 0j
-    image[0, 0, 1] = np.nan
-    assert complex_stokes_mean(image) == -1 - .1j
 
 
-def test_gaussian_fwhm_and_boundaries():
-    a = np.zeros((51, 51, 4))
-    a[25, 25] = [1, 2, -3, 4]
-    fwhm, pixel = 4., (2., 1.)
-    out = blur_stokes_fwhm(a, fwhm, pixel)
-    sigma = fwhm / (np.sqrt(8*np.log(2))*np.array(pixel))
-    for k in range(4):
-        assert_allclose(out[..., k], gaussian_filter(a[..., k], sigma, mode="constant", cval=0))
-    assert_allclose(out[25, 26, 0]/out[25, 25, 0], np.exp(-1/(2*sigma[1]**2)))
-    assert_allclose(blur_stokes_fwhm(a, 0, 1), a)
-    a[:] = 1
-    assert blur_stokes_fwhm(a, 4, 1)[0, 0, 0] < .5
-
-
-def test_translation_sign_coherence_and_flat_rejection():
+def test_shift_is_coherent_across_stokes():
     a = np.zeros((41, 43, 4))
     a[15:20, 17:21] = [1, 2, -3, 4]
     a[23, 26] = [2, 4, -6, 8]
     moved = shift_stokes(a, (3, -4))
-    assert estimate_translation(moved[..., 0], a[..., 0], 5) == (-3, 4)
-    assert estimate_translation(a[..., 0], a[..., 0]) == (0, 0)
     assert_allclose(shift_stokes(moved, (-3, 4)), a)
     half = shift_stokes(a, (.5, -.5))
     assert_allclose(half[..., 1], 2*half[..., 0])
     assert_allclose(half[..., 2], -3*half[..., 0])
     assert_allclose(half[..., 3], 4*half[..., 0])
-    for flat in (np.zeros((4, 4)), np.full((4, 4), .1)):
-        with pytest.raises(ValueError):
-            estimate_translation(flat, flat)
 
 
 def test_aperture_pa_weighting_wrap_and_radius():
@@ -112,10 +81,7 @@ def test_aperture_pa_weighting_wrap_and_radius():
 
 def test_invalid_inputs():
     a = np.zeros((3, 4, 4))
-    for operation in (lambda: blur_stokes_fwhm(a, -1, 1),
-                      lambda: blur_stokes_fwhm(a, 1, 0),
-                      lambda: shift_stokes(a, (np.nan, 0)),
-                      lambda: estimate_translation(np.ones((2, 2)), np.ones((3, 2))),
+    for operation in (lambda: shift_stokes(a, (np.nan, 0)),
                       lambda: aperture_curves(a, [0], [0], [0])):
         with pytest.raises(ValueError):
             operation()

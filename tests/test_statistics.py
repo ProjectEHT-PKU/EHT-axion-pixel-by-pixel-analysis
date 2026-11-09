@@ -1,23 +1,7 @@
 import numpy as np
 import pytest
 
-from eht_axion.statistics import (
-    combine_independent_log_likelihoods,
-    gaussian_log_likelihood,
-    normalized_posterior_cdf,
-    posterior_upper_limit,
-)
-
-
-def test_gaussian_log_likelihood_includes_parameter_dependent_logdet():
-    residual = np.array([1.0, 2.0])
-    covariance = np.diag([4.0, 9.0])
-    expected = -0.5 * (1 / 4 + 4 / 9 + np.log(4 * 9))
-    assert gaussian_log_likelihood(residual, covariance) == pytest.approx(expected)
-
-
-def test_independent_likelihoods_multiply_in_log_space():
-    assert combine_independent_log_likelihoods([-2, -3]) == -5
+from eht_axion.statistics import normalized_posterior_cdf, posterior_upper_limit
 
 
 def test_log_uniform_constant_likelihood_is_uniform_in_log():
@@ -72,18 +56,3 @@ def test_quantile_handles_zero_density_plateaus():
 def test_posterior_shape_and_finite_guards(grid, logs):
     with pytest.raises(ValueError):
         normalized_posterior_cdf(grid, logs)
-
-
-@pytest.mark.parametrize("residual, covariance", [
-    ([[1.0, 2.0]], np.eye(2)), ([], np.empty((0, 0))),
-    ([1.0, np.nan], np.eye(2)), ([1.0, 2.0], [[1, np.inf], [np.inf, 1]]),
-    ([1.0, 2.0], [[1, 0.3], [0, 1]]), ([1.0, 2.0], np.eye(3)),
-])
-def test_gaussian_shape_and_finite_guards(residual, covariance):
-    with pytest.raises(ValueError):
-        gaussian_log_likelihood(residual, covariance)
-
-
-def test_gaussian_rejects_non_positive_definite_covariance():
-    with pytest.raises(np.linalg.LinAlgError):
-        gaussian_log_likelihood([0, 0], [[1, 2], [2, 1]])

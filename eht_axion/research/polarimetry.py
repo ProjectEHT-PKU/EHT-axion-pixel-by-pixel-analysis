@@ -6,8 +6,7 @@ relative image translation, NOT absolute/official consensus astrometric calibrat
 """
 
 import numpy as np
-from scipy.ndimage import gaussian_filter, shift
-from scipy.signal import correlate
+from scipy.ndimage import shift
 
 from ..angles import circular_difference
 from ..stokes import finite_evpa
@@ -89,20 +88,6 @@ def load_stokes_fits(path):
                 frequency_hz=frequency, bunit=bunit)
 
 
-def blur_stokes_fwhm(image, kernel_uas, pixel):
-    """Additional Gaussian FWHM, NOT effective PSF or beam deconvolution.
-
-    pixel is positive uas/pixel, scalar or (dy,dx). An input 5-uas restoration
-    is not an effective PSF estimate. Zero padding applies independently to IQUV.
-    """
-    a = _image(image)
-    p = np.broadcast_to(np.asarray(pixel, dtype=float), (2,))
-    if not np.isfinite(p).all() or np.any(p <= 0) or not np.isfinite(kernel_uas) or kernel_uas < 0:
-        raise ValueError("finite nonnegative FWHM and positive pixel scales required")
-    sigma = kernel_uas / (np.sqrt(8 * np.log(2)) * p)
-    return gaussian_filter(a, sigma=(*sigma, 0), mode="constant", cval=0)
-
-
 def shift_stokes(image, offset_yx):
     """Translate every channel identically in pixels; no polarization rotation."""
     a, offset = _image(image), np.asarray(offset_yx, dtype=float)
@@ -111,55 +96,9 @@ def shift_stokes(image, offset_yx):
     return shift(a, (*offset, 0), order=1, mode="constant", cval=0, prefilter=False)
 
 
-def estimate_translation(imageI, referenceI, maxshiftpx=8):
-    """Return integer (dy,dx) to APPLY to imageI, fitting I only, not Q/U.
-
-    Whole-map mean-subtracted cross-correlation / whole-map L2 norms; zero
-    outside map, FFT, search +/-maxshiftpx per axis. No overlap renormalization,
-    periodic wrapping, subpixel optimization or absolute calibration is implied.
-    """
-    a, b = np.asarray(imageI, dtype=float), np.asarray(referenceI, dtype=float)
-    if a.ndim != 2 or a.shape != b.shape or not a.size or not np.isfinite([a, b]).all():
-        raise ValueError("I maps must be finite, nonempty, matching 2-D arrays")
-    if isinstance(maxshiftpx, bool) or not isinstance(maxshiftpx, (int, np.integer)) or maxshiftpx < 0:
-        raise ValueError("maxshiftpx must be a nonnegative integer")
-    if np.ptp(a) == 0 or np.ptp(b) == 0:
-        raise ValueError("flat I maps cannot determine translation")
-    a, b = a - a.mean(), b - b.mean()
-    na, nb = np.linalg.norm(a), np.linalg.norm(b)
-    scores = correlate(b / nb, a / na, mode="full", method="fft")
-    y, x = np.indices(scores.shape) - (np.array(a.shape) - 1)[:, None, None]
-    scores[(np.abs(y) > maxshiftpx) | (np.abs(x) > maxshiftpx)] = -np.inf
-    index = np.unravel_index(np.argmax(scores), scores.shape)
-    return int(y[index]), int(x[index])
-
-
 def evpa(q, u):
     """Finite nonzero Q+iU only, radians in [0,pi); invalid pairs give NaN."""
     return np.mod(finite_evpa(q, u), np.pi)
-
-
-def evpa_tick_vectors(q, u):
-    """Return (dx_east,dy_north) unit directors, not array-index directions."""
-    chi = evpa(q, u)
-    return np.sin(chi), np.cos(chi)
-
-
-def complex_stokes_mean(image, weights=None):
-    """Return weighted mean Q+iU, never mean angles; skip invalid Q/U pairs.
-
-    Weights default to uniform; supplied weights must match [ny,nx], finite and
-    nonnegative. No valid positive-weight samples returns complex NaN.
-    """
-    a = np.asarray(image, dtype=float)
-    if a.ndim != 3 or a.shape[-1] != 4:
-        raise ValueError("expected [ny,nx,4]")
-    w = np.ones(a.shape[:2]) if weights is None else np.asarray(weights, dtype=float)
-    if w.shape != a.shape[:2] or not np.isfinite(w).all() or np.any(w < 0):
-        raise ValueError("weights must match image and be finite nonnegative")
-    z = a[..., 1] + 1j * a[..., 2]
-    valid = np.isfinite(z) & (w > 0)
-    return np.sum(w[valid] * z[valid]) / w[valid].sum() if valid.any() else complex(np.nan, np.nan)
 
 
 def aperture_curves(image, east, north, binangles, window=10, rmax_uas=None):

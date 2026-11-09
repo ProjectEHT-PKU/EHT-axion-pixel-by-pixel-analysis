@@ -10,7 +10,10 @@ import pytest
 
 from eht_axion.pipeline import common
 from eht_axion.pipeline.common import verify_stage
+from eht_axion.experiment import read_experiment
 from eht_axion.producer.build import build_raptor
+
+BUILD = read_experiment()["raptor"]["build"]
 
 
 SETUP = r'''#!/bin/bash
@@ -134,7 +137,7 @@ def test_build_contract_arguments_snapshot_and_stable_receipt(fixture, monkeypat
     source, destination, commit = fixture
     for name in ('VPATH', 'CPATH', 'MAKEFLAGS', 'MAKEFILES'):
         monkeypatch.setenv(name, '/external/poison')
-    assert build_raptor(source, destination, {}, commit) == destination
+    assert build_raptor(source, destination, BUILD, commit) == destination
     record = verify_stage(destination, recursive=True)
     receipt = json.loads((destination / 'receipt.json').read_text())
     assert receipt['source_commit'] == commit
@@ -171,13 +174,13 @@ def test_build_contract_arguments_snapshot_and_stable_receipt(fixture, monkeypat
 
 def test_cache_and_corrupt_snapshot(fixture):
     source, destination, commit = fixture
-    build_raptor(source, destination, {}, commit)
+    build_raptor(source, destination, BUILD, commit)
     before = (destination / 'RAPTOR').stat().st_mtime_ns
-    build_raptor(source, destination, {}, commit)
+    build_raptor(source, destination, BUILD, commit)
     assert (destination / 'RAPTOR').stat().st_mtime_ns == before
     (destination / 'source/src/main.c').write_text('tampered snapshot')
     with pytest.raises(ValueError, match='checksum mismatch'):
-        build_raptor(source, destination, {}, commit)
+        build_raptor(source, destination, BUILD, commit)
 
 
 @pytest.mark.parametrize('kind', ['tracked', 'untracked', 'commit'])
@@ -190,46 +193,48 @@ def test_refuses_invalid_source_before_build(fixture, kind):
     else:
         commit = '0' * 40
     with pytest.raises(ValueError, match='dirty|Wrong RAPTOR commit'):
-        build_raptor(source, destination, {}, commit)
+        build_raptor(source, destination, BUILD, commit)
     assert not destination.exists()
     assert not (destination.parent / 'tool.log').exists()
 
 
 @pytest.mark.parametrize('settings', [
-    {'unknown': True}, {'sigma_cut': float('nan')}, {'sigma_cut': 0}, {'thetae_min': 200},
+    {'unknown': True}, {}, {'sigma_cut': float('nan')}, {'sigma_cut': 0}, {'thetae_min': 200},
     {'uniform_output': 0}, {'grid': 'smr'}, {'metric': 'unknown'}, {'model': 'harm3d', 'metric': 'cks'},
 ])
 def test_refuses_invalid_settings(fixture, settings):
     source, destination, commit = fixture
     with pytest.raises(ValueError):
-        build_raptor(source, destination, settings, commit)
+        complete = dict(BUILD, **settings) if settings.keys() - {'unknown'} else settings
+        build_raptor(source, destination, complete,
+                     commit)
     assert not destination.exists()
 
 
 def test_cache_rejects_actual_implementation_change(fixture, monkeypatch):
     source, destination, commit = fixture
-    build_raptor(source, destination, {}, commit)
+    build_raptor(source, destination, BUILD, commit)
     monkeypatch.setattr(common, 'revision', lambda stage=None: {
         'git_commit': 'fixture', 'python_source_sha256': 'changed-implementation',
     })
     with pytest.raises(ValueError, match='Stale cache'):
-        build_raptor(source, destination, {}, commit)
+        build_raptor(source, destination, BUILD, commit)
 
 
 def test_failure_is_nonzero_and_transactional(fixture, monkeypatch):
     source, destination, commit = fixture
     monkeypatch.setenv('FAIL_BUILD', '1')
     with pytest.raises(subprocess.CalledProcessError) as failed:
-        build_raptor(source, destination, {}, commit)
+        build_raptor(source, destination, BUILD, commit)
     assert 'compile.log tail' in '\n'.join(failed.value.__notes__)
     assert not destination.exists()
     assert not list(destination.parent.glob('build.building-*'))
     monkeypatch.delenv('FAIL_BUILD')
-    build_raptor(source, destination, {}, commit)
+    build_raptor(source, destination, BUILD, commit)
     old = (destination / 'manifest.json').read_bytes()
     monkeypatch.setenv('FAIL_BUILD', '1')
     with pytest.raises(subprocess.CalledProcessError):
-        build_raptor(source, destination, {}, commit, rebuild=True)
+        build_raptor(source, destination, BUILD, commit, rebuild=True)
     assert (destination / 'manifest.json').read_bytes() == old
     verify_stage(destination)
 
@@ -238,16 +243,16 @@ def test_mismatch_macro_does_not_publish(fixture, monkeypatch):
     source, destination, commit = fixture
     monkeypatch.setenv('BAD_MACRO', '1')
     with pytest.raises(ValueError, match='macro mismatch: SIGMA_CUT'):
-        build_raptor(source, destination, {}, commit)
+        build_raptor(source, destination, BUILD, commit)
     assert not destination.exists()
 
 
 def test_rebuild_headers_are_fresh_not_prior_stage_templates(fixture):
     source, destination, commit = fixture
-    build_raptor(source, destination, {}, commit)
+    build_raptor(source, destination, BUILD, commit)
     (destination / 'definitions.h').write_text('STALE header')
     os.utime(destination / 'definitions.h', (2000000000, 2000000000))
-    build_raptor(source, destination, {}, commit, rebuild=True)
+    build_raptor(source, destination, BUILD, commit, rebuild=True)
     assert '#define metric (MKSBHAC)' in (destination / 'definitions.h').read_text()
     verify_stage(destination)
 
@@ -255,12 +260,12 @@ def test_rebuild_headers_are_fresh_not_prior_stage_templates(fixture):
 def test_rejects_source_symlink_and_unsafe_destination(fixture):
     source, destination, commit = fixture
     with pytest.raises(ValueError, match='outside'):
-        build_raptor(source, source / 'build', {}, commit)
+        build_raptor(source, source / 'build', BUILD, commit)
     (source / 'escape').symlink_to('/etc/passwd')
     git(source, 'add', 'escape')
     git(source, 'commit', '-qm', 'unsafe symlink')
     with pytest.raises(ValueError, match='symlink/submodule'):
-        build_raptor(source, destination, {}, git(source, 'rev-parse', 'HEAD'))
+        build_raptor(source, destination, BUILD, git(source, 'rev-parse', 'HEAD'))
 
 
 def test_output_symlink_never_written(fixture):
@@ -268,5 +273,5 @@ def test_output_symlink_never_written(fixture):
     external = destination.parent / 'external'
     destination.symlink_to(external, target_is_directory=True)
     with pytest.raises(ValueError, match='directory symlink'):
-        build_raptor(source, destination, {}, commit)
+        build_raptor(source, destination, BUILD, commit)
     assert not external.exists()

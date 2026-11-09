@@ -9,11 +9,9 @@ import struct
 import numpy as np
 import pytest
 
+from eht_axion.experiment import read_experiment
 from eht_axion.model import omega
-from eht_axion.producer import plan_generation, read_production_config, read_snapshot_footer
-from eht_axion.producer.plan import validate_radial_table
-
-ROOT = Path(__file__).resolve().parents[1]
+from eht_axion.producer.plan import plan_generation, read_snapshot_footer, validate_radial_table
 
 
 def write_snapshot(path, *, time=15010.0, spin=0.9375, gamma=4 / 3, nx=(2, 2, 2),
@@ -35,8 +33,8 @@ def write_table(path, alphas=(0.1, 0.3, 0.44)):
 
 @pytest.fixture
 def inputs(tmp_path):
-    config = read_production_config(ROOT / "configs/production.yaml")
-    config["producer"]["snapshots"] = {"start": 1600, "stop": 1610, "step": 10}
+    config = read_experiment()
+    config["raptor"]["snapshots"] = {"start": 1600, "stop": 1610, "step": 10}
     fluid = tmp_path / "fluid"
     fluid.mkdir()
     write_snapshot(fluid / "data001600.dat")
@@ -52,7 +50,8 @@ def test_task_contract_and_physical_time(inputs, tmp_path):
     build = tmp_path / "future-build"
     plan = plan_generation(config, fluid, tables, build)
     assert not build.exists()
-    assert plan["schema_version"] == 1
+    assert plan["schema_version"] == 2
+    assert set(plan["config"]) == {"shared", "raptor"}
     assert plan["verification"] == "unverified"
     assert plan["hash_inputs"] is False
     assert plan["counts"] == {"snapshots": 2, "baseline": 4, "response": 256,
@@ -99,13 +98,19 @@ def test_task_contract_and_physical_time(inputs, tmp_path):
     assert json.loads(json.dumps(plan, allow_nan=False)) == plan
 
 
-def test_default_plan_never_hashes_or_writes(inputs, monkeypatch):
+def test_default_plan_hashes_only_small_tables_and_never_writes(inputs, monkeypatch):
+    from eht_axion.producer.plan import file_sha256
     config, fluid, tables = inputs
     before = {p: p.stat().st_mtime_ns for p in fluid.parent.rglob("*")}
-    def forbidden(*args, **kwargs):
-        pytest.fail("light plan must not hash full inputs")
-    monkeypatch.setattr("eht_axion.producer.plan.file_sha256", forbidden)
-    plan_generation(config, fluid, tables)
+
+    def tables_only(path):
+        if Path(path).suffix != ".csv":
+            pytest.fail("light plan must not hash snapshots")
+        return file_sha256(path)
+    monkeypatch.setattr("eht_axion.producer.plan.file_sha256", tables_only)
+    plan = plan_generation(config, fluid, tables)
+    assert all(t["source_sha256"] is None for t in plan["tasks"])
+    assert all(t["table_sha256"] for t in plan["tasks"] if t["kind"] == "response")
     assert {p: p.stat().st_mtime_ns for p in fluid.parent.rglob("*")} == before
 
 
@@ -118,6 +123,7 @@ def test_explicit_hashes_once_per_unique_file(inputs, monkeypatch):
         return file_sha256(path)
     monkeypatch.setattr("eht_axion.producer.plan.file_sha256", tracked)
     light = plan_generation(config, fluid, tables)
+    calls.clear()
     plan = plan_generation(config, fluid, tables, hash_inputs=True)
     assert len(calls) == len(set(calls)) == 4
     assert plan["verification"] == "input_hashes_only"
@@ -129,41 +135,43 @@ def test_explicit_hashes_once_per_unique_file(inputs, monkeypatch):
     assert all(t["table_sha256"] for t in plan["tasks"] if t["kind"] == "response")
 
 
-def test_first_scope_rejects_incompatible_resolution(inputs):
-    config, fluid, tables = inputs
-    config["producer"]["response"]["resolution"] = 800
-    with pytest.raises(ValueError, match="response.resolution in"):
-        plan_generation(config, fluid, tables)
+def baselines(plan):
+    return [t["id"] for t in plan["tasks"] if t["kind"] == "baseline"]
 
 
-def test_stable_ids_and_baseline_semantic_dependencies(inputs):
+def responses(plan):
+    return [t["id"] for t in plan["tasks"] if t["kind"] == "response"]
+
+
+def test_ids_depend_only_on_ray_tracing_inputs(inputs):
     config, fluid, tables = inputs
     first = plan_generation(config, fluid, tables)
     assert first == plan_generation(config, fluid, tables)
     changed = deepcopy(config)
-    changed["inference"]["coupling_points"] = 121
+    changed["analysis"]["inference"]["coupling_points"] = 121
+    changed["shared"]["image"]["fov_uas"] = 128.0
+    changed["eht_imaging"]["fsys"] = 0.01
+    assert plan_generation(changed, fluid, tables) == first
+    changed["raptor"]["response"]["reference_norm"] = 0.2
     second = plan_generation(changed, fluid, tables)
-
-    def baselines(plan):
-        return [t["id"] for t in plan["tasks"] if t["kind"] == "baseline"]
-
-    def responses(plan):
-        return [t["id"] for t in plan["tasks"] if t["kind"] == "response"]
     assert first["config_sha256"] != second["config_sha256"]
     assert baselines(first) == baselines(second)
-    assert responses(first) != responses(second)
-    changed["image"]["initial_fov_rg"] = 46.3
-    assert baselines(first) != baselines(plan_generation(changed, fluid, tables))
+    assert not set(responses(first)) & set(responses(second))
+    changed["raptor"]["camera_fov_rg"] = 46.3
+    third = plan_generation(changed, fluid, tables)
+    assert not set(baselines(first)) & set(baselines(third))
 
 
-def test_table_change_keeps_baseline_identity(inputs):
+def test_table_content_enters_response_ids_only(inputs):
     config, fluid, tables = inputs
-    first = plan_generation(config, fluid, tables, hash_inputs=True)
+    first = plan_generation(config, fluid, tables)
     write_table(tables["low"], (0.1, 0.2, 0.44))
-    second = plan_generation(config, fluid, tables, hash_inputs=True)
+    second = plan_generation(config, fluid, tables)
     assert first["radial_tables"]["low"]["sha256"] != second["radial_tables"]["low"]["sha256"]
-    assert [t["id"] for t in first["tasks"] if t["kind"] == "baseline"] == [
-        t["id"] for t in second["tasks"] if t["kind"] == "baseline"]
+    assert baselines(first) == baselines(second)
+    low = {t["id"] for t in first["tasks"] if t["table_id"] == "low"}
+    high = {t["id"] for t in first["tasks"] if t["table_id"] == "high"}
+    assert not low & set(responses(second)) and high <= set(responses(second))
 
 
 def test_no_lexicographic_slice_or_extra_file_reads(inputs):
@@ -241,7 +249,7 @@ def test_table_validation_once_per_unique_file_and_no_renormalization(inputs, mo
 
 def test_paths_and_operational_arguments(inputs, tmp_path):
     config, fluid, tables = inputs
-    with pytest.raises(ValueError, match="exactly low and high"):
+    with pytest.raises(ValueError, match="radial_paths requires exactly"):
         plan_generation(config, fluid, {"low": tables["low"]})
     with pytest.raises(ValueError, match="boolean"):
         plan_generation(config, fluid, tables, hash_inputs=1)
@@ -249,9 +257,9 @@ def test_paths_and_operational_arguments(inputs, tmp_path):
         plan_generation(config, fluid, tables, tmp_path / "has spaces")
     with pytest.raises(ValueError, match="255"):
         plan_generation(config, fluid, tables, tmp_path / ("é" * 130))
-    no_producer = {k: v for k, v in config.items() if k != "producer"}
-    with pytest.raises(ValueError, match="requires producer"):
-        plan_generation(no_producer, fluid, tables)
+    no_raptor = {k: v for k, v in config.items() if k != "raptor"}
+    with pytest.raises(ValueError, match="shared and raptor"):
+        plan_generation(no_raptor, fluid, tables)
 
 
 def test_resource_lower_bounds_and_official_setup(inputs):
@@ -265,7 +273,7 @@ def test_resource_lower_bounds_and_official_setup(inputs):
     assert "--sf=sfc" in req["official_setup_args"]
     assert "--sigma-cut=1.0" in req["official_setup_args"]
     assert "--uniform=0" in req["official_setup_args"]
-    metadata = read_snapshot_footer(fluid / "data001600.dat", config["producer"]["grid"])
+    metadata = read_snapshot_footer(fluid / "data001600.dat", config["raptor"]["grid"])
     assert metadata["gamma"] == 4 / 3
     assert metadata["spin"] == 0.9375
     assert metadata["body_verified"] is False

@@ -3,7 +3,10 @@ import pytest
 
 from scipy.integrate import quad
 
-from eht_axion.model import TIME_CONVERSION, evpa_templates, interpolate_fit_parameters, omega
+from eht_axion.model import evpa_templates, interpolate_fit_parameters, omega
+
+TEMPLATE = dict(phase_count=64, time_conversion=0.112411, exposure_hours=6.0, day_gap_hours=24.0,
+                pair_separation_hours=120.0, n_principal=2, reference_norm=0.1)
 
 
 def test_phase_interpolation_crosses_branch_cut_not_zero():
@@ -34,10 +37,10 @@ def test_exact_phase_nodes_preserve_values_not_wrapped(node):
 
 
 @pytest.mark.parametrize("legacy, count", [(False, 64), (True, 16)])
-def test_default_phase_grid_and_legacy_shared_uncertainty(legacy, count):
+def test_phase_grid_and_legacy_shared_uncertainty(legacy, count):
     amplitude = {0.1: np.array([[1.0], [0.2]])}
     phase = {0.1: np.array([[0.3], [0.1]])}
-    signal, error = evpa_templates(0.1, amplitude, phase, legacy=legacy)
+    signal, error = evpa_templates(0.1, amplitude, phase, **dict(TEMPLATE, phase_count=count), legacy=legacy)
     assert signal.shape == error.shape == (count, 2, 1)
     assert np.allclose(signal[0], signal[-1]) == legacy
     assert np.allclose(error[:, 0], error[:, 1]) == legacy
@@ -45,7 +48,7 @@ def test_default_phase_grid_and_legacy_shared_uncertainty(legacy, count):
 
 @pytest.mark.parametrize("legacy", [False, True])
 @pytest.mark.parametrize("timing", [
-    (TIME_CONVERSION, 6.0, 120.0, 24.0, 4),
+    (0.112411, 6.0, 120.0, 24.0, 4),
     (0.112444863, 4.2, 93.0, 26.7, 2),
 ])
 def test_two_cosine_exposure_pair_differences_oracle(legacy, timing):
@@ -57,7 +60,7 @@ def test_two_cosine_exposure_pair_differences_oracle(legacy, timing):
         alpha, amplitude, phase, legacy=legacy, phase_count=9,
         legacy_shared_uncertainty=False, time_conversion=conversion,
         exposure_hours=exposure, day_gap_hours=separation,
-        pair_separation_hours=gap, n_principal=principal,
+        pair_separation_hours=gap, n_principal=principal, reference_norm=0.1,
     )
     frequency = conversion * alpha * (1 - alpha**2 / (2 * principal**2))
     initial = np.linspace(0, 2 * np.pi, 9, endpoint=legacy)
@@ -90,15 +93,14 @@ def test_two_cosine_exposure_pair_differences_oracle(legacy, timing):
         physical, _ = evpa_templates(
             alpha, amplitude, phase, phase_count=9, duplicate_endpoint=True,
             time_conversion=conversion, exposure_hours=exposure, day_gap_hours=separation,
-            pair_separation_hours=gap, n_principal=principal,
+            pair_separation_hours=gap, n_principal=principal, reference_norm=0.1,
         )
         np.testing.assert_allclose(signal[:, 0], physical[:, 0])
         assert not np.allclose(signal[:, 1], physical[:, 1])
 
 
-def test_omega_defaults_to_211_principal_n2_and_supports_explicit_n():
-    assert omega(0.3) == 0.3 * (1 - 0.3**2 / 8)
-    assert omega(0.3, 2) == omega(0.3)
+def test_omega_principal_n():
+    assert omega(0.3, 2) == 0.3 * (1 - 0.3**2 / 8)
     assert omega(0.3, 4) == 0.3 * (1 - 0.3**2 / 32)
 
 
@@ -112,7 +114,7 @@ def test_omega_defaults_to_211_principal_n2_and_supports_explicit_n():
 def test_template_parameter_guards(kwargs):
     parameters = {0.1: np.array([[1.0], [0.2]])}
     with pytest.raises(ValueError):
-        evpa_templates(0.1, parameters, parameters, **kwargs)
+        evpa_templates(0.1, parameters, parameters, **dict(TEMPLATE, **kwargs))
 
 
 @pytest.mark.parametrize("values", [
@@ -128,10 +130,10 @@ def test_interpolation_shape_and_finite_guards(values):
 
 def test_amplitude_phase_shape_guard():
     with pytest.raises(ValueError, match="shapes differ"):
-        evpa_templates(0.1, {0.1: np.ones((2, 2))}, {0.1: np.ones((2, 1))})
+        evpa_templates(0.1, {0.1: np.ones((2, 2))}, {0.1: np.ones((2, 1))}, **TEMPLATE)
 
 
 def test_zero_exposure_is_instantaneous_limit():
     parameters = {0.1: np.array([[0.3], [0.1]])}
-    signal, error = evpa_templates(0.1, parameters, parameters, exposure_hours=0)
+    signal, error = evpa_templates(0.1, parameters, parameters, **dict(TEMPLATE, exposure_hours=0))
     assert np.all(np.isfinite(signal)) and np.all(np.isfinite(error))

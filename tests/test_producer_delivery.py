@@ -1,27 +1,23 @@
 """Synthetic HDF delivery and downstream identity wiring, no real ray tracing."""
 from copy import deepcopy
 import json
-from pathlib import Path
 
 import numpy as np
 import pytest
 
+from eht_axion.experiment import read_experiment
 from eht_axion.pipeline.common import stage_directory, verify_stage
-from eht_axion.pipeline.config import read_config
 from eht_axion.pipeline.layout import input_raptor_files
 from eht_axion.producer.delivery import deliver_stokes, generated_inputs
 from test_producer_outputs import write_products
 
-ROOT = Path(__file__).resolve().parents[1]
-
-
 @pytest.fixture(scope="module")
 def delivered(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("generated-delivery")
-    config = read_config(ROOT / "configs/production.yaml")
-    config["data"]["alphas"] = [0.2]
-    config["producer"]["alpha_table"] = {"0.20": "low"}
-    config["producer"]["snapshots"] = {"start": 1600, "stop": 1610, "step": 10}
+    config = read_experiment()
+    config["shared"]["alphas"] = [0.2]
+    config["raptor"]["alpha_table"] = {"0.20": "low"}
+    config["raptor"]["snapshots"] = {"start": 1600, "stop": 1610, "step": 10}
     run = tmp_path / "run"
     from test_producer_plan import write_snapshot, write_table
     from eht_axion.producer.plan import plan_generation
@@ -39,11 +35,11 @@ def delivered(tmp_path_factory):
     plan["expected_core_commit"] = "synthetic-commit"
     build = run / "build"
     with stage_directory(build, "producer-build", {
-        "source_commit": "synthetic-commit", "settings": config["producer"]["build"]
+        "source_commit": "synthetic-commit", "settings": config["raptor"]["build"]
     }) as temp:
         (temp / "RAPTOR").write_text("synthetic binary, never executed")
         (temp / "RAPTOR").chmod(0o755)
-        grid = config["producer"]["grid"]
+        grid = config["raptor"]["grid"]
         fields = {f"nxlone{i+1}": v for i, v in enumerate(grid["nxlone"])}
         fields.update({f"xprobminx{i+1}": v for i, v in enumerate(grid["xprobmin"])})
         fields.update({f"xprobmax{i+1}": v for i, v in enumerate(grid["xprobmax"])})
@@ -89,7 +85,7 @@ def test_delivery_shapes_axes_labels_and_ancestry(delivered):
         inputs, labels = generated_inputs(paths, config, alpha=alpha, resolution=resolution)
         assert labels == [1600, 1610]
         assert paths[0].parent / "manifest.json" in inputs
-        record = verify_stage(paths[0].parent, recursive=True, allow_imported=False)
+        record = verify_stage(paths[0].parent, recursive=True)
         assert all(".building-" not in e["path"] for e in record["inputs"])
         assert len([e for e in record["inputs"] if e["path"].endswith("manifest.json")]) == shape[0]*shape[1]
 
@@ -98,9 +94,9 @@ def test_delivery_shapes_axes_labels_and_ancestry(delivered):
 def test_generated_physics_cannot_be_silently_changed(delivered, key, value):
     config, run, _ = delivered
     changed = deepcopy(config)
-    changed["physical"][key] = value
+    changed["shared"][key] = value
     paths = input_raptor_files(run / "data", .2, 100)
-    with pytest.raises(ValueError, match="science identity"):
+    with pytest.raises(ValueError, match="identity differs"):
         generated_inputs(paths, changed, alpha=.2, resolution=100)
 
 
@@ -125,45 +121,55 @@ def test_generated_metadata_and_job_ancestors_live_verified(delivered):
         hdf.write_bytes(original)
 
 
-def test_generated_data_reaches_real_preprocess_fit_and_background(delivered, tmp_path):
+def test_analysis_ignores_sky_grid_but_not_ray_tracing_changes(delivered):
+    config, run, _ = delivered
+    changed = deepcopy(config)
+    changed["shared"]["image"]["fov_uas"] = 100.0
+    changed["analysis"]["inference"]["phase_count"] = 32
+    paths = input_raptor_files(run / "data", .2, 100)
+    assert generated_inputs(paths, changed, alpha=.2, resolution=100)[1] == [1600, 1610]
+    changed["raptor"]["plasma"]["mass_unit_g"] = 4e25
+    with pytest.raises(ValueError, match="identity differs"):
+        generated_inputs(paths, changed, alpha=.2, resolution=100)
+
+
+def test_generated_data_reaches_templates_and_background(delivered, tmp_path):
     import yaml
-    from eht_axion.pipeline.workflow import run_stage
+    from analysis_templates import run as run_templates
     from eht_axion.producer.delivery import validate_processed_source
 
     config, run, _ = delivered
     profile = deepcopy(config)
-    profile["image"]["final_shape"] = 8
-    profile["background"]["lag_frames"] = 1
-    profile["background"]["method"] = "mle"
-    path = tmp_path / "production.yaml"
+    profile["shared"]["image"]["shape"] = 8
+    profile["analysis"]["background"]["lag_frames"] = 1
+    path = tmp_path / "experiment.yaml"
     path.write_text(yaml.safe_dump(profile))
     output = tmp_path / "analysis"
-    run_stage(path, output, raptor_input_root=run / "data", stage="raptor")
-    fitted = output / "raptor/response/alpha-0.20"
-    with np.load(fitted / "response-2d.npz") as z:
+    run_templates(path, run / "data", output)
+    with np.load(output / "raptor/response/alpha-0.20/response-2d.npz") as z:
         np.testing.assert_array_equal(z["snapshot_labels"], [1600, 1610])
     record = verify_stage(output / "raptor/processed/alpha-0.20", recursive=True)
     validate_processed_source(record, profile, alpha=.2, resolution=100)
-    # The actual background numerical path is tested without inventing EHT data:
-    # it only needs a declared matching mask from the separate EHT source stage.
-    with stage_directory(output / "eht", "eht:ensemble", {}) as temporary:
-        np.save(temporary / "mask.npy", np.ones((8, 8), dtype=bool))
-    run_stage(path, output, raptor_input_root=run / "data", stage="background")
     bg = verify_stage(output / "raptor/background", recursive=True)
     validate_processed_source(bg, profile, alpha=.3, resolution=400)
+    assert bg["config"]["state_indices"] == [0]
     assert np.load(output / "raptor/background/stokes.npy", mmap_mode="r").shape == (2, 1, 8, 8, 4)
+    for dim in ("1d", "2d"):
+        unmasked = verify_stage(output / "background-unmasked" / dim, recursive=True)
+        assert unmasked["config"]["lag"] == 1 and unmasked["config"]["mask"] is None
+    with pytest.raises(FileExistsError):
+        run_templates(path, run / "data", output)
 
 
-def test_missing_metadata_cannot_downgrade_to_legacy(delivered):
+def test_missing_metadata_is_rejected(delivered):
     config, run, products = delivered
     path = products[0]
     metadata = path.parent / "generated.json"
     content = metadata.read_bytes()
     metadata.unlink()
     try:
-        legacy = {k: v for k, v in config.items() if k != "producer"}
-        with pytest.raises(ValueError, match="legacy downgrade"):
-            generated_inputs([path], legacy, alpha=.2, resolution=100)
+        with pytest.raises(ValueError, match="missing"):
+            generated_inputs([path], config, alpha=.2, resolution=100)
     finally:
         metadata.write_bytes(content)
 
@@ -180,11 +186,8 @@ def test_convert_only_rejects_wrong_build_even_with_valid_jobs(delivered):
         deliver_stokes(plan, run)
 
 
-def test_production_never_falls_back_to_legacy(tmp_path):
-    config = read_config(ROOT / "configs/production.yaml")
+def test_undelivered_cube_is_rejected(tmp_path):
     cube = tmp_path / "stokes.npy"
     np.save(cube, np.zeros((2, 17, 100, 100, 4)))
-    with pytest.raises(ValueError, match="requires verified generated"):
-        generated_inputs([cube], config, alpha=.2, resolution=100)
-    legacy = {k: v for k, v in config.items() if k != "producer"}
-    assert generated_inputs([cube], legacy, alpha=.2, resolution=100) == ([cube], None)
+    with pytest.raises(ValueError, match="no manifest"):
+        generated_inputs([cube], read_experiment(), alpha=.2, resolution=100)

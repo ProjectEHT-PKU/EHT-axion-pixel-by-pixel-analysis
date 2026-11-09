@@ -10,13 +10,14 @@ from ..model import omega
 from ..pipeline.common import (
     manifest_path, require_declared_outputs, stage_directory, verification_session, verify_stage,
 )
-from ..pipeline.layout import alpha_label
+from ..pipeline.layout import BACKGROUND_DIRECTORY_ALPHA, alpha_label
 from ..pipeline.raptor import convert_hdf5
+from .plan import PHASE_COUNT
 
 
 def _job_files(run_root, task, build_inputs, verified=None):
     directory = Path(run_root) / "jobs" / task["id"]
-    record = verify_stage(directory, recursive=True, allow_imported=False, _seen=verified)
+    record = verify_stage(directory, recursive=True, _seen=verified)
     from .jobs import _prepare_task
 
     prepared, expected, raw_inputs = _prepare_task(task)
@@ -52,19 +53,20 @@ def _mapping(resolution, frequency):
     )
 
 
-def _identity(config, *, alpha, resolution, labels, times, state_count):
-    p = config["producer"]
+def _identity(config, *, alpha, resolution, labels, times):
+    """generated.json: the ray-tracing configuration plus this product's coordinates."""
+    from ..experiment import ray_tracing_config
+
+    config = ray_tracing_config(config)
+    principal_n = config["shared"]["principal_n"]
     return dict(
-        schema="raptor-generated-v1", physical=config["physical"],
-        initial_fov_rg=config["image"]["initial_fov_rg"], alpha=alpha,
-        resolution=resolution, snapshot_labels=labels, times_tg=times,
-        state_count=state_count, reference_norm=p["response"]["reference_norm"],
-        phase_count=16, principal_n=config["inference"]["principal_n"],
-        omega=None if alpha is None else omega(alpha, config["inference"]["principal_n"]),
-        frequency_hz=p["plasma"]["frequency_hz"],
-        producer=p, axes=["time", "state", "x", "y", "stokes"],
-        channels=list("IQUV"), intensity_units="Jy/sr", frame_time_source="GRMHD footer",
-        phase_convention="state0 baseline; state k+1 has phase k*pi/8",
+        schema="raptor-generated-v2", ray_tracing=config, alpha=alpha, resolution=resolution,
+        snapshot_labels=labels, times_tg=times,
+        state_count=1 if alpha is None else PHASE_COUNT + 1,
+        omega=None if alpha is None else omega(alpha, principal_n),
+        axes=["time", "state", "x", "y", "stokes"], channels=list("IQUV"), intensity_units="Jy/sr",
+        frame_time_source="GRMHD footer",
+        phase_convention="state0 axion-off; state k+1 has axion phase k*pi/8",
     )
 
 
@@ -114,7 +116,7 @@ def deliver_stokes(plan, run_root, *, job_roots=None, output_root=None):
             if not selected:
                 continue
             build_dir = source / "build"
-            build_manifest = verify_stage(build_dir, recursive=True, allow_imported=False, _seen=verified)
+            build_manifest = verify_stage(build_dir, recursive=True, _seen=verified)
             binary, grid_path, header = _build_products(build_dir, build_manifest)
             _validate_plan_binding(plan, [_prepare_task(t) for t in selected],
                                    build_manifest, build_dir, grid_path)
@@ -129,21 +131,22 @@ def deliver_stokes(plan, run_root, *, job_roots=None, output_root=None):
                         or target.is_relative_to(source.parent)):
                     raise ValueError(f"Delivery output overlaps a consumed source: {source}")
         source_records = [dict(task_id=t["id"], root=str(task_sources[t["id"]])) for t in tasks]
-        response_res = config["producer"]["response"]["resolution"]
-        background_res = config["producer"]["background"]["resolution"]
-        snap = config["producer"]["snapshots"]
+        response_res = config["raptor"]["response"]["resolution"]
+        background_res = config["raptor"]["background"]["resolution"]
+        snap = config["raptor"]["snapshots"]
         labels = list(range(snap["start"], snap["stop"] + 1, snap["step"]))
         # Preserve current res100 whole-file input contract. High-res delivery is
         # per 10-time shard, compatible with the existing inclusive-step layout.
-        groups = [(a, response_res, labels, 17) for a in config["data"]["alphas"]]
-        groups += [(None, background_res, labels[i:i + 10], 1) for i in range(0, len(labels), 10)]
-        for alpha, resolution, group_labels, states in groups:
+        groups = [(a, response_res, labels) for a in config["shared"]["alphas"]]
+        groups += [(None, background_res, labels[i:i + 10]) for i in range(0, len(labels), 10)]
+        for alpha, resolution, group_labels in groups:
             grid, inputs, times = [], [], []
             for label in group_labels:
                 baseline = lookup[("baseline", resolution, label, None, 0)]
                 selected = [baseline]
                 if alpha is not None:
-                    selected += [lookup[("response", resolution, label, alpha, k)] for k in range(16)]
+                    selected += [lookup[("response", resolution, label, alpha, k)]
+                                 for k in range(PHASE_COUNT)]
                 row = []
                 for task in selected:
                     source = task_sources[task["id"]]
@@ -152,7 +155,7 @@ def deliver_stokes(plan, run_root, *, job_roots=None, output_root=None):
                     inputs += [receipt, hdf]
                 grid.append(row)
                 times.append(baseline["time_tg"])
-            alias = config["background"]["alpha"] if alpha is None else alpha
+            alias = BACKGROUND_DIRECTORY_ALPHA if alpha is None else alpha
             base = target / "data" / "raptor" / f"res-{resolution}" / alpha_label(alias)
             if alpha is None:
                 destination = base / f"t{group_labels[0]}-t{group_labels[-1]}"
@@ -160,11 +163,12 @@ def deliver_stokes(plan, run_root, *, job_roots=None, output_root=None):
             else:
                 destination, filename = base, "stokes.npy"
             identity = _identity(config, alpha=alpha, resolution=resolution, labels=group_labels,
-                                 times=times, state_count=states)
+                                 times=times)
             with stage_directory(destination, "producer:delivery", identity,
                                  list(dict.fromkeys(inputs))) as temp:
                 if temp is not None:
-                    result = convert_hdf5(grid, temp, **_mapping(resolution, identity["frequency_hz"]))
+                    frequency = config["raptor"]["plasma"]["frequency_hz"]
+                    result = convert_hdf5(grid, temp, **_mapping(resolution, frequency))
                     if filename != "stokes.npy":
                         result["stokes"].rename(temp / filename)
                     (temp / "generated.json").write_text(json.dumps(identity, indent=2) + "\n")
@@ -178,90 +182,54 @@ def deliver_stokes(plan, run_root, *, job_roots=None, output_root=None):
 
 
 def generated_inputs(paths, config, *, alpha, resolution, verified=None):
-    """Validate generated source identity, return declared edges and real labels.
+    """Verify delivered RAPTOR products against this experiment; return inputs and labels.
 
-    Legacy raw data remains usable without producer configuration. A production
-    profile must never consume unlabeled legacy raw data by silent fallback.
+    Each product must be a complete producer:delivery stage whose generated.json
+    equals the identity this experiment would deliver (ray-tracing settings,
+    alpha, resolution); the labels must cover raptor.snapshots exactly.
     """
     paths = [Path(p) for p in paths]
     seen = set() if verified is None else verified
     inputs, labels = list(paths), []
-    generated = [(p.parent / "generated.json").is_file() for p in paths]
-    if not any(generated):
-        for path in paths:
-            for name in ("manifest.json", "stage.json"):
-                marker = path.parent / name
-                if marker.is_file():
-                    record = json.loads(marker.read_text())
-                    if (str(record.get("stage", "")).startswith("producer")
-                            or record.get("config", {}).get("schema") == "raptor-generated-v1"
-                            or any(e.get("path") == "generated.json" for e in record.get("outputs", []))):
-                        raise ValueError("Generated delivery metadata is missing; refusing legacy downgrade")
-        if "producer" in config:
-            raise ValueError("Production profile requires verified generated RAPTOR inputs")
-        return inputs, None
-    if not all(generated):
-        raise ValueError("Mixed generated and legacy RAPTOR inputs")
-    if "producer" not in config:
-        raise ValueError("Generated RAPTOR inputs require their production science profile")
+    background = resolution == config["raptor"]["background"]["resolution"]
     for path in paths:
         directory = path.parent
-        verify_stage(directory, recursive=True, allow_imported=False, _seen=seen)
+        verify_stage(directory, recursive=True, _seen=seen)
         metadata = directory / "generated.json"
         require_declared_outputs(directory, [path, metadata])
         record = json.loads(metadata.read_text())
-        state_count = 1 if resolution == config["producer"]["background"]["resolution"] else 17
-        actual_alpha = None if state_count == 1 else alpha
-        expected = _identity(config, alpha=actual_alpha, resolution=resolution,
-                             labels=record["snapshot_labels"], times=record["times_tg"],
-                             state_count=state_count)
+        expected = _identity(config, alpha=None if background else alpha, resolution=resolution,
+                             labels=record.get("snapshot_labels"), times=record.get("times_tg"))
         if record != expected:
-            raise ValueError("Generated RAPTOR science identity differs from analysis configuration")
+            raise ValueError(f"Generated RAPTOR identity differs from this experiment: {metadata}")
         a = np.load(path, mmap_mode="r", allow_pickle=False)
-        if a.shape != (len(record["snapshot_labels"]), state_count, resolution, resolution, 4):
+        if a.shape != (len(record["snapshot_labels"]), record["state_count"], resolution, resolution, 4):
             raise ValueError("Generated RAPTOR shape/identity mismatch")
         del a
         labels += record["snapshot_labels"]
         inputs += [manifest_path(directory), metadata]
-    snap = config["producer"]["snapshots"]
+    snap = config["raptor"]["snapshots"]
     if labels != list(range(snap["start"], snap["stop"] + 1, snap["step"])):
-        raise ValueError("Generated labels differ from selected snapshot interval")
+        raise ValueError("Generated labels differ from raptor.snapshots")
     return list(dict.fromkeys(inputs)), labels
 
 
 def input_cadence_hours(paths, config):
-    """Derive generated-frame spacing from footer times, never a fixed label step.
-
-    Historical inputs without generated metadata retain an explicit configured
-    label convention. Generated inputs must provide complete uniform time grids.
-    Callers also use generated_inputs() to verify identity and ancestry.
-    """
-    from ..pipeline.constants import PhysicalScale
+    """Frame spacing in hours from the recorded GRMHD footer times (must be uniform)."""
+    from ..experiment import physical_scale
 
     times = []
-    paths = [Path(p) for p in paths]
-    flags = [(p.parent / "generated.json").is_file() for p in paths]
-    if any(flags):
-        if not all(flags):
-            raise ValueError("Mixed generated and legacy time grids")
-        for path in paths:
-            times.extend(json.loads((path.parent / "generated.json").read_text())["times_tg"])
-        delta = np.diff(np.asarray(times, dtype=float))
-        if (not len(delta) or not np.isfinite(delta).all() or np.any(delta <= 0)
-                or not np.allclose(delta, delta[0], rtol=1e-12, atol=0)):
-            raise ValueError("Background requires a uniform finite footer-time grid")
-        cadence_tg = float(delta[0])
-    else:
-        if "producer" in config:
-            raise ValueError("Production profile requires generated footer times")
-        from ..pipeline.layout import _LABEL_STEP
-
-        cadence_tg = _LABEL_STEP * config["physical"]["label_step_tg"]
-    return cadence_tg * PhysicalScale(**config["physical"]).tg_hours
+    for path in paths:
+        times.extend(json.loads((Path(path).parent / "generated.json").read_text())["times_tg"])
+    delta = np.diff(np.asarray(times, dtype=float))
+    if (not len(delta) or not np.isfinite(delta).all() or np.any(delta <= 0)
+            or not np.allclose(delta, delta[0], rtol=1e-12, atol=0)):
+        raise ValueError("Background requires a uniform finite footer-time grid")
+    return float(delta[0]) * physical_scale(config).tg_hours
 
 
 def validate_processed_source(manifest, config, *, alpha, resolution, verified=None):
-    """Recheck producer contracts from independent inference/verify entrypoints."""
+    """Recheck that a preprocess stage consumed exactly verified delivered products."""
     raw = [Path(e["path"]) for e in manifest["inputs"] if Path(e["path"]).suffix == ".npy"]
     if not raw:
         raise ValueError("Preprocess stage declares no raw Stokes input")

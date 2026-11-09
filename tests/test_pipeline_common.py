@@ -29,11 +29,11 @@ def test_atomic_stage_cache_and_invalidations(tmp_path):
 
 
 def test_physical_scale_and_validation():
-    scale = PhysicalScale()
+    scale = PhysicalScale(mass_solar=6.5e9, distance_mpc=16.8, label_step_tg=0.1)
     assert scale.tg_hours == pytest.approx(8.89324754)
     assert scale.angular_rg_uas == pytest.approx(3.81899325)
     with pytest.raises(ValueError):
-        PhysicalScale(mass_solar=float("nan"))
+        PhysicalScale(mass_solar=float("nan"), distance_mpc=16.8, label_step_tg=0.1)
 
 
 def test_aperture_area_exact_and_weighting():

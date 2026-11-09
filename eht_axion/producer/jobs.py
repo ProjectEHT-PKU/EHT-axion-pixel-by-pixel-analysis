@@ -204,13 +204,12 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
         return
     if expected_commit is None:
         raise ValueError("Production plan requires expected_core_commit")
+    from ..experiment import validate_ray_tracing
     from ..model import omega
-    from .config import canonical_alpha, validate_production_config
-    from .plan import _parameters, read_snapshot_footer, validate_radial_table
+    from .plan import _parameters, canonical_alpha, read_snapshot_footer, validate_radial_table
 
-    config = plan["config"]
-    validate_production_config(config)
-    p = config["producer"]
+    config = validate_ray_tracing(plan["config"])
+    p = config["raptor"]
     if manifest["config"].get("settings") != p["build"]:
         raise ValueError("Build settings differ from production plan")
     # grid_mks.in's exact legacy field spellings are owned by the core.
@@ -261,7 +260,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
             raise ValueError("Live snapshot bytes differ from plan inventory hash")
         enabled = task["kind"] == "response"
         alpha = task["alpha"] if enabled else None
-        if enabled and alpha not in config["data"]["alphas"]:
+        if enabled and alpha not in config["shared"]["alphas"]:
             raise ValueError("Task alpha is not in production config")
         resolution = p["response"]["resolution"]
         if not enabled and task["resolution"] not in {resolution, p["background"]["resolution"]}:
@@ -269,7 +268,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
         if enabled and task["resolution"] != resolution:
             raise ValueError("Response resolution differs from production config")
         phase = task["parameters"]["AXION_PHASE"]
-        expected_omega = float(omega(alpha, config["inference"]["principal_n"])) if enabled else 0.
+        expected_omega = float(omega(alpha, config["shared"]["principal_n"])) if enabled else 0.
         norm = p["response"]["reference_norm"] if enabled else 0.
         table_path = None
         if enabled:
@@ -449,7 +448,7 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affi
     if run_root == build_dir or run_root.is_relative_to(build_dir):
         raise ValueError("Run container must not be inside the immutable build")
     for parent in [run_root, *run_root.parents]:
-        for name in ("manifest.json", "stage.json"):
+        for name in ("manifest.json",):
             marker = parent / name
             if not marker.exists() and not marker.is_symlink():
                 continue
@@ -466,7 +465,7 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affi
                          and "outputs" not in record)
             if not container:
                 raise ValueError("Refusing to use an existing output stage as a run container/ancestor")
-    manifest = common.verify_stage(build_dir, recursive=True, allow_imported=False)
+    manifest = common.verify_stage(build_dir, recursive=True)
     binary, grid, header = _build_products(build_dir, manifest)
     constants = read_core_constants(header)
     _validate_plan_binding(plan, prepared, manifest, build_dir, grid)

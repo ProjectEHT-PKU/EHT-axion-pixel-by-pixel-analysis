@@ -20,17 +20,15 @@ import subprocess
 
 from eht_axion.pipeline.common import sha256, stage_directory
 
-_DEFAULTS = {
-    "model": "bhac", "metric": "mks", "integrator": "rk4", "grid": "SMR",
-    "polarized": True, "sfc": True, "magnetic_polarity": "plus", "sigma_cut": 1.0,
-    "thetae_min": 0.001, "thetae_max": 100.0, "uniform_output": False,
-}
+_FIELDS = {"model", "metric", "integrator", "grid", "polarized", "sfc", "magnetic_polarity",
+           "sigma_cut", "thetae_min", "thetae_max", "uniform_output"}
 
 
 def _settings(settings):
-    if not isinstance(settings, dict) or set(settings) - _DEFAULTS.keys():
-        raise ValueError("Unknown producer.build setting")
-    result = dict(_DEFAULTS, **settings)
+    """Validate the complete raptor.build section (no defaults) against setup.sh options."""
+    if not isinstance(settings, dict) or set(settings) != _FIELDS:
+        raise ValueError(f"raptor.build requires exactly {sorted(_FIELDS)}")
+    result = dict(settings)
     choices = {
         "model": {"bhac", "harm3d", "hamr"}, "metric": {"mks", "cks"},
         "integrator": {"rk4", "rk2", "rk45", "ver"}, "grid": {"SMR", "AMR"},
@@ -38,18 +36,18 @@ def _settings(settings):
     }
     for key, allowed in choices.items():
         if not isinstance(result[key], str) or result[key] not in allowed:
-            raise ValueError(f"Invalid producer.build.{key}: {result[key]!r}")
+            raise ValueError(f"Invalid raptor.build.{key}: {result[key]!r}")
     if result["model"] != "bhac" and result["metric"] == "cks":
         raise ValueError("CKS requires the BHAC model")
     for key in ("polarized", "sfc", "uniform_output"):
         if type(result[key]) is not bool:
-            raise ValueError(f"producer.build.{key} must be boolean")
+            raise ValueError(f"raptor.build.{key} must be boolean")
     for key in ("sigma_cut", "thetae_min", "thetae_max"):
         value = result[key]
         if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise ValueError(f"producer.build.{key} must be a finite positive number")
+            raise ValueError(f"raptor.build.{key} must be a finite positive number")
         if not math.isfinite(value) or value <= 0:
-            raise ValueError(f"producer.build.{key} must be a finite positive number")
+            raise ValueError(f"raptor.build.{key} must be a finite positive number")
         result[key] = float(value)
     if result["thetae_min"] >= result["thetae_max"]:
         raise ValueError("thetae_min must be less than thetae_max")

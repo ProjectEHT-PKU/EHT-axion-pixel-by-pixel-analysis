@@ -9,10 +9,9 @@ import numpy as np
 import pytest
 import yaml
 
+from eht_axion.experiment import read_experiment
 from eht_axion.pipeline import common
-from eht_axion.pipeline.config import read_config
 from eht_axion.pipeline.layout import input_raptor_files
-from eht_axion.pipeline.workflow import run_stage
 from eht_axion.producer.delivery import deliver_stokes, generated_inputs, validate_processed_source
 from eht_axion.producer.jobs import _prepare_task, serialize_parameters
 from eht_axion.producer.outputs import CORE_CONSTANTS, validate_job_output
@@ -20,19 +19,16 @@ from eht_axion.producer.plan import plan_generation
 from test_producer_outputs import write_products
 from test_producer_plan import write_snapshot, write_table
 
-ROOT = Path(__file__).resolve().parents[1]
-
-
 def _write_build(root, config, compiler, *, settings=None):
     """Two scientifically equivalent builds may have different compiler/binary bytes."""
     build = root / "build"
-    identity = {"source_commit": "fake", "settings": config["producer"]["build"]
+    identity = {"source_commit": "fake", "settings": config["raptor"]["build"]
                 if settings is None else settings}
     with common.stage_directory(build, "producer-build", identity) as temporary:
         # Executable permission is part of the build contract; this is never launched.
         (temporary / "RAPTOR").write_text(f"synthetic RAPTOR built by {compiler}; never execute\n")
         (temporary / "RAPTOR").chmod(0o755)
-        grid = config["producer"]["grid"]
+        grid = config["raptor"]["grid"]
         fields = {f"nxlone{i+1}": value for i, value in enumerate(grid["nxlone"])}
         fields.update({f"xprobminx{i+1}": value for i, value in enumerate(grid["xprobmin"])})
         fields.update({f"xprobmax{i+1}": value for i, value in enumerate(grid["xprobmax"])})
@@ -84,10 +80,10 @@ def merged(tmp_path_factory):
         patch.setattr(common, "revision", lambda stage=None: {
             "git_commit": "merge-fixture", "python_source_sha256": "merge-fixture-implementation"})
         directory = tmp_path_factory.mktemp("merged-delivery")
-        config = read_config(ROOT / "configs/production.yaml")
-        config["data"]["alphas"] = [0.2]
-        config["producer"]["alpha_table"] = {"0.20": "low"}
-        config["producer"]["snapshots"] = {"start": 1600, "stop": 1610, "step": 10}
+        config = read_experiment()
+        config["shared"]["alphas"] = [0.2]
+        config["raptor"]["alpha_table"] = {"0.20": "low"}
+        config["raptor"]["snapshots"] = {"start": 1600, "stop": 1610, "step": 10}
         fluid = directory / "fluid"
         fluid.mkdir()
         for label in (1600, 1610):
@@ -156,11 +152,11 @@ def test_merged_sources_and_recursive_ancestry_preserve_both_actual_builds(merge
     assert m.builds[0][1].read_bytes() != m.builds[1][1].read_bytes()
     for name in ("grid_mks.in", "definitions.h", "macros.txt"):
         assert (m.roots[0] / "build" / name).read_bytes() == (m.roots[1] / "build" / name).read_bytes()
-    build_records = [common.verify_stage(root / "build", recursive=True, allow_imported=False)
+    build_records = [common.verify_stage(root / "build", recursive=True)
                      for root in m.roots]
     assert build_records[0]["config"] == build_records[1]["config"]
     for path, resolution, count in zip(m.products, (100, 400), (34, 2)):
-        record = common.verify_stage(path.parent, recursive=True, allow_imported=False)
+        record = common.verify_stage(path.parent, recursive=True)
         sources = json.loads((path.parent / "sources.json").read_text())
         selected = [task for task in m.plan["tasks"] if task["resolution"] == resolution]
         assert sources == [{"task_id": task["id"], "root": str(m.owners[task["id"]])}
@@ -173,7 +169,7 @@ def test_merged_sources_and_recursive_ancestry_preserve_both_actual_builds(merge
             job = m.owners[task["id"]] / "jobs" / task["id"]
             expected_inputs.update((job / "manifest.json",
                                     job / "output" / f"img_data_{task['output_slot']}.h5"))
-            job_record = common.verify_stage(job, recursive=True, allow_imported=False)
+            job_record = common.verify_stage(job, recursive=True)
             _, _, raw = _prepare_task(task)
             build = m.builds[m.roots.index(m.owners[task["id"]])]
             assert {Path(entry["path"]) for entry in job_record["inputs"]} == set(build + raw)
@@ -188,18 +184,17 @@ def test_merged_sources_and_recursive_ancestry_preserve_both_actual_builds(merge
 
 
 def test_merged_background_reaches_real_downstream_path(merged, tmp_path):
+    from analysis_templates import run as run_templates
+
     profile = deepcopy(merged.config)
-    profile["image"]["final_shape"] = 8
-    profile["background"]["lag_frames"] = 1
-    profile["background"]["method"] = "mle"
-    config_path = tmp_path / "profile.yaml"
+    profile["shared"]["image"]["shape"] = 8
+    profile["analysis"]["background"]["lag_frames"] = 1
+    config_path = tmp_path / "experiment.yaml"
     config_path.write_text(yaml.safe_dump(profile))
     analysis = tmp_path / "analysis"
-    with common.stage_directory(analysis / "eht", "eht:ensemble", {}) as temporary:
-        np.save(temporary / "mask.npy", np.ones((8, 8), dtype=bool))
-    run_stage(config_path, analysis, raptor_input_root=merged.output / "data", stage="background")
+    run_templates(config_path, merged.output / "data", analysis)
     processed = analysis / "raptor/background"
-    record = common.verify_stage(processed, recursive=True, allow_imported=False)
+    record = common.verify_stage(processed, recursive=True)
     validate_processed_source(record, profile, alpha=.3, resolution=400)
     assert np.load(processed / "stokes.npy", mmap_mode="r").shape == (2, 1, 8, 8, 4)
     closure = set(common.source_closure([processed / "manifest.json"]))
@@ -236,10 +231,10 @@ def test_merge_requires_exactly_one_task_directory(merged, tmp_path, case):
 def test_each_source_build_must_match_plan_settings(merged, tmp_path, index):
     copied, roots = _copy_root(merged, index, tmp_path)
     shutil.rmtree(copied / "build")
-    settings = deepcopy(merged.config["producer"]["build"])
+    settings = deepcopy(merged.config["raptor"]["build"])
     settings["sigma_cut"] = 2.0
     _write_build(copied, merged.config, "wrong-settings", settings=settings)
-    common.verify_stage(copied / "build", recursive=True, allow_imported=False)
+    common.verify_stage(copied / "build", recursive=True)
     target = tmp_path / "rejected"
     with pytest.raises(ValueError, match="Build settings differ from production plan"):
         deliver_stokes(merged.plan, merged.run, job_roots=roots, output_root=target)
@@ -259,7 +254,7 @@ def test_job_inputs_must_name_exact_actual_source_build(merged, tmp_path, case):
     # These are complete valid stages, not checksum-corruption failures.
     for task in merged.plan["tasks"]:
         if task["label"] == 1610:
-            common.verify_stage(copied / "jobs" / task["id"], recursive=True, allow_imported=False)
+            common.verify_stage(copied / "jobs" / task["id"], recursive=True)
     target = tmp_path / "rejected"
     with pytest.raises(ValueError, match="Job lineage does not declare the selected build and source inputs"):
         deliver_stokes(merged.plan, merged.run, job_roots=roots, output_root=target)

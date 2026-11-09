@@ -1,85 +1,53 @@
 import numpy as np
 import pytest
-from eht_axion.pipeline.layout import alpha_label, date_label, input_raptor_files, input_eht_file
-from eht_axion.pipeline.common import stage_directory, verify_stage, manifest_path
+
+from eht_axion.pipeline.common import manifest_path, stage_directory, verify_stage
+from eht_axion.pipeline.layout import BACKGROUND_DIRECTORY_ALPHA, RunLayout, alpha_label, input_raptor_files
 
 
-def test_dataset_identity_format():
+def test_alpha_identity_format():
     assert alpha_label(0.3) == "alpha-0.30"
-    assert date_label(95) == "2017-04-05"
-    assert date_label(101) == "2017-04-11"
     for alpha in [float("nan"), float("inf"), 0.305, 0, -1, True, 1e100]:
         with pytest.raises(ValueError):
             alpha_label(alpha)
 
 
-def test_canonical_and_legacy_input_resolution(tmp_path):
-    p = tmp_path / "raptor/res-100/alpha-0.30/stokes.npy"
-    p.parent.mkdir(parents=True)
-    np.save(p, np.zeros((1, 17, 2, 2, 4)))
-    assert input_raptor_files(tmp_path, 0.3, 100) == [p]
-    q = tmp_path / "eht/2017-04-05/image-ensemble.pkl"
-    q.parent.mkdir(parents=True)
-    q.write_bytes(b"trusted-test")
-    assert input_eht_file(tmp_path, 95) == q
+def cube(path, times=1):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.save(path, np.zeros((times, 1, 2, 2, 4)))
+    return path
 
 
-def test_res100_and_eht_existing_identity_priority_is_preserved(tmp_path):
-    canonical = tmp_path / "raptor/res-100/alpha-0.30/stokes.npy"
-    legacy = tmp_path / "raptor-stokes/res-100/alpha-0.3.npy"
-    for path in (canonical, legacy):
-        path.parent.mkdir(parents=True)
-        np.save(path, np.zeros((1, 17, 2, 2, 4)))
-    assert input_raptor_files(tmp_path, 0.3, 100) == [canonical]
-    canonical.unlink()
-    assert input_raptor_files(tmp_path, 0.3, 100) == [legacy]
-    candidates = [
-        tmp_path / "eht/2017-04-05/image-ensemble.pkl",
-        tmp_path / "2017-04-05/image-ensemble.pkl",
-        tmp_path / "eht-image-ensemble/230_95.pkl",
-        tmp_path / "230_95.pkl",
-    ]
-    for path in candidates:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b"trusted-test")
-    for path in candidates:
-        assert input_eht_file(tmp_path, 95) == path
-        path.unlink()
+def test_response_whole_cube_and_background_shards(tmp_path):
+    whole = cube(tmp_path / "raptor/res-100/alpha-0.20/stokes.npy")
+    assert input_raptor_files(tmp_path, 0.2, 100) == [whole]
+    base = tmp_path / "raptor/res-400" / alpha_label(BACKGROUND_DIRECTORY_ALPHA)
+    late = cube(base / "t1700-t1790/stokes-t1700-t1790.npy")
+    early = cube(base / "t1600-t1690/stokes-t1600-t1690.npy")
+    assert input_raptor_files(tmp_path, BACKGROUND_DIRECTORY_ALPHA, 400) == [early, late]
 
 
-def test_res100_invalid_scientific_cube_is_not_accepted(tmp_path):
-    path = tmp_path / "raptor/res-100/alpha-0.30/stokes.npy"
-    path.parent.mkdir(parents=True)
-    np.save(path, np.arange(3))
-    with pytest.raises(ValueError, match="RAPTOR cube"):
-        input_raptor_files(tmp_path, 0.3, 100)
+def test_missing_ambiguous_and_misnamed_products(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        input_raptor_files(tmp_path, 0.3, 400)
+    base = tmp_path / "raptor/res-400/alpha-0.30"
+    cube(base / "stokes.npy")
+    cube(base / "t1600-t1690/stokes-t1600-t1690.npy")
+    with pytest.raises(ValueError, match="Ambiguous"):
+        input_raptor_files(tmp_path, 0.3, 400)
+    (base / "stokes.npy").unlink()
+    cube(base / "t1700-t1790/stokes-t1700-t1780.npy")
+    with pytest.raises(ValueError, match="shard name"):
+        input_raptor_files(tmp_path, 0.3, 400)
 
 
-def test_imported_manifest_preserves_link_target_and_requires_optin(tmp_path):
-    source = tmp_path / "source.npy"
-    np.save(source, np.arange(5))
-    stage = tmp_path / "imported"
-    config = {"preserved_setting": 3}
-    with stage_directory(stage, "test", config, [source], imported_from={"original": "source"}) as temp:
-        (temp / "value.npy").symlink_to(source)
-    manifest = verify_stage(stage)
-    assert manifest_path(stage).name == "manifest.json"
-    assert manifest["scientific_recomputation"] is False
-    assert manifest["outputs"][0]["shape"] == [5]
-    with pytest.raises(ValueError, match="--reuse-imported"):
-        with stage_directory(stage, "test", config, [source]):
-            pass
-    with stage_directory(stage, "test", config, [source], reuse_imported=True) as temp:
-        assert temp is None
-    with pytest.raises(ValueError, match="settings/lineage"):
-        with stage_directory(stage, "test", {"preserved_setting": 4}, [source], reuse_imported=True):
-            pass
-    target = stage / "value.npy"
-    target.unlink()
-    target.symlink_to(tmp_path / "missing.npy")
-    with pytest.raises(ValueError, match="Changed imported"):
-        verify_stage(stage)
-    assert source.is_file()
+def test_run_layout_directories(tmp_path):
+    layout = RunLayout(tmp_path)
+    assert layout.processed(0.1) == tmp_path / "raptor/processed/alpha-0.10"
+    assert layout.response(0.44) == tmp_path / "raptor/response/alpha-0.44"
+    assert layout.templates("2d") == tmp_path / "raptor/templates/2d"
+    assert layout.background_processed == tmp_path / "raptor/background"
+    assert layout.background_unmasked("1d") == tmp_path / "background-unmasked/1d"
 
 
 def test_recursive_lineage_refuses_changed_source(tmp_path):
@@ -88,10 +56,20 @@ def test_recursive_lineage_refuses_changed_source(tmp_path):
     stage = tmp_path / "processed"
     with stage_directory(stage, "test", {}, [source]) as temp:
         (temp / "product.txt").write_text("derived")
+    assert manifest_path(stage).name == "manifest.json"
     source.write_text("changed")
     assert verify_stage(stage)["complete"]
     with pytest.raises(ValueError, match="Stale upstream lineage"):
         verify_stage(stage, recursive=True)
+
+
+def test_stage_products_must_not_be_symlinks(tmp_path):
+    source = tmp_path / "source.npy"
+    np.save(source, np.arange(5))
+    with pytest.raises(ValueError, match="regular files"):
+        with stage_directory(tmp_path / "stage", "test", {}, [source]) as temp:
+            (temp / "value.npy").symlink_to(source)
+    assert not (tmp_path / "stage").exists()
 
 
 def test_rebuild_rejects_leaf_directory_link(tmp_path):
@@ -105,25 +83,3 @@ def test_rebuild_rejects_leaf_directory_link(tmp_path):
         with stage_directory(leaf, "test", {}, [], rebuild=True):
             pass
     assert (target / "keep.txt").read_text() == "original"
-
-
-def test_imported_upstream_requires_permission(tmp_path):
-    source = tmp_path / "source.npy"
-    np.save(source, np.arange(2))
-    stage = tmp_path / "imported"
-    with stage_directory(stage, "test", {}, [source], imported_from={"original": "source"}) as temp:
-        (temp / "data.npy").symlink_to(source)
-    with pytest.raises(ValueError, match="Consuming imported"):
-        verify_stage(stage, recursive=True, allow_imported=False)
-    assert verify_stage(stage, recursive=True, allow_imported=True)["complete"]
-
-
-def test_legacy_manifest_is_readable_but_dual_is_ambiguous(tmp_path):
-    stage = tmp_path / "stage"
-    with stage_directory(stage, "test", {}, []) as temp:
-        (temp / "data.txt").write_text("value")
-    (stage / "manifest.json").rename(stage / "stage.json")
-    assert verify_stage(stage)["complete"]
-    (stage / "manifest.json").write_bytes((stage / "stage.json").read_bytes())
-    with pytest.raises(ValueError, match="Ambiguous"):
-        verify_stage(stage)

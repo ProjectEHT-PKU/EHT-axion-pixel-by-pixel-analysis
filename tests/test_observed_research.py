@@ -1,9 +1,7 @@
 """Focused synthetic tests; no EHT data, reconstruction, or science runs."""
 
-import inspect
 import json
 from dataclasses import replace
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -11,8 +9,7 @@ from scipy.linalg import block_diag
 from scipy.special import logsumexp
 from scipy.stats import multivariate_normal
 
-import eht_axion.limits as null_limits
-from eht_axion.limits import LimitOptions, calculate_from_products
+from eht_axion.limits import LimitOptions
 from eht_axion.model import cloud_amplitude_scaling, evpa_templates
 from eht_axion.observations import ObservationData
 from eht_axion.research import calculate_observed
@@ -42,8 +39,13 @@ def observations(zero=False):
     )
 
 
+BASE = dict(prior="log-uniform", grmhd_sigma_degrees=1.9752611467515768, time_conversion=0.112411,
+            exposure_hours=6.0, day_gap_hours=24.0, pair_separation_hours=120.0, n_principal=2,
+            reference_norm=0.1, cloud_coefficient=0.03, cloud_pivot_alpha=0.05, cloud_exponent=1.75)
+
+
 def options(**kwargs):
-    return replace(LimitOptions(phase_count=9, coupling_points=23,
+    return replace(LimitOptions(**BASE, phase_count=9, coupling_points=23,
                                 coupling_min=0.01, coupling_max=8), **kwargs)
 
 
@@ -69,7 +71,7 @@ def test_dense_external_gaussian_shared_phase_oracle(dimension, mode, prior):
     amplitude, phase = products(dimension)
     opts = options(prior=prior, grmhd_sigma_degrees=3.0, reference_norm=0.15,
                    cloud_coefficient=0.04, cloud_pivot_alpha=0.07, cloud_exponent=1.2)
-    alpha, cuts, diag = calculate_observed(obs, amplitude, phase, [0.1], dimension, mode, opts)
+    alpha, cuts, diag = calculate_observed(obs, amplitude, phase, [0.1], dimension, mode, options=opts)
     signal = full_signal(amplitude, phase, opts)[:, :, obs.selected_indices]
     covariances = [c.copy() for c in obs.pair_covariances]
     if mode == "std":
@@ -149,23 +151,6 @@ def test_zero_signal_analytic_finite_prior_and_actual_data_constant(prior):
     _, zero_cuts, zero_diag = calculate_observed(zero, amplitude, phase, [0.1], mode="cor", options=opts)
     np.testing.assert_allclose(cuts, zero_cuts, atol=1e-14)
     np.testing.assert_allclose(zero_diag["log_likelihood"], 0, atol=1e-14)
-
-
-@pytest.mark.parametrize("dimension", ["1d", "2d"])
-@pytest.mark.parametrize("mode", ["std", "cor"])
-@pytest.mark.parametrize("std_covariance", ["covariance", "legacy-sigma"])
-def test_zero_data_matches_unchanged_corrected_null_api(dimension, mode, std_covariance):
-    obs = observations(zero=True)
-    amplitude, phase = products(dimension)
-    opts = options(std_covariance=std_covariance)
-    alpha, cuts, diag = calculate_observed(obs, amplitude, phase, [0.1], dimension, mode, opts)
-    null_alpha, null_cuts, null_diag = calculate_from_products(
-        obs, amplitude, phase, [0.1], dimension, mode, opts,
-    )
-    np.testing.assert_array_equal(alpha, null_alpha)
-    np.testing.assert_allclose(cuts, null_cuts, rtol=0, atol=1e-13)
-    for key in ("log_likelihood", "cdf", "posterior_density"):
-        np.testing.assert_allclose(diag[key], null_diag[key], rtol=2e-12, atol=1e-11)
 
 
 def test_fixed_background_loosen_in_specific_zero_data_example_only():
@@ -249,14 +234,15 @@ def test_invalid_options(change):
 def test_invalid_observations_including_non_spd_even_with_background(change, mode):
     amplitude, phase = products()
     with pytest.raises(ValueError):
-        calculate_observed(replace(observations(), **change), amplitude, phase, [0.1], mode=mode)
+        calculate_observed(replace(observations(), **change), amplitude, phase, [0.1], mode=mode,
+                           options=options())
 
 
 @pytest.mark.parametrize("alphas", [[], [np.nan], [0], [0.2, 0.1], [0.1, 0.1], [[0.1]]])
 def test_invalid_alpha_grid(alphas):
     amplitude, phase = products()
     with pytest.raises(ValueError, match="alphas"):
-        calculate_observed(observations(), amplitude, phase, alphas)
+        calculate_observed(observations(), amplitude, phase, alphas, options=options())
 
 
 @pytest.mark.parametrize("kind", ["empty", "key", "different_keys", "ndim", "shape", "finite", "std"])
@@ -277,28 +263,26 @@ def test_invalid_fit_products(kind):
     else:
         phase[0.1][1, 0] = -1
     with pytest.raises(ValueError):
-        calculate_observed(observations(), amplitude, phase, [0.1])
+        calculate_observed(observations(), amplitude, phase, [0.1], options=options())
 
 
 @pytest.mark.parametrize("arguments", [{"mode": "cor_grmhd"}, {"mode": "bad"}, {"dimension": "3d"}])
 def test_invalid_request(arguments):
     amplitude, phase = products()
     with pytest.raises(ValueError):
-        calculate_observed(observations(), amplitude, phase, [0.1], **arguments)
+        calculate_observed(observations(), amplitude, phase, [0.1], **{'options': options(), **arguments})
 
 
 def test_multiple_alphas_interpolation_and_resolved_options():
     amplitude, phase = products("2d")
     amplitude[0.2] = amplitude[0.1] * 1.3
     phase[0.2] = phase[0.1] + np.array([[[2.0]], [[0.01]]])
-    opts = options(phase_count=None, circular_phase_interpolation=np.bool_(False))
+    opts = options(phase_count=64, circular_phase_interpolation=np.bool_(False))
     obs = observations(zero=True)
     alpha, cuts, diag = calculate_observed(obs, amplitude, phase, [0.1, 0.15, 0.2],
                                            dimension="2d", mode="cor", options=opts)
-    _, null_cuts, null_diag = calculate_from_products(obs, amplitude, phase, alpha,
-                                                     dimension="2d", mode="cor", options=opts)
-    np.testing.assert_allclose(cuts, null_cuts, atol=1e-13)
-    np.testing.assert_allclose(diag["log_likelihood"], null_diag["log_likelihood"], atol=1e-11)
+    np.testing.assert_array_equal(alpha, [0.1, 0.15, 0.2])
+    assert np.isfinite(cuts).all()
     assert np.shape(diag["phase_log_likelihood"]) == (3, 23, 64)
     assert diag["effective_options"]["phase_count"] == 64
     assert diag["effective_options"]["circular_phase_interpolation"] is False
@@ -316,24 +300,18 @@ def test_invalid_historical_daily_sigmas(stds):
                            [0.1], options=options(std_covariance="legacy-sigma"))
 
 
-def test_option_type_and_null_observed_option_remain_rejected():
+def test_option_type_and_removed_observed_option_rejected():
     amplitude, phase = products()
     with pytest.raises(TypeError, match="LimitOptions"):
         calculate_observed(observations(), amplitude, phase, [0.1], options={})
     with pytest.raises(TypeError, match="observed"):
-        LimitOptions(observed=True)
-    with pytest.raises(TypeError, match="observed"):
-        calculate_from_products(observations(), amplitude, phase, [0.1], observed=True)
-    assert "observed" not in inspect.signature(calculate_from_products).parameters
+        LimitOptions(**BASE, phase_count=9, coupling_points=23, coupling_min=0.01, coupling_max=8,
+                     observed=True)
+    with pytest.raises(TypeError):
+        calculate_observed(observations(), amplitude, phase, [0.1])
 
 
-def test_no_overwrite_or_null_function_replacement(tmp_path, monkeypatch):
-    # Snapshot NULL implementation/API/tests. This test never writes to them.
-    root = Path(null_limits.__file__).resolve().parent.parent
-    paths = [root / name for name in ("eht_axion/limits.py", "tests/test_limits.py",
-                                      "tests/test_null_only_results.py")]
-    before = {path: path.read_bytes() for path in paths}
-    original_calculation = null_limits.calculate_from_products
+def test_inputs_are_not_modified_and_nothing_is_written(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     obs = observations()
     amplitude, phase = products()
@@ -342,11 +320,5 @@ def test_no_overwrite_or_null_function_replacement(tmp_path, monkeypatch):
     calculate_observed(obs, amplitude, phase, [0.1], options=options())
     calculate_observed(obs, amplitude, phase, [0.1], mode="cor_fixed_background", options=options())
     assert list(tmp_path.iterdir()) == []
-    assert null_limits.calculate_from_products is original_calculation
-    assert {path: path.read_bytes() for path in paths} == before
     np.testing.assert_array_equal(obs.pair_differences, original_data)
     np.testing.assert_array_equal(obs.pair_covariances, original_covariances)
-    _, actual_null, _ = original_calculation(obs, amplitude, phase, [0.1], options=options())
-    _, zero_null, _ = original_calculation(observations(zero=True), amplitude, phase,
-                                           [0.1], options=options())
-    np.testing.assert_array_equal(actual_null, zero_null)

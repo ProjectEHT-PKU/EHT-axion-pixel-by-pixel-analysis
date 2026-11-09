@@ -1,9 +1,6 @@
 """Synthetic-only tests: no notebook execution and no repository data cubes."""
 import hashlib
 import json
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 import numpy as np

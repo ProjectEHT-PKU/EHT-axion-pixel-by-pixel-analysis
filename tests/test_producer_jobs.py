@@ -337,12 +337,13 @@ def _cancel_wait(original):
 
 @pytest.fixture
 def production(setup):
-    from eht_axion.producer.config import read_production_config
     from eht_axion.producer.plan import plan_generation
     from test_producer_plan import write_snapshot, write_table
 
-    config = read_production_config(Path(__file__).resolve().parents[1] / "configs/production.yaml")
-    config["producer"]["snapshots"] = {"start": 1600, "stop": 1600, "step": 10}
+    from eht_axion.experiment import read_experiment
+
+    config = read_experiment()
+    config["raptor"]["snapshots"] = {"start": 1600, "stop": 1600, "step": 10}
     source = setup["source"].with_name("data001600.dat")
     write_snapshot(source)
     write_table(setup["table"])
@@ -350,12 +351,12 @@ def production(setup):
     plan = plan_generation(config, source.parent, tables)
     plan["expected_core_commit"] = "synthetic-core-commit"
     production_build = setup["build"].with_name("production-build")
-    settings = {"settings": config["producer"]["build"], "source_commit": "synthetic-core-commit"}
+    settings = {"settings": config["raptor"]["build"], "source_commit": "synthetic-core-commit"}
     with common.stage_directory(production_build, "producer-build", settings) as work:
         for name in ("RAPTOR", "definitions.h"):
             import shutil
             shutil.copy2(setup["build"] / name, work / name)
-        grid = config["producer"]["grid"]
+        grid = config["raptor"]["grid"]
         text = "".join(f"nxlone{i+1} = {v}\n" for i, v in enumerate(grid["nxlone"]))
         text += "".join(f"xprobminx{i+1} = {v}\n" for i, v in enumerate(grid["xprobmin"]))
         text += "".join(f"xprobmax{i+1} = {v}\n" for i, v in enumerate(grid["xprobmax"]))
@@ -364,9 +365,9 @@ def production(setup):
             "POL": "1", "num_frequencies": "1", "num_pixels_1d": "10", "NSPIN": "3",
             "SMR": "1", "AMR": "0", "UNIF": "0", "metric": "MKSBHAC", "DF": "TH",
             "IMGFILE": "1", "SPECFILE": "1", "int_method": "RK4", "SFC": "1", "BPOL": "PLUS",
-            "SIGMA_CUT": str(config["producer"]["build"]["sigma_cut"]),
-            "THETAE_MIN": str(config["producer"]["build"]["thetae_min"]),
-            "THETAE_MAX": str(config["producer"]["build"]["thetae_max"]),
+            "SIGMA_CUT": str(config["raptor"]["build"]["sigma_cut"]),
+            "THETAE_MIN": str(config["raptor"]["build"]["thetae_min"]),
+            "THETAE_MAX": str(config["raptor"]["build"]["thetae_max"]),
         }.items()))
         (work / "receipt.json").write_text(json.dumps({"source_commit": "synthetic-core-commit"}))
     setup["build"] = production_build
@@ -429,7 +430,7 @@ def test_production_gate_rejects_semantic_drift_before_launch(production, change
     elif change == "missing-commit":
         del plan["expected_core_commit"]
     elif change == "build":
-        plan["config"]["producer"]["build"]["sigma_cut"] = 2.
+        plan["config"]["raptor"]["build"]["sigma_cut"] = 2.
     elif change == "time":
         task["time_tg"] += 1
     elif change == "mass":

@@ -67,7 +67,7 @@ def test_written_summary_contract(tmp_path):
     samples[..., 0] = 2.
     samples[..., 1] = np.cos(2 * np.arange(3)[:, None, None] * .02)
     samples[..., 2] = np.sin(2 * np.arange(3)[:, None, None] * .02)
-    summary, covariance = en.summarize(samples, east, north, tmp_path)
+    summary, covariance = en.summarize(samples, east, north, tmp_path, .7, 60., 10)
     assert covariance.shape == (360, 360)
     assert summary['valid'].shape == (360,)
     with np.load(tmp_path / 'aperture.npz', allow_pickle=False) as z:

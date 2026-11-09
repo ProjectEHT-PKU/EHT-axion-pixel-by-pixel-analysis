@@ -100,41 +100,17 @@ def describe_inputs(paths):
 
 
 def revision(stage=None):
+    """Git commit plus a hash of every eht_axion source file (covers uncommitted edits)."""
     root = Path(__file__).resolve().parents[2]
     try:
-        commit = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+        commit = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True,
+                                         stderr=subprocess.DEVNULL).strip()
     except (OSError, subprocess.CalledProcessError):
         commit = "unknown"
-    # Include implementation bytes even in an uncommitted development tree.
     h = hashlib.sha256()
-    dependencies = {
-        "raptor": ["pipeline/raptor.py", "pipeline/constants.py", "polarization.py", "angles.py"],
-        "eht": ["pipeline/eht.py", "polarization.py", "angles.py"],
-        "observations": ["pipeline/products.py", "observations.py", "angles.py"],
-        "inference": [
-            "pipeline/inference.py",
-            "pipeline/products.py",
-            "pipeline/constants.py",
-            "observations.py",
-            "angles.py",
-            "limits.py",
-            "model.py",
-            "statistics.py",
-        ],
-        "figures": ["pipeline/figures.py"],
-    }
-    group = str(stage).split(":")[0]
-    files = dependencies.get(group)
-    paths = [root / "eht_axion" / p for p in files] if files else list((root / "eht_axion").rglob("*.py"))
-    paths.extend([
-        Path(__file__).resolve(), root / "eht_axion/pipeline/layout.py",
-        root / "eht_axion/pipeline/workflow.py", root / "eht_axion/pipeline/config.py",
-        root / "eht_axion/stokes.py",
-    ])
-    for path in sorted(set(paths)):
-        if path.is_file():
-            h.update(str(path.relative_to(root)).encode())
-            h.update(path.read_bytes())
+    for path in sorted((root / "eht_axion").rglob("*.py")):
+        h.update(str(path.relative_to(root)).encode())
+        h.update(path.read_bytes())
     return {"git_commit": commit, "python_source_sha256": h.hexdigest()}
 
 
@@ -193,15 +169,10 @@ def signature(stage, config, inputs):
 
 
 def manifest_path(directory):
-    directory = Path(directory)
-    current, legacy = directory / "manifest.json", directory / "stage.json"
-    if current.is_file() and legacy.is_file():
-        raise ValueError(f"Ambiguous stage manifests: {directory}")
-    if current.is_file():
-        return current
-    if legacy.is_file():
-        return legacy
-    raise ValueError(f"Stage incomplete (no manifest.json): {directory}")
+    path = Path(directory) / "manifest.json"
+    if not path.is_file():
+        raise ValueError(f"Stage incomplete (no manifest.json): {directory}")
+    return path
 
 
 def complete_manifest(directory):
@@ -212,50 +183,34 @@ def complete_manifest(directory):
     return manifest
 
 
-def verify_stage(directory, *, recursive=False, allow_imported=True, _seen=None):
+def verify_stage(directory, *, recursive=False, _seen=None):
+    """Check a completed stage's outputs (and with recursive=True its whole input lineage)."""
     directory = Path(directory).resolve(strict=True)
     manifest = complete_manifest(directory)
-    origin = manifest.get("imported_from") or {}
-    if "manifest_sha256" in origin:
-        # Earlier migrations kept only a receipt. Do not silently promote that
-        # receipt to the new live-verified provenance contract.
-        origin_directory = Path(origin["path"]).resolve(strict=True)
-        expected_manifest = manifest_path(origin_directory).resolve()
-        records = [entry for entry in manifest.get("origin_inputs", [])
-                   if Path(entry["path"]).resolve() == expected_manifest]
-        if len(records) != 1 or records[0]["sha256"] != origin["manifest_sha256"]:
-            raise ValueError("Unverifiable legacy migration origin; migrate again to a new destination")
-    if (manifest.get("imported_from") or manifest.get("imported_ancestors")) and not allow_imported:
-        raise ValueError("Consuming imported products requires explicit --reuse-imported")
     if recursive:
         seen = set() if _seen is None else _seen
         identity = manifest_path(directory).resolve()
         if identity in seen:
             return manifest
         seen.add(identity)
-        for entry in manifest["inputs"] + manifest.get("origin_inputs", []):
+        for entry in manifest["inputs"]:
             path = Path(entry["path"])
             if not path.is_file() or path.stat().st_size != entry["size"] or sha256(path) != entry["sha256"]:
                 raise ValueError(f"Stale upstream lineage: {path}")
-            if path.name in {"manifest.json", "stage.json"}:
+            if path.name == "manifest.json":
                 try:
                     upstream = json.loads(path.read_text())
                 except (ValueError, OSError):
                     upstream = {}
                 if upstream.get("complete") and upstream.get("schema") == SCHEMA_VERSION:
-                    verify_stage(path.parent, recursive=True, allow_imported=allow_imported, _seen=seen)
+                    verify_stage(path.parent, recursive=True, _seen=seen)
     if not manifest.get("outputs"):
         raise ValueError(f"Empty stage: {directory}")
     for entry in manifest["outputs"]:
         path = (directory / entry["path"]).resolve()
-        lexical = directory / entry["path"]
         if Path(entry["path"]).is_absolute() or ".." in Path(entry["path"]).parts:
             raise ValueError("Unsafe relative product path")
-        external = entry.get("external_symlink")
-        if external is not None:
-            if not lexical.is_symlink() or path != Path(external).resolve():
-                raise ValueError(f"Changed imported product link: {lexical}")
-        elif not path.is_relative_to(directory):
+        if not path.is_relative_to(directory):
             raise ValueError(f"Unsafe external stage output: {path}")
         if not path.is_file():
             raise ValueError(f"Unsafe/missing stage output: {path}")
@@ -288,11 +243,10 @@ def source_closure(paths):
             continue
         seen.add(path)
         yield path
-        if path.name in {"manifest.json", "stage.json"}:
+        if path.name == "manifest.json":
             record = json.loads(path.read_text())
             if record.get("complete") and record.get("schema") == SCHEMA_VERSION:
-                pending.extend(entry["path"] for entry in record["inputs"]
-                               + record.get("origin_inputs", []))
+                pending.extend(entry["path"] for entry in record["inputs"])
                 pending.extend(path.parent / entry["path"] for entry in record["outputs"])
 
 
@@ -313,22 +267,19 @@ def require_new_output_file(path):
     return path
 
 
-def verify_input_stages(paths, *, allow_imported=False):
+def verify_input_stages(paths):
     """Verify declared stage manifests, including their full scientific ancestry."""
     seen = set()
     for value in paths:
         path = Path(value)
-        if path.name in {"manifest.json", "stage.json"}:
+        if path.name == "manifest.json":
             record = json.loads(path.read_text())
             if record.get("complete") and record.get("schema") == SCHEMA_VERSION:
-                verify_stage(path.parent, recursive=True, allow_imported=allow_imported, _seen=seen)
+                verify_stage(path.parent, recursive=True, _seen=seen)
 
 
 @contextlib.contextmanager
-def stage_directory(
-    destination, stage, config, input_paths=(), *, rebuild=False, reuse_imported=False, imported_from=None,
-    origin_paths=(),
-):
+def stage_directory(destination, stage, config, input_paths=(), *, rebuild=False):
     """Yield temporary destination, or None for a verified cache hit.
 
     A manifest is committed last, and a stage is never consumed by mere directory
@@ -337,20 +288,15 @@ def stage_directory(
     """
     reject_directory_symlinks(destination)
     destination = Path(destination).resolve()
-    input_paths, origin_paths = list(input_paths), list(origin_paths)
-    verify_input_stages(
-        input_paths + origin_paths, allow_imported=reuse_imported or imported_from is not None,
-    )
+    input_paths = list(input_paths)
+    verify_input_stages(input_paths)
     # Replacing a directory must never replace its raw inputs, including via symlinks.
-    for path in source_closure(input_paths + origin_paths):
+    for path in source_closure(input_paths):
         if path == destination or path.is_relative_to(destination):
             raise ValueError(f"Output stage contains an input source: {path}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     inputs = describe_inputs(input_paths)
     payload, key = signature(stage, config, inputs)
-    origins = describe_inputs(origin_paths)
-    if origins:
-        payload["origin_inputs"] = origins
     lock = destination.with_name(destination.name + ".lock")
     try:
         fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -362,16 +308,7 @@ def stage_directory(
     temporary_token = None
     try:
         if destination.exists() and not rebuild:
-            manifest = verify_stage(destination, recursive=True, allow_imported=reuse_imported)
-            if manifest.get("imported_from"):
-                if not reuse_imported:
-                    raise ValueError("Imported products require explicit --reuse-imported or a new run")
-                if (manifest["config"] != json.loads(json.dumps(config)) or manifest["inputs"] != inputs
-                        or (origins and manifest.get("origin_inputs", []) != origins)):
-                    raise ValueError("Imported product settings/lineage differ; cannot reuse")
-                print(f"IMPORTED REUSE {stage}: {destination} (not recomputed)", flush=True)
-                yield None
-                return
+            manifest = verify_stage(destination, recursive=True)
             if manifest["signature"] != key:
                 raise ValueError(f"Stale cache at {destination}; use a new output root or --rebuild")
             print(f"CACHE HIT {stage}: {destination}", flush=True)
@@ -389,14 +326,10 @@ def stage_directory(
                 **product_schema(p),
             }
             for p in sorted(temporary.rglob("*"))
-            if p.is_file() and p.name not in {"stage.json", "manifest.json"}
+            if p.is_file() and p.name != "manifest.json"
         ]
-        for entry in outputs:
-            product = temporary / entry["path"]
-            if product.is_symlink():
-                if imported_from is None:
-                    raise ValueError("External product symlinks only allowed in explicit migration")
-                entry["external_symlink"] = str(product.resolve(strict=True))
+        if any((temporary / entry["path"]).is_symlink() for entry in outputs):
+            raise ValueError("Stage products must be regular files, not symlinks")
         if not outputs:
             raise ValueError(f"Stage {stage} produced no files")
         manifest = dict(
@@ -406,25 +339,6 @@ def stage_directory(
             outputs=outputs,
             elapsed_seconds=time.perf_counter() - started,
         )
-        ancestors = []
-        for entry in inputs + origins:
-            path = Path(entry["path"])
-            if path.name in {"manifest.json", "stage.json"}:
-                upstream = json.loads(path.read_text())
-                if upstream.get("imported_from") or upstream.get("imported_ancestors"):
-                    ancestors.append(
-                        {
-                            "manifest": str(path),
-                            "sha256": entry["sha256"],
-                            "original": upstream.get("imported_from"),
-                            "ancestors": upstream.get("imported_ancestors", []),
-                        }
-                    )
-        if ancestors:
-            manifest["imported_ancestors"] = ancestors
-        if imported_from is not None:
-            manifest["imported_from"] = imported_from
-            manifest["scientific_recomputation"] = False
         (temporary / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
         backup = destination.with_name(destination.name + ".previous")
         if backup.exists() or backup.is_symlink():

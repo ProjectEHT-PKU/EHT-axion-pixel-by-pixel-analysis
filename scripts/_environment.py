@@ -9,14 +9,17 @@ from dotenv import dotenv_values
 from dotenv.parser import parse_stream
 
 ROOT = Path(__file__).resolve().parents[1]
+# Machine-local locations only; scientific values live in experiment.yaml.
 PATH_KEYS = {
-    "EHT_CONFIG", "EHT_INPUT_ROOT", "EHT_RAPTOR_INPUT_ROOT", "EHT_OUTPUT_ROOT",
-    "EHT_PRODUCTION_CONFIG", "EHT_RAPTOR_SOURCE_ROOT", "EHT_PRODUCTION_ROOT",
+    # process 1 (RAPTOR), read from .env and .env.raptor
+    "EHT_OUTPUT_ROOT", "EHT_RAPTOR_SOURCE_ROOT", "EHT_PRODUCTION_ROOT",
     "EHT_GRMHD_ROOT", "EHT_RADIAL_LOW", "EHT_RADIAL_HIGH",
+    # process 2 (eht-imaging), read from .env
+    "EHT_IMAGING_INPUT_ROOT", "EHT_IMAGING_INPUT_RECEIPT", "EHT_IMAGING_FEED_ROTATION",
+    "EHT_IMAGING_OFFICIAL_SCRIPT",
 }
 VALUE_KEYS = {
-    "EHT_TRUST_PICKLE", "EHT_REBUILD", "EHT_REUSE_IMPORTED", "EHT_RUN_ID",
-    "EHT_RAPTOR_THREADS", "EHT_RAPTOR_TIMEOUT_SECONDS", "EHT_RAPTOR_WORKERS",
+    "EHT_RUN_ID", "EHT_RAPTOR_THREADS", "EHT_RAPTOR_TIMEOUT_SECONDS", "EHT_RAPTOR_WORKERS",
     "EHT_RAPTOR_CPU_AFFINITY", "EHT_RAPTOR_CPU_LIST",
 }
 

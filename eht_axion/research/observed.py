@@ -24,7 +24,7 @@ from scipy.linalg import solve_triangular
 from scipy.special import logsumexp
 
 from ..limits import LimitOptions, _validate_request
-from ..model import ALPHAS, cloud_amplitude_scaling, evpa_templates
+from ..model import cloud_amplitude_scaling, evpa_templates
 from ..observations import ObservationData, diagonal_pair_covariances
 from ..statistics import normalized_posterior_cdf, posterior_upper_limit
 
@@ -94,10 +94,11 @@ def calculate_observed(
     observations: ObservationData,
     amplitude: Mapping[float, NDArray],
     phase: Mapping[float, NDArray],
-    alphas=ALPHAS,
+    alphas,
     dimension: str = "1d",
     mode: str = "std",
-    options: LimitOptions | None = None,
+    *,
+    options: LimitOptions,
 ) -> tuple[NDArray, NDArray, dict]:
     """Return (alpha, log10(g95), diagnostics) using actual two-pair data.
 
@@ -123,7 +124,6 @@ def calculate_observed(
     or additive/independently marginalized epoch likelihoods). See the module
     WARNING about ensemble covariance, missing model variance and EVPA branches.
     """
-    options = LimitOptions() if options is None else options
     _validate_options(dimension, mode, options)
     alpha_grid = np.asarray(alphas, dtype=float)
     if (alpha_grid.ndim != 1 or alpha_grid.size == 0 or not np.all(np.isfinite(alpha_grid))

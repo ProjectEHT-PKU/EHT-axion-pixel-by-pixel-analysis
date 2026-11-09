@@ -109,7 +109,7 @@ def global_diagnostics(image, east, north):
             float(evpa(net.real, net.imag)), beta.real, beta.imag]
 
 
-def summarize(samples, east, north, directory, rmin=.7, rmax_uas=60.):
+def summarize(samples, east, north, directory, rmin, rmax_uas, window):
     """Write reusable, pickle-free map and 360-sector summaries for one day."""
     from pathlib import Path
     directory = Path(directory)
@@ -123,7 +123,7 @@ def summarize(samples, east, north, directory, rmin=.7, rmax_uas=60.):
     for k, image in enumerate(samples):
         chi[k] = evpa(image[..., 1], image[..., 2])
         chi[k][image[..., 0] <= 0] = np.nan
-        curve = aperture_curves(image, east, north, angles, window=10, rmax_uas=rmax_uas)
+        curve = aperture_curves(image, east, north, angles, window=window, rmax_uas=rmax_uas)
         aperture[k] = curve['evpa_rad']
         intensity[k], brightness[k] = curve['intensity'], curve['polarized_brightness']
         diagnostics[k] = global_diagnostics(image, east, north)

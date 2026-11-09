@@ -36,53 +36,6 @@ def test_lowlevel_rejects_dangling_file_link(tmp_path):
     assert not external.exists()
 
 
-def test_origin_inputs_are_validated_recursively(tmp_path):
-    raw = tmp_path / "raw.txt"
-    raw.write_text("v1")
-    origin = tmp_path / "origin"
-    with common.stage_directory(origin, "test", {}, [raw]) as t:
-        (t / "value.txt").write_text("original science")
-    imported = tmp_path / "imported"
-    with common.stage_directory(imported, "test", {}, [],
-                                imported_from={"path": str(origin)},
-                                origin_paths=[origin / "manifest.json", origin / "value.txt"]) as t:
-        (t / "value.txt").write_text("converted")
-    common.verify_stage(imported, recursive=True)
-    raw.write_text("v2")
-    with pytest.raises(ValueError, match="Stale upstream lineage"):
-        common.verify_stage(imported, recursive=True)
-
-
-def test_imported_ancestor_cannot_be_laundered(tmp_path):
-    imported = tmp_path / "imported"
-    with common.stage_directory(imported, "test", {}, [], imported_from={"path": "archive"}) as t:
-        (t / "value.txt").write_text("old")
-    child = tmp_path / "child"
-    inputs = [imported / "manifest.json", imported / "value.txt"]
-    with pytest.raises(ValueError, match="reuse-imported"):
-        with common.stage_directory(child, "test", {}, inputs):
-            pytest.fail("must reject imported ancestor")
-    assert not child.exists()
-    with common.stage_directory(child, "test", {}, inputs, reuse_imported=True) as t:
-        (t / "value.txt").write_text("new calculation using old inputs")
-    record = common.verify_stage(child, recursive=True)
-    assert record["imported_ancestors"]
-    with pytest.raises(ValueError, match="reuse-imported"):
-        common.verify_stage(child, recursive=True, allow_imported=False)
-
-
-def test_legacy_migration_receipt_is_not_verified_origin(tmp_path):
-    origin = tmp_path / "origin"
-    with common.stage_directory(origin, "test", {}, []) as t:
-        (t / "x.txt").write_text("original")
-    target = tmp_path / "migration"
-    receipt = {"path": str(origin), "manifest_sha256": common.sha256(origin / "manifest.json")}
-    with common.stage_directory(target, "test", {}, [], imported_from=receipt) as t:
-        (t / "x.txt").write_text("converted")
-    with pytest.raises(ValueError, match="Unverifiable legacy migration origin"):
-        common.verify_stage(target, recursive=True)
-
-
 def test_runtime_change_invalidates_cache(tmp_path, monkeypatch):
     target = tmp_path / "stage"
     with common.stage_directory(target, "test", {}, []) as t:
@@ -134,15 +87,17 @@ def test_stale_manifest_input_refused_before_child_write(tmp_path):
     assert not child.exists()
 
 
-def test_runtime_and_origins_are_recorded(tmp_path):
+def test_runtime_is_recorded_and_outputs_verified(tmp_path):
     raw = tmp_path / "raw.txt"
     raw.write_text("v1")
     out = tmp_path / "stage"
-    with common.stage_directory(out, "test", {}, [], imported_from={"path": "archive"},
-                                origin_paths=[raw]) as t:
-        (t / "value.txt").write_text("converted")
+    with common.stage_directory(out, "test", {}, [raw]) as t:
+        (t / "value.txt").write_text("derived")
     record = json.loads((out / "manifest.json").read_text())
     assert record["runtime"]["packages"]["numpy"]
     assert record["runtime"]["pixi_lock_sha256"]
-    assert record["origin_inputs"][0]["path"] == str(raw)
-    assert record["scientific_recomputation"] is False
+    assert record["inputs"][0]["path"] == str(raw)
+    assert not out.with_suffix(".lock").exists()
+    (out / "value.txt").write_text("tampered")
+    with pytest.raises(ValueError, match="checksum"):
+        common.verify_stage(out)

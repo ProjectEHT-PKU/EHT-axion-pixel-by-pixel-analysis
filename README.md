@@ -1,130 +1,86 @@
 # M87* EHT axion analysis — script pipeline
 
-Research-specific Python scripts from RAPTOR Stokes images and EHT image ensembles
-to six axion–photon coupling limit curves, with reusable angle/HDF5/plotting/numerical
-modules. This workspace is **not an installable distribution or a generic CLI product**.
-No Notebook, Nix/NixOS, system Python, LaTeX or old local intermediates are required.
+Scripts that turn (1) RAPTOR ray-traced images of a GRMHD flow with an axion field
+and (2) EHT 2017 M87* polarimetric reconstructions into (3) phase-marginalized
+Bayesian limits on the axion–photon coupling c. Not an installable package: run
+the scripts directly (or through `pixi run`). Chinese summary of the structure and
+of the 2026-11 cleanup: [CLEANUP_ZH.md](CLEANUP_ZH.md).
 
-**Start here: [Pixi 中文运行指南](docs/PIXI_QUICKSTART.md)**
+## One parameter file
 
-**New data generation:** [RAPTOR生成端指南](docs/raptor-generation.md) — Python/Pixi
-entrypoints reuse the official RAPTOR setup/make workflow. Generation is explicit;
-`pixi run pipeline` never launches ray tracing. The core remains a separately
-pinned repository; no duplicate header templates are maintained here.
+[`experiment.yaml`](experiment.yaml) holds every scientific value, each exactly once,
+in four sections:
 
-## Run
+| section | used by | content |
+|---|---|---|
+| `shared` | all processes | M87* mass/distance, label step, alphas, principal n, common sky grid (64², 120 µas) and the 19 µas matching blur |
+| `raptor` | process 1 | camera width, build options, plasma, snapshots, response/background resolution, radial tables, BHAC grid |
+| `eht_imaging` | process 2 | Paper VII imaging: uvfits identity (name + sha256), weights, rounds, D-term statistics, draws |
+| `analysis` | process 3 | rotation, aperture, feature-selection rules, cloud model, background lag, inference grid/prior/times |
 
-Input data are already available on this machine through `data/inputs/`.
-Outputs go directly into `../eht-pipeline-runs/` as configured in `.env.example`;
-no extra run-name subdirectory is required. Verified caches are reused, and stale
-configurations are rejected rather than silently overwritten.
+A process reads `shared` and the sections of the processes before it.
+`eht_axion/experiment.py` validates the file and derives everything else (unit
+conversions, the ray-tracing subset that defines RAPTOR job ids, the flat
+eht-imaging parameter set). Machine paths are not in the YAML: they are CLI
+options or `.env` / `.env.raptor` entries (see `.env.example`, `.env.raptor.example`).
+
+## Run, in process order
 
 ```bash
 pixi install --locked
-pixi run check
-# First use only; do not overwrite an existing .env.
-cp .env.example .env
-# Review .env; enable EHT_TRUST_PICKLE=true only for the trusted supplied inputs.
-pixi run pipeline
+pixi run check                                   # tests + lint
+
+# 1. RAPTOR (environment raptor-build; paths from .env.raptor)
+pixi run -e raptor-build raptor-build
+pixi run -e raptor-build raptor-generate --plan --plan-output plan.json
+pixi run -e raptor-build raptor-generate         # run jobs, deliver data/raptor/res-*/
+pixi run -e raptor-build raptor-merge --plan plan.json --job-root RUN_A --job-root RUN_B --output-root MERGED
+
+# 2. EHT imaging (environment eht-rebuild; uvfits locations from .env)
+pixi run -e eht-rebuild eht-reconstruct --stage I --day 95 --output-root I95 --review-file REVIEW
+pixi run -e eht-rebuild eht-reconstruct --stage fiducial --day 95 --i-root I95 --output-root PD95 --review-file REVIEW
+pixi run -e eht-rebuild eht-sample --bundle-root BUNDLE --output-root MC    # 4 days x 1000 D draws
+pixi run -e eht-research eht-summarize --dataset-root MC_COPY --output-root ENSEMBLE
+
+# 3. Analysis (default environment)
+pixi run analysis-templates --raptor-input-root MERGED/data --output-root TEMPLATES
+pixi run analysis-limits --templates TEMPLATES --ensemble ENSEMBLE --output-root LIMITS
+pixi run analysis-check-grid --source LIMITS --templates TEMPLATES --output-root GRID \
+    --phase-count 128 --coupling-points 240
+pixi run analysis-check-grid --source LIMITS --templates TEMPLATES --output-root PRIOR \
+    --phase-count 128 --coupling-points 260 --coupling-max 10000
+pixi run analysis-check-covariance --source LIMITS --templates TEMPLATES --output-root COV
+pixi run analysis-summarize --primary LIMITS_CENTROID --native LIMITS --gridcheck GRID \
+    --priorcheck PRIOR --covcheck COV --output-root SUMMARY
 ```
 
-Analysis-stage scripts automatically read the repository root's ignored `.env` on
-each invocation; no manual shell loading is needed. Precedence is **CLI > exported
-shell environment > env file**. Parsing uses `python-dotenv` with `interpolate=False`:
-no shell execution or variable expansion. File-supplied relative paths use the
-repository root; CLI and externally exported relative paths use the current working
-directory. There is no current-directory env-file search.
+`analysis-limits` uses `analysis.features.centering` (native, Paper VII §5.2
+centring = zero shift); `--centering centroid` reproduces the centroid comparison.
+Every output root must be new. Each step writes stage directories with a
+`manifest.json` recording parameters, input/output SHA-256 and code hashes;
+`pixi run verify DIR --recursive` re-checks a stage and its whole lineage.
 
-Use `--env-file PATH` to replace the default file selection, or `--no-env-file` to
-disable file loading without clearing the external environment (provide required
-inputs explicitly via CLI for a self-contained run). The env-file selector itself
-is relative to the current working directory.
-The tracked `.env.example` contains analysis/shared settings only; producer scripts
-read root `.env` then `.env.raptor`, with the latter overriding file values. For the
-one-time producer template setup, see the [generation guide](docs/raptor-generation.md).
-Use the unchanged `pixi run` tasks; no interactive shell activation is required.
-
-For another machine, obtain the provided scientific dataset first; see the
-[download appendix](docs/PIXI_QUICKSTART.md). Local data links and `.pixi/` are not
-committed to Git. This checkout does not contain a second copy of the data archive.
-
-## Code and data flow
+## Code
 
 ```text
-configs/          explicit physical scales and analysis choices
-
+experiment.yaml        the parameter file
 eht_axion/
-  pipeline/       input conversion, RAPTOR/EHT processing, cache, inference, plots
-  angles.py       circular statistics
-  polarization.py aperture integration
-  model.py        exposure and day-difference signal templates
-  observations.py observation type and compatibility loaders
-  limits.py       likelihood and posterior limits
-  statistics.py   numerical probability utilities
-
-tests/            synthetic physics, schemas, cache/safety and end-to-end tests
-scripts/          direct processing/inference/plotting scripts and regression checks
-reports/          small, versioned validation evidence; no raw arrays
+  experiment.py        load/validate experiment.yaml, derived settings
+  producer/            RAPTOR build, task plan (job ids), job runner, delivery of Stokes cubes
+  pipeline/            stage manifests (common), layout, unit constants, RAPTOR image
+                       preprocessing / response fit / templates / background (raptor),
+                       template reader (products)
+  research/            eht-imaging helpers (eht_official, eht_optimizer), EHT ensemble
+                       summaries (ensemble, polarimetry), observed likelihood (observed,
+                       ensemble_limits)
+  model.py limits.py statistics.py observations.py polarization.py angles.py stokes.py
+scripts/               raptor_*, eht_*, analysis_* entry points (process order), verify_products
+tests/                 synthetic unit/integration tests
+reports/               versioned evidence (reports/cleanup-20261106: equivalence of this layout)
+docs/                  historical design notes (written for the earlier configs/ layout)
 ```
-
-```text
-RAPTOR IQUV → processed Stokes → snapshot response → template distribution ─┐
-EHT ensembles → matched topset → relocated Stokes/EVPA → covariance ──────┤
-No-axion time series → background EVPA-difference scatter ────────────────┤
-                                                                        ▼
-                                  1D/2D × std/cor/cor_grmhd → figures/tables
-```
-
-Physical intermediate data are cached and checksummed. Large Stokes/EVPA arrays
-remain mmap-capable NPY; response/template/limit products use named numeric NPZ
-fields without pickle. Imported older products require explicit `--reuse-imported`.
-
-| Mode | Observation noise | GRMHD background | Template uncertainty |
-|---|---|---|---|
-| `std` | diagonal of the same covariance used by cor | no | no |
-| `cor` | full covariance | no | no |
-| `cor_grmhd` | full covariance | yes | yes |
-
-Scientific settings are YAML, separate from machine-local `.env` paths/options.
-`configs/research.yaml` is the only scientific profile. Observed EVPA day differences
-are always fixed at zero; observation uncertainties and covariance are retained.
-There is no measured-day-difference mode or `observation` selector. This null scenario
-is not automatically a median expected limit.
-The profile uses intensity-weighted coherent 1D EVPA and ensemble-based statistics.
-It is a documented research profile, not a frozen publication result.
-
-## Documentation
-
-- [顺序运行与常见问题](docs/PIXI_QUICKSTART.md)
-- [Pipeline design and scientific assumptions](docs/SCRIPT_PIPELINE.md)
-- [可复用模块与独立脚本](docs/REUSABLE_MODULES.md)
-- [Canonical filenames, array schema and migration](docs/DATA_LAYOUT_PLAN.md)
-- [RAPTOR stages and HDF5 conversion](docs/raptor-stage.md)
-- [EHT processing](docs/eht-stage.md)
-- [Transport / Figure-4 diagnostic branch](docs/transport-stage.md)
-- [M87* constants and unresolved calibration](docs/M87_CONSTANTS_AUDIT.md)
-- [Real-data validation evidence](reports/script-pipeline/README.md)
 
 ## Original project safety
 
-The original project is **separate**:
-`/home/canoziia/MyProject/PHYS/EHT_ZC`, branch `data/analysis-inputs-draft`.
-Its notebooks, source code, simulations, data archives and old figures remain there.
-This cleaned worktree deliberately omits those historical copies. The two worktrees
-share Git object history but have separate files and indexes; do not remove `.git`.
-
-The compatibility loaders and regression tests still used by this pipeline are
-retained. The historical utility library and its optional statsmodels environment
-are not needed here. All current tests run in the single default Pixi environment.
-
-## Reusable modules without packaging
-
-`eht_axion/` is a local source namespace, not a separately installed library. Scripts
-import its angle, HDF5/image, plotting, statistics and cache functions directly.
-`workflow.py` holds our data-specific run order, while argument parsing is in scripts/.
-There is no `eht-pipeline` command, editable installation or package build metadata.
-Dependencies and test/lint settings are all in `pixi.toml`; there is no
-`pyproject.toml`, `pytest.ini` or `ruff.toml`. Use `pixi run test` / `pixi run lint`
-so the explicit search paths and rules are applied. Existing task names stay familiar;
-for example, `pixi run raptor` executes
-`python scripts/process_raptor.py`.
+The original project (notebooks, simulations, archives) lives separately in
+`/home/canoziia/MyProject/PHYS/EHT_ZC`; this worktree contains none of its data.

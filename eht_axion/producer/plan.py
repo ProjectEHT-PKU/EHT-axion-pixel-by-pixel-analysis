@@ -1,9 +1,14 @@
 """Read-only BHAC producer preflight and JSON-serializable task planning.
 
 No build, subprocess, output directory, old-output discovery or simulation is
-performed here. Plan IDs describe intended science, NOT verified input content.
-Execution must hash live source/table/build bytes and bind those hashes to its
-own session records. The default only reads the small BHAC footers and tables.
+performed here. Execution must hash live source/table/build bytes and bind those
+hashes to its own session records. Only the small BHAC footers and the radial
+tables are read here.
+
+Task ids are SHA-256 digests of exactly what determines one RAPTOR image: the
+snapshot (name + footer metadata), the 19 model.in values except the table path,
+the radial-table content hash and spin, the core grid and the build settings.
+Analysis, sky-grid and eht-imaging settings never enter a task id.
 """
 
 from copy import deepcopy
@@ -16,13 +21,22 @@ import struct
 import numpy as np
 
 from .. import model
-from .config import canonical_alpha, validate_production_config
+from ..experiment import ray_tracing_config, validate_ray_tracing
+from ..pipeline.layout import alpha_label
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+# The core applies AXION_PHASE * pi/8: 16 phases cover one period (state k+1 = phase k).
+PHASE_COUNT = 16
 # model/bhac/model.c: EOF-40 is eight 32-bit ints then a double; immediately
 # preceding it are ndimini ints nx[] and neqparini doubles. NSPIN is 3.
 FOOTER = struct.Struct("<8id")
+# Spin of the a094-high BHAC fluid, checked against every snapshot footer.
 EXPECTED_SPIN = 0.9375
+
+
+def canonical_alpha(alpha):
+    """raptor.alpha_table keys omit the filesystem layout's ``alpha-`` prefix."""
+    return alpha_label(alpha).removeprefix("alpha-")
 
 
 def _digest(value):
@@ -133,17 +147,18 @@ def validate_radial_table(path: Path, required_alphas) -> dict:
 
 
 def _parameters(config, resolution, alpha, omega, norm, phase, table_path):
-    p, physical = config["producer"]["plasma"], config["physical"]
-    # Exact 19-field core/run/model.in order. Each entry is LABEL -> UNIT, VALUE.
+    """Exact 19-field core/run/model.in order. Each entry is LABEL -> UNIT, VALUE."""
+    shared, raptor = config["shared"], config["raptor"]
+    p = raptor["plasma"]
     entries = [
-        ("MBH", "(Msun)", physical["mass_solar"]),
-        ("DISTANCE", "(kpc)", physical["distance_mpc"] * 1000),
+        ("MBH", "(Msun)", shared["mass_solar"]),
+        ("DISTANCE", "(kpc)", shared["distance_mpc"] * 1000),
         ("M_UNIT", "(g)", p["mass_unit_g"]),
         ("R_LOW", "(-)", p["r_low"]), ("R_HIGH", "(-)", p["r_high"]),
         ("INCLINATION", "(deg)", p["inclination_degrees"]),
         ("IMG_WIDTH", "(pixels)", resolution), ("IMG_HEIGHT", "(pixels)", resolution),
-        ("CAM_SIZE_X", "(Rg)", config["image"]["initial_fov_rg"]),
-        ("CAM_SIZE_Y", "(Rg)", config["image"]["initial_fov_rg"]),
+        ("CAM_SIZE_X", "(Rg)", raptor["camera_fov_rg"]),
+        ("CAM_SIZE_Y", "(Rg)", raptor["camera_fov_rg"]),
         ("FREQS_PER_DEC", "(-)", 1), ("FREQ_MIN", "(Hz)", p["frequency_hz"]),
         ("STEPSIZE", "(-)", p["step_size"]),
         ("AXION_ALPHA", "(-)", 0.0 if alpha is None else alpha),
@@ -155,35 +170,38 @@ def _parameters(config, resolution, alpha, omega, norm, phase, table_path):
     return {name: {"unit": unit, "value": value} for name, unit, value in entries}
 
 
+def task_identity(snapshot, parameters, table, config):
+    """Digest of everything that determines one RAPTOR image (see module docstring)."""
+    raptor = config["raptor"]
+    values = {name: item["value"] if isinstance(item, dict) else item for name, item in parameters.items()}
+    values.pop("AXION_TABLE")
+    return _digest({
+        "schema_version": SCHEMA_VERSION,
+        "snapshot": {"name": snapshot["snapshot_name"], "metadata": snapshot["metadata"]},
+        "parameters": values,
+        "table": None if table is None else {"spin": table["spin"], "sha256": table["sha256"]},
+        "grid": raptor["grid"], "build": raptor["build"],
+    })
+
+
 def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path],
                     build_path: Path | None = None, *, hash_inputs: bool = False) -> dict:
     """Plan inclusive configured labels; no lexicographic listing or hidden slice.
 
-    ``build_path`` is an opaque caller-selected build location, recorded only.
-    Optional hashing streams each unique source/table once and does NOT verify
-    body semantics or build bytes. Execution still has to hash live inputs.
+    ``config`` is the experiment (or its ray-tracing subset). ``build_path`` is an
+    opaque caller-selected build location, recorded only. Radial tables are small
+    and always hashed (their content defines task ids); ``hash_inputs`` also
+    streams every snapshot once. Execution still has to hash live inputs.
     """
-    validate_production_config(config)
-    if "producer" not in config:
-        raise ValueError("Generation planning requires producer section")
+    config = deepcopy(validate_ray_tracing(ray_tracing_config(config)))
+    shared, p = config["shared"], config["raptor"]
     if type(hash_inputs) is not bool:
         raise ValueError("hash_inputs must be a boolean")
-    if not isinstance(radial_paths, dict) or set(radial_paths) != {"low", "high"}:
-        raise ValueError("radial_paths requires exactly low and high paths")
-    config = deepcopy(config)
-    p = config["producer"]
+    if not isinstance(radial_paths, dict) or set(radial_paths) != set(p["radial_tables"]):
+        raise ValueError(f"radial_paths requires exactly {sorted(p['radial_tables'])}")
     config_sha = _digest(config)
     fluid_root = Path(fluid_root).resolve()
     build = None if build_path is None else str(_path(build_path, "build_path"))
-    hashes = {}
-
-    def input_hash(path):
-        if not hash_inputs:
-            return None
-        key = str(path)
-        if key not in hashes:
-            hashes[key] = file_sha256(path)
-        return hashes[key]
 
     snapshots = []
     start, stop, step = (p["snapshots"][key] for key in ("start", "stop", "step"))
@@ -193,7 +211,7 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
         metadata = read_snapshot_footer(path, p["grid"])
         if snapshots:
             previous = snapshots[-1]
-            expected = config["physical"]["label_step_tg"] * (label - previous["label"])
+            expected = shared["label_step_tg"] * (label - previous["label"])
             if not math.isclose(metadata["time_tg"] - previous["time_tg"], expected,
                                 rel_tol=0, abs_tol=1e-8):
                 raise ValueError(f"BHAC footer time cadence disagrees with labels: {name}")
@@ -201,25 +219,24 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
                 raise ValueError(f"BHAC gamma changes across snapshots: {name}")
         snapshots.append({
             "label": label, "snapshot_name": name, "time_tg": metadata["time_tg"],
-            "source_path": str(path), "source_sha256": input_hash(path), "metadata": metadata,
+            "source_path": str(path), "source_sha256": file_sha256(path) if hash_inputs else None,
+            "metadata": metadata,
         })
 
     tables, table_cache = {}, {}
-    for table_id in ("low", "high"):
+    for table_id in p["radial_tables"]:
         path = _path(radial_paths[table_id], f"radial_paths.{table_id}")
-        required = [alpha for alpha in config["data"]["alphas"]
+        required = [alpha for alpha in shared["alphas"]
                     if p["alpha_table"][canonical_alpha(alpha)] == table_id]
         # Unique physical files are loaded once, even if explicitly mapped twice.
         key = str(path)
         if key not in table_cache:
-            table_cache[key] = validate_radial_table(path, [])
-        metadata = deepcopy(table_cache[key])
+            table_cache[key] = (validate_radial_table(path, []), file_sha256(path))
+        metadata, digest = deepcopy(table_cache[key][0]), table_cache[key][1]
         if any(not metadata["alpha_min"] <= alpha <= metadata["alpha_max"] for alpha in required):
             raise ValueError(f"Radial CSV {table_id} does not cover required alphas {required}: {path}")
-        tables[table_id] = {
-            "path": key, "spin": p["radial_tables"][table_id]["spin"],
-            "sha256": input_hash(path), "metadata": metadata,
-        }
+        tables[table_id] = {"path": key, "spin": p["radial_tables"][table_id]["spin"],
+                            "sha256": digest, "metadata": metadata}
 
     tasks = []
 
@@ -227,33 +244,16 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
         enabled = alpha is not None
         table_id = p["alpha_table"][canonical_alpha(alpha)] if enabled else None
         table = tables[table_id] if enabled else None
-        omega = float(model.omega(alpha, config["inference"]["principal_n"])) if enabled else 0.0
+        omega = float(model.omega(alpha, shared["principal_n"])) if enabled else 0.0
         norm = p["response"]["reference_norm"] if enabled else 0.0
-        kind = "response" if enabled else "baseline"
-        identity = {
-            "schema_version": SCHEMA_VERSION, "config_sha256": config_sha,
-            "snapshot_name": snapshot["snapshot_name"], "time_tg": snapshot["time_tg"],
-            "kind": kind, "resolution": resolution, "alpha": alpha,
-            "omega": omega, "norm": norm, "phase_index": phase, "table_id": table_id,
-        }
         table_path = None if table is None else table["path"]
         parameters = _parameters(config, resolution, alpha, omega, norm, phase, table_path)
-        if not enabled:
-            # A disabled axion model consumes no table, alpha, omega, norm or
-            # phase. Analysis/inference settings likewise do not alter its rays.
-            identity = {
-                "schema_version": SCHEMA_VERSION, "kind": "baseline", "label": snapshot["label"],
-                "snapshot_name": snapshot["snapshot_name"], "time_tg": snapshot["time_tg"],
-                "spin": snapshot["metadata"]["spin"], "gamma": snapshot["metadata"]["gamma"],
-                "parameters": {key: value for key, value in parameters.items()
-                               if not key.startswith("AXION_")},
-                "grid": p["grid"], "build": p["build"],
-            }
         tasks.append({
-            "id": _digest(identity), "label": snapshot["label"],
+            "id": task_identity(snapshot, parameters, table, config), "label": snapshot["label"],
             "snapshot_name": snapshot["snapshot_name"], "time_tg": snapshot["time_tg"],
             "source_path": snapshot["source_path"], "source_sha256": snapshot["source_sha256"],
-            "kind": kind, "resolution": resolution, "alpha": alpha, "omega": omega, "norm": norm,
+            "kind": "response" if enabled else "baseline", "resolution": resolution,
+            "alpha": alpha, "omega": omega, "norm": norm,
             "phase_index": phase, "output_slot": phase + 1 if enabled else 0,
             "table_id": table_id, "table_path": table_path,
             "table_spin": None if table is None else table["spin"],
@@ -266,9 +266,11 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
         # Deduplicate baseline per snapshot/resolution, never per alpha.
         for resolution in dict.fromkeys((response_resolution, background_resolution)):
             append_task(snapshot, resolution)
-        for alpha in config["data"]["alphas"]:
-            for phase in range(p["response"]["phase_count"]):
+        for alpha in shared["alphas"]:
+            for phase in range(PHASE_COUNT):
                 append_task(snapshot, response_resolution, alpha, phase)
+    if len({task["id"] for task in tasks}) != len(tasks):
+        raise ValueError("Duplicate task identities")
 
     baseline_count = sum(task["kind"] == "baseline" for task in tasks)
     response_count = len(tasks) - baseline_count
@@ -277,13 +279,8 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
     stokes_bytes = sum(task["resolution"]**2 * 4 * 8 for task in tasks)
     memory_bytes = max(s["metadata"]["nleafs"] * math.prod(s["metadata"]["nx"]) * (8 + 6) * 8
                        for s in snapshots)
-    build_settings = p["build"]
-    setup_args = [
-        "--code=bhac", "--metric=mks", "--int=rk4", "--grid=SMR", "--rad=pol", "--sf=sfc",
-        "--bflip=plus", f"--sigma-cut={build_settings['sigma_cut']}",
-        f"--thetae-min={build_settings['thetae_min']}", f"--thetae-max={build_settings['thetae_max']}",
-        "--uniform=0",
-    ]
+    from .build import _arguments, _settings
+
     return {
         "schema_version": SCHEMA_VERSION, "config_sha256": config_sha, "config": config,
         "build_path": build, "hash_inputs": hash_inputs,
@@ -297,11 +294,12 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
             "free_space_check_owner": "caller", "output_stokes_lower_bound_bytes": stokes_bytes,
             "per_process_memory_lower_bound_bytes": memory_bytes,
             "unique_source_bytes": sum(s["metadata"]["size_bytes"] for s in snapshots),
-            "official_setup_args": setup_args, "build_command": ["make"],
-            "label_time_offset_tg": snapshots[0]["time_tg"] - start * config["physical"]["label_step_tg"],
+            "official_setup_args": _arguments(_settings(p["build"])), "build_command": ["make"],
+            "label_time_offset_tg": snapshots[0]["time_tg"] - start * shared["label_step_tg"],
         },
         "warnings": [
-            "Plan IDs do not verify input content; execution must bind live source/table/build SHA256.",
+            "Task ids describe planned ray-tracing inputs; "
+            "execution must bind live source/table/build SHA256.",
             "Footer/payload lower-bound checks do not validate fluid values or AMR forest semantics.",
             "Radial CSV spin/provenance cannot be inferred from alpha,r,R columns; "
             "configured spins are declarations.",

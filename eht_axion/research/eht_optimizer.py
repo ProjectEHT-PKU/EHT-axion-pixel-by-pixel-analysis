@@ -267,9 +267,3 @@ def solve_problem(problem, initialP, gap_atol=1e-6, maxiter=20000,
                   termination='gap' if certified else ('maxiter' if k == maxiter else 'time_limit'),
                   certificate='floating-point primal/historical dual lower; not interval arithmetic')
     return s.I*bestx, report, trace
-
-
-def solve_fixed_p(obs, fixed, initialP, gap_atol=1e-6, maxiter=20000,
-                  check_every=1000, time_limit=300, gap_rtol=0., callback=None):
-    return solve_problem(exact_cartesian_problem(fixed, obs), initialP,
-                         gap_atol, maxiter, check_every, time_limit, gap_rtol, callback)
