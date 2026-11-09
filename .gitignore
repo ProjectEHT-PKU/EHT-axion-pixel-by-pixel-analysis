@@ -23,7 +23,6 @@ runs/
 *.jpg
 *.gif
 *.pdf
-*.old
 
 # Machine/user-specific dotenv data; publish only reviewed examples.
 .env
@@ -31,7 +30,7 @@ runs/
 !.env.example
 !.env.raptor.example
 
-# Validation evidence is kept out of this branch (see CLEANUP_ZH.md).
+# Local notes, not part of the repository.
 reports/
 
 # Pixi manifests remain tracked.
