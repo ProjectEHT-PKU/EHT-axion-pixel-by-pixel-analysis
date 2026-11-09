@@ -250,6 +250,18 @@ def source_closure(paths):
                 pending.extend(path.parent / entry["path"] for entry in record["outputs"])
 
 
+def contained_path(root, relative):
+    """root/relative for a relative path that must stay inside root (resolved, must exist)."""
+    root = Path(root).resolve(strict=True)
+    relative = Path(relative)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ValueError(f"Unsafe relative path: {relative}")
+    target = (root / relative).resolve(strict=True)
+    if not target.is_relative_to(root):
+        raise ValueError(f"Unsafe relative path: {relative}")
+    return target
+
+
 def reject_directory_symlinks(path):
     lexical = Path(path).absolute()
     if any(p.is_symlink() for p in [lexical, *lexical.parents]):

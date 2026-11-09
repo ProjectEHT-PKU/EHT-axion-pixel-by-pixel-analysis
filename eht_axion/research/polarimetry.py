@@ -92,7 +92,7 @@ def evpa(q, u):
     return np.mod(finite_evpa(q, u), np.pi)
 
 
-def aperture_curves(image, east, north, binangles, window=10, rmax_uas=None):
+def aperture_curves(image, east, north, binangles, *, window, rmax_uas=None):
     """All-radius sectors centered at binangles (degrees E of N), full width window.
 
     east/north are 1-D uas axes. Equal-area pixels; optional rmax_uas only.

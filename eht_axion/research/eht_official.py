@@ -7,7 +7,6 @@ production execution, thermal bootstrap, or D refits inside samples live here.
 """
 
 from copy import deepcopy
-import csv
 from functools import lru_cache
 from hashlib import sha256
 from importlib.metadata import version
@@ -49,7 +48,7 @@ def _metadata(obs, **updates):
     return obs
 
 
-def load_native(path, feed_file, scan_average=True):
+def load_native(path, feed_file, *, scan_average):
     """Load released HOPS zbl-dtcal+selfcal data without a Stokes conversion.
 
     Stage flags are from the 2023-D01-01 release README (not the loader's
@@ -110,7 +109,7 @@ def load_native(path, feed_file, scan_average=True):
     return obs, deepcopy(meta)
 
 
-def add_fsys(obs, fraction=.005):
+def add_fsys(obs, fraction):
     """Add (fraction*abs((RR+LL)/2))**2 to RL/LR per-real variance ONCE.
 
     No parallel-hand inflation, visibility perturbation, or averaging here.
@@ -297,7 +296,7 @@ def forward_solver_identity():
     return _forward_solver()[1]
 
 
-def fit_forward_d(base, image, sites=("AZ", "LM", "PV")):
+def fit_forward_d(base, image, *, sites):
     """Official nonlinear forward RL/LR fit, fixed errors, V=0, NO D prior.
 
     Always solve against a fresh gain-calibrated base, not the preceding
@@ -324,7 +323,7 @@ def fit_forward_d(base, image, sites=("AZ", "LM", "PV")):
                      forward_errors="fixed native input marginal sigmas")
 
 
-def d_distribution(dailyD, ddof=1):
+def d_distribution(dailyD, *, ddof):
     """Per-site/hand mean and 2x2 (Re,Im) covariance, with source IDs.
 
     dailyD={source_id: {site: {'R': complex, 'L': complex}}}. Require four
@@ -352,11 +351,11 @@ def d_distribution(dailyD, ddof=1):
                 independence="between stations, hands and separate calls/days; no temporal covariance")
 
 
-def sample_dterms(distribution, sites, n, seed, residual_component_sigma=.01):
+def sample_dterms(distribution, sites, n, seed, *, residual_component_sigma):
     """Deterministic Generator draws, no thermal resampling or D refitting.
 
-    AA/AP/SM/JC use ZERO-mean residuals, component SD=.01 (complex RMS
-    sqrt(2)*.01), not their previously applied full D. Re/Im covariance is
+    AA/AP/SM/JC use ZERO-mean residuals with the given per-component SD (complex
+    RMS sqrt(2) times larger), not their previously applied full D. Re/Im covariance is
     preserved for other stations. For different-day independent ensembles use
     distinct seeds and record them; reusing a seed intentionally repeats draws.
     """
@@ -394,27 +393,3 @@ def sample_dterms(distribution, sites, n, seed, residual_component_sigma=.01):
                 residual_sigma_convention="per real/imaginary component; zero mean",
                 independence=distribution["independence"], distributions=used, draws=draws,
                 thermal_resampled=False, refit_d_after_draw=False)
-
-
-def write_d_samples(samples, json_path, csv_path):
-    """Store every draw and its generating 2x2 covariances; refuse overwrite."""
-    json_path, csv_path = Path(json_path), Path(csv_path)
-    if json_path.exists() or csv_path.exists() or json_path.resolve() == csv_path.resolve():
-        raise ValueError("distinct new output paths required")
-    text = json.dumps(samples, indent=2, allow_nan=False) + "\n"
-    with json_path.open("x") as f:
-        f.write(text)
-    with csv_path.open("x", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["sample", "site", "hand", "real", "imag", "seed",
-                         "source_ids", "mean", "covariance"])
-        for k, draw in enumerate(samples["draws"]):
-            for site in samples["sites"]:
-                for hand in ("R", "L"):
-                    entry = samples["distributions"][site][hand]
-                    writer.writerow([k, site, hand, *draw[site][hand], samples["seed"],
-                                     json.dumps(samples["source_ids"]), json.dumps(entry["mean"]),
-                                     json.dumps(entry["covariance"])])
-
-
-# Descriptive aliases for consumers using the original planning names.

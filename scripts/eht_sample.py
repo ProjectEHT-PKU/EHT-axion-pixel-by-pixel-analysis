@@ -25,9 +25,8 @@ import resource
 import time
 import traceback
 
-_BOOTSTRAP = Path(__file__).resolve().parents[1]
-if str(_BOOTSTRAP) not in sys.path:
-    sys.path.insert(0, str(_BOOTSTRAP))
+from _bootstrap import ROOT as _BOOTSTRAP
+from eht_axion.pipeline.common import contained_path as contained, sha256 as sha
 
 DAYS = ('95', '96', '100', '101')
 _CACHE = {}
@@ -39,20 +38,11 @@ def science_settings(config_path):
 
     config = read_experiment(config_path)
     c, image = config['eht_imaging'], config['shared']['image']
-    sigma = c['residual_d_sigma'] / (2 ** .5 if c['residual_d_convention'] == 'complex_rms' else 1)
     return dict(npix=image['shape'], fov_uas=image['fov_uas'], display_blur_uas=image['blur_fwhm_uas'],
                 uv_min=c['uv_min'], fsys=c['fsys'], covariance_ddof=c['covariance_ddof'],
-                residual_component_sigma=sigma, solve_sites=c['solve_sites'],
+                residual_component_sigma=c['residual_d_sigma'], solve_sites=c['solve_sites'],
                 sites=sorted(c['solve_sites'] + c['fixed_sites']),
                 draws_per_day=c['uncertainty_draws'], seed=c['seed'])
-
-
-def sha(path):
-    h = hashlib.sha256()
-    with Path(path).open('rb') as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b''):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def encoded(value):
@@ -67,14 +57,6 @@ def atomic(path, value):
         f.flush()
         os.fsync(f.fileno())
     os.replace(tmp, path)
-
-
-def contained(root, relative):
-    p = Path(relative)
-    target = (root / p).resolve()
-    if p.is_absolute() or '..' in p.parts or not target.is_relative_to(root.resolve()):
-        raise ValueError('unsafe bundle/artifact path: ' + str(relative))
-    return target
 
 
 def verify_bundle(root, science):
@@ -324,13 +306,9 @@ def memory_usage():
 
 def controller(args, out):
     science = science_settings(args.config)
-    if args.draws_per_day is None:
-        args.draws_per_day = science['draws_per_day']
-    if args.seed is None:
-        args.seed = science['seed']
     bundle, snapshot = verify_bundle(args.bundle_root, science)
     configure_threads(args.threads)
-    config = dict(draws_per_day=args.draws_per_day, seed=args.seed, gap_atol=args.gap_atol,
+    config = dict(draws_per_day=science['draws_per_day'], seed=science['seed'], gap_atol=args.gap_atol,
                   maxiter=args.maxiter, time_limit=args.time_limit,
                   retry_maxiter=200000, retry_time_limit=1800., threads=args.threads)
     plan = dict(schema='eht-uncertainty-batch-plan-v1', snapshot=snapshot,
@@ -346,7 +324,7 @@ def controller(args, out):
         if any(p.name != '.controller.lock' for p in out.iterdir()):
             raise ValueError('new output root must be empty')
         atomic(planpath, plan)
-    draws = make_draws(args.bundle_root, bundle, args.draws_per_day, args.seed, science)
+    draws = make_draws(args.bundle_root, bundle, science['draws_per_day'], science['seed'], science)
     for name, value in [('all-draws.json', draws), ('batch-plan.json', plan)]:
         p = out / name
         if p.exists():
@@ -464,8 +442,6 @@ def main(argv=None):
                    help='idle admission timeout seconds; exit 3, safe to resume')
     p.add_argument('--threads', type=int, default=2)
     p.add_argument('--config', type=Path, help='experiment parameter file (default: experiment.yaml)')
-    p.add_argument('--draws-per-day', type=int, help='default: eht_imaging.uncertainty_draws')
-    p.add_argument('--seed', type=int, help='default: eht_imaging.seed')
     p.add_argument('--task-limit', type=int,
                    help='attempt cap; full draw plan retained, no partial finish receipt')
     p.add_argument('--resume', action='store_true',
@@ -478,11 +454,11 @@ def main(argv=None):
     import math
     if args.config is None:
         args.config = _BOOTSTRAP / 'experiment.yaml'
-    if (min(args.workers, args.threads, args.draws_per_day or 1, args.maxiter) < 1 or (args.seed or 0) < 0
+    if (min(args.workers, args.threads, args.maxiter) < 1
             or (args.task_limit is not None and args.task_limit < 1)
             or not all(math.isfinite(v) and v > 0 for v in
                        (args.gap_atol, args.time_limit, args.max_active_memory_gib, args.resource_wait))):
-        p.error('positive finite budgets/tolerance and nonnegative seed required')
+        p.error('positive finite budgets/tolerance required')
     args.bundle_root = args.bundle_root.resolve()
     out = args.output_root.resolve()
     if out.is_relative_to(args.bundle_root) or args.bundle_root.is_relative_to(out):

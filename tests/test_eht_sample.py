@@ -69,7 +69,7 @@ def test_bundle_bytes_seeds_and_4000_unique_tasks(tmp_path):
         batch.verify_bundle(root, science)
     with pytest.raises(ValueError, match='science contract'):
         batch.verify_bundle(root, dict(science, fsys=.01))
-    with pytest.raises(ValueError, match='unsafe'):
+    with pytest.raises(ValueError, match='Unsafe'):
         batch.contained(root, '../escape')
 
 

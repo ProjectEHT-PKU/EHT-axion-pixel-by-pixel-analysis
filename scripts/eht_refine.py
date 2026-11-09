@@ -10,11 +10,10 @@ import json
 from pathlib import Path
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT), str(ROOT/'scripts')]
-import eht_reconstruct as original  # noqa: E402
-from eht_axion.pipeline import common  # noqa: E402
-from eht_axion.research import eht_optimizer as solver  # noqa: E402
+from _bootstrap import ROOT
+import eht_reconstruct as original
+from eht_axion.pipeline import common
+from eht_axion.research import eht_optimizer as solver
 
 
 def parser():

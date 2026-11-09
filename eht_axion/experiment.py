@@ -234,8 +234,9 @@ def _validate_eht_imaging(config):
     if (not isinstance(restarts, list) or len(set(restarts)) != len(restarts)
             or any(type(r) is not int or not 2 <= r <= c["rounds"] for r in restarts)):
         raise ValueError("eht_imaging.restart_rounds must be distinct rounds in [2, rounds]")
-    _choice(c["residual_d_convention"], "eht_imaging.residual_d_convention",
-            ("per_component_sd", "complex_rms"))
+    # A fixed convention, kept in the YAML because it is part of the recorded imaging
+    # parameter set of the (not re-runnable) EHT imaging stages.
+    _choice(c["residual_d_convention"], "eht_imaging.residual_d_convention", ("per_component_sd",))
 
 
 def _validate_analysis(config):

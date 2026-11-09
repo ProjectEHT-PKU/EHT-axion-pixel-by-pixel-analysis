@@ -56,18 +56,18 @@ def test_aperture_pa_weighting_wrap_and_radius():
     a = np.zeros((3, 3, 4))
     a[2, 1] = [1, 1, 0, 0]
     a[1, 0] = [2, 0, 3, 0]
-    result = aperture_curves(a, [1, 0, -1], [-1, 0, 1], [0, 90, 360])
+    result = aperture_curves(a, [1, 0, -1], [-1, 0, 1], [0, 90, 360], window=10)
     assert_allclose(result["polarized_brightness"], [1, 3, 1])
     assert_allclose(result["evpa_rad"], [0, np.pi/4, 0])
     assert_allclose(result["intensity"], [1, 2, 1])
     wide = aperture_curves(a, [1, 0, -1], [-1, 0, 1], [45], window=100)
     assert_allclose(wide["polarized_brightness"], [7/3])
     assert_allclose(wide["evpa_rad"], [.5*np.arctan2(6, 1)])
-    cut = aperture_curves(a, [1, 0, -1], [-1, 0, 1], [0], rmax_uas=.5)
+    cut = aperture_curves(a, [1, 0, -1], [-1, 0, 1], [0], window=10, rmax_uas=.5)
     assert np.isnan(cut["evpa_rad"]).all()
 
 
 def test_invalid_inputs():
     a = np.zeros((3, 4, 4))
     with pytest.raises(ValueError):
-        aperture_curves(a, [0], [0], [0])
+        aperture_curves(a, [0], [0], [0], window=10)

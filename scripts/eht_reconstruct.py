@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""EHT imaging: Paper IV/VII polarimetric imaging (stages I, fiducial, uncertainty), one day per root.
+"""EHT imaging: Paper IV/VII polarimetric imaging (stages I and fiducial), one day per root.
+
+The D-term Monte Carlo ensemble is made by eht_sample.py from the exported
+bundle (eht_export_bundle.py); the fiducial D terms are refined by eht_refine.py.
 
 Scientific parameters: experiment.yaml (eht_imaging + shared.image). Machine-local
 locations (uvfits directory, input receipt, feed-rotation table, official script)
@@ -20,12 +23,10 @@ import runpy
 import sys
 from unittest.mock import patch
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / 'scripts'))
-from eht_axion import experiment  # noqa: E402
-from eht_axion.pipeline import common  # noqa: E402
-from _environment import add_environment_options, resolve_environment  # noqa: E402
+from _bootstrap import ROOT
+from eht_axion import experiment
+from eht_axion.pipeline import common
+from _environment import add_environment_options, resolve_environment
 
 DAYS = (95, 96, 100, 101)
 I_PRODUCTS = ('final-fixedI.fits', 'clean-gaincal-pol.uvfits')
@@ -38,20 +39,14 @@ def dump(path, value):
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=experiment.DEFAULT_PATH, help='default: experiment.yaml')
-    p.add_argument('--stage', choices=('I', 'fiducial', 'uncertainty'), required=True)
+    p.add_argument('--stage', choices=('I', 'fiducial'), required=True)
     p.add_argument('--day', type=int, choices=DAYS, required=True)
     for name, env in LOCATION_ENV.items():
         p.add_argument('--' + name.replace('_', '-'), type=Path, help=f'absolute path; overrides ${env}')
     p.add_argument('--i-root', type=Path, help='completed I stage for the SAME day')
-    source = p.add_mutually_exclusive_group()
-    source.add_argument('--d-roots', nargs=4, type=Path,
-                        help='four completed fiducial stages (all four days)')
-    source.add_argument('--published-dterms', type=Path,
-                        help='Table5 JSON; published rounded, not private posterior')
     p.add_argument('--output-root', required=True, type=Path, help='new directory for this stage/day')
     p.add_argument('--review-file', type=Path,
                    help='external review bytes, required for execution; not self-approval')
-    p.add_argument('--draws', type=int, help='uncertainty pilot prefix of configured full ensemble')
     p.add_argument('--plan', action='store_true')
     add_environment_options(p)
     return p
@@ -102,15 +97,7 @@ def build_plan(args):
     if set(c['fixed_sites']) != set(core._PRECORRECTED):
         raise ValueError(f'fixed_sites must be the HOPS-precorrected stations {core._PRECORRECTED}')
     if (args.stage == 'I' and args.i_root) or (args.stage != 'I' and args.i_root is None):
-        raise ValueError('--i-root required exactly for fiducial/uncertainty')
-    if args.stage == 'uncertainty':
-        if not (args.d_roots or args.published_dterms):
-            raise ValueError('uncertainty requires --d-roots or --published-dterms')
-    elif args.d_roots or args.published_dterms or args.draws is not None:
-        raise ValueError('D sources and --draws apply only to uncertainty')
-    draws = args.draws if args.draws is not None else c['uncertainty_draws']
-    if not 1 <= draws <= c['uncertainty_draws']:
-        raise ValueError(f"--draws must be in [1,{c['uncertainty_draws']}]")
+        raise ValueError('--i-root required exactly for the fiducial stage')
     rawroot = Path(c['input_root'])
     name, expected = c['inputs'][args.day]
     raw = (rawroot / name).resolve(strict=True)
@@ -132,25 +119,6 @@ def build_plan(args):
         if upstream['feed_rotation_file'] != c['feed_rotation_file']:
             raise ValueError('I-stage feed table differs')
         inputs.extend(files)
-    if args.d_roots:
-        days = []
-        for root in args.d_roots:
-            m, files = stage_inputs(root, 'fiducial', products=('final-dterms.json',))
-            days.append(m['config']['day'])
-            if m['config']['parameters'] != json.loads(json.dumps(c)):
-                raise ValueError('all four fiducial D sources must use the same declared configuration')
-            inputs.extend(files)
-        if sorted(days) != list(DAYS):
-            raise ValueError('--d-roots must cover each of the four days exactly once')
-    if args.published_dterms:
-        published = json.loads(args.published_dterms.read_text())
-        if published.get('stored_units') != 'dimensionless' or set(published['days']) != set(map(str, DAYS)):
-            raise ValueError('published D input requires four dimensionless days')
-        for day in DAYS:
-            values = d_dictionary(published['days'][str(day)])
-            if set(values) != set(c['solve_sites']):
-                raise ValueError('published D requires AZ/LM/PV, both hands, for each day')
-        inputs.append(args.published_dterms)
     if args.review_file:
         if not args.review_file.read_bytes().strip():
             raise ValueError('empty external review file')
@@ -173,9 +141,7 @@ def build_plan(args):
     for path in common.source_closure(inputs):
         if path == destination or path.is_relative_to(destination) or destination.is_relative_to(path):
             raise ValueError(f'output/source overlap: {path}')
-    return dict(day=args.day, stage=args.stage, parameters=c, raw=str(raw), draws=draws,
-                label=('engineering-partial-pilot'
-                       if args.stage == 'uncertainty' and draws < c['uncertainty_draws'] else 'full-budget'),
+    return dict(day=args.day, stage=args.stage, parameters=c, raw=str(raw),
                 output_root=str(destination), inputs=common.describe_inputs(inputs),
                 cli={k: [str(p) for p in v] if isinstance(v, list) else str(v) if isinstance(v, Path) else v
                      for k, v in vars(args).items()},
@@ -189,7 +155,7 @@ def run_i(plan, core, eh, out):
     import numpy as np
 
     c = plan['parameters']
-    native, native_meta = core.load_native(plan['raw'], c['feed_rotation_file'])
+    native, native_meta = core.load_native(plan['raw'], c['feed_rotation_file'], scan_average=True)
     text = Path(c['official_script']).read_text()
     (out / 'official-I-original.py').write_text(text)
     executable = out / 'official-I-120-direct.py'
@@ -346,17 +312,6 @@ def d_dictionary(dterms):
     return result
 
 
-def fixed_d_image(base, fixed, dterms, c, core, eh):
-    """Fresh base -> fsys once -> sampled D once -> P only. NO D fit.
-
-    Single maxit-limited optimization is provisional pending fixed-D pilot;
-    this is not yet a validated multiscale MC imaging schedule.
-    """
-    noisy_base = core.add_fsys(base.copy(), c['fsys'])
-    corrected = core.make_imaging_obs(core.apply_fixed_d(noisy_base, dterms))
-    return image_p(corrected, fixed, initial_image(fixed, c), c, eh)
-
-
 def save_image(image, prefix, c, eh):
     image.save_fits(str(prefix) + '-raw-IQU.fits')
     b = c['display_blur_uas'] * eh.RADPERUAS
@@ -391,22 +346,6 @@ def run_fiducial(base, fixed, c, core, eh, out):
          note='stop is numerical ftol/gtol, not a paper-mandated science threshold'))
 
 
-def sample_dterms(days, c, day, core):
-    """Use the shared four-day estimator/sampler; day-specific deterministic seed."""
-    import numpy as np
-
-    daily = {str(d): {s: pair for s, pair in d_dictionary(days[str(d)]).items() if s in c['solve_sites']}
-             for d in DAYS}
-    if any(set(v) != set(c['solve_sites']) for v in daily.values()):
-        raise ValueError('each D source day must contain AZ/LM/PV, both hands')
-    distribution = core.d_distribution(daily, ddof=c['covariance_ddof'])
-    sd = c['residual_d_sigma'] / (np.sqrt(2) if c['residual_d_convention'] == 'complex_rms' else 1)
-    # Distinct days must not accidentally share the same random realization.
-    seed = int(np.random.SeedSequence([c['seed'], day]).generate_state(1)[0])
-    return core.sample_dterms(distribution, c['solve_sites'] + c['fixed_sites'], c['uncertainty_draws'],
-                              seed, residual_component_sigma=sd)
-
-
 def image_statistics(image):
     """Whole-image quantities only; aperture/profile/beta2 definitions await review."""
     import numpy as np
@@ -414,43 +353,6 @@ def image_statistics(image):
     i, p = image.imvec, image.qvec + 1j * image.uvec
     return dict(net_m=float(abs(p.sum()) / i.sum()), resolved_m=float(np.abs(p).sum() / i.sum()),
                 integrated_evpa_rad=float(.5 * np.angle(p.sum())) if abs(p.sum()) else None)
-
-
-def run_uncertainty(plan, args, base, fixed, c, core, eh, out):
-    import numpy as np
-
-    if args.published_dterms:
-        source = json.loads(args.published_dterms.read_text())
-        days = source['days']
-    else:
-        days = {str(common.complete_manifest(root)['config']['day']):
-                json.loads((root / 'final-dterms.json').read_text()) for root in args.d_roots}
-        source = dict(source_kind='four local consistent fiducial stages',
-                      roots=[str(p) for p in args.d_roots])
-    samples = sample_dterms(days, c, plan['day'], core)
-    core.write_d_samples(samples, out / 'all-draws.json', out / 'all-draws.csv')
-    sites, draws = samples['sites'], samples['draws']
-    matrix = np.asarray([[[complex(*draw[s][h]) for h in ('R', 'L')] for s in sites] for draw in draws])
-    np.savez(out / 'all-draws.npz', dterms=matrix, stations=np.asarray(sites), draw_id=np.arange(len(draws)))
-    dump(out / 'D-source.json', dict(source=source, ddof=1, residual_sigma=c['residual_d_sigma'],
-         residual_convention=c['residual_d_convention'], derived_day_seed=samples['seed']))
-    stats = []
-    for draw_id, draw in enumerate(draws[:plan['draws']]):
-        dterms = {s: [v['R'], v['L']] for s, v in draw.items()}
-        image, optimizers = fixed_d_image(base, fixed, dterms, c, core, eh)
-        displayed = save_image(image, out / f'draw-{draw_id:04d}', c, eh)
-        stats.append(dict(draw_id=draw_id, optimizers=optimizers, **image_statistics(displayed)))
-        dump(out / 'statistics.json', stats)
-    dump(out / 'sampling-receipt.json', dict(configured_draws=len(draws), executed_draws=len(stats),
-         draw_ids=list(range(len(stats))), label=plan['label'], failed_draws=0,
-         optimizer_unsuccessful_draw_ids=[s['draw_id'] for s in stats
-                                         if any(not r['success'] for r in s['optimizers'])],
-         exception_policy='abort transaction; never publish a half-complete ensemble stage',
-         imaging_schedule='single P optimization; multiscale schedule/pilot validation pending',
-         mc_schedule_validated=False,
-         seed=samples['seed'], master_seed=c['seed'], D_refitted=False, no_thermal_bootstrap=True,
-         deferred_statistics=['aperture EVPA/P', 'beta2', 'azimuth profiles'],
-         scientifically_converged=False))
 
 
 def main(argv=None):
@@ -483,10 +385,7 @@ def main(argv=None):
                 validate_fixed(fixed, c, eh)
                 base = load_gaincal_base(args.i_root / I_PRODUCTS[1], c, eh)
                 base = base.flag_uvdist(uv_min=c['uv_min'])
-                if args.stage == 'fiducial':
-                    run_fiducial(base, fixed, c, core, eh, out)
-                else:
-                    run_uncertainty(plan, args, base, fixed, c, core, eh, out)
+                run_fiducial(base, fixed, c, core, eh, out)
         return plan
 
 

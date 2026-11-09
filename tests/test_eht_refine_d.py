@@ -24,7 +24,7 @@ def test_tight_options_are_scoped_to_d(monkeypatch, tmp_path):
     monkeypatch.setattr(w.runner.original, 'dump', Mock())
     def main(argv):
         assert argv == ['synthetic']
-        core.fit_forward_d('base', 'P', ['AZ'])
+        core.fit_forward_d('base', 'P', sites=['AZ'])
         options = actual.call_args.kwargs['options']
         assert options['ftol'] == 1e-13 and options['gtol'] == 1e-9
         assert options['maxiter'] == 10000

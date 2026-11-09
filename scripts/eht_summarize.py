@@ -4,37 +4,26 @@
 The ensembles are the EHT input of the analysis (analysis_limits.py).
 
 pixi run -e eht-research python scripts/eht_summarize.py --dataset-root ROOT --output-root OUT
-Draw count, sky grid, aperture (radius, width) and the resultant threshold come
-from experiment.yaml, the same values used by the analysis.
-Requires ROOT/COPY_VERIFIED.json with the original finish SHA and batch identity.
-Outputs: native/{raw,display19}/day-D/{stokes.npy,evpa.npy,
-map-summary.npz,aperture.npz,global.npz}; pair summaries under native/*/pairs/.
-See report.json for estimator definitions, registration, and conditional scope.
+Draw count, sky grid and aperture (radius, width) come from experiment.yaml, the
+same values used by the analysis. Requires ROOT/COPY_VERIFIED.json with the
+original finish SHA and batch identity. Only the display19 images (blurred with
+shared.image.blur_fwhm_uas, like the simulated images) are summarized.
+Outputs: native/display19/day-D/{stokes.npy,evpa.npy,aperture.npz,global.npz},
+axes.npz, report.json (conventions, registration, scope).
 """
 from pathlib import Path
-import sys
+import argparse
+import hashlib
+import json
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+import numpy as np
 
-import argparse  # noqa: E402
-import hashlib  # noqa: E402
-import json  # noqa: E402
+from _bootstrap import ROOT
+from eht_axion.pipeline import common
+from eht_axion.research import ensemble as en
+from eht_axion.research.polarimetry import load_stokes_fits
 
-import numpy as np  # noqa: E402
-
-from eht_axion.pipeline import common  # noqa: E402
-from eht_axion.research import ensemble as en  # noqa: E402
-from eht_axion.research.polarimetry import load_stokes_fits  # noqa: E402
-
-
-def contained(root, relative):
-    p = Path(relative)
-    target = (root / p).resolve(strict=True)
-    if p.is_absolute() or '..' in p.parts or not target.is_relative_to(root):
-        raise ValueError('unsafe snapshot path: ' + str(relative))
-    return target
+contained = common.contained_path
 
 
 def read_json(path):
@@ -47,8 +36,7 @@ def summary_settings(config):
     return dict(draws=config['eht_imaging']['uncertainty_draws'], shape=image['shape'],
                 fov_uas=image['fov_uas'],
                 rmax_uas=aperture['radial_max_fraction'] * (image['fov_uas'] / 2),
-                window_degrees=aperture['window_degrees'],
-                rmin=config['analysis']['features']['resultant_min'])
+                window_degrees=aperture['window_degrees'])
 
 
 def verify_copy(dataset, settings):
@@ -105,8 +93,7 @@ def verify_copy(dataset, settings):
                 or receipt['status'] != 'certified' or receipt['schema'] != 'eht-uncertainty-task-v1'):
             raise ValueError('selected receipt identity/status mismatch')
         products = {}
-        for kind, name in [('raw', 'best-raw-IQU.fits'),
-                           ('display19', 'best-display-IQU-additional19uas.fits'),
+        for kind, name in [('display19', 'best-display-IQU-additional19uas.fits'),
                            ('certificate', 'certificate.json')]:
             p = contained(directory, name)
             if common.sha256(p) != receipt['outputs'][name]:
@@ -122,64 +109,43 @@ def verify_copy(dataset, settings):
 
 
 def run(selected, out, settings):
-    draws, n, rmin = settings['draws'], settings['shape'], settings['rmin']
+    draws, n = settings['draws'], settings['shape']
     pixel = settings['fov_uas'] / n
     reference = None
-    summaries = {}
     for d in en.DAYS:
-        daily = {}
-        for resolution in ('raw', 'display19'):
-            directory = out / 'native' / resolution / ('day-' + d)
-            directory.mkdir(parents=True)
-            samples = np.lib.format.open_memmap(directory / 'stokes.npy', mode='w+',
-                                               dtype='float64', shape=(draws, n, n, 4))
-            for k in range(draws):
-                loaded = load_stokes_fits(selected[d][k][resolution])
-                east, north = loaded['east_uas'], loaded['north_uas']
-                if (loaded['stokes'].shape != (n, n, 4)
-                        or not np.allclose(np.diff(east), -pixel, rtol=0, atol=1e-9)
-                        or not np.allclose(np.diff(north), pixel, rtol=0, atol=1e-9)):
-                    raise ValueError('FITS grid differs from shared.image (E decreasing, N increasing)')
-                geometry = (east, north, loaded['frequency_hz'], loaded['bunit'])
-                if reference is None:
-                    reference = geometry
-                    np.savez(out / 'axes.npz', east_uas=east, north_uas=north, angle_deg=np.arange(360.))
-                elif (not np.array_equal(east, reference[0]) or not np.array_equal(north, reference[1])
-                      or geometry[2:] != reference[2:]):
-                    raise ValueError('inconsistent FITS axes/frequency/units')
-                samples[k] = loaded['stokes']
-            samples.flush()
-            daily[resolution] = samples
+        directory = out / 'native' / 'display19' / ('day-' + d)
+        directory.mkdir(parents=True)
+        samples = np.lib.format.open_memmap(directory / 'stokes.npy', mode='w+',
+                                           dtype='float64', shape=(draws, n, n, 4))
+        for k in range(draws):
+            loaded = load_stokes_fits(selected[d][k]['display19'])
+            east, north = loaded['east_uas'], loaded['north_uas']
+            if (loaded['stokes'].shape != (n, n, 4)
+                    or not np.allclose(np.diff(east), -pixel, rtol=0, atol=1e-9)
+                    or not np.allclose(np.diff(north), pixel, rtol=0, atol=1e-9)):
+                raise ValueError('FITS grid differs from shared.image (E decreasing, N increasing)')
+            geometry = (east, north, loaded['frequency_hz'], loaded['bunit'])
+            if reference is None:
+                reference = geometry
+                np.savez(out / 'axes.npz', east_uas=east, north_uas=north, angle_deg=np.arange(360.))
+            elif (not np.array_equal(east, reference[0]) or not np.array_equal(north, reference[1])
+                  or geometry[2:] != reference[2:]):
+                raise ValueError('inconsistent FITS axes/frequency/units')
+            samples[k] = loaded['stokes']
+        samples.flush()
         # Paper VII Sec. 5.2 centring = zero shift: the images are used as reconstructed.
-        for resolution, samples in daily.items():
-            directory = out / 'native' / resolution / ('day-' + d)
-            summaries[resolution, d] = en.summarize(
-                samples, *reference[:2], directory, rmin, settings['rmax_uas'],
-                settings['window_degrees'])
-            print(f'SUMMARIZED native/{resolution}/day-{d}', flush=True)
-        del daily
-    for resolution in ('raw', 'display19'):
-        directory = out / 'native' / resolution / 'pairs'
-        directory.mkdir()
-        for later, earlier in en.PAIRS:
-            a, ca = summaries[resolution, later]
-            b, cb = summaries[resolution, earlier]
-            np.savez(directory / f'{later}-{earlier}.npz', **en.independent_difference(a, b, ca, cb))
+        en.summarize(samples, *reference[:2], directory, settings['rmax_uas'], settings['window_degrees'])
+        print(f'SUMMARIZED native/display19/day-{d}', flush=True)
+        del samples
     report = dict(schema='eht-fixed-D-ensemble-summary-v1', days=list(en.DAYS), draws_per_day=draws,
-                  rmin=rmin, rmax_uas=settings['rmax_uas'],
+                  rmax_uas=settings['rmax_uas'],
                   aperture_full_width_deg=float(settings['window_degrees']),
                   map_order='draw,y,x,IQUV; native FITS E decreases along x, N increases along y',
                   angle_convention='EVPA radians modulo pi, E of N; aperture angles degrees E of N; no roll',
                   registration='none: Paper VII Sec. 5.2 centring = zero shift; images used as reconstructed',
-                  resolution='raw physical products and existing additional19uas FWHM display products; '
-                             'no blur applied',
-                  estimator='circular mean of per-draw EVPA, NOT EVPA of mean Stokes',
-                  covariance='equal MC weights, population ddof=0, centered local-branch residuals; '
-                             'independent-day covariance sum, never matched-index posterior pairs',
-                  spatial_covariance='reconstruct selected columns using '
-                                     'ensemble.selected_covariance(evpa,mean_rad,indices)',
-                  rank_bound=draws - 1, mask='all draws finite with positive I and nonzero Q+iU; R>=rmin; '
-                                      'map mean I and mean polarized amplitude positive; pair intersection',
+                  resolution='existing additional19uas FWHM display products (shared.image.blur_fwhm_uas); '
+                             'no blur applied here',
+                  evpa_mask='EVPA NaN where I <= 0 or Q+iU = 0',
                   scope='conditional fixed-I D-term MC only; no thermal bootstrap, response variance, '
                         'covariance-estimation uncertainty or scientific acceptance certification',
                   beta2='whole-field sum((Q+iU)*exp(-2i atan2(E,N)))/sum(I); no annular cut',
@@ -203,7 +169,7 @@ def main(argv=None):
         inputs += [Path(__file__).resolve(), args.config.resolve(),
                    ROOT / 'eht_axion/research/ensemble.py',
                    ROOT / 'eht_axion/research/polarimetry.py']
-        config = dict(copy_identity=copy['identity'], rmin=settings['rmin'], rmax_uas=settings['rmax_uas'],
+        config = dict(copy_identity=copy['identity'], rmax_uas=settings['rmax_uas'],
                       source_kind='verified-copy-custom-batch', draw_count=settings['draws'] * len(en.DAYS))
         with common.stage_directory(destination, 'research:eht-fixed-D-ensemble', config, inputs) as out:
             if out is not None:

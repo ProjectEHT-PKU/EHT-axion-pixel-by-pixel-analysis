@@ -77,7 +77,7 @@ def test_locations_are_required_absolute_paths(plan_args):
         w.build_plan(plan_args)
 
 
-def test_cli_review_stage_draw_contract(plan_args):
+def test_cli_review_and_stage_contract(plan_args):
     plan_args.plan = False
     with pytest.raises(ValueError, match='review-file'):
         w.build_plan(plan_args)
@@ -85,13 +85,11 @@ def test_cli_review_stage_draw_contract(plan_args):
     plan_args.stage = 'fiducial'
     with pytest.raises(ValueError, match='i-root'):
         w.build_plan(plan_args)
-    plan_args.i_root = Path('not-read-yet')
-    plan_args.stage = 'uncertainty'
-    with pytest.raises(ValueError, match='D-roots|d-roots'):
+    plan_args.stage, plan_args.i_root = 'I', Path('not-read-yet')
+    with pytest.raises(ValueError, match='i-root'):
         w.build_plan(plan_args)
-    plan_args.stage, plan_args.i_root, plan_args.draws = 'I', None, 25
-    with pytest.raises(ValueError, match='only to uncertainty'):
-        w.build_plan(plan_args)
+    with pytest.raises(SystemExit):
+        w.parser().parse_args(['--stage', 'uncertainty', '--day', '95', '--output-root', 'x'])
 
 
 def test_wrong_hash_existing_destination_and_output_source_protection(plan_args):
@@ -258,45 +256,8 @@ def test_i_rejects_nonshared_gains(tmp_path, config, monkeypatch):
     monkeypatch.setattr(w, 'validate_fixed', Mock())
     with pytest.raises(AssertionError):
         w.run_i(dict(parameters=config, raw='synthetic'),
-                SimpleNamespace(load_native=lambda *a: (native, {})), eh, tmp_path)
+                SimpleNamespace(load_native=lambda *a, **k: (native, {})), eh, tmp_path)
     cal.applycal.assert_not_called()
-
-
-def test_fixed_d_never_fits_and_fsys_once_before_d_on_fresh_base(config, monkeypatch):
-    base, fixed = Observation(), Image()
-    original = base.data.copy()
-    events = []
-
-    def apply(obs, d):
-        assert obs is not base and d == {'AZ': [[.01, .02], [.03, .04]]}
-        assert obs.noisy and np.all(obs.data['rlsigma'] == 3 * original['rlsigma'])
-        obs.data['rlsigma'] *= 2
-        events.append('D')
-        return obs
-
-    def noise(obs, fsys):
-        assert fsys == .005 and obs is not base and not getattr(obs, 'noisy', False)
-        np.testing.assert_array_equal(obs.data, original)
-        obs.data['rlsigma'] *= 3
-        obs.noisy = True
-        events.append('noise')
-        return obs
-
-    fit = Mock(side_effect=AssertionError('D fit forbidden in uncertainty'))
-    core = SimpleNamespace(apply_fixed_d=Mock(side_effect=apply), add_fsys=Mock(side_effect=noise),
-                           make_imaging_obs=lambda obs: obs, fit_forward_d=fit)
-
-    def image_p(obs, *args):
-        assert np.all(obs.data['rlsigma'] == 6 * original['rlsigma'])
-        return fixed, []
-
-    monkeypatch.setattr(w, 'image_p', Mock(side_effect=image_p))
-    for _ in range(2):
-        w.fixed_d_image(base, fixed, {'AZ': [[.01, .02], [.03, .04]]}, config, core, None)
-    assert events == ['noise', 'D', 'noise', 'D']
-    fit.assert_not_called()
-    assert w.image_p.call_count == 2
-    np.testing.assert_array_equal(base.data, original)
 
 
 def test_weighted_fraction_restart_keeps_exact_i_and_domain(config):
@@ -308,50 +269,6 @@ def test_weighted_fraction_restart_keeps_exact_i_and_domain(config):
     np.testing.assert_array_equal(restart.imvec, fixed.imvec)
     assert np.all(np.hypot(restart.qvec, restart.uvec) < restart.imvec)
     assert np.all(restart.vvec == 0)
-
-
-def test_sampler_four_day_covariance_ddof_and_reproducible_full_matrix(config):
-    from eht_axion.research import eht_official as core
-
-    days = {str(day): {s: [[.01 * k, .02 * k], [-.02 * k, .01 * k]]
-                      for s in config['solve_sites']} for k, day in enumerate(w.DAYS)}
-    samples = w.sample_dterms(days, config, 95, core)
-    again = w.sample_dterms(days, config, 95, core)
-    assert samples == again
-    assert len(samples['draws']) == 1000 and len(samples['sites']) == 7
-    assert samples != w.sample_dterms(days, config, 96, core)
-    values = np.array([[.01 * k, .02 * k] for k in range(4)])
-    np.testing.assert_allclose(samples['distributions']['AZ']['R']['covariance'], np.cov(values.T, ddof=1))
-    assert samples['residual_component_sigma'] == .01
-    config['residual_d_convention'] = 'complex_rms'
-    rms = w.sample_dterms(days, config, 95, core)
-    assert rms['residual_component_sigma'] == .01 / np.sqrt(2)
-
-
-def test_pilot_saves_all_draws_and_only_executed_prefix(tmp_path, config, monkeypatch):
-    reference = dict(source_kind='Published rounded values, not private posterior',
-                     stored_units='dimensionless',
-                     days={str(day): {s: [[.01, .02], [.03, .04]] for s in config['solve_sites']}
-                           for day in w.DAYS})
-    src = tmp_path / 'table.json'
-    src.write_text(json.dumps(reference))
-    args = SimpleNamespace(published_dterms=src, d_roots=None)
-    fixed = Image()
-    executor = Mock(return_value=(fixed, []))
-    monkeypatch.setattr(w, 'fixed_d_image', executor)
-    from eht_axion.research import eht_official as core
-
-    w.run_uncertainty(dict(day=95, draws=2, label='engineering-partial-pilot'), args,
-                      Observation(), fixed, config, core, SimpleNamespace(RADPERUAS=1.), tmp_path)
-    assert executor.call_count == 2
-    with np.load(tmp_path / 'all-draws.npz', allow_pickle=False) as z:
-        assert z['dterms'].shape == (1000, 7, 2)
-        np.testing.assert_array_equal(z['draw_id'], np.arange(1000))
-    receipt = json.loads((tmp_path / 'sampling-receipt.json').read_text())
-    assert receipt['executed_draws'] == 2 and receipt['configured_draws'] == 1000
-    assert receipt['D_refitted'] is False
-    assert not (tmp_path / 'draw-0002-raw-IQU.fits').exists()
-    assert json.loads(src.read_text()) == reference  # protected D source unchanged
 
 
 def test_p_imager_shift_leaves_gradient_fixed_i_weights_and_numerical_stop(config, monkeypatch):

@@ -1,6 +1,5 @@
 """Tiny synthetic API/noise/Jones oracles only; no released-data reconstruction."""
 
-import csv
 import json
 import numpy as np
 import pytest
@@ -90,7 +89,7 @@ def corrupt(obs, dterms):
 def test_fsys_exact_once_and_copies(toy):
     obs, _ = toy
     before = obs.data.copy()
-    out = core.add_fsys(obs)
+    out = core.add_fsys(obs, .005)
     added = (.005 * abs((before["rrvis"] + before["llvis"]) / 2)) ** 2
     for p in core._PRODUCTS:
         np.testing.assert_array_equal(out.data[p + "vis"], before[p + "vis"])
@@ -98,7 +97,7 @@ def test_fsys_exact_once_and_copies(toy):
                                    before[p + "sigma"] ** 2 + (added if p in ("rl", "lr") else 0))
     np.testing.assert_array_equal(obs.data, before)
     with pytest.raises(ValueError, match="already"):
-        core.add_fsys(out.copy())
+        core.add_fsys(out.copy(), .005)
     assert not np.shares_memory(out.data, obs.data)
 
 
@@ -214,7 +213,7 @@ def test_forward_objective_gradient_and_injected_recovery(toy, monkeypatch):
 
     monkeypatch.setattr(pol_cal_new.opt, "minimize", capture)
     before = measured.copy()
-    fitted = core.fit_forward_d(measured, image)
+    fitted = core.fit_forward_d(measured, image, sites=("AZ", "LM", "PV"))
     assert pol_cal_new.leakage_cal_new is original_solver
     assert fitted.official_metadata["d_prior"] == "explicit zero prior and gradient"
     assert fitted.official_metadata["forward_solver_identity"] == core.forward_solver_identity()
@@ -252,7 +251,7 @@ def test_forward_source_receipt_and_fail_closed():
 
 def test_forward_zero_leakage_recovery(toy):
     obs, image = toy
-    fitted = core.fit_forward_d(obs, image)
+    fitted = core.fit_forward_d(obs, image, sites=("AZ", "LM", "PV"))
     np.testing.assert_allclose(fitted.tarr["dr"], 0, atol=1e-10)
     np.testing.assert_allclose(fitted.tarr["dl"], 0, atol=1e-10)
     np.testing.assert_allclose(coherency(fitted), coherency(obs), atol=1e-12)
@@ -286,14 +285,14 @@ def test_load_native_flags_feed_and_official_scan_api(toy, monkeypatch, tmp_path
     assert not loaded.dcal
     np.testing.assert_array_equal(loaded.tarr["fr_off"], raw.tarr["fr_off"])
     np.testing.assert_array_equal(loaded.tarr["dr"], 0)
-    averaged, receipt = core.load_native(path, feed)
+    averaged, receipt = core.load_native(path, feed, scan_average=True)
     assert receipt["scan_average"] is True
     expected = loaded.avg_coherent(0, scan_avg=True)
     for p in core._PRODUCTS:
         np.testing.assert_array_equal(averaged.data[p + "sigma"], expected.data[p + "sigma"])
     assert averaged.polrep == "circ"
     with pytest.raises(ValueError, match="declared"):
-        core.load_native(tmp_path / "unknown.uvfits", feed)
+        core.load_native(tmp_path / "unknown.uvfits", feed, scan_average=True)
 
 
 def daily_solutions():
@@ -302,9 +301,9 @@ def daily_solutions():
                                 "L": complex(.14 - .005*k, .003*k)}} for k in range(4)}
 
 
-def test_distributions_covariance_sampling_and_serialization(tmp_path):
+def test_distributions_covariance_and_sampling():
     daily = daily_solutions()
-    distribution = core.d_distribution(daily)
+    distribution = core.d_distribution(daily, ddof=1)
     xy = np.array([[.01*k, .02*k] for k in range(4)])
     np.testing.assert_allclose(distribution["entries"]["AZ"]["R"]["mean"], xy.mean(axis=0))
     np.testing.assert_allclose(distribution["entries"]["AZ"]["R"]["covariance"],
@@ -314,9 +313,10 @@ def test_distributions_covariance_sampling_and_serialization(tmp_path):
                                np.array(distribution["entries"]["AZ"]["R"]["covariance"]) * .75)
     sites = ["AZ", "PV", "AA", "AP", "SM", "JC"]
     state = np.random.get_state()
-    samples = core.sample_dterms(distribution, sites, 2000, 2021)
-    assert samples == core.sample_dterms(distribution, reversed(sites), 2000, 2021)
-    assert samples != core.sample_dterms(distribution, sites, 2000, 2022)
+    samples = core.sample_dterms(distribution, sites, 2000, 2021, residual_component_sigma=.01)
+    assert samples == core.sample_dterms(distribution, reversed(sites), 2000, 2021,
+                                         residual_component_sigma=.01)
+    assert samples != core.sample_dterms(distribution, sites, 2000, 2022, residual_component_sigma=.01)
     np.testing.assert_array_equal(np.random.get_state()[1], state[1])
     az = np.array([d["AZ"]["R"] for d in samples["draws"]])
     # Rank-one covariance gives a stringent direct test of within-D correlation.
@@ -327,16 +327,7 @@ def test_distributions_covariance_sampling_and_serialization(tmp_path):
     for site in core._PRECORRECTED:
         assert samples["distributions"][site]["R"]["mean"] == [0, 0]
         assert samples["distributions"][site]["L"]["covariance"] == [[.0001, 0], [0, .0001]]
-    a, b = tmp_path / "samples.json", tmp_path / "samples.csv"
-    core.write_d_samples(samples, a, b)
-    assert json.loads(a.read_text()) == samples
-    with b.open() as f:
-        rows = list(csv.DictReader(f))
-    assert len(rows) == 2000 * len(sites) * 2
-    assert json.loads(rows[0]["source_ids"]) == sorted(daily)
-    assert np.shape(json.loads(rows[0]["covariance"])) == (2, 2)
-    with pytest.raises(ValueError, match="new output"):
-        core.write_d_samples(samples, a, b)
+    assert samples["source_ids"] == sorted(daily)
     assert not samples["thermal_resampled"] and not samples["refit_d_after_draw"]
 
 
@@ -349,7 +340,7 @@ def test_distribution_bad_ddof(ddof):
 def test_validation(toy):
     obs, image = toy
     with pytest.raises(ValueError, match="circular"):
-        core.add_fsys(obs.switch_polrep("stokes"))
+        core.add_fsys(obs.switch_polrep("stokes"), .005)
     invalid = obs.copy()
     invalid.data["lrsigma"][0] = np.inf
     with pytest.raises(ValueError, match="finite"):
@@ -361,6 +352,6 @@ def test_validation(toy):
     model = image.copy()
     model.add_pol_image(np.ones((2, 2)), "V")
     with pytest.raises(ValueError, match="V=0"):
-        core.fit_forward_d(obs, model)
+        core.fit_forward_d(obs, model, sites=("AZ", "LM", "PV"))
     with pytest.raises(ValueError, match="four daily"):
-        core.d_distribution({"day": {}})
+        core.d_distribution({"day": {}}, ddof=1)
