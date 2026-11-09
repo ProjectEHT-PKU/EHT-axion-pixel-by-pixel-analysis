@@ -79,90 +79,76 @@ def plot_limits(out, report):
 
 
 def fit_evidence(source):
-    """Extract saved fits; no optimization or noise regularization here."""
+    """Saved joint-grid best fits of every observed case and alpha; no refit."""
     rows, diagnostics = [], {}
     for dim in ("1d", "2d"):
         for mode in MODES:
             key = f"observed-{mode}-{dim}"
             diagnostic = json.loads((source / (key + ".json")).read_text())
-            index = np.flatnonzero(
-                np.isclose(diagnostic["alphas"], 0.3, rtol=0, atol=1e-12)
-            )
-            if len(index) != 1:
-                raise ValueError("Exactly one alpha=0.3 fit required")
-            fit = diagnostic["fits"][int(index[0])]
-            rows.append(
-                {
-                    "dimension": dim,
-                    "mode": mode,
-                    "alpha": 0.3,
-                    "components": 2 * len(diagnostic["selected_indices"]),
-                    "null_chi2": fit["data_quadratic"],
-                    "best_chi2": fit["joint_grid_chi2"],
-                    "best_c": fit["joint_grid_coupling"],
-                    "phase_radians": fit["joint_grid_phase_radians"],
-                }
-            )
+            if len(diagnostic["fits"]) != len(diagnostic["alphas"]):
+                raise ValueError(f"{key}: one saved fit per alpha required")
+            for alpha, fit in zip(diagnostic["alphas"], diagnostic["fits"]):
+                rows.append(
+                    {
+                        "dimension": dim,
+                        "mode": mode,
+                        "alpha": alpha,
+                        "components": 2 * len(diagnostic["selected_indices"]),
+                        "chi2_zero_coupling": fit["data_quadratic"],
+                        "chi2_best": fit["joint_grid_chi2"],
+                        "best_c": fit["joint_grid_coupling"],
+                        "best_phase_radians": fit["joint_grid_phase_radians"],
+                    }
+                )
             diagnostics[key] = diagnostic
     return rows, diagnostics
 
 
+def fit_figure_name(alpha):
+    return f"fits-alpha-{alpha:.2f}.png"
+
+
 def plot_fits(out, diagnostics):
+    """One figure per alpha: data, saved best fit and whitened residual RMS of every case."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, axes = plt.subplots(3, 2, figsize=(16, 12), layout="constrained")
-    for column, dim in enumerate(("1d", "2d")):
-        for row, mode in enumerate(MODES):
-            diagnostic = diagnostics[f"observed-{mode}-{dim}"]
-            index = int(np.flatnonzero(np.isclose(diagnostic["alphas"], 0.3))[0])
-            fit = diagnostic["fits"][index]
-            data = np.asarray(diagnostic["data_radians"])
-            prediction = np.asarray(fit["prediction_radians"])
-            covariance = np.asarray(diagnostic["effective_pair_covariances"])
-            residual = data - prediction
-            white = np.concatenate(
-                [
-                    np.linalg.solve(np.linalg.cholesky(c), r)
-                    for c, r in zip(covariance, residual)
-                ]
-            )
-            ax = axes[row, column]
-            n = data.shape[1]
-            for pair, label, color in ((0, "96-95", "C0"), (1, "101-100", "C1")):
-                x = np.arange(n) + pair * (n + 2)
-                ax.errorbar(
-                    x,
-                    np.rad2deg(data[pair]),
-                    yerr=np.rad2deg(np.sqrt(np.diag(covariance[pair]))),
-                    fmt=".",
-                    color=color,
-                    label=f"{label}: data / pair scatter",
-                )
-                ax.plot(
-                    x,
-                    np.rad2deg(prediction[pair]),
-                    "-",
-                    color=color,
-                    label=f"{label}: saved shared-phase best fit",
-                )
-            ax.set(
-                title=(
-                    f"{dim.upper()} {mode}; "
-                    f"whitened residual RMS={np.sqrt(np.mean(white**2)):.2f}"
-                ),
-                xlabel="Selected feature index (pairs stacked; not spatial distance)",
-                ylabel="Day EVPA difference (degrees)",
-            )
-            ax.legend(fontsize=7)
-            ax.grid(alpha=0.2)
-    fig.suptitle(
-        "Alpha=0.30: saved joint-grid fits, no refit; effective pair covariance"
-    )
-    fig.savefig(out / "alpha030-fits.png", dpi=160)
-    plt.close(fig)
+    alphas = diagnostics[f"observed-{MODES[0]}-1d"]["alphas"]
+    names = []
+    for index, alpha in enumerate(alphas):
+        fig, axes = plt.subplots(len(MODES), 2, figsize=(16, 4 * len(MODES)), layout="constrained",
+                                 squeeze=False)
+        for column, dim in enumerate(("1d", "2d")):
+            for row, mode in enumerate(MODES):
+                diagnostic = diagnostics[f"observed-{mode}-{dim}"]
+                fit = diagnostic["fits"][index]
+                data = np.asarray(diagnostic["data_radians"])
+                prediction = np.asarray(fit["prediction_radians"])
+                covariance = np.asarray(diagnostic["effective_pair_covariances"])
+                white = np.concatenate([np.linalg.solve(np.linalg.cholesky(c), r)
+                                        for c, r in zip(covariance, data - prediction)])
+                ax = axes[row, column]
+                n = data.shape[1]
+                for pair, label, color in ((0, "96-95", "C0"), (1, "101-100", "C1")):
+                    x = np.arange(n) + pair * (n + 2)
+                    ax.errorbar(x, np.rad2deg(data[pair]),
+                                yerr=np.rad2deg(np.sqrt(np.diag(covariance[pair]))),
+                                fmt=".", color=color, label=f"{label}: data, pair scatter")
+                    ax.plot(x, np.rad2deg(prediction[pair]), "-", color=color,
+                            label=f"{label}: saved best fit")
+                ax.set(title=f"{dim.upper()} {mode}; whitened residual RMS={np.sqrt(np.mean(white**2)):.2f}",
+                       xlabel="Selected feature index (pairs stacked; not spatial distance)",
+                       ylabel="Day EVPA difference (degrees)")
+                ax.legend(fontsize=7)
+                ax.grid(alpha=0.2)
+        fig.suptitle(f"alpha = {alpha:.2f}: saved joint-grid best fits (no refit)")
+        name = fit_figure_name(alpha)
+        fig.savefig(out / name, dpi=120)
+        plt.close(fig)
+        names.append(name)
+    return names
 
 
 def write_csv(path, rows):
@@ -170,6 +156,50 @@ def write_csv(path, rows):
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
+
+
+def results_text(primary, comparisons_all, fits, covcheck, figures):
+    """RESULTS.md: the configured credibility and the numbers of this run; no fixed judgements."""
+    credibility = primary["credibility"]
+    lines = [
+        "# Results summary",
+        "",
+        f"Upper limits c95 are the {100 * credibility:g}% posterior quantiles of the coupling c "
+        "(analysis.inference.credibility), conditional on the grid and prior of analysis.inference.",
+        "",
+        "## Limits",
+        "",
+        "| Case | Features | " + " | ".join(f"alpha {a:.2f}" for a in
+                                            primary["results"]["observed-std-1d"]["alphas"]) + " |",
+        "|---|---:|" + "---:|" * len(primary["results"]["observed-std-1d"]["alphas"]),
+    ]
+    lines += [f"| {key} | {result['features']} | " + " | ".join(f"{c:.4g}" for c in result["c95"]) + " |"
+              for key, result in primary["results"].items()]
+    lines += ["", "## GRMHD background", ""]
+    lines += [f"- {dim}: sigma_bg = {sigma:.6g} rad ({np.rad2deg(sigma):.4g} deg)"
+              for dim, sigma in primary["background_sigma_radians"].items()]
+    lines += ["", "## Numerical checks", ""]
+    for label, rows in comparisons_all.items():
+        lines.append(f"- {label}: max |delta log10 c95| = {max(abs(r['delta_dex']) for r in rows):.6g} dex")
+    if covcheck is not None:
+        lines.append(f"- covariance halves: max |delta log10 c95| = {covcheck['max_abs_delta_dex']:.6g} dex")
+    lines += [
+        "",
+        "## Saved joint-grid best fits",
+        "",
+        "chi2 at c = 0 and at the best grid point (c, phase); components = 2 x features.",
+        "",
+        "| Dimension | Mode | alpha | Components | chi2 (c = 0) | chi2 (best) | best c |",
+        "|---|---|---:|---:|---:|---:|---:|",
+    ]
+    lines += [
+        f"| {r['dimension']} | {r['mode']} | {r['alpha']:.2f} | {r['components']} | "
+        f"{r['chi2_zero_coupling']:.3f} | {r['chi2_best']:.3f} | {r['best_c']:.4g} |"
+        for r in fits
+    ]
+    lines += ["", "![Limits](limits.png)", ""]
+    lines += [f"![Saved fits]({name})" for name in figures]
+    return lines
 
 
 def run(args):
@@ -242,16 +272,17 @@ def run(args):
         destination, "analysis:summary", identity, consumed, verify_lineage=False
     ) as out:
         write_csv(out / "limits.csv", limits)
-        write_csv(out / "alpha030-chi2.csv", fits)
+        write_csv(out / "fit-chi2.csv", fits)
         for label, rows in comparisons_all.items():
             write_csv(out / (label + ".csv"), rows)
         evidence = dict(
             identity,
+            credibility=primary["credibility"],
             results=primary["results"],
             comparisons=comparisons_all,
-            alpha030_chi2=fits,
+            fit_chi2=fits,
             background_sigma_radians=primary["background_sigma_radians"],
-            finite_mc_covariance_check=reports.get("covcheck"),
+            covariance_check=reports.get("covcheck"),
             diagnostics={
                 k: {
                     field: v[field]
@@ -275,49 +306,8 @@ def run(args):
             json.dumps(evidence, indent=2, allow_nan=False) + "\n"
         )
         plot_limits(out, primary)
-        plot_fits(out, diagnostics)
-        lines = [
-            "# EHT120 completed result comparison",
-            "",
-            ("Conditional 95% credible limits in model coupling c; "
-            "not GeV conversion or certified exclusions."),
-            "",
-            "## Numerical comparisons",
-            "",
-            "Prior check is compared to the dense grid, not the primary coarse grid.",
-        ]
-        for label, rows in comparisons_all.items():
-            lines.append(
-                f"- {label}: max |delta log10 c95| = "
-                f"{max(abs(r['delta_dex']) for r in rows):.6g} dex."
-            )
-        lines += [
-            "",
-            "## Alpha=0.30 goodness of fit",
-            "",
-            "| Dimension | Mode | Components | Null chi2 | Best joint-grid chi2 |",
-            "|---|---|---:|---:|---:|",
-        ]
-        lines += [
-            f"| {r['dimension']} | {r['mode']} | {r['components']} | "
-            f"{r['null_chi2']:.3f} | {r['best_chi2']:.3f} |"
-            for r in fits
-        ]
-        lines += [
-            "",
-            ("Correlated D-only fits are poor: "
-            "no formal new-physics detection/exclusion follows."),
-            ("Fixed-background mode adds selected-feature pooled pair variance, "
-            "not signal-response variance."),
-            ("No eigenvalue repair, diagonal ridge, refit or EVPA alignment "
-            "was applied by this helper."),
-            ("Observed centers away from branch seams do not validate "
-            "every prior-predictive Gaussian tail."),
-            "",
-            "![Limits](limits.png)",
-            "",
-            "![Saved fits](alpha030-fits.png)",
-        ]
+        figures = plot_fits(out, diagnostics)
+        lines = results_text(primary, comparisons_all, fits, reports.get("covcheck"), figures)
         (out / "RESULTS.md").write_text("\n".join(lines) + "\n")
     return destination
 

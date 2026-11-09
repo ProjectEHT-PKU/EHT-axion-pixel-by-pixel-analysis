@@ -134,8 +134,8 @@ COV/                             stage analysis:check-covariance
   covariance-sensitivity.csv     half, mode, dimension, alpha, c95, delta_dex
   report.json
 SUMMARY/                         stage analysis:summary
-  limits.csv, alpha030-chi2.csv, grid_vs_primary.csv, prior_vs_dense_grid.csv
-  limits.png, alpha030-fits.png, report.json, RESULTS.md
+  limits.csv, fit-chi2.csv, grid_vs_primary.csv, prior_vs_dense_grid.csv
+  limits.png, fits-alpha-<α>.png (one per alpha), report.json, RESULTS.md
 ```
 
 Index conventions in the analysis:

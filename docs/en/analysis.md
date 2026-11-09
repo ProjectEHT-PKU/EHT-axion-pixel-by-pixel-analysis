@@ -285,8 +285,11 @@ covariance and templates alone would give, for comparison with the observed limi
 `analysis_summarize.py` reads the completed limits, grid-check, prior-check and optional
 covariance-check stages and writes: `limits.csv`; comparisons grid check vs. primary and
 prior check vs. grid check (both must keep the same feature counts); the saved joint-grid
-best fits at $\alpha = 0.3$ with their $\chi^2$ (`alpha030-chi2.csv`, `alpha030-fits.png`);
-a limits figure; `report.json`; and a short `RESULTS.md`.
+best fit of every observed case and every $\alpha$, with $\chi^2$ at $c = 0$ and at the best
+grid point (`fit-chi2.csv`, one figure `fits-alpha-<α>.png` per $\alpha$); a limits figure;
+`report.json`; and `RESULTS.md`. `RESULTS.md` is generated from the configured
+`analysis.inference.credibility` and the numbers of the run (limits table, $\sigma_\mathrm{bg}$,
+largest changes in the checks, fit table); it contains no fixed conclusions.
 
 ## Related pages
 
