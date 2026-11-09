@@ -130,6 +130,7 @@ analysis:  # combines both inputs: from simulated images and EHT ensembles to li
     coupling_min: 0.0072992700729927005   # 1/137
     coupling_max: 1000.0
     prior: log-uniform
+    credibility: 0.95            # upper limit = this posterior quantile of c
     exposure_hours: 6.0
     day_gap_hours: 24.0
     pair_separation_hours: 120.0

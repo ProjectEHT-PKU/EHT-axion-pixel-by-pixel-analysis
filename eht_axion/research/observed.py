@@ -23,9 +23,9 @@ from numpy.typing import NDArray
 from scipy.linalg import solve_triangular
 from scipy.special import logsumexp
 
-from ..limits import LimitOptions, _validate_request
+from ..limits import LimitOptions, validate_options
 from ..model import cloud_amplitude_scaling, evpa_templates
-from ..observations import ObservationData, diagonal_pair_covariances
+from ..observations import ObservationData
 from ..statistics import normalized_posterior_cdf, posterior_upper_limit
 
 
@@ -34,27 +34,13 @@ def _validate_options(dimension: str, mode: str, options: LimitOptions) -> None:
         raise TypeError("options must be a LimitOptions instance")
     if mode not in {"std", "cor", "cor_fixed_background"}:
         raise ValueError("mode must be std, cor, or cor_fixed_background")
-    for name in ("legacy", "duplicate_phase_endpoint", "circular_phase_interpolation",
-                 "shared_epoch_uncertainty", "combine_epochs_by_product", "include_parameter_logdet"):
-        value = getattr(options, name)
-        if value is not None and not isinstance(value, (bool, np.bool_)):
-            raise ValueError(f"{name} must be boolean or None")
-    if options.legacy is None or options.legacy:
-        raise ValueError("observed research requires legacy=False")
-    if options.combine_epochs_by_product is not None and not options.combine_epochs_by_product:
-        raise ValueError("observed research requires combine_epochs_by_product=True")
-    if options.duplicate_phase_endpoint:
-        raise ValueError("observed research requires duplicate_phase_endpoint=False")
-    if options.posterior_method not in {None, "trapezoid"}:
-        raise ValueError("observed research requires posterior_method='trapezoid'")
     for name in ("coupling_min", "coupling_max", "grmhd_sigma_degrees", "time_conversion",
                  "exposure_hours", "day_gap_hours", "pair_separation_hours", "reference_norm",
-                 "cloud_coefficient", "cloud_pivot_alpha", "cloud_exponent"):
+                 "cloud_coefficient", "cloud_pivot_alpha", "cloud_exponent", "credibility"):
         value = getattr(options, name)
         if isinstance(value, (bool, np.bool_)) or not isinstance(value, Real) or not np.isfinite(value):
             raise ValueError(f"{name} must be a finite real number")
-    # Reuse the NULL API's option guard, not its calculation or data center.
-    _validate_request(dimension, "cor" if mode == "cor_fixed_background" else mode, options)
+    validate_options(dimension, options)
 
 
 def _selected_parameters(parameters: Mapping, indices: NDArray, dimension: str) -> dict:
@@ -106,8 +92,7 @@ def calculate_observed(
     covariance blocks are already selected, in radians squared. Fit products
     retain their full spatial grids, indexed exactly as in the NULL API.
 
-    ``std`` uses diag(C_pair), or historical daily sigmas if explicitly requested;
-    ``cor`` uses C_pair; ``cor_fixed_background`` uses C_pair + sigma_bg**2 I,
+    ``std`` uses diag(C_pair); ``cor`` uses C_pair; ``cor_fixed_background`` uses C_pair + sigma_bg**2 I,
     with sigma_bg = radians(options.grmhd_sigma_degrees), fixed for all g/phi.
     All supplied observation blocks must be finite SPD, even in std mode.
     There is NO g**2 response variance in any mode.
@@ -119,10 +104,8 @@ def calculate_observed(
     prior truncated to [coupling_min, coupling_max], integrated by trapezoids
     in g. The returned 95% bound is conditional on this finite grid/prior, not
     a frequentist coverage claim. Edge diagnostics do not certify convergence.
-
-    Only corrected options are accepted (no legacy CDF, duplicated phase end,
-    or additive/independently marginalized epoch likelihoods). See the module
-    WARNING about ensemble covariance, missing model variance and EVPA branches.
+    See the module WARNING about ensemble covariance, missing model variance
+    and EVPA branches.
     """
     _validate_options(dimension, mode, options)
     alpha_grid = np.asarray(alphas, dtype=float)
@@ -144,16 +127,7 @@ def calculate_observed(
     covariances = tuple(np.asarray(c, dtype=float).copy() for c in observations.pair_covariances)
     factors = tuple(_factor_covariance(c, size) for c in covariances)
     if mode == "std":
-        if options.std_covariance == "legacy-sigma":
-            if len(observations.standard_deviations) != 4:
-                raise ValueError("legacy-sigma requires four daily standard deviations")
-            for std in observations.standard_deviations:
-                std = np.asarray(std, dtype=float)
-                if std.shape != (size,) or not np.all(np.isfinite(std)) or np.any(std < 0):
-                    raise ValueError("daily standard deviations must be finite and nonnegative")
-            covariances = diagonal_pair_covariances(observations)
-        else:
-            covariances = tuple(np.diag(np.diag(c)) for c in covariances)
+        covariances = tuple(np.diag(np.diag(c)) for c in covariances)
     background_variance = (float(np.deg2rad(options.grmhd_sigma_degrees) ** 2)
                            if mode == "cor_fixed_background" else 0.0)
     if background_variance:
@@ -172,11 +146,8 @@ def calculate_observed(
         raise ValueError("coupling grid must be finite and strictly increasing")
     cuts, loglikes, phase_loglikes, densities, cdfs, boundaries, fits = [], [], [], [], [], [], []
     for alpha in alpha_grid:
-        signal, _ = evpa_templates(
-            float(alpha), amplitude, phase,
-            phase_count=options.phase_count, legacy=False, duplicate_endpoint=False,
-            circular_phase_interpolation=options.circular_phase_interpolation,
-            legacy_shared_uncertainty=options.shared_epoch_uncertainty,
+        signal = evpa_templates(
+            float(alpha), amplitude, phase, phase_count=options.phase_count,
             time_conversion=options.time_conversion, exposure_hours=options.exposure_hours,
             day_gap_hours=options.day_gap_hours, pair_separation_hours=options.pair_separation_hours,
             n_principal=options.n_principal, reference_norm=options.reference_norm,
@@ -201,7 +172,8 @@ def calculate_observed(
         joint = -0.5 * np.maximum(quadratic, 0.0)  # protect exact-fit roundoff
         log_likelihood = logsumexp(joint, axis=1) - np.log(phase_count)
         density, cdf = normalized_posterior_cdf(couplings, log_likelihood, prior=options.prior)
-        cut = np.log10(posterior_upper_limit(couplings, log_likelihood, prior=options.prior))
+        cut = np.log10(posterior_upper_limit(couplings, log_likelihood, credibility=options.credibility,
+                                             prior=options.prior))
         g_index, p_index = np.unravel_index(np.argmax(joint), joint.shape)
         prediction = couplings[g_index] * signal[p_index]
         fits.append({
@@ -226,12 +198,6 @@ def calculate_observed(
         })
     effective = {key: value.item() if isinstance(value, np.generic) else value
                  for key, value in asdict(options).items()}
-    effective.update(phase_count=phase_count, duplicate_phase_endpoint=False,
-                     circular_phase_interpolation=(True if options.circular_phase_interpolation is None
-                                                   else bool(options.circular_phase_interpolation)),
-                     shared_epoch_uncertainty=bool(options.shared_epoch_uncertainty),
-                     combine_epochs_by_product=True, include_parameter_logdet=False,
-                     posterior_method="trapezoid")
     diagnostics = {
         "mode": mode, "dimension": dimension, "observation": "observed-research",
         "data_nonzero_truth": bool(np.any(data != 0)), "data_radians": data.tolist(),
@@ -245,7 +211,7 @@ def calculate_observed(
         "posterior_density": np.asarray(densities).tolist(), "cdf": np.asarray(cdfs).tolist(),
         "boundaries": boundaries, "fits": fits, "prior": options.prior,
         "coupling_prior_bounds": [float(couplings[0]), float(couplings[-1])],
-        "credibility": 0.95, "posterior_method": "trapezoid", "density_measure": "dg",
+        "credibility": options.credibility, "posterior_method": "trapezoid", "density_measure": "dg",
         "fixed_covariance_logdet_omitted": True, "response_model_variance_included": False,
         "warnings": [
             "Working image-ensemble covariance is not calibrated observational sampling covariance.",

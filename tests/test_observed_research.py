@@ -39,7 +39,8 @@ def observations(zero=False):
     )
 
 
-BASE = dict(prior="log-uniform", grmhd_sigma_degrees=1.9752611467515768, time_conversion=0.112411,
+BASE = dict(prior="log-uniform", credibility=0.95, grmhd_sigma_degrees=1.9752611467515768,
+            time_conversion=0.112411,
             exposure_hours=6.0, day_gap_hours=24.0, pair_separation_hours=120.0, n_principal=2,
             reference_norm=0.1, cloud_coefficient=0.03, cloud_pivot_alpha=0.05, cloud_exponent=1.75)
 
@@ -50,9 +51,8 @@ def options(**kwargs):
 
 
 def full_signal(amplitude, phase, opts):
-    signal, _ = evpa_templates(
+    signal = evpa_templates(
         0.1, amplitude, phase, phase_count=opts.phase_count,
-        circular_phase_interpolation=opts.circular_phase_interpolation,
         time_conversion=opts.time_conversion, exposure_hours=opts.exposure_hours,
         day_gap_hours=opts.day_gap_hours, pair_separation_hours=opts.pair_separation_hours,
         n_principal=opts.n_principal, reference_norm=opts.reference_norm,
@@ -92,11 +92,11 @@ def test_dense_external_gaussian_shared_phase_oracle(dimension, mode, prior):
                                rtol=2e-12, atol=1e-11)
     np.testing.assert_allclose(diag["log_likelihood"][0], expected - constant,
                                rtol=2e-12, atol=1e-11)
-    assert cuts[0] == pytest.approx(np.log10(posterior_upper_limit(grid, expected, prior=prior)))
+    limit = posterior_upper_limit(grid, expected, credibility=0.95, prior=prior)
+    assert cuts[0] == pytest.approx(np.log10(limit))
     np.testing.assert_array_equal(alpha, [0.1])
     assert diag["data_nonzero_truth"] is True
     assert diag["response_model_variance_included"] is False
-    assert diag["effective_options"]["combine_epochs_by_product"] is True
     assert diag["fixed_covariance_logdet_omitted"] is True
     np.testing.assert_allclose(diag["effective_pair_covariances"], covariances)
     assert np.all(np.diff(diag["cdf"][0]) >= 0)
@@ -189,7 +189,7 @@ def test_gaussian_residual_is_not_rewrapped(monkeypatch):
     import eht_axion.research.observed as observed
 
     signal = np.full((2, 2, 3), 2.0)
-    monkeypatch.setattr(observed, "evpa_templates", lambda *a, **k: (signal, np.zeros_like(signal)))
+    monkeypatch.setattr(observed, "evpa_templates", lambda *a, **k: signal)
     obs = replace(observations(), pair_differences=np.full((2, 3), -1.5))
     amplitude, phase = products()
     opts = options(cloud_coefficient=1, cloud_exponent=0, coupling_min=1, coupling_max=2)
@@ -201,12 +201,10 @@ def test_gaussian_residual_is_not_rewrapped(monkeypatch):
 
 
 @pytest.mark.parametrize("change", [
-    {"legacy": True}, {"legacy": None}, {"legacy": "false"},
-    {"combine_epochs_by_product": False}, {"duplicate_phase_endpoint": True},
-    {"include_parameter_logdet": "yes"}, {"posterior_method": "legacy"},
+    {"credibility": 1.0}, {"credibility": 0}, {"credibility": True},
     {"prior": "bad"}, {"coupling_points": 1}, {"coupling_points": True},
     {"coupling_min": 0}, {"coupling_max": np.inf}, {"coupling_min": True},
-    {"std_covariance": "bad"}, {"grmhd_sigma_degrees": -1},
+    {"grmhd_sigma_degrees": -1},
     {"phase_count": 1}, {"phase_count": 2.5}, {"n_principal": False},
     {"time_conversion": 0}, {"exposure_hours": -1}, {"day_gap_hours": 0},
     {"pair_separation_hours": -1}, {"reference_norm": 0},
@@ -277,7 +275,7 @@ def test_multiple_alphas_interpolation_and_resolved_options():
     amplitude, phase = products("2d")
     amplitude[0.2] = amplitude[0.1] * 1.3
     phase[0.2] = phase[0.1] + np.array([[[2.0]], [[0.01]]])
-    opts = options(phase_count=64, circular_phase_interpolation=np.bool_(False))
+    opts = options(phase_count=64)
     obs = observations(zero=True)
     alpha, cuts, diag = calculate_observed(obs, amplitude, phase, [0.1, 0.15, 0.2],
                                            dimension="2d", mode="cor", options=opts)
@@ -285,28 +283,14 @@ def test_multiple_alphas_interpolation_and_resolved_options():
     assert np.isfinite(cuts).all()
     assert np.shape(diag["phase_log_likelihood"]) == (3, 23, 64)
     assert diag["effective_options"]["phase_count"] == 64
-    assert diag["effective_options"]["circular_phase_interpolation"] is False
-    assert diag["effective_options"]["include_parameter_logdet"] is False
+    assert "legacy" not in diag["effective_options"]
     json.dumps(diag, allow_nan=False)
 
 
-@pytest.mark.parametrize("stds", [(), (np.ones(3),) * 3, (np.ones(2),) * 4,
-                                      (np.full(3, -1.0),) * 4, (np.full(3, np.nan),) * 4,
-                                      (np.zeros(3),) * 4])
-def test_invalid_historical_daily_sigmas(stds):
-    amplitude, phase = products()
-    with pytest.raises(ValueError):
-        calculate_observed(replace(observations(), standard_deviations=stds), amplitude, phase,
-                           [0.1], options=options(std_covariance="legacy-sigma"))
-
-
-def test_option_type_and_removed_observed_option_rejected():
+def test_option_type_rejected():
     amplitude, phase = products()
     with pytest.raises(TypeError, match="LimitOptions"):
         calculate_observed(observations(), amplitude, phase, [0.1], options={})
-    with pytest.raises(TypeError, match="observed"):
-        LimitOptions(**BASE, phase_count=9, coupling_points=23, coupling_min=0.01, coupling_max=8,
-                     observed=True)
     with pytest.raises(TypeError):
         calculate_observed(observations(), amplitude, phase, [0.1])
 

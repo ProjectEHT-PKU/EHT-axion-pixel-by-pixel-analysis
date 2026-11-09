@@ -66,7 +66,7 @@ def branch_risk(pairs, covariances):
     return report
 
 
-def build_observations(samples, selected_indices, *, resultant_min=.7):
+def build_observations(samples, selected_indices, *, resultant_min):
     """Build actual later-minus-earlier pairs and exactly matched zero-center NULL.
 
     Selection depends only on concentration, not the size of day differences.

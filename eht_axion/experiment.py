@@ -53,7 +53,7 @@ SCHEMA = {
     "analysis.cloud": {"coefficient", "pivot_alpha", "exponent"},
     "analysis.background": {"lag_frames", "method"},
     "analysis.inference": {"phase_count", "coupling_points", "coupling_min", "coupling_max", "prior",
-                           "exposure_hours", "day_gap_hours", "pair_separation_hours"},
+                           "credibility", "exposure_hours", "day_gap_hours", "pair_separation_hours"},
 }
 EHT_DAYS = (95, 96, 100, 101)
 # Machine-local eht-imaging locations; recorded in the imaging plan, never in YAML.
@@ -269,6 +269,8 @@ def _validate_analysis(config):
     lower = _positive(inference["coupling_min"], "analysis.inference.coupling_min")
     _number(inference["coupling_max"], "analysis.inference.coupling_max", low=lower, open_low=True)
     _choice(inference["prior"], "analysis.inference.prior", ("log-uniform", "uniform"))
+    _number(inference["credibility"], "analysis.inference.credibility", low=0, high=1,
+            open_low=True, open_high=True)
     _positive(inference["day_gap_hours"], "analysis.inference.day_gap_hours")
     for key in ("exposure_hours", "pair_separation_hours"):
         _number(inference[key], f"analysis.inference.{key}", low=0)

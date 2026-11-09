@@ -17,7 +17,7 @@ CLOUD = dict(coefficient=0.03, pivot_alpha=0.05, exponent=1.75)
 
 def options(**changes):
     return replace(LimitOptions(
-        prior="log-uniform", coupling_points=13, coupling_min=0.02, coupling_max=2.0,
+        prior="log-uniform", credibility=0.95, coupling_points=13, coupling_min=0.02, coupling_max=2.0,
         grmhd_sigma_degrees=2.0, phase_count=7, time_conversion=0.112411, exposure_hours=6.0,
         day_gap_hours=24.0, pair_separation_hours=120.0, n_principal=2, reference_norm=0.1,
         cloud_coefficient=0.03, cloud_pivot_alpha=0.05, cloud_exponent=1.75), **changes)
@@ -43,12 +43,11 @@ def observations():
     )
 
 
-def test_reference_norm_scales_signal_and_sigma_inversely(products):
+def test_reference_norm_scales_signal_inversely(products):
     baseline = evpa_templates(0.1, *products, **TEMPLATE)
     changed = evpa_templates(0.1, *products, **dict(TEMPLATE, reference_norm=0.25))
-    for original, scaled in zip(baseline, changed):
-        assert np.any(original != 0)
-        np.testing.assert_allclose(scaled, original * (0.1 / 0.25), rtol=2e-15)
+    assert np.any(baseline != 0)
+    np.testing.assert_allclose(changed, baseline * (0.1 / 0.25), rtol=2e-15)
 
 
 @pytest.mark.parametrize("alpha", [0.1, 0.25, 0.44])

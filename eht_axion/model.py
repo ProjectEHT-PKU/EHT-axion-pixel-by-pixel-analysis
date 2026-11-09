@@ -41,7 +41,7 @@ def interpolate_fit_parameters(
     alpha: float,
     values: Mapping[float, NDArray[np.floating]],
     *,
-    circular: bool = False,
+    circular: bool,
 ) -> NDArray[np.floating]:
     """Interpolate fit products in alpha, treating phase means circularly."""
     if not np.isfinite(alpha) or alpha <= 0:
@@ -94,24 +94,20 @@ def evpa_templates(
     pair_separation_hours: float,
     n_principal: int,
     reference_norm: float,
-    legacy: bool = False,
-    duplicate_endpoint: bool | None = None,
-    circular_phase_interpolation: bool | None = None,
-    legacy_shared_uncertainty: bool | None = None,
-) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
-    """Return two-epoch signal templates and their propagated uncertainties.
+) -> NDArray[np.floating]:
+    """Return the two-epoch signal templates.
 
-    Signals and propagated standard deviations have unit
-    ``gagg * cloud_amplitude_scaling(alpha)`` and shape
+    Signals have unit ``gagg * cloud_amplitude_scaling(alpha)`` and shape
     ``(phase, epoch_pair, spatial...)``. ``day_gap_hours`` is the within-pair
     observation separation (one day); ``pair_separation_hours`` separates the
-    two pair midpoints (five days).
-    Corrected phases advance by omega*time; legacy retains the extra /2.
-    Exposure is a rectangular time average. The first pair midpoint is the
-    phase origin, absorbing the unobservable common cosine-to-sine shift.
+    two pair midpoints (five days). Phases advance by omega*time on a uniform
+    phase grid without a duplicated endpoint; fit phases are interpolated in
+    alpha on the unit circle. Exposure is a rectangular time average. The first
+    pair midpoint is the phase origin, absorbing the unobservable common
+    cosine-to-sine shift.
 
     ``reference_norm`` is the RAPTOR axion normalisation of the fit products;
-    both signal and uncertainty scale inversely with it.
+    the signal scales inversely with it.
     """
     if (isinstance(reference_norm, (bool, np.bool_))
             or not np.isfinite(reference_norm) or reference_norm <= 0):
@@ -126,22 +122,13 @@ def evpa_templates(
                         ("pair_separation_hours", pair_separation_hours)):
         if not np.isfinite(value) or value < 0:
             raise ValueError(f"{name} must be nonnegative and finite")
-    duplicate_endpoint = legacy if duplicate_endpoint is None else duplicate_endpoint
-    circular_phase_interpolation = (
-        not legacy if circular_phase_interpolation is None else circular_phase_interpolation
-    )
-    legacy_shared_uncertainty = (
-        legacy if legacy_shared_uncertainty is None else legacy_shared_uncertainty
-    )
     if set(amplitude_parameters) != set(phase_parameters):
         raise ValueError("amplitude and phase grids differ")
-    amplitude = interpolate_fit_parameters(alpha, amplitude_parameters)
-    phase = interpolate_fit_parameters(
-        alpha, phase_parameters, circular=circular_phase_interpolation
-    )
+    amplitude = interpolate_fit_parameters(alpha, amplitude_parameters, circular=False)
+    phase = interpolate_fit_parameters(alpha, phase_parameters, circular=True)
     if amplitude.shape != phase.shape:
         raise ValueError("amplitude and phase shapes differ")
-    initial_phase = np.linspace(0, 2 * np.pi, phase_count, endpoint=duplicate_endpoint).reshape(
+    initial_phase = np.linspace(0, 2 * np.pi, phase_count, endpoint=False).reshape(
         (phase_count,) + (1,) * (amplitude.ndim - 1)
     )
     angular_frequency = omega(alpha, n_principal)
@@ -153,23 +140,8 @@ def evpa_templates(
         / reference_norm
     )
     phase_first = initial_phase + phase[0]
-    phase_second = (
-        phase_first + time_conversion * angular_frequency / (2 if legacy else 1)
-        * pair_separation_hours
-    )
+    phase_second = phase_first + time_conversion * angular_frequency * pair_separation_hours
     signal = constant * amplitude[0] * np.stack((np.sin(phase_first), np.sin(phase_second)), axis=1)
-    uncertainty = np.stack(
-        tuple(
-            np.sqrt(
-                (constant * np.sin(epoch_phase) * amplitude[1]) ** 2
-                + (constant * amplitude[0] * np.cos(epoch_phase) * phase[1]) ** 2
-            )
-            for epoch_phase in (phase_first, phase_second)
-        ),
-        axis=1,
-    )
-    if legacy_shared_uncertainty:
-        uncertainty[:, 1] = uncertainty[:, 0]
-    if not np.all(np.isfinite(signal)) or not np.all(np.isfinite(uncertainty)):
+    if not np.all(np.isfinite(signal)):
         raise ValueError("template calculation produced nonfinite values")
-    return signal, uncertainty
+    return signal

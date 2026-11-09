@@ -43,7 +43,7 @@ def options_from_config(config, background_sigma_radians):
         raise ValueError('Background sigma must be finite nonnegative radians')
     settings, cloud = config['analysis']['inference'], config['analysis']['cloud']
     return LimitOptions(
-        legacy=False, phase_count=settings['phase_count'],
+        phase_count=settings['phase_count'], credibility=settings['credibility'],
         coupling_points=settings['coupling_points'], coupling_min=settings['coupling_min'],
         coupling_max=settings['coupling_max'], prior=settings['prior'],
         time_conversion=1 / physical_scale(config).tg_hours,
@@ -53,9 +53,7 @@ def options_from_config(config, background_sigma_radians):
         # Template amplitudes are per unit of the RAPTOR axion normalisation.
         reference_norm=config['raptor']['response']['reference_norm'], cloud_coefficient=cloud['coefficient'],
         cloud_pivot_alpha=cloud['pivot_alpha'], cloud_exponent=cloud['exponent'],
-        grmhd_sigma_degrees=float(np.rad2deg(sigma)), std_covariance='covariance',
-        duplicate_phase_endpoint=False, combine_epochs_by_product=True,
-        posterior_method='trapezoid')
+        grmhd_sigma_degrees=float(np.rad2deg(sigma)))
 
 
 def validate_templates(root, config, seen):
@@ -144,7 +142,8 @@ def save_results(out, products, prepared, config, sigmas, identity):
     plot_results(out, results)
     report = dict(identity, results=results,
                   supported_cases=[f'{mode}-{dim}' for dim in ('1d', '2d') for mode in MODES],
-                  background_sigma_radians=sigmas, confidence=.95,
+                  background_sigma_radians=sigmas,
+                  confidence=config['analysis']['inference']['credibility'],
                   response_model_variance_included=False, canonical_null_modified=False,
                   warnings=['D-draw scatter is working covariance, not calibrated measurement noise.',
                             'Independent days assumed; common generating D does not identify cross-day C.',

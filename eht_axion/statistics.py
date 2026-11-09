@@ -17,7 +17,7 @@ def normalized_posterior_cdf(
     grid: ArrayLike,
     log_likelihood: ArrayLike,
     *,
-    prior: str = "log-uniform",
+    prior: str,
 ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
     """Return normalized posterior density and CDF on an arbitrary grid.
 
@@ -56,8 +56,8 @@ def posterior_upper_limit(
     grid: ArrayLike,
     log_likelihood: ArrayLike,
     *,
-    credibility: float = 0.95,
-    prior: str = "log-uniform",
+    credibility: float,
+    prior: str,
 ) -> float:
     """Invert the same piecewise-linear density used by trapezoidal integration.
 

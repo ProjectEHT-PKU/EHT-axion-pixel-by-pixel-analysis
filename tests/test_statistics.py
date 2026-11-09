@@ -6,13 +6,13 @@ from eht_axion.statistics import normalized_posterior_cdf, posterior_upper_limit
 
 def test_log_uniform_constant_likelihood_is_uniform_in_log():
     grid = np.logspace(-2, 2, 10001)
-    limit = posterior_upper_limit(grid, np.zeros_like(grid), prior="log-uniform")
+    limit = posterior_upper_limit(grid, np.zeros_like(grid), credibility=0.95, prior="log-uniform")
     assert np.log10(limit) == pytest.approx(1.8, abs=2e-3)
 
 
 def test_uniform_prior_constant_likelihood():
     grid = np.linspace(1, 101, 10001)
-    limit = posterior_upper_limit(grid, np.zeros_like(grid), prior="uniform")
+    limit = posterior_upper_limit(grid, np.zeros_like(grid), credibility=0.95, prior="uniform")
     assert limit == pytest.approx(96.0, abs=1e-3)
 
 
@@ -55,4 +55,4 @@ def test_quantile_handles_zero_density_plateaus():
 ])
 def test_posterior_shape_and_finite_guards(grid, logs):
     with pytest.raises(ValueError):
-        normalized_posterior_cdf(grid, logs)
+        normalized_posterior_cdf(grid, logs, prior="log-uniform")

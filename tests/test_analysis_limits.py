@@ -41,7 +41,7 @@ def test_population_scatter_not_mean_error_and_pi_invariance():
 
 def test_independent_day_pair_sum_and_exact_matched_null():
     data, centers = samples()
-    obs, null, metadata = build_observations(data, np.array([4, 14]))
+    obs, null, metadata = build_observations(data, np.array([4, 14]), resultant_min=.7)
     circular_means = np.array([.5 * np.angle(np.mean(np.exp(2j * v), axis=0)) for v in data])
     np.testing.assert_allclose(obs.means, circular_means, atol=1e-14)
     assert np.max(np.abs(circular_difference(obs.means, centers))) > .001
@@ -57,7 +57,7 @@ def test_independent_day_pair_sum_and_exact_matched_null():
     assert metadata['covariance_of_mean'] is False
     # Arbitrary independent draw permutations cannot change the answer.
     permuted = [v[np.random.default_rng(i).permutation(len(v))] for i, v in enumerate(data)]
-    other, _, _ = build_observations(permuted, np.array([4, 14]))
+    other, _, _ = build_observations(permuted, np.array([4, 14]), resultant_min=.7)
     np.testing.assert_allclose(other.pair_covariances, obs.pair_covariances, atol=1e-14)
 
 
@@ -111,15 +111,16 @@ def test_matched_aperture_manual_intensity_quadrature():
 
 def test_no_hidden_covariance_repair():
     with pytest.raises(ValueError, match='positive definite'):
-        build_observations([np.zeros((10, 2))] * 4, np.array([4, 14]))
+        build_observations([np.zeros((10, 2))] * 4, np.array([4, 14]), resultant_min=.7)
 
 
 def test_three_fixed_c_modes_share_grid_and_phase_product():
     data, _ = samples()
-    obs, null, _ = build_observations(data, np.array([0, 1]))
+    obs, null, _ = build_observations(data, np.array([0, 1]), resultant_min=.7)
     amp = {.1: np.array([[1., .8], [0., 0.]])}
     phase = {.1: np.array([[.1, .4], [0., 0.]])}
-    options = LimitOptions(prior='log-uniform', coupling_points=12, coupling_min=1 / 137, coupling_max=1000.,
+    options = LimitOptions(prior='log-uniform', credibility=.95, coupling_points=12, coupling_min=1 / 137,
+                           coupling_max=1000.,
                            grmhd_sigma_degrees=2., phase_count=8, time_conversion=0.112411,
                            exposure_hours=6., day_gap_hours=24., pair_separation_hours=120., n_principal=2,
                            reference_norm=.1, cloud_coefficient=.03, cloud_pivot_alpha=.05,
@@ -130,7 +131,6 @@ def test_three_fixed_c_modes_share_grid_and_phase_product():
                                                 options=options)
             assert np.isfinite(cuts).all()
             assert info['response_model_variance_included'] is False
-            assert info['effective_options']['combine_epochs_by_product'] is True
             assert info['phase_count'] == 8
             assert info['credibility'] == .95
             assert info['data_nonzero_truth'] == (center is obs)
