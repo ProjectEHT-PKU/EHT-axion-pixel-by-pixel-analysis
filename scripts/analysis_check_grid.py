@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Process 3 check: re-evaluate saved selected observations at a denser grid / wider prior.
+"""Analysis check: re-evaluate saved selected observations at a denser grid / wider prior.
 
 --phase-count, --coupling-points and --coupling-max override analysis.inference;
 everything else must be the experiment that produced the source limits. No EHT

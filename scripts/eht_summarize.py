@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Process 2 -> 3: summarize the copied fixed-D FITS draws of eht_sample.py into ensembles.
+"""EHT imaging: summarize the copied fixed-D FITS draws of eht_sample.py into EHT ensembles.
+
+The ensembles are the EHT input of the analysis (analysis_limits.py).
 
 pixi run -e eht-research python scripts/eht_summarize.py --dataset-root ROOT --output-root OUT
 Draw count, sky grid, aperture (radius, width) and the resultant threshold come

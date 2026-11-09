@@ -2,13 +2,15 @@
 # written exactly once; code derives everything else from it (eht_axion/experiment.py).
 # Machine paths and execution switches are NOT here (CLI options / .env files).
 #
-# Processes, in order:
-#   1. raptor       RAPTOR ray tracing of the BHAC GRMHD flow with the axion field
-#   2. eht_imaging  EHT Paper VII fixed-I polarimetric imaging of the 2017 uvfits data
-#   3. analysis     templates from (1), feature selection on (2), likelihood and limits
-# A process may read `shared` and the sections of the processes before it.
+# Two independent inputs and the analysis that combines them:
+#   raptor       RAPTOR ray tracing of the BHAC GRMHD flow with the axion field
+#   eht_imaging  EHT Paper VII fixed-I polarimetric imaging of the 2017 uvfits data
+#   analysis     templates from the RAPTOR images, feature selection on the EHT
+#                ensembles, likelihood and limits on c
+# Each script reads `shared` plus its own section; the analysis also reads the
+# raptor and eht_imaging values it needs.
 
-shared:  # values used by more than one process
+shared:  # values used by more than one part
   mass_solar: 6500000000.0       # M87* mass (EHT 2018 Paper II, 2025)
   distance_mpc: 16.8
   label_step_tg: 0.1             # GRMHD snapshot label step -> time in t_g
@@ -21,7 +23,7 @@ shared:  # values used by more than one process
                                  # AND to simulated images; an additional matching kernel,
                                  # NOT an effective PSF
 
-raptor:  # process 1: what determines the ray-traced Stokes images
+raptor:  # simulation input: what determines the ray-traced Stokes images
   camera_fov_rg: 46.2261         # camera width in gravitational radii
   build:                         # RAPTOR setup.sh options
     model: bhac
@@ -66,7 +68,7 @@ raptor:  # process 1: what determines the ray-traced Stokes images
     xprobmax: [7.824046010856292, 0.5, 1.0]
     hslope: 0.0
 
-eht_imaging:  # process 2: Paper IV/VII method (fixed I, D-term solution, D-term Monte Carlo)
+eht_imaging:  # observation input: Paper IV/VII method (fixed I, D-term solution, D-term Monte Carlo)
   # Data identity: official HOPS low-band uvfits per day, [file name, sha256].
   # The directory, input receipt, feed-rotation table and official script are given
   # per machine (.env or CLI), see README.
@@ -98,7 +100,7 @@ eht_imaging:  # process 2: Paper IV/VII method (fixed I, D-term solution, D-term
   residual_d_sigma: 0.01         # ehtim cerror convention: 1% SD per real/imag component
   residual_d_convention: per_component_sd
 
-analysis:  # process 3: from simulated images and EHT ensembles to limits on c
+analysis:  # combines both inputs: from simulated images and EHT ensembles to limits on c
   rotation_degrees: 108.0        # rotate simulated images onto the sky
   aperture:                      # 1D observable: intensity-weighted pizza-slice EVPA
     weighting: intensity

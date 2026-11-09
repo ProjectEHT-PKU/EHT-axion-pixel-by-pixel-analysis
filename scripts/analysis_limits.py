@@ -1,4 +1,4 @@
-"""Process 3, step 2: observed and matched-NULL limits on c from the EHT ensembles.
+"""Analysis: observed and matched-NULL limits on c from the EHT ensembles.
 
 Inputs: the templates root of analysis_templates.py and the fixed-D EHT ensemble
 summary of eht_summarize.py. Feature selection, cloud model, background and the

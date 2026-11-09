@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Process 2, D-term Monte Carlo: fixed-I/fixed-D P images for every D draw (4 days x draws).
+"""EHT imaging, D-term Monte Carlo: fixed-I/fixed-D P images for every D draw (4 days x draws).
 
 Science values (draw count, seed, fsys, uv cut, D-term statistics, sky grid and
 display blur) come from experiment.yaml; the input bundle holds the four verified

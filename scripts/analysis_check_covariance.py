@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Process 3 check: split-MC covariance sensitivity at fixed features and observed center.
+"""Analysis check: split-MC covariance sensitivity at fixed features and observed center.
 
 Each half estimates covariance, not covariance of the mean. The selected features
 and real day differences stay fixed; no mask selection or covariance ridge.

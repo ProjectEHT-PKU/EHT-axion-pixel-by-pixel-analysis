@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Process 3, step 5: summary tables/figures of the limits and their checks.
+"""Analysis: summary tables/figures of the limits and their checks.
 
 Inputs are completed small stages only (limits of analysis_limits.py, the grid and
 prior checks of analysis_check_grid.py, optionally the covariance check); raw

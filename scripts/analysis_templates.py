@@ -1,4 +1,4 @@
-"""Process 3, step 1: response templates and the GRMHD background from delivered RAPTOR data.
+"""Analysis: response templates and the GRMHD background from delivered RAPTOR data.
 
 Reads the delivered Stokes cubes (scripts/raptor_merge.py or raptor_generate.py)
 and writes, into a NEW output root, one verified stage per step:

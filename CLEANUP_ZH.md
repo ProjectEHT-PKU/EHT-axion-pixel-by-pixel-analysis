@@ -2,16 +2,17 @@
 
 本次整理的目标：让物理学家能逐项审核整个流水线。所有科学参数集中到仓库根目录的
 **一个**参数文件 `experiment.yaml`，每个数值只写一次；删除旧的“空假设（null-only）”
-工作流和各类旁支研究脚本；删除只用于“检查副本是否一致”的代码；脚本按三个过程的顺序
+工作流和各类旁支研究脚本；删除只用于“检查副本是否一致”的代码；脚本按所属部分（raptor_ / eht_ / analysis_）
 重新命名。旧产品的兼容路径全部删除（按用户决定），旧的 RAPTOR 作业通过一个**不属于
 流水线**的一次性迁移脚本转换为新格式，然后用新代码从头到尾重算并与旧结果逐数比较。
 
-三个过程：
+两个互相独立的输入，以及把二者结合起来的分析（RAPTOR 模拟与 EHT 成像之间没有先后关系，
+可以按任意顺序或同时进行；只有分析同时需要二者的产品）：
 
-1. **RAPTOR 模拟**：带轴子场的 GRMHD 流的偏振射线追踪图像；
-2. **EHT 成像**：按 EHT Paper VII 对 2017 年 M87* uvfits 数据做固定 I 的偏振成像、
-   D 项求解，以及每天 1000 次 D 项抽样（共 4000 幅图像）；
-3. **分析**：模拟图像预处理（19 µas 模糊、旋转 108°、重采样到 64²/120 µas）、逐快照
+* **RAPTOR 模拟**（输入之一）：带轴子场的 GRMHD 流的偏振射线追踪图像；
+* **EHT 成像**（输入之一）：按 EHT Paper VII 对 2017 年 M87* uvfits 数据做固定 I 的偏振成像、
+  D 项求解，以及每天 1000 次 D 项抽样（共 4000 幅图像）；
+* **分析**（结合二者）：模拟图像预处理（19 µas 模糊、旋转 108°、重采样到 64²/120 µas）、逐快照
    一阶谐波 EVPA 响应拟合、141 个快照上的模板、由无轴子快照对给出的背景 σ、EHT 系综上的
    特征选择、高斯似然、对相位边缘化的贝叶斯 c 上限。分析只遵循 EHT Paper VII：EHT 图像按重建
    结果直接使用（Paper VII 第 5.2 节的居中在本复现中等于零平移，即原来的 `native`）；
@@ -19,9 +20,9 @@
 
 ---
 
-## 1. 删除了什么
+## 删除了什么
 
-### 1.1 文件
+### 文件
 
 | 类别 | 删除 | 说明 |
 |---|---|---|
@@ -47,7 +48,7 @@
 `cloud_amplitude_scaling`、`calculate_observed` 的 alpha 网格、常量 `ALPHAS / AXION_NORM /
 TIME_CONVERSION`）——它们是 YAML 数值的副本；现在所有值都由调用者从 `experiment.yaml` 传入。
 
-### 1.2 行数（`.py` 与 `.yaml`）
+### 行数（`.py` 与 `.yaml`）
 
 | 目录 | 整理前（main 5b1807b） | 整理后 | 变化 |
 |---|---|---|---|
@@ -61,16 +62,17 @@ TIME_CONVERSION`）——它们是 YAML 数值的副本；现在所有值都由�
 
 ---
 
-## 2. `experiment.yaml` 的结构
+## `experiment.yaml` 的结构
 
-一个过程只能读 `shared` 和它之前各过程的段。
+规则：每个脚本读取 `shared` 和它自己的段；分析脚本另外读取它所需要的 raptor / eht_imaging
+中的值（例如相机宽度、轴子归一化、抽样数）。代码中没有段与段之间的先后规则。
 
 | 段 | 一句话说明 |
 |---|---|
-| `shared` | 不止一个过程用到的值：M87* 质量与距离、快照标签步长、alpha 网格、主量子数 n，以及公共天空网格（64 像素、120 µas）和 19 µas 匹配模糊（EHT 的 display19 产品与模拟图像用的是**同一个**物理量：天空平面上对 I/Q/U/V 施加的圆高斯核 FWHM，已核对 ehtim `blur_circ` 与 `pipeline.raptor.preprocess_frame`） |
-| `raptor` | 过程 1：相机宽度 46.2261 rg、build 选项、等离子体参数、快照区间、响应/背景分辨率与轴子归一化、径向函数表及 spin、alpha→表的对应、BHAC 网格 |
-| `eht_imaging` | 过程 2：原 `eht-official.yaml` 去掉移入 `shared` 的 npix/fov/display_blur 以及四个机器路径；保留 uvfits 文件名 + sha256（数据身份）、权重、轮数、重启方案、D 项统计、抽样数与种子 |
-| `analysis` | 过程 3：旋转角、孔径、特征选择规则（强度/偏振阈值 0.1/0.2、像素步长 5、10° 扇区间隔与 4° 偏移、最小半径 2 rg、mask 模式、resultant ≥ 0.7）、云振幅 b(α) 参数、背景时滞与方法、推断网格/先验/时间 |
+| `shared` | 不止一个部分用到的值：M87* 质量与距离、快照标签步长、alpha 网格、主量子数 n，以及公共天空网格（64 像素、120 µas）和 19 µas 匹配模糊（EHT 的 display19 产品与模拟图像用的是**同一个**物理量：天空平面上对 I/Q/U/V 施加的圆高斯核 FWHM，已核对 ehtim `blur_circ` 与 `pipeline.raptor.preprocess_frame`） |
+| `raptor` | RAPTOR 模拟（独立输入）：相机宽度 46.2261 rg、build 选项、等离子体参数、快照区间、响应/背景分辨率与轴子归一化、径向函数表及 spin、alpha→表的对应、BHAC 网格 |
+| `eht_imaging` | EHT 成像（独立输入）：原 `eht-official.yaml` 去掉移入 `shared` 的 npix/fov/display_blur 以及四个机器路径；保留 uvfits 文件名 + sha256（数据身份）、权重、轮数、重启方案、D 项统计、抽样数与种子 |
+| `analysis` | 分析（结合两个输入）：旋转角、孔径、特征选择规则（强度/偏振阈值 0.1/0.2、像素步长 5、10° 扇区间隔与 4° 偏移、最小半径 2 rg、mask 模式、resultant ≥ 0.7）、云振幅 b(α) 参数、背景时滞与方法、推断网格/先验/时间 |
 
 设计决定（均为“每个值只写一次”）：
 
@@ -96,21 +98,23 @@ TIME_CONVERSION`）——它们是 YAML 数值的副本；现在所有值都由�
 
 ---
 
-## 3. 按顺序运行三个过程
+## 运行
+
+RAPTOR 模拟与 EHT 成像互不依赖，可以任意顺序或同时运行；分析需要二者的产品。
 
 ```bash
 pixi install --locked && pixi run check
-# 过程 1：RAPTOR（环境 raptor-build；路径来自 .env.raptor）
+# RAPTOR 模拟（环境 raptor-build；路径来自 .env.raptor）
 pixi run -e raptor-build raptor-build
 pixi run -e raptor-build raptor-generate --plan --plan-output plan.json
 pixi run -e raptor-build raptor-generate
 pixi run -e raptor-build raptor-merge --plan plan.json --job-root RUN_A --job-root RUN_B --output-root MERGED
-# 过程 2：EHT 成像（环境 eht-rebuild；uvfits 位置来自 .env）
+# EHT 成像（环境 eht-rebuild；uvfits 位置来自 .env）
 pixi run -e eht-rebuild eht-reconstruct --stage I --day 95 --output-root I95 --review-file REVIEW
 pixi run -e eht-rebuild eht-reconstruct --stage fiducial --day 95 --i-root I95 --output-root PD95 --review-file REVIEW
 pixi run -e eht-rebuild eht-sample --bundle-root BUNDLE --output-root MC
 pixi run -e eht-research eht-summarize --dataset-root MC_COPY --output-root ENSEMBLE
-# 过程 3：分析（默认环境）
+# 分析（默认环境，需要上面两类产品）
 pixi run analysis-templates --raptor-input-root MERGED/data --output-root TEMPLATES
 pixi run analysis-limits --templates TEMPLATES --ensemble ENSEMBLE --output-root LIMITS
 pixi run analysis-check-grid --source LIMITS --templates TEMPLATES --output-root GRID --phase-count 128 --coupling-points 240
@@ -119,7 +123,7 @@ pixi run analysis-check-covariance --source LIMITS --templates TEMPLATES --outpu
 pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR --covcheck COV --output-root SUMMARY
 ```
 
-脚本一览（过程顺序）：`raptor_build / raptor_generate / raptor_merge`，
+脚本一览（按所属部分）：`raptor_build / raptor_generate / raptor_merge`，
 `eht_reconstruct / eht_refine / eht_refine_d / eht_sample / eht_summarize`，
 `analysis_templates / analysis_limits / analysis_check_grid / analysis_check_covariance / analysis_summarize`，
 以及 `verify_products`。`analysis_templates.py` 取代了原来的 `start_eht_120_templates.py` + `_stage.py` +
@@ -131,7 +135,7 @@ pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR 
 
 ---
 
-## 4. 不兼容旧产品；作业 id 与一次性迁移
+## 不兼容旧产品；作业 id 与一次性迁移
 
 按用户决定，整理后的代码**不含**任何接受旧格式的路径：不接受旧的 `generated.json` 身份、旧作业 id、
 旧配置布局、`stage.json` 或 “imported” 产品。
@@ -155,12 +159,12 @@ pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR 
 
 ---
 
-## 5. 等价性证据
+## 等价性证据
 
 所有证据 JSON 同时保存在 `reports/cleanup-20261106/` 与
 `/home/canoziia/GRMHD_DATA/analysis/cleanup-verify-opus-20261106/evidence/`。
 
-### 5.1 配置（`config-equivalence.json`）
+### 配置（`config-equivalence.json`）
 
 脚本 `check_config.py`：把 main（5b1807b）`configs/` 中被活跃链路读取的每个值、以及 main 活跃脚本中的
 字面量（特征选择阈值、批量抽样常数、系综汇总常数等）与新加载器逐项对比：**101 项全部相等**。
@@ -170,7 +174,7 @@ pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR 
 `eht.topset_size / historical_mask / inherit_2d_mask_in_1d / covariance_ridge`、整个 `eht_input` 块
 （只服务于已删除的旧 pickle/null 工作流）、Rg 模式字段、`response.phase_count`、`background.alpha` 等。
 
-### 5.2 RAPTOR 计划（`raptor-plan-equivalence.json`）
+### RAPTOR 计划（`raptor-plan-equivalence.json`）
 
 `check_raptor_plan.py`：用真实输入（流体 `/home/canoziia/GRMHD_DATA/a094-high`，径向表取自归档计划
 `/home/canoziia/PHYS-production/control/full-plan.json`），`hash_inputs=False`，分别用 main 代码和新代码
@@ -179,7 +183,7 @@ pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR 
 径向表 id/路径/spin **全部相同**；与归档计划逐任务比较也全部相同；任务顺序、快照尾部元数据、径向表元数据、
 build 设置、网格、setup 参数集合、资源估计均相同。唯一变化是任务 id（按设计）。
 
-### 5.3 EHT 成像（`eht-plan-equivalence.json`，`eht-sample-equivalence.json`）
+### EHT 成像（`eht-plan-equivalence.json`，`eht-sample-equivalence.json`）
 
 `check_eht_plan.py`（eht-rebuild 环境，只用 `--plan`，不做成像）：对 `eht-paper-I-{95,96,100,101}-v1`
 按记录的命令行重放，新计划与 main 计划、与记录的 `plan.json` 相比，除 `cli`（配置路径、四个位置参数）与
@@ -190,13 +194,13 @@ build 设置、网格、setup 参数集合、资源估计均相同。唯一变�
 4×1000 次 D 项抽样与任务列表，新代码与 main 代码**逐位相同**；与远程主机记录的结果相比最大差
 5.6×10⁻¹⁷（BLAS/libm 末位差异），分布元数据与 bundle sha256 相同。
 
-### 5.4 迁移（`migration-receipt.json`；完整映射在新根的 `MIGRATION.json`）
+### 迁移（`migration-receipt.json`；完整映射在新根的 `MIGRATION.json`）
 
 18 330/18 330 个旧作业一一匹配，0 个失败；每个作业通过 6 项检查（链接字节等于旧记录、同 inode、
 output.json 除 build 路径外相同、源与径向表 sha256 等于旧记录、输出文件集合相同、task.json 除 id 外相同）。
 耗时 26.6 分钟（8 核），新根占用约 1 GB 实际磁盘（13 GB 为硬链接）。
 
-### 5.5 新代码端到端重算（产品比较 `products-*.json`）
+### 新代码端到端重算（产品比较 `products-*.json`）
 
 在 `/home/canoziia/GRMHD_DATA/analysis/cleanup-verify-opus-20261106/` 下用新代码依次运行
 （`run_verification.sh`，≤8 核，耗时见括号）：
@@ -214,14 +218,14 @@ output.json 除 build 路径外相同、源与径向表 sha256 等于旧记录�
 
 “逐位相同”= 形状、dtype 相同且 `np.array_equal`（NaN 视为相等）；容差 1e-12 实际上未被用到。
 
-### 5.6 测试与静态检查
+### 测试与静态检查
 
 `pytest`（eht-rebuild 环境）659 通过；默认环境 648 通过 / 11 跳过；`ruff check --select E,F,W`
 （行宽 110）无告警。
 
 ---
 
-## 6. 未验证或遗留的问题
+## 未验证或遗留的问题
 
 * **按用户决定跳过的重算**：质心（centroid）上限、质心网格/先验/协方差检查以及基于质心的旧汇总
   `eht-120uas-results-summary-v1` 未重算——质心方案已整体删除，分析只遵循 Paper VII。

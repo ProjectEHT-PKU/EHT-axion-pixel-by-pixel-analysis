@@ -65,7 +65,7 @@ copies.append(dict(section="eht-official npix/fov/display_blur == analysis grid/
                    production_equals_analysis=(E["npix"], E["fov_uas"], E["display_blur_uas"]) == (
                        A["image"]["final_shape"], A["image"]["final_fov_uas"], A["image"]["gaussian_fwhm_uas"])))
 
-# --- process 1: production.yaml (raptor_generate/raptor_build default profile) --------------
+# --- RAPTOR: production.yaml (raptor_generate/raptor_build default profile) --------------
 for key in ("mass_solar", "distance_mpc", "label_step_tg"):
     check(f"production.physical.{key}", P["physical"][key], f"shared.{key}", X["shared"][key])
 check("production.data.alphas", P["data"]["alphas"], "shared.alphas", X["shared"]["alphas"])
@@ -82,7 +82,7 @@ check("production.producer.response.phase_count", P["producer"]["response"]["pha
       "eht_axion.producer.plan.PHASE_COUNT (core: phase k*pi/8)", PHASE_COUNT,
       "fixed by the RAPTOR core, no longer a YAML value")
 
-# --- process 3: eht-120uas-observed.yaml + literals of calculate_eht_ensemble_limits --------
+# --- analysis: eht-120uas-observed.yaml + literals of calculate_eht_ensemble_limits --------
 check("analysis.image.final_fov_uas", A["image"]["final_fov_uas"], "shared.image.fov_uas",
       X["shared"]["image"]["fov_uas"])
 check("analysis.image.final_shape", A["image"]["final_shape"], "shared.image.shape", X["shared"]["image"]["shape"])
@@ -135,7 +135,7 @@ for name, cfg, overrides in (("gridcheck", G, ("phase_count", "coupling_points")
                          new=f"analysis_check_grid --{key.replace('_', '-')}", new_value=cfg["inference"][key],
                          equal=True, note="CLI override (recorded in the check manifest)"))
 
-# --- process 2: eht-official.yaml + literals of run_eht_uncertainty_batch/process_eht_mc ----
+# --- EHT imaging: eht-official.yaml + literals of run_eht_uncertainty_batch/process_eht_mc ----
 shared_image = {"npix": "shape", "fov_uas": "fov_uas", "display_blur_uas": "blur_fwhm_uas"}
 locations = ("input_root", "input_receipt", "feed_rotation_file", "official_script")
 for key, value in E.items():

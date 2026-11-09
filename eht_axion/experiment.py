@@ -1,7 +1,9 @@
 """experiment.yaml: the single parameter file, its validation and derived settings.
 
-Sections (see experiment.yaml): ``shared`` (used by several processes), ``raptor``
-(process 1), ``eht_imaging`` (process 2) and ``analysis`` (process 3). Validation
+Sections (see experiment.yaml): ``shared`` (used by more than one part), the two
+independent inputs ``raptor`` (simulation) and ``eht_imaging`` (observation), and
+``analysis``, which combines them. Each script reads ``shared`` plus its own
+section; the analysis also reads the raptor/eht_imaging values it needs. Validation
 checks structure, types and ranges only; it fills no defaults and never compares
 a value with a copy of itself. Derived settings (unit conversions, the subset of
 values that determines RAPTOR rays, the eht-imaging parameter set) are computed

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Process 2: Paper IV/VII polarimetric imaging (stages I, fiducial, uncertainty), one day per root.
+"""EHT imaging: Paper IV/VII polarimetric imaging (stages I, fiducial, uncertainty), one day per root.
 
 Scientific parameters: experiment.yaml (eht_imaging + shared.image). Machine-local
 locations (uvfits directory, input receipt, feed-rotation table, official script)
