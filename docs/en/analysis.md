@@ -115,6 +115,19 @@ transposing to the same axis order, to every EHT draw, so model and data use an 
 observable. After the operator, the bins are rolled by 90 so that bin $k$ is centred
 $k$ degrees east of north.
 
+With the quadrature weights $W_{kj}$ of sector $k$ and pixel $j$, the code computes:
+
+- the sector EVPA $\chi_k = \tfrac12\arg\sum_j W_{kj}\, I_j (Q_j + iU_j)$
+  (`integrate_stokes`; EHT Paper VII eq. 11 with this quadrature);
+- the sector intensity $B_k = \sum_j W_{kj}\, I_j$;
+- the intensity-weighted mean polarized brightness
+  $\langle\mathcal{P}\rangle_k = \sum_j W_{kj}\, I_j \lvert P_j\rvert / \sum_j W_{kj}\, I_j$
+  with $\lvert P\rvert = \sqrt{Q^2+U^2}$ (`sector_brightness`; Paper VII eq. 10 with this
+  quadrature).
+
+$B_k$ and $\langle\mathcal{P}\rangle_k$ use the same weights and the same intensity
+weighting as the observable; they are used only to select sectors.
+
 ### Signal model
 
 For one day pair $p$ the model EVPA difference at feature $x$ is linear in $c$:
@@ -157,10 +170,13 @@ template order $[x, y]$; the sky axes must equal the shared grid.
 - both pixel indices are multiples of `pixel_stride` (5).
 
 1D features are sectors $k$ with $k \bmod$ `sector_spacing_degrees` $=$
-`sector_offset_degrees` (4°, 14°, …, 354°) such that the template is valid, the recomputed
-aperture EVPA is finite in every draw of every day, and, on every day, the draw-mean
-native sector `intensity` and `polarized_brightness` reach the same two fractions of their
-maxima.
+`sector_offset_degrees` (4°, 14°, …, 354°) such that the template is valid, the sector
+EVPA $\chi_k$ is finite in every draw of every day, and, on every day, the draw means of
+$B_k$ and $\langle\mathcal{P}\rangle_k$ (see [Aperture observable](#aperture-observable))
+satisfy $\bar B_k \ge$ `intensity_fraction` $\times \max_k \bar B_k$ and
+$\overline{\langle\mathcal{P}\rangle}_k \ge$ `polarization_fraction` $\times
+\max_k \overline{\langle\mathcal{P}\rangle}_k$. All three statistics are computed from
+each EHT draw with the aperture operator.
 
 Then `build_observations` keeps only features whose circular resultant length
 $R = \lvert\langle e^{2i\chi}\rangle\rvert$ over the draws is at least `resultant_min` (0.7)

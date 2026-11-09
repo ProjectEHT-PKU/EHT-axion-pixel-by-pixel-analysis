@@ -343,15 +343,6 @@ def run_fiducial(base, fixed, c, core, eh, out):
          note='stop is numerical ftol/gtol, not a paper-mandated science threshold'))
 
 
-def image_statistics(image):
-    """Whole-image quantities only; aperture/profile/beta2 definitions await review."""
-    import numpy as np
-
-    i, p = image.imvec, image.qvec + 1j * image.uvec
-    return dict(net_m=float(abs(p.sum()) / i.sum()), resolved_m=float(np.abs(p).sum() / i.sum()),
-                integrated_evpa_rad=float(.5 * np.angle(p.sum())) if abs(p.sum()) else None)
-
-
 def main(argv=None):
     args = parser().parse_args(argv)
     with provenance.verification_session():

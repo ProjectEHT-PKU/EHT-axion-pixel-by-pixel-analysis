@@ -238,12 +238,10 @@ def run_attempt(root, bundle, task, directory, config, identity, numerical_attem
             image = fixed.copy()
             image.add_qu(P.real.reshape(fixed.ydim, fixed.xdim), P.imag.reshape(fixed.ydim, fixed.xdim))
             image.add_pol_image(np.zeros((fixed.ydim, fixed.xdim)), 'V')
-            blurred = driver.save_image(image, directory / 'best', science, eh)
+            driver.save_image(image, directory / 'best', science, eh)
             cert = dict(solver=report, gap_atol=config['gap_atol'], trace=trace,
                         numerical_attempt=numerical_attempt, budget=dict(maxiter=maxiter, time_limit=limit),
                         unused_station_draws=sorted(set(task['dterms']) - present),
-                        raw_statistics=driver.image_statistics(image),
-                        blurred_statistics=driver.image_statistics(blurred),
                         science_acceptance=False,
                         initial_P=f"{config['initial_p_fraction']:g} I real, no warm start",
                         worker_lifetime_peak_rss_gib=(

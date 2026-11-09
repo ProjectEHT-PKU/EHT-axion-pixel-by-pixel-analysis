@@ -20,7 +20,7 @@ def test_settings_come_from_experiment():
     from eht_axion.experiment import read_experiment
 
     settings = s.summary_settings(read_experiment())
-    assert settings == dict(draws=1000, shape=64, fov_uas=120.0, rmax_uas=60.0, window_degrees=10)
+    assert settings == dict(draws=1000, shape=64, fov_uas=120.0)
 
 
 SCIENCE = {'draws_per_day': 2, 'seed': 1}

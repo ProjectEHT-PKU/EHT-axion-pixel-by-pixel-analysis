@@ -34,7 +34,7 @@ The four locations are machine paths, given on the command line or in `.env`.
 - Bundle: the four I products, the four refined D-term files and the feed table, with
   `bundle.json`.
 - Monte Carlo batch: one certified P image per draw (4 × 1000), with receipts.
-- Ensemble summary: per day `stokes.npy`, `evpa.npy`, `aperture.npz`, `global.npz`, plus
+- Ensemble summary: per day `stokes.npy`, `evpa.npy`, `global.npz`, plus
   `axes.npz` and `report.json`.
 
 File details are on [Data layout](data-layout.md).
@@ -217,19 +217,26 @@ blurred images per day (no further blur) and writes, per day under `day-<day>/`:
   orientation (east offset decreases along x, north increases along y);
 - `evpa.npy`: EVPA $\tfrac12\arg(Q+iU)$ modulo $\pi$ in radians, NaN where $I \le 0$ or
   $Q+iU=0$;
-- `aperture.npz`: native sector curves at 360 one-degree angles east of north, each sector
-  of full width `analysis.aperture.window_degrees` and radius up to 60 µas: `intensity`
-  $=\sum I$ and `polarized_brightness` $=\sum I\lvert P\rvert/\sum I$. The analysis uses
-  these only for 1D feature selection;
-- `global.npz`: whole-field diagnostics per draw: total $I$,
-  $m_\mathrm{net} = \lvert\sum P\rvert/\sum I$,
-  $m_\mathrm{res} = \sum\lvert P\rvert/\sum I$, EVPA of $\sum P$, and
-  $\beta_2 = \sum P\,e^{-2i\varphi}/\sum I$ with $\varphi$ the azimuth east of north about
-  the grid centre (no annulus cut). These are for comparison with Paper VII and are not
-  used by the analysis.
+- `global.npz`: the image-averaged quantities of EHT Paper VII Sec. 5.3 per draw
+  (`global_diagnostics`, columns `total_I`, `m_net`, `m_resolved`, `evpa_rad`,
+  `beta2_real`, `beta2_imag`), as pixel sums over the whole 120 µas field:
+  - $\lvert m\rvert_\mathrm{net} = \lvert\sum_i P_i\rvert/\sum_i I_i$ (Paper VII eq. 12);
+  - $\langle\lvert m\rvert\rangle = \sum_i\lvert P_i\rvert/\sum_i I_i$ (eq. 13; column
+    `m_resolved`);
+  - the EVPA $\tfrac12\arg\sum_i P_i$;
+  - $\beta_2 = \sum_i P_i\,e^{-2i\varphi_i}/\sum_i I_i$ (eq. 14), with $\varphi$ the position
+    angle east of north about the grid centre. The paper takes $\rho_\mathrm{min} = 0$ and
+    $\rho_\mathrm{max}$ covering the full field of view, so that $I_\mathrm{ring}$ is the
+    total flux; the code does the same.
 
-`axes.npz` holds `east_uas`, `north_uas` and `angle_deg`; `report.json` records the
-conventions.
+  The images are the blurred ones (`shared.image.blur_fwhm_uas` = 19 µas, the kernel that
+  Paper VII Sec. 5.1 uses for eht-imaging). The one difference from the paper is the image
+  centre: the paper centres each image at the pixel offset that maximizes the
+  cross-correlation of its blurred Stokes I with the Paper IV consensus image; here the
+  centre is the grid centre. These quantities are for comparison with Paper VII and are
+  not used by the analysis.
+
+`axes.npz` holds `east_uas` and `north_uas`; `report.json` records the conventions.
 
 ### Image centre
 
@@ -247,6 +254,8 @@ the analysis has no re-centring option.
   result.
 - `restart_rounds`, `maxit` and the refinement budget are numerical choices, not values
   from the paper.
+- The image centre for $\beta_2$ (and for all analysis features) is the grid centre, not
+  the cross-correlation centre of Paper VII Sec. 5.2/5.3 (see [Image centre](#image-centre)).
 
 ## Related pages
 

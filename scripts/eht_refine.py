@@ -116,8 +116,7 @@ def run(a, plan, core, eh, out):
         image.add_qu(p.real.reshape(fixed.ydim, fixed.xdim), p.imag.reshape(fixed.ydim, fixed.xdim))
         image.add_pol_image(np.zeros((fixed.ydim, fixed.xdim)), 'V')
         row = dict(call=r, P=report, trace=trace,
-                   raw_QU_delta_L2=float(np.linalg.norm(p-before)),
-                   statistics=original.image_statistics(image))
+                   raw_QU_delta_L2=float(np.linalg.norm(p-before)))
         if r < count:
             solved = core.fit_forward_d(core.add_fsys(base.copy(), c['fsys']), image, sites=c['solve_sites'],
                                         optimizer_options=refine['d_optimizer'], records=d_records)

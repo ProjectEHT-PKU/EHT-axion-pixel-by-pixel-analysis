@@ -5,10 +5,10 @@ The ensembles are the EHT input of the analysis (analysis_limits.py).
 
 pixi run -e eht-research eht-summarize --sample-root MC --output-root OUT
 MC is the output root of eht_sample.py; its batch must be finished and must have been
-made with the science values of the current experiment.yaml. Draw count, sky grid and
-aperture (radius, width) come from experiment.yaml. Only the blurred images (blurred with
+made with the science values of the current experiment.yaml. Draw count and sky grid
+come from experiment.yaml. Only the blurred images (blurred with
 shared.image.blur_fwhm_uas, like the simulated images) are summarized.
-Outputs: day-D/{stokes.npy,evpa.npy,aperture.npz,global.npz},
+Outputs: day-D/{stokes.npy,evpa.npy,global.npz},
 axes.npz, report.json (conventions, registration, scope).
 """
 from pathlib import Path
@@ -32,11 +32,9 @@ def read_json(path):
 
 def summary_settings(config):
     """Values from experiment.yaml used by this summary (recorded in its manifest)."""
-    image, aperture = config['shared']['image'], config['analysis']['aperture']
+    image = config['shared']['image']
     return dict(draws=config['eht_imaging']['uncertainty_draws'], shape=image['shape'],
-                fov_uas=image['fov_uas'],
-                rmax_uas=aperture['radial_max_fraction'] * (image['fov_uas'] / 2),
-                window_degrees=aperture['window_degrees'])
+                fov_uas=image['fov_uas'])
 
 
 def verify_batch(root, settings, science):
@@ -125,28 +123,28 @@ def run(selected, out, settings):
             geometry = (east, north, loaded['frequency_hz'], loaded['bunit'])
             if reference is None:
                 reference = geometry
-                np.savez(out / 'axes.npz', east_uas=east, north_uas=north, angle_deg=np.arange(360.))
+                np.savez(out / 'axes.npz', east_uas=east, north_uas=north)
             elif (not np.array_equal(east, reference[0]) or not np.array_equal(north, reference[1])
                   or geometry[2:] != reference[2:]):
                 raise ValueError('inconsistent FITS axes/frequency/units')
             samples[k] = loaded['stokes']
         samples.flush()
-        # Paper VII Sec. 5.2 centring = zero shift: the images are used as reconstructed.
-        en.summarize(samples, *reference[:2], directory, settings['rmax_uas'], settings['window_degrees'])
+        # The Paper VII Sec. 5.2 alignment is a zero shift here: images used as reconstructed.
+        en.summarize(samples, *reference[:2], directory)
         print(f'SUMMARIZED day-{d}', flush=True)
         del samples
     report = dict(schema='eht-ensemble-v2', days=list(en.DAYS), draws_per_day=draws,
-                  rmax_uas=settings['rmax_uas'],
-                  aperture_full_width_deg=float(settings['window_degrees']),
                   map_order='draw,y,x,IQUV; native FITS E decreases along x, N increases along y',
-                  angle_convention='EVPA radians modulo pi, E of N; aperture angles degrees E of N; no roll',
-                  registration='none: Paper VII Sec. 5.2 centring = zero shift; images used as reconstructed',
+                  angle_convention='EVPA radians modulo pi, east of north',
+                  registration='none: the Paper VII Sec. 5.2 alignment is a zero shift; '
+                               'images used as reconstructed',
                   resolution='blurred products of eht_sample.py (shared.image.blur_fwhm_uas); '
                              'no blur applied here',
                   evpa_mask='EVPA NaN where I <= 0 or Q+iU = 0',
                   scope='conditional fixed-I D-term MC only; no thermal bootstrap, response variance, '
                         'covariance-estimation uncertainty or scientific acceptance certification',
-                  beta2='whole-field sum((Q+iU)*exp(-2i atan2(E,N)))/sum(I); no annular cut',
+                  beta2='Paper VII eq. 14 with rho_min 0 and rho_max the full field: '
+                        'sum((Q+iU)*exp(-2i atan2(E,N)))/sum(I) about the grid centre',
                   frequency_hz=reference[2], bunit=reference[3])
     (out / 'report.json').write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
 
@@ -167,10 +165,9 @@ def main(argv=None):
         p.error(f'new output root required: {destination}')
     with provenance.verification_session():
         selected, inputs, identity = verify_batch(sample, settings, science_settings(args.config))
-        inputs += [Path(__file__).resolve(), args.config.resolve(),
-                   ROOT / 'eht_axion/eht/ensemble.py', ROOT / 'eht_axion/evpa.py']
-        config = dict(batch_identity=identity, rmax_uas=settings['rmax_uas'],
-                      draw_count=settings['draws'] * len(en.DAYS))
+        inputs += [Path(__file__).resolve(), args.config.resolve(), ROOT / 'scripts/eht_sample.py',
+                   *sorted((ROOT / 'eht_axion').rglob('*.py'))]
+        config = dict(batch_identity=identity, draw_count=settings['draws'] * len(en.DAYS))
         with provenance.stage_directory(destination, 'eht:ensemble', config, inputs) as out:
             if out is not None:
                 records = provenance.describe_inputs(inputs)

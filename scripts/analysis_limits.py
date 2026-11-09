@@ -22,7 +22,9 @@ from eht_axion.analysis.observations import (
     DAYS, branch_risk, build_observations, covariance_diagnostics,
 )
 from eht_axion.analysis.templates import load_templates
-from eht_axion.experiment import DEFAULT_PATH, analysis_geometry, physical_scale, read_experiment
+from eht_axion.experiment import (
+    ANGULAR_BINS, DEFAULT_PATH, analysis_geometry, physical_scale, read_experiment,
+)
 from eht_axion.provenance import (
     manifest_path, require_declared_outputs, stage_directory, verification_session, verify_stage,
 )
@@ -80,7 +82,7 @@ def validate_templates(root, config, seen):
         values = load_templates(path, dim)
         if not np.array_equal(values[0], config['shared']['alphas']):
             raise ValueError('Theory alpha grid differs from configuration')
-        expected = (360,) if dim == '1d' else (config['shared']['image']['shape'],) * 2
+        expected = (ANGULAR_BINS,) if dim == '1d' else (config['shared']['image']['shape'],) * 2
         if values[3].shape != expected:
             raise ValueError('Template spatial grid differs from configuration')
         products[dim] = values
@@ -230,26 +232,30 @@ def theory_aperture_operator(config):
                      settings['radial_max'], settings['window_degrees'], settings['angular_bins'])
 
 
-def matched_aperture_samples(native_maps, config, operator):
-    """Recompute native EHT draws with exactly the theory aperture observable.
+def matched_aperture_samples(native_maps, operator):
+    """Sector statistics of every EHT draw with exactly the operator used for the templates.
 
-    Transpose spatial axes only. RAPTOR's _integrate applies its internal -90
-    bin conversion once; the returned bins are North0/East90. Native eht_summarize
-    pixel-sector curves are separate diagnostics, never inference samples.
+    The native maps [draw, y, x] are transposed to the template order [x, y] (axis 0
+    west, axis 1 north); sky bin k is centred k degrees east of north. Returns, each of
+    shape (draws, ANGULAR_BINS): the sector EVPA (the 1D observable), the sector
+    intensity and the I-weighted mean polarized brightness (selection statistics).
     """
-    from eht_axion.analysis.templates import _integrate
+    from eht_axion.analysis.templates import _brightness, _integrate
 
-    curves = np.empty((len(native_maps), 360))
+    evpa = np.empty((len(native_maps), ANGULAR_BINS))
+    intensity, polarized = np.empty_like(evpa), np.empty_like(evpa)
     for k, frame in enumerate(native_maps):
-        curves[k] = _integrate(frame.transpose(1, 0, 2), operator)
-    return curves
+        frame = frame.transpose(1, 0, 2)
+        evpa[k] = _integrate(frame, operator)
+        intensity[k], polarized[k] = _brightness(frame, operator)
+    return evpa, intensity, polarized
 
 
 def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     """Read the EHT ensemble (eht_summarize.py) and select the likelihood features.
 
-    Native[y,x] -> template[x,y], physical (-E,N). Recompute 1D using theory
-    CSR quadrature; native sector apertures are diagnostic only. The ensemble holds the
+    Native[y,x] -> template[x,y], physical (-E,N). Sector EVPAs and sector selection
+    statistics use the same quadrature operator as the templates. The ensemble holds the
     blurred EHT images (shared.image.blur_fwhm_uas, the same blur as the simulated images).
     """
     features = config['analysis']['features']
@@ -264,25 +270,17 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     if (report.get('schema') != 'eht-ensemble-v2'
             or report.get('days') != [str(d) for d in DAYS] or report.get('draws_per_day') != draws
             or record['config'].get('draw_count') != draws * len(DAYS)
-            or report.get('angle_convention') !=
-            'EVPA radians modulo pi, E of N; aperture angles degrees E of N; no roll'
+            or report.get('angle_convention') != 'EVPA radians modulo pi, east of north'
             or report.get('map_order') !=
             'draw,y,x,IQUV; native FITS E decreases along x, N increases along y'):
         raise ValueError('Complete audited fixed-D ensemble contract required')
     axes_path = ensemble / 'axes.npz'
     require_declared_outputs(ensemble, [axes_path])
     with np.load(axes_path, allow_pickle=False) as z:
-        east_axis, north_axis, angles = z['east_uas'], z['north_uas'], z['angle_deg']
-    if not np.array_equal(angles, np.arange(360)):
-        raise ValueError('Audited North0/East90 aperture bins require identity mapping, no extra roll')
-    days = {str(d): dict(stokes=f'day-{d}/stokes.npy', evpa_1d=f'day-{d}/aperture.npz',
-                         evpa_2d=f'day-{d}/evpa.npy') for d in DAYS}
+        east_axis, north_axis = z['east_uas'], z['north_uas']
+    days = {str(d): dict(stokes=f'day-{d}/stokes.npy', evpa_2d=f'day-{d}/evpa.npy') for d in DAYS}
     geometry = analysis_geometry(config)
-    if (report['rmax_uas'] != geometry['metadata']['radial_max_uas']
-            or report['aperture_full_width_deg'] != config['analysis']['aperture']['window_degrees']):
-        raise ValueError('Ensemble aperture radius/width differs from the analysis aperture')
     # Native maps are [y, x] with E decreasing along x; templates are [x, y] on (-E, N).
-    bins = np.arange(360)  # both use North0/East90 one-degree bins: identity, no roll
     n = config['shared']['image']['shape']
     if east_axis.shape != (n,) or north_axis.shape != (n,):
         raise ValueError('Ensemble grid size differs from shared.image.shape')
@@ -299,26 +297,23 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     operator = theory_aperture_operator(config)
     for day in DAYS:
         entry = days[str(day)]
-        paths = [ensemble / entry[key] for key in ('stokes', 'evpa_1d', 'evpa_2d')]
+        paths = [ensemble / entry[key] for key in ('stokes', 'evpa_2d')]
         require_declared_outputs(ensemble, paths)
         inputs.extend(paths)
         maps = np.load(paths[0], mmap_mode='r', allow_pickle=False)
-        aperture = matched_aperture_samples(maps, config, operator)
-        with np.load(paths[1], allow_pickle=False) as z:
-            # Native pixel-sector brightness defines a declared diagnostic mask,
-            # but its EVPA samples are NOT the matched inference observable.
-            intensity_1d = z['intensity'].mean(axis=0)
-            polarized_1d = z['polarized_brightness'].mean(axis=0)
-            # Both thresholds always apply (polarization_fraction 0 selects by brightness only).
-            angular_mask = ((intensity_1d >= features['intensity_fraction'] * intensity_1d.max())
-                            & (polarized_1d >= features['polarization_fraction'] * polarized_1d.max()))
-            angular_masks.append(angular_mask)
-        evpa_maps = np.load(paths[2], mmap_mode='r', allow_pickle=False)
+        if maps.ndim != 4 or maps.shape[1:] != (n, n, 4) or len(maps) < 2:
+            raise ValueError('Ensemble Stokes sample shape mismatch')
+        aperture, sector_intensity, sector_polarized = matched_aperture_samples(maps, operator)
+        # Draw-mean sector statistics; both thresholds always apply
+        # (polarization_fraction 0 selects by brightness only).
+        intensity_1d, polarized_1d = sector_intensity.mean(axis=0), sector_polarized.mean(axis=0)
+        if not (np.isfinite(intensity_1d).all() and np.isfinite(polarized_1d).all()):
+            raise ValueError('Nonfinite sector brightness (a sector without positive intensity)')
+        angular_masks.append((intensity_1d >= features['intensity_fraction'] * intensity_1d.max())
+                             & (polarized_1d >= features['polarization_fraction'] * polarized_1d.max()))
+        evpa_maps = np.load(paths[1], mmap_mode='r', allow_pickle=False)
         if evpa_maps.shape != maps.shape[:-1]:
             raise ValueError('Ensemble map EVPA shape mismatch')
-        if (maps.ndim != 4 or maps.shape[1:] != (n, n, 4)
-                or aperture.shape != (len(maps), 360) or len(maps) < 2):
-            raise ValueError('Ensemble Stokes/aperture sample shape mismatch')
         mean = np.mean(maps, axis=0).transpose(1, 0, 2)
         if not np.isfinite(mean).all():
             raise ValueError('Nonfinite ensemble mean Stokes')
@@ -339,10 +334,11 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     for dim in ('1d', '2d'):
         if dim == '1d':
             finite = np.logical_and.reduce([np.isfinite(v).all(axis=0) for _, v in data])
-            sector = np.arange(360) % features['sector_spacing_degrees'] == features['sector_offset_degrees']
+            sector = (np.arange(ANGULAR_BINS) % features['sector_spacing_degrees']
+                      == features['sector_offset_degrees'])
             selected = np.flatnonzero(products[dim][3] & finite
                 & np.logical_and.reduce(angular_masks) & sector)
-            values = [np.asarray(aperture[:, bins[selected]], dtype=float) for _, aperture in data]
+            values = [np.asarray(aperture[:, selected], dtype=float) for _, aperture in data]
             coords = selected[:, None].astype(float)
         else:
             valid = products[dim][3] & common & (row % stride == 0) & (col % stride == 0)
@@ -364,9 +360,10 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
             coordinates='east/north uas; 1d template bin degrees',
             no_evpa_alignment=True, adapter=dict(centering=CENTERING, resolution='blurred',
                 spatial='native[y,x] -> template[x,y]', template_axes='(-E,N)',
-                angular='theory _integrate internal -90 once; output North0/East90',
-                inference_1d='recomputed bilinear CSR theory quadrature on transposed per-draw Stokes',
-                native_aperture_role='brightness selection diagnostics only; EVPA samples not used',
+                angular='sky bin k centred k degrees east of north',
+                sector_definition='aperture_operator quadrature on transposed per-draw Stokes, as for the '
+                                  'templates: EVPA 0.5 arg sum W I (Q+iU); selection by draw means of '
+                                  'sum W I and sum W I |P| / sum W I',
                 quadrature=geometry['aperturefit'], qu_rotation='none')))
     processed = templates / 'background'
     processed_record = verify_stage(processed, recursive=True, _seen=verified)

@@ -1,4 +1,5 @@
-"""1D observable: intensity-weighted EVPA in pizza-slice apertures (sparse quadrature operator)."""
+"""1D observable: intensity-weighted EVPA in pizza-slice apertures (sparse quadrature operator),
+and the sector brightness statistics used to select sectors, with the same operator."""
 
 from __future__ import annotations
 
@@ -82,14 +83,8 @@ def aperture_operator(*, shape: int, fov: float, radial_max: float, window_degre
     return vstack(rows, format="csr")
 
 
-def integrate_stokes(stokes, operator):
-    """Intensity-weighted coherent aperture EVPA, arg integral I(Q+iU)/2 (EHT VII), radians.
-
-    Only all-four-channel NaN pixels are spatial padding (zero flux). Other
-    nonfinite I/Q/U values are rejected; unused V values do
-    not affect this observable. Products are float64 and must remain finite.
-    Zero or nonfinite integrated polarization is undefined (NaN), not zero EVPA.
-    """
+def _weighted_stokes(stokes, operator):
+    """float64 I, Q, U (padding -> 0) and |P|, validated as in integrate_stokes."""
     data = np.asarray(stokes, dtype=np.float64)
     if data.ndim < 3 or data.shape[-1] != 4 or data.shape[-2] != data.shape[-3]:
         raise ValueError("Stokes must have square trailing (H,W,4) dimensions")
@@ -98,17 +93,50 @@ def integrate_stokes(stokes, operator):
     padding = np.isnan(data).all(axis=-1)
     if np.any(~np.isfinite(data[..., :3]) & ~padding[..., None]):
         raise ValueError("Nonfinite I/Q/U outside all-channel NaN spatial padding")
-    q = np.where(padding, 0.0, data[..., 1])
-    u = np.where(padding, 0.0, data[..., 2])
-    intensity = np.where(padding, 0.0, data[..., 0])
+    i, q, u = (np.where(padding, 0.0, data[..., k]) for k in range(3))
+    return data, i, q, u
+
+
+def _apply(operator, values):
+    flat = values.reshape(-1, operator.shape[1])
+    return operator.dot(flat.T).T
+
+
+def sector_brightness(stokes, operator):
+    """Sector brightness and intensity-weighted polarized brightness with the aperture operator.
+
+    For sector k with quadrature weights W_kj (aperture_operator):
+    intensity_k = sum_j W_kj I_j (the sector integral of I) and
+    polarized_brightness_k = sum_j W_kj I_j |P_j| / intensity_k, the I-weighted mean
+    of |P| = sqrt(Q^2 + U^2) (EHT Paper VII eq. 10 with the same weighting as the
+    sector EVPA of integrate_stokes, eq. 11). NaN where intensity_k <= 0.
+    """
+    data, i, q, u = _weighted_stokes(stokes, operator)
+    with np.errstate(over="ignore", invalid="ignore"):
+        weighted = i * np.hypot(q, u)
+    if not np.isfinite(weighted).all():
+        raise ValueError("Nonfinite float64 intensity-weighted polarized brightness")
+    intensity = _apply(operator, i)
+    polarized = _apply(operator, weighted)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        brightness = np.where(intensity > 0, polarized / intensity, np.nan)
+    shape = data.shape[:-3] + (operator.shape[0],)
+    return intensity.reshape(shape), brightness.reshape(shape)
+
+
+def integrate_stokes(stokes, operator):
+    """Intensity-weighted coherent aperture EVPA, arg integral I(Q+iU)/2 (EHT VII), radians.
+
+    Only all-four-channel NaN pixels are spatial padding (zero flux). Other
+    nonfinite I/Q/U values are rejected; unused V values do
+    not affect this observable. Products are float64 and must remain finite.
+    Zero or nonfinite integrated polarization is undefined (NaN), not zero EVPA.
+    """
+    data, intensity, q, u = _weighted_stokes(stokes, operator)
     with np.errstate(over="ignore", invalid="ignore"):
         q = q * intensity
         u = u * intensity
     if not np.isfinite(q).all() or not np.isfinite(u).all():
         raise ValueError("Nonfinite float64 intensity-weighted Stokes product")
-    flat_q = q.reshape(-1, operator.shape[1])
-    flat_u = u.reshape(-1, operator.shape[1])
-    qi = operator.dot(flat_q.T).T
-    ui = operator.dot(flat_u.T).T
-    angle = finite_evpa(qi, ui)
+    angle = finite_evpa(_apply(operator, q), _apply(operator, u))
     return angle.reshape(data.shape[:-3] + (operator.shape[0],))

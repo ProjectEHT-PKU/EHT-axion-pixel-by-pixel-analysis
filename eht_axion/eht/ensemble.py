@@ -1,14 +1,13 @@
 """EHT images: native-sky FITS reader and per-day summaries of the D-term Monte Carlo images.
 
 I,Q,U,V are never flipped or sign-converted; EVPA is east of north (radians,
-modulo pi) and aperture sectors are centred on angles east of north. No RAPTOR
-mapping, beam deconvolution or re-centring (Paper VII Sec. 5.2: zero shift).
+modulo pi). No RAPTOR mapping, beam deconvolution or re-centring (the Paper VII
+Sec. 5.2 alignment is a zero shift here).
 
-Per day only what the analysis consumes is written: per-draw EVPA maps,
-360-sector aperture brightness (feature-selection masks) and whole-field
-diagnostics (m_net, m_resolved, EVPA, beta_2) for a sanity check against EHT
-Paper VII. Means, covariances and day differences are computed by the analysis
-on its selected features.
+Per day the stage writes the per-draw Stokes maps (by eht_summarize.py), the per-draw
+EVPA maps and the whole-field image-averaged quantities of Paper VII Sec. 5.3 (m_net,
+<|m|>, EVPA, beta_2) for comparison with the paper. Sector apertures, means,
+covariances and day differences are computed by the analysis.
 """
 from __future__ import annotations
 
@@ -16,8 +15,9 @@ from pathlib import Path
 
 import numpy as np
 
-from ..evpa import circular_difference, finite_evpa
+from ..evpa import finite_evpa
 from ..experiment import EHT_DAYS
+
 
 def _image(image):
     a = np.asarray(image, dtype=np.float64)
@@ -100,52 +100,20 @@ def evpa(q, u):
     return np.mod(finite_evpa(q, u), np.pi)
 
 
-def aperture_curves(image, east, north, binangles, *, window, rmax_uas=None):
-    """All-radius sectors centered at binangles (degrees E of N), full width window.
-
-    east/north are 1-D uas axes. Equal-area pixels; optional rmax_uas only.
-    Return angle_deg, intensity=sum I, polarized_brightness=sum(I*|Q+iU|)/sum I,
-    evpa_rad=0.5 arg sum(I*(Q+iU)) modulo pi, count. Empty/nonpositive-I bins
-    yield NaN observables; zero coherent polarization has undefined EVPA.
-    """
-    a = _image(image)
-    e, n, angles = (np.asarray(v, dtype=float) for v in (east, north, binangles))
-    if e.shape != (a.shape[1],) or n.shape != (a.shape[0],) or angles.ndim != 1:
-        raise ValueError("axis/bin shapes incompatible")
-    if not all(np.isfinite(v).all() for v in (e, n, angles)) or not 0 < window <= 360:
-        raise ValueError("finite axes/angles and 0 < window <= 360 required")
-    for axis in (e, n):
-        d = np.diff(axis)
-        if d.size and (d[0] == 0 or not np.allclose(d, d[0], rtol=1e-10, atol=0)):
-            raise ValueError("axes must be uniformly spaced nonzero pixel grids")
-    if rmax_uas is not None and (not np.isfinite(rmax_uas) or rmax_uas <= 0):
-        raise ValueError("rmax_uas must be positive finite")
-    ee, nn = np.meshgrid(e, n)
-    phi = np.arctan2(ee, nn)
-    radial = np.ones(ee.shape, bool) if rmax_uas is None else np.hypot(ee, nn) <= rmax_uas
-    intensity, brightness, chi, count = [], [], [], []
-    for angle in angles:
-        distance = np.abs(circular_difference(phi, np.deg2rad(angle), period=2*np.pi))
-        mask = radial & (distance <= np.deg2rad(window/2))
-        i, q, u, _ = a[mask].T
-        total, z = i.sum(), np.sum(i * (q + 1j*u))
-        intensity.append(total)
-        count.append(mask.sum())
-        brightness.append(np.sum(i * np.hypot(q, u)) / total if total > 0 else np.nan)
-        chi.append(evpa(z.real, z.imag) if total > 0 else np.nan)
-    return dict(angle_deg=angles.copy(), intensity=np.array(intensity),
-                polarized_brightness=np.array(brightness), evpa_rad=np.array(chi), count=np.array(count))
-
-
 DAYS = tuple(str(day) for day in EHT_DAYS)  # day keys of the Monte Carlo batch
 GLOBAL_COLUMNS = ('total_I', 'm_net', 'm_resolved', 'evpa_rad', 'beta2_real', 'beta2_imag')
 
 
 def global_diagnostics(image, east, north):
-    """Whole-field m_net, m_resolved, EVPA and beta_2 (E-of-N azimuth).
+    """Image-averaged quantities of EHT Paper VII Sec. 5.3, as pixel sums over the whole field.
 
-    beta_2 = sum[(Q+iU) exp(-2i phi)]/sum I. No annular paper-specific cut.
-    phi origin is the grid sky zero (no re-centring, Paper VII Sec. 5.2).
+    m_net = |sum P| / sum I (eq. 12); m_resolved = sum |P| / sum I (<|m|>, eq. 13);
+    EVPA of sum P; beta_2 = sum P exp(-2i phi) / sum I (eq. 14 with rho_min = 0 and
+    rho_max covering the full field of view, so I_ring is the total I, as in the paper).
+    P = Q + iU; phi is the position angle east of north about the grid centre. The
+    paper centres each image by cross-correlation with the Paper IV consensus image;
+    here the centre is the grid centre (zero shift). The images are the blurred ones
+    (shared.image.blur_fwhm_uas = 19 uas, the eht-imaging kernel of Paper VII Sec. 5.1).
     """
     i, q, u = (image[..., k] for k in range(3))
     p, total = q + 1j*u, i.sum()
@@ -159,22 +127,15 @@ def global_diagnostics(image, east, north):
             float(evpa(net.real, net.imag)), beta.real, beta.imag]
 
 
-def summarize(samples, east, north, directory, rmax_uas, window):
-    """Write evpa.npy, aperture.npz and global.npz for one day (pickle-free)."""
+def summarize(samples, east, north, directory):
+    """Write evpa.npy and global.npz for one day (pickle-free)."""
     directory = Path(directory)
-    n = len(samples)
-    angles = np.arange(360.)
     chi = np.lib.format.open_memmap(directory / 'evpa.npy', mode='w+', dtype='float64',
                                    shape=samples.shape[:-1])
-    intensity, brightness = np.empty((n, 360)), np.empty((n, 360))
-    diagnostics = np.empty((n, len(GLOBAL_COLUMNS)))
+    diagnostics = np.empty((len(samples), len(GLOBAL_COLUMNS)))
     for k, image in enumerate(samples):
         chi[k] = evpa(image[..., 1], image[..., 2])
         chi[k][image[..., 0] <= 0] = np.nan
-        curve = aperture_curves(image, east, north, angles, window=window, rmax_uas=rmax_uas)
-        intensity[k], brightness[k] = curve['intensity'], curve['polarized_brightness']
         diagnostics[k] = global_diagnostics(image, east, north)
     chi.flush()
-    np.savez(directory / 'aperture.npz', angle_deg=angles, intensity=intensity,
-             polarized_brightness=brightness)
     np.savez(directory / 'global.npz', values=diagnostics, columns=np.array(GLOBAL_COLUMNS))

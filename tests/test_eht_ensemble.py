@@ -1,25 +1,33 @@
-"""eht.ensemble: native FITS reader, sector apertures, spin-2 EVPA and per-day summaries (synthetic)."""
+"""eht.ensemble: native FITS reader, spin-2 EVPA, Paper VII image averages, per-day summaries (synthetic)."""
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
 from eht_axion.eht import ensemble as en
-from eht_axion.eht.ensemble import aperture_curves, evpa, load_stokes_fits
+from eht_axion.eht.ensemble import evpa, load_stokes_fits
 
 
-def test_east_point_and_template_transpose():
-    east = -(np.arange(64) - 31.5) * 1.875
-    north = (np.arange(64) - 31.5) * 1.875
-    image = np.zeros((64, 64, 4))
-    # Slightly north of exact east on the even grid: well inside 10-degree sector.
-    image[32, 16] = [2., 0., 1., 0.]
-    curve = aperture_curves(image, east, north, np.arange(360.), window=10, rmax_uas=60.)
-    assert curve['intensity'][90] == 2
-    assert np.isnan(curve['evpa_rad'][0])
-    assert curve['evpa_rad'][90] == pytest.approx(np.pi / 4)
-    template = image.transpose(1, 0, 2)
-    assert np.unravel_index(np.argmax(template[..., 0]), (64, 64)) == (16, 32)
-    assert -east[16] < 0
+def test_global_diagnostics_paper_vii_definitions():
+    """Paper VII eqs. 12-14: pure m=2 pattern P = 0.2 I exp(2i phi), phi east of north."""
+    east = -(np.arange(16) - 7.5) * 1.875
+    north = (np.arange(16) - 7.5) * 1.875
+    ee, nn = np.meshgrid(east, north)
+    phi = np.arctan2(ee, nn)
+    image = np.zeros((16, 16, 4))
+    image[..., 0] = np.exp(-(ee**2 + nn**2) / 200)
+    p = .2 * image[..., 0] * np.exp(2j * phi)
+    image[..., 1], image[..., 2] = p.real, p.imag
+    total, m_net, m_resolved, chi, beta_re, beta_im = en.global_diagnostics(image, east, north)
+    assert total == pytest.approx(image[..., 0].sum())
+    assert m_net == pytest.approx(0, abs=1e-14)       # symmetric pattern: no net polarization
+    assert m_resolved == pytest.approx(.2)            # <|m|> = sum |P| / sum I
+    assert (beta_re, beta_im) == (pytest.approx(.2), pytest.approx(0, abs=1e-14))
+    # A position-angle rotation by delta rotates beta_2 by exp(2i delta) only through P.
+    rotated = image.copy()
+    q = p * np.exp(2j * .3)
+    rotated[..., 1], rotated[..., 2] = q.real, q.imag
+    beta = complex(*en.global_diagnostics(rotated, east, north)[4:])
+    assert beta == pytest.approx(.2 * np.exp(2j * .3))
 
 
 def test_written_summary_contract(tmp_path):
@@ -30,12 +38,8 @@ def test_written_summary_contract(tmp_path):
     samples[..., 1] = np.cos(2 * np.arange(3)[:, None, None] * .02)
     samples[..., 2] = np.sin(2 * np.arange(3)[:, None, None] * .02)
     samples[1, 0, 0, 0] = 0.  # nonpositive I: EVPA undefined
-    en.summarize(samples, east, north, tmp_path, 60., 10)
-    assert {p.name for p in tmp_path.iterdir()} == {'evpa.npy', 'aperture.npz', 'global.npz'}
-    with np.load(tmp_path / 'aperture.npz', allow_pickle=False) as z:
-        assert set(z.files) == {'angle_deg', 'intensity', 'polarized_brightness'}
-        assert z['intensity'].shape == z['polarized_brightness'].shape == (3, 360)
-        np.testing.assert_array_equal(z['angle_deg'], np.arange(360))
+    en.summarize(samples, east, north, tmp_path)
+    assert {p.name for p in tmp_path.iterdir()} == {'evpa.npy', 'global.npz'}
     chi = np.load(tmp_path / 'evpa.npy', mmap_mode='r')
     assert chi.shape == (3, 8, 8)
     assert np.isnan(chi[1, 0, 0])
@@ -97,25 +101,3 @@ def test_native_fits(tmp_path):
 def test_evpa():
     assert_allclose(evpa([1, 0, -1, 0], [0, 1, 0, -1]), np.arange(4)*np.pi/4)
     assert np.isnan(evpa([0, np.nan, 1], [0, 1, np.inf])).all()
-
-
-def test_aperture_pa_weighting_wrap_and_radius():
-    # North at x=1,y=2; east at x=0,y=1 (east is displayed left).
-    a = np.zeros((3, 3, 4))
-    a[2, 1] = [1, 1, 0, 0]
-    a[1, 0] = [2, 0, 3, 0]
-    result = aperture_curves(a, [1, 0, -1], [-1, 0, 1], [0, 90, 360], window=10)
-    assert_allclose(result["polarized_brightness"], [1, 3, 1])
-    assert_allclose(result["evpa_rad"], [0, np.pi/4, 0])
-    assert_allclose(result["intensity"], [1, 2, 1])
-    wide = aperture_curves(a, [1, 0, -1], [-1, 0, 1], [45], window=100)
-    assert_allclose(wide["polarized_brightness"], [7/3])
-    assert_allclose(wide["evpa_rad"], [.5*np.arctan2(6, 1)])
-    cut = aperture_curves(a, [1, 0, -1], [-1, 0, 1], [0], window=10, rmax_uas=.5)
-    assert np.isnan(cut["evpa_rad"]).all()
-
-
-def test_invalid_inputs():
-    a = np.zeros((3, 4, 4))
-    with pytest.raises(ValueError):
-        aperture_curves(a, [0], [0], [0], window=10)

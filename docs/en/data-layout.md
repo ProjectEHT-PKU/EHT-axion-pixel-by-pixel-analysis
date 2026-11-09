@@ -80,12 +80,11 @@ MC/                              no manifest; batch receipts instead
     attempt.json, job.log, progress.json, certificate.json, taskreceipt.json
     best-raw-IQU.fits, best-blurred-IQU.fits
 ENSEMBLE/                        stage eht:ensemble
-  axes.npz                       east_uas (64), north_uas (64), angle_deg (360)
+  axes.npz                       east_uas (64), north_uas (64)
   report.json, consumed-inputs.json
   day-<day>/
     stokes.npy                   float64 (1000, 64, 64, 4): draw, y, x, IQUV
     evpa.npy                     float64 (1000, 64, 64): radians in [0, pi), NaN if I <= 0
-    aperture.npz                 angle_deg (360), intensity (1000, 360), polarized_brightness (1000, 360)
     global.npz                   values (1000, 6), columns: total_I, m_net, m_resolved,
                                  evpa_rad, beta2_real, beta2_imag
 ```

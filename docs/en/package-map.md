@@ -39,14 +39,14 @@ the top level.
 |---|---|---|
 | `calibration.py` | Paper VII calibration primitives on ehtim 1.3.2: native data, systematic noise, fixed D-term correction, zero-prior forward D fit, four-day D distribution and sampling | `load_native`, `add_fsys`, `make_imaging_obs`, `apply_fixed_d`, `fit_forward_d`, `d_distribution`, `sample_dterms` |
 | `convex.py` | Exact convex fixed-I, fixed-D P solver (PDHG) with a duality-gap certificate | `exact_cartesian_problem`, `solve_problem`, `CartesianProblem` |
-| `ensemble.py` | Native FITS reader, sector apertures, whole-field diagnostics, per-day ensemble summary | `load_stokes_fits`, `aperture_curves`, `global_diagnostics`, `summarize` |
+| `ensemble.py` | Native FITS reader, Paper VII image-averaged quantities, per-day ensemble summary | `load_stokes_fits`, `global_diagnostics`, `summarize` |
 
 ### Analysis: eht_axion/analysis
 
 | Module | Purpose | Main functions |
 |---|---|---|
 | `templates.py` | Preprocessing of simulated images, response fit, template summary and reader, template-root layout | `preprocess_frame`, `preprocess_cube`, `fit_phase_dft`, `fit_processed`, `summarize_fits`, `load_templates`, `RunLayout` |
-| `aperture.py` | Intensity-weighted aperture EVPA (1D observable) | `aperture_operator`, `integrate_stokes` |
+| `aperture.py` | Intensity-weighted aperture EVPA (1D observable) and sector selection statistics, with one quadrature operator | `aperture_operator`, `integrate_stokes`, `sector_brightness` |
 | `model.py` | Axion EVPA signal model | `cloud_amplitude_scaling`, `interpolate_fit_parameters`, `evpa_templates` |
 | `observations.py` | Selected EHT features to daily moments and day-pair differences | `ObservationData`, `moments`, `build_observations`, `branch_risk`, `covariance_diagnostics` |
 | `likelihood.py` | Inference options, Gaussian likelihood, phase marginalization, limits | `LimitOptions`, `MODES`, `calculate_observed` |

@@ -98,12 +98,18 @@ def test_matched_aperture_manual_intensity_quadrature():
     frame[..., 0] = 1 + 5 * np.exp(-((row - 32)**2 + (col - 17)**2) / 20)
     frame[..., 1] = np.cos(.02 * row + .03 * col)
     frame[..., 2] = np.sin(.02 * row + .03 * col)
-    actual = driver.matched_aperture_samples(frame[None], config, operator)[0]
+    evpa, intensity, polarized = driver.matched_aperture_samples(frame[None], operator)
+    actual = evpa[0]
     template = frame.transpose(1, 0, 2)
     qi = operator @ (template[..., 0] * template[..., 1]).ravel()
     ui = operator @ (template[..., 0] * template[..., 2]).ravel()
     manual = np.roll(.5 * np.arctan2(ui, qi), -90)
     np.testing.assert_allclose(actual, manual, atol=1e-14)
+    # Selection statistics: the same weights W and the same intensity weighting.
+    sector_i = operator @ template[..., 0].ravel()
+    sector_p = operator @ (template[..., 0] * np.hypot(template[..., 1], template[..., 2])).ravel()
+    np.testing.assert_allclose(intensity[0], np.roll(sector_i, -90), rtol=1e-13)
+    np.testing.assert_allclose(polarized[0], np.roll(sector_p / sector_i, -90), rtol=1e-13)
     flux_only = np.roll(.5 * np.arctan2(operator @ template[..., 2].ravel(),
                                       operator @ template[..., 1].ravel()), -90)
     assert np.max(np.abs(actual - flux_only)) > .001
@@ -147,7 +153,7 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     ensemble, theory = tmp_path / 'ensemble', tmp_path / 'theory'
     ensemble.mkdir()
     grid = (np.arange(64) - 31.5) * 1.875
-    np.savez(ensemble / 'axes.npz', east_uas=-grid, north_uas=grid, angle_deg=np.arange(360))
+    np.savez(ensemble / 'axes.npz', east_uas=-grid, north_uas=grid)
     arrays = {}
     row, col = np.indices((64, 64))
     # Nonuniform east/north feature: omitted transpose produces a different angle.
@@ -160,12 +166,8 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
         directory.mkdir(parents=True)
         arrays[directory / 'stokes.npy'] = np.broadcast_to(maps, (1000, 64, 64, 4))
         arrays[directory / 'evpa.npy'] = np.broadcast_to(native_chi, (1000, 64, 64))
-        aperture = np.broadcast_to(np.arange(360) * .001, (1000, 360))
-        np.savez(directory / 'aperture.npz', samples_rad=aperture, angle_deg=np.arange(360),
-                 intensity=np.ones_like(aperture), polarized_brightness=np.ones_like(aperture))
-    report = dict(schema='eht-ensemble-v2', days=[str(d) for d in driver.DAYS],
-        draws_per_day=1000, rmax_uas=60., aperture_full_width_deg=10.,
-        angle_convention='EVPA radians modulo pi, E of N; aperture angles degrees E of N; no roll',
+    report = dict(schema='eht-ensemble-v2', days=[str(d) for d in driver.DAYS], draws_per_day=1000,
+        angle_convention='EVPA radians modulo pi, east of north',
         map_order='draw,y,x,IQUV; native FITS E decreases along x, N increases along y')
     (ensemble / 'report.json').write_text(json.dumps(report))
     records = {ensemble: dict(stage='eht:ensemble', config=dict(draw_count=4000))}
@@ -208,14 +210,11 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     from eht_axion.analysis.templates import _integrate
     expected = _integrate(maps.transpose(1, 0, 2), driver.theory_aperture_operator(config))
     indices = prepared['1d'][0]
+    # Uniform I and |P|: every sector passes both brightness thresholds; only the sector rule acts.
+    np.testing.assert_array_equal(indices, np.arange(4, 360, 10))
     np.testing.assert_allclose(prepared['1d'][1][0][0], expected[indices])
-    assert not np.allclose(expected[indices], indices * .001)  # native sectors were deliberately different
     wrong = _integrate(maps, driver.theory_aperture_operator(config))
     assert not np.allclose(expected[indices], wrong[indices])
-    np.savez(ensemble / 'axes.npz', east_uas=-grid, north_uas=grid,
-             angle_deg=np.roll(np.arange(360), -90))
-    with pytest.raises(ValueError, match='no extra roll'):
-        driver.prepare_limit_inputs(ensemble, theory, config, products, verified=set())
 
 
 def test_options_bind_actual_physical_scale_and_new_background():

@@ -32,8 +32,8 @@ use them without repeating definitions.
 | EVPA | electric-vector position angle $\chi = \tfrac12\arg(Q+iU)$, in radians, defined modulo $\pi$ (`evpa.finite_evpa`) |
 | $\mathrm{wrap}_\pi$ | difference wrapped to $[-\pi/2, \pi/2)$ (`evpa.circular_difference`) |
 | resultant length | $R = \lvert\langle e^{2i\chi}\rangle\rvert$ over draws; 1 for identical EVPAs |
-| $m_\mathrm{net}$, $m_\mathrm{res}$ | net and resolved fractional polarization $\lvert\sum P\rvert/\sum I$ and $\sum\lvert P\rvert/\sum I$ |
-| $\beta_2$ | $\sum P\,e^{-2i\varphi}/\sum I$, $\varphi$ the azimuth east of north (whole field) |
+| $\lvert m\rvert_\mathrm{net}$, $\langle\lvert m\rvert\rangle$ | net and average fractional polarization $\lvert\sum P\rvert/\sum I$ and $\sum\lvert P\rvert/\sum I$ (Paper VII eqs. 12, 13; columns `m_net`, `m_resolved`) |
+| $\beta_2$ | $\sum P\,e^{-2i\varphi}/\sum I$ over the whole field, $\varphi$ the position angle east of north about the grid centre (Paper VII eq. 14) |
 
 ### EHT imaging
 

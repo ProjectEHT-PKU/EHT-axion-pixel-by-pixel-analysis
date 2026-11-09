@@ -23,7 +23,7 @@ from scipy.ndimage import gaussian_filter, map_coordinates
 from ..evpa import finite_evpa
 from ..raptor.convert import _integer, _metadata, _outputs, _positive, _real_dtype
 from ..raptor.layout import alpha_label
-from .aperture import aperture_operator, integrate_stokes
+from .aperture import aperture_operator, integrate_stokes, sector_brightness
 
 # Numerical constants of the stages (not scientific parameters).
 _MINIMUM_SAMPLES = 2  # a standard deviation needs at least two snapshots
@@ -229,14 +229,23 @@ def _operator(shape, fov, radial_max, window_degrees, angular_bins):
                              window_degrees=window_degrees, angular_bins=angular_bins)
 
 
-def _integrate(stokes, operator):
-    evpa = integrate_stokes(stokes, operator)
-    # RAPTOR aperture zero is +x. EHT bin zero corresponds to RAPTOR +y:
-    # output[k] = aperture[k+90] on the standard 360-bin grid.
-    shift = -evpa.shape[-1] // 4
-    if evpa.shape[-1] % 4:
+def _sky_bins(values):
+    """Operator angle zero is +axis0 (west); bin k of the result is centred k degrees east of
+    north: output[k] = values[k + bins/4] (axis 1 is north)."""
+    if values.shape[-1] % 4:
         raise ValueError("EHT 90-degree alignment requires angular_bins divisible by 4")
-    return np.roll(evpa, shift, axis=-1)
+    return np.roll(values, -values.shape[-1] // 4, axis=-1)
+
+
+def _integrate(stokes, operator):
+    """Sector EVPA (integrate_stokes) in sky bins."""
+    return _sky_bins(integrate_stokes(stokes, operator))
+
+
+def _brightness(stokes, operator):
+    """Sector intensity and I-weighted polarized brightness (sector_brightness) in sky bins."""
+    intensity, polarized = sector_brightness(stokes, operator)
+    return _sky_bins(intensity), _sky_bins(polarized)
 
 
 def fit_processed(
