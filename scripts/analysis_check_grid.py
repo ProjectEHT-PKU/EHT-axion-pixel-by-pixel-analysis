@@ -38,6 +38,8 @@ OVERRIDES = ('phase_count', 'coupling_points', 'coupling_max')
 
 
 def run(args):
+    if args.output_root.exists():
+        raise FileExistsError(f'New output root required: {args.output_root}')
     with provenance.verification_session():
         # Verify the complete RESULT outputs. This check need not rehash every
         # unchanged raw RT ancestor once more for a numerical-only repeat.

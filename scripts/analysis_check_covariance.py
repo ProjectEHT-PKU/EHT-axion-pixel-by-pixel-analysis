@@ -32,8 +32,11 @@ def main(argv=None):
     for name in ('source', 'templates', 'output-root'):
         p.add_argument('--'+name, required=True, type=Path)
     args = p.parse_args(argv)
+    if args.output_root.exists():
+        raise FileExistsError(f'New output root required: {args.output_root}')
     with provenance.verification_session():
         provenance.verify_stage(args.source, recursive=False)
+        provenance.require_declared_outputs(args.source, [args.source/'report.json'])
         source_report = json.loads((args.source/'report.json').read_text())
         config = json.loads(json.dumps(read_experiment(args.config)))
         if config != source_report['scientific_profile']:

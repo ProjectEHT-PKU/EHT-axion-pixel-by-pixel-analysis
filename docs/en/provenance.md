@@ -41,9 +41,10 @@ scientific products:
 - It refuses destinations reached through a directory symlink and destinations that
   contain one of their own inputs.
 - It creates `<destination>.lock` exclusively; a second writer fails instead of waiting.
-- If the destination already exists, it is verified recursively and its signature is
-  compared with the new one: equal means a cache hit (the body is skipped, the context
-  yields `None`), different is an error. An existing stage is never replaced.
+- If the destination already exists, it is verified (see [Output roots](#output-roots))
+  and its signature is compared with the new one: equal means a cache hit (the body is
+  skipped, the context yields `None`), different is an error. An existing stage is never
+  replaced.
 - Otherwise the body writes into a temporary directory in the same parent. When the body
   finishes, every file is hashed, `manifest.json` is written last, and the temporary
   directory is renamed to the destination. On failure the temporary directory is removed.
@@ -87,6 +88,20 @@ starts. The small result steps `analysis_check_grid.py`, `analysis_check_covaria
 and `analysis_summarize.py` pass `verify_lineage=False`: they verify the outputs of the
 stages they read, and record those manifests as hashed inputs, but do not re-hash the
 whole raw lineage again.
+
+### Output roots
+
+One rule applies to every script: a script that produces a result refuses an output root
+that already exists. The exceptions are the resumable parts of the pipeline:
+`raptor_build.py`, `raptor_generate.py` and `raptor_merge.py` reuse completed stages in
+their run root (a stage with the same signature is a cache hit, a stage with a different
+signature is an error), and `eht_sample.py` resumes a batch in the same output root if the
+batch identity is unchanged. `analysis_templates.py` writes several stages below one new
+root.
+
+When `stage_directory` finds an existing destination it verifies it with the same lineage
+setting as for new stages: recursively by default, outputs only with
+`verify_lineage=False`.
 
 ### Stage names
 

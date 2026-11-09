@@ -97,7 +97,8 @@ The analysis scripts, `eht_refine.py`, `eht_export_bundle.py`, `eht_sample.py` a
 - A script that writes scientific products uses `stage_directory` and declares every file
   it reads as an input ([Provenance](provenance.md)).
 - There is no compatibility code for products written by earlier versions; a changed
-  product needs a new output root.
+  product needs a new output root. Scripts refuse existing output roots except where
+  resuming is part of the design ([Provenance](provenance.md#output-roots)).
 
 ## Related pages
 

@@ -164,6 +164,8 @@ def main(argv=None):
     dataset, destination = args.dataset_root.resolve(), args.output_root.resolve()
     if destination.is_relative_to(dataset) or dataset.is_relative_to(destination):
         p.error('dataset and output roots must be separate and non-nested')
+    if destination.exists():
+        p.error(f'new output root required: {destination}')
     with provenance.verification_session():
         selected, inputs, copy = verify_copy(dataset, settings)
         inputs += [Path(__file__).resolve(), args.config.resolve(),

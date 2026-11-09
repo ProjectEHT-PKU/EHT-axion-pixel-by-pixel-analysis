@@ -299,7 +299,8 @@ def stage_directory(destination, stage, config, input_paths=(), *, verify_lineag
     Inputs named manifest.json are completed stages; with verify_lineage their
     whole recorded lineage is re-hashed first. Small result checks that consume
     already verified stage outputs pass verify_lineage=False: their declared
-    inputs (including those manifests) are still hashed and recorded.
+    inputs (including those manifests) are still hashed and recorded. The same
+    choice applies when an existing destination is verified as a cache hit.
     """
     reject_directory_symlinks(destination)
     destination = Path(destination).resolve()
@@ -324,7 +325,7 @@ def stage_directory(destination, stage, config, input_paths=(), *, verify_lineag
     temporary_token = None
     try:
         if destination.exists():
-            manifest = verify_stage(destination, recursive=True)
+            manifest = verify_stage(destination, recursive=verify_lineage)
             if manifest["signature"] != key:
                 raise ValueError(f"Stale cache at {destination}; use a new output root")
             print(f"CACHE HIT {stage}: {destination}", flush=True)
