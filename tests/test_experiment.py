@@ -129,6 +129,8 @@ def test_unknown_section_and_field_rejected(config):
     (("eht_imaging", "restart_rounds"), [1], "restart_rounds"),
     (("eht_imaging", "fixed_sites"), ["AZ"], "overlap"),
     (("eht_imaging", "norm_reg"), 1, "true or false"),
+    (("analysis", "features", "polarization_fraction"), 1.0, "< 1"),
+    (("analysis", "features", "polarization_fraction"), -0.1, ">= 0"),
     (("analysis", "features", "sector_offset_degrees"), 10, "<= 9"),
     (("analysis", "features", "min_radius_rg"), 100.0, "inside the aperture"),
     (("analysis", "inference", "coupling_max"), 0.001, "coupling_max"),
@@ -139,6 +141,17 @@ def test_invalid_values_rejected(config, path, value, match):
         target = target[key]
     target[path[-1]] = value
     with pytest.raises(ValueError, match=match):
+        validate(config)
+
+
+def test_feature_thresholds_always_both_apply(config):
+    assert config["analysis"]["features"] == dict(
+        intensity_fraction=0.1, polarization_fraction=0.2, min_radius_rg=2.0, pixel_stride=5,
+        sector_spacing_degrees=10, sector_offset_degrees=4, resultant_min=0.7)
+    config["analysis"]["features"]["polarization_fraction"] = 0  # brightness-only selection
+    validate(config)
+    config["analysis"]["features"]["mask_mode"] = "intensity"
+    with pytest.raises(ValueError, match="unknown"):
         validate(config)
 
 

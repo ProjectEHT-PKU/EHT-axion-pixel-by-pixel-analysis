@@ -128,9 +128,8 @@ analysis:  # combines both inputs: from simulated images and EHT ensembles to li
     radial_max_fraction: 1.0     # of the image half-FOV (60 uas)
   features:                      # selection of EHT likelihood features (EHT images used as
                                  # reconstructed: Paper VII Sec. 5.2 centring = zero shift)
-    mask_mode: intensity-polarization
-    intensity_fraction: 0.1      # mean I >= 0.1 max
-    polarization_fraction: 0.2   # mean |P| >= 0.2 max
+    intensity_fraction: 0.1      # keep where mean I >= 0.1 x daily max ...
+    polarization_fraction: 0.2   # ... AND mean |P| >= 0.2 x daily max (0: brightness only)
     min_radius_rg: 2.0
     pixel_stride: 5              # 2D: every 5th pixel in x and y
     sector_spacing_degrees: 10   # 1D: one sector every 10 degrees ...

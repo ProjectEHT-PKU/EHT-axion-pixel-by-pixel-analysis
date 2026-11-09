@@ -254,7 +254,7 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     matching the declared additional19uas theory kernel approximation.
     """
     features = config['analysis']['features']
-    mask_mode, stride = features['mask_mode'], features['pixel_stride']
+    stride = features['pixel_stride']
     record = verify_stage(ensemble, recursive=True, _seen=verified)
     if record['stage'] != 'research:eht-fixed-D-ensemble':
         raise ValueError('Unexpected EHT120 ensemble stage')
@@ -314,9 +314,9 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
             # but its EVPA samples are NOT the matched inference observable.
             intensity_1d = z['intensity'].mean(axis=0)
             polarized_1d = z['polarized_brightness'].mean(axis=0)
-            angular_mask = intensity_1d >= features['intensity_fraction'] * intensity_1d.max()
-            if mask_mode == 'intensity-polarization':
-                angular_mask &= polarized_1d >= features['polarization_fraction'] * polarized_1d.max()
+            # Both thresholds always apply (polarization_fraction 0 selects by brightness only).
+            angular_mask = ((intensity_1d >= features['intensity_fraction'] * intensity_1d.max())
+                            & (polarized_1d >= features['polarization_fraction'] * polarized_1d.max()))
             angular_masks.append(angular_mask)
         evpa_maps = np.load(paths[2], mmap_mode='r', allow_pickle=False)
         if evpa_maps.shape != maps.shape[:-1]:
@@ -330,9 +330,8 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
         intensity, polarized = mean[..., 0], np.hypot(mean[..., 1], mean[..., 2])
         if intensity.max() <= 0 or polarized.max() <= 0:
             raise ValueError('Positive intensity and polarization required')
-        mask = intensity >= features['intensity_fraction'] * intensity.max()
-        if mask_mode == 'intensity-polarization':
-            mask &= polarized >= features['polarization_fraction'] * polarized.max()
+        mask = ((intensity >= features['intensity_fraction'] * intensity.max())
+                & (polarized >= features['polarization_fraction'] * polarized.max()))
         mask &= np.isfinite(evpa_maps).all(axis=0).T
         masks.append(mask)
         data.append((evpa_maps, aperture))
@@ -362,7 +361,7 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
         if not len(selected):
             raise ValueError(f'No initial {dim} features')
         prepared[dim] = (selected, values, coords, dict(
-            mask_mode=mask_mode, intensity_fraction=features['intensity_fraction'],
+            intensity_fraction=features['intensity_fraction'],
             polarization_fraction=features['polarization_fraction'],
             min_radius_rg=features['min_radius_rg'], pixel_stride=stride,
             angular_spacing=features['sector_spacing_degrees'],
@@ -410,7 +409,7 @@ def run(args):
         identity = dict(schema='eht120-observed-ensemble-limits-v1',
                         scientific_profile=config,
                         resultant_min=features['resultant_min'], centering=CENTERING,
-                        pixel_stride=features['pixel_stride'], mask_mode=features['mask_mode'],
+                        pixel_stride=features['pixel_stride'],
                         ensemble=source_identity, covariance='D-draw population scatter; independent days',
                         scope='working-covariance conditional research credible limits')
         project = Path(__file__).resolve().parents[1]

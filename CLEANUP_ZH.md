@@ -76,7 +76,7 @@ TIME_CONVERSION`）——它们是 YAML 数值的副本；现在所有值都由�
 | `shared` | 不止一个部分用到的值：M87* 质量与距离、快照标签步长、alpha 网格、主量子数 n，以及公共天空网格（64 像素、120 µas）和 19 µas 匹配模糊（EHT 的 display19 产品与模拟图像用的是**同一个**物理量：天空平面上对 I/Q/U/V 施加的圆高斯核 FWHM，已核对 ehtim `blur_circ` 与 `pipeline.raptor.preprocess_frame`） |
 | `raptor` | RAPTOR 模拟（独立输入）：相机宽度 46.2261 rg、build 选项、等离子体参数、快照区间、响应/背景分辨率与轴子归一化、径向函数表及 spin、alpha→表的对应、BHAC 网格 |
 | `eht_imaging` | EHT 成像（独立输入）：原 `eht-official.yaml` 去掉移入 `shared` 的 npix/fov/display_blur 以及四个机器路径；保留 uvfits 文件名 + sha256（数据身份）、权重、轮数、重启方案、D 项统计、抽样数与种子；`refine`：`eht_refine.py`（凸优化 P 求解 + D 重拟合，“tightD”）的轮数、P 求解器容差/迭代/时限与 D 优化器（L-BFGS-B）选项；`monte_carlo`：`eht_sample.py` 每个 D 抽样的 P 求解设置。后两者不属于成像阶段记录的平面参数集 |
-| `analysis` | 分析（结合两个输入）：旋转角、孔径（宽度、半径；1° 分箱与强度加权是固定定义）、特征选择规则（强度/偏振阈值 0.1/0.2、像素步长 5、10° 扇区间隔与 4° 偏移、最小半径 2 rg、mask 模式、resultant ≥ 0.7）、云振幅 b(α) 参数、背景时滞（帧数）、推断网格/先验/可信度 0.95/时间 |
+| `analysis` | 分析（结合两个输入）：旋转角、孔径（宽度、半径；1° 分箱与强度加权是固定定义）、特征选择规则（亮度与偏振亮度阈值 0.1/0.2 同时生效、像素步长 5、10° 扇区间隔与 4° 偏移、最小半径 2 rg、resultant ≥ 0.7）、云振幅 b(α) 参数、背景时滞（帧数）、推断网格/先验/可信度 0.95/时间 |
 
 设计决定（均为“每个值只写一次”）：
 
@@ -204,7 +204,10 @@ pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR 
 
 **未按报告做的**：C5 建议让协方差检查复用 `ensemble_limits.moments`，但二者数值不同（检查以全体抽样的
 中心为准，`moments` 以半数抽样自身的中心为准），因此只删除了重复的 Cholesky；C11（新输出根下不可能的
-缓存命中分支）行数可忽略，未改；`analysis.features.mask_mode` 的 `intensity` 备选报告中留给用户决定，未改。
+缓存命中分支）行数可忽略，未改。之后按用户决定删除了 `analysis.features.mask_mode`：特征选择总是同时要求
+亮度 ≥ `intensity_fraction` × 当天最大值且偏振亮度 ≥ `polarization_fraction` × 当天最大值；
+只按亮度选择时把 `polarization_fraction` 设为 0（校验允许 0）。论文取值（0.1/0.2，原 `intensity-polarization`
+模式）下的选择逐位不变，只是结果的 identity/selection 记录中不再有 `mask_mode` 字段。
 
 ---
 
