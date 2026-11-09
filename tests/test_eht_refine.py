@@ -10,8 +10,7 @@ from eht_axion.experiment import read_experiment
 from eht_axion.eht import calibration as core
 
 
-def test_refine_settings_are_the_recorded_tightd_values():
-    # manifest config of eht-convex-tightD-{95,96,100,101}-100round-v1: cli + D_numerical_options
+def test_refine_settings_of_experiment_yaml():
     refine = read_experiment()['eht_imaging']['refine']
     assert refine == dict(outer_rounds=100, gap_atol=1e-6, maxiter=20000, check_every=500, time_limit=300.,
                           d_optimizer=dict(ftol=1e-13, gtol=1e-9, maxiter=10000, maxcor=50, maxls=50,

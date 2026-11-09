@@ -125,7 +125,7 @@ def product_schema(path):
         if path.name == "stokes.npy":
             schema.update(
                 channels=["I", "Q", "U", "V"],
-                units="Original intensity units preserved; not independently verified",
+                units="intensity units of the producing stage; not independently verified",
             )
         return schema
     if path.suffix == ".npz":

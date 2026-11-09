@@ -29,7 +29,7 @@ def main(argv=None):
                 stream.write("\n")
         return 0
     # Numerical arrays only are a lower bound. Require additional disk headroom;
-    # job RSS/elapsed estimates remain unmeasured until an authorized pilot.
+    # job RSS/elapsed time are not estimated here.
     existing = args.run_root
     while not existing.exists():
         existing = existing.parent

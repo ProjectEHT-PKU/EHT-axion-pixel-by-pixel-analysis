@@ -3,7 +3,7 @@
 
 For each of the four days, copy the fixed I image and gain-calibrated data of the
 I stage (eht_reconstruct.py --stage I) and the refined fiducial D terms of the
-tightD stage (eht_refine.py), plus their manifests/plans as lineage, and the
+refine stage (eht_refine.py), plus their manifests/plans as lineage, and the
 feed-rotation table recorded by the I stages. bundle.json lists every file with
 its SHA-256 and the science contract checked by eht_sample.py (fsys, D-term
 statistics convention, sky grid, imaging weights) taken from experiment.yaml.
@@ -12,7 +12,7 @@ statistics convention, sky grid, imaging weights) taken from experiment.yaml.
 
 Both stage kinds must be complete, lineage-verified, of the same day set, made
 with the eht_imaging parameters of experiment.yaml, and every P solve of the
-tightD stage must be numerically certified. Source stages are only read.
+refine stage must be numerically certified. Source stages are only read.
 """
 from __future__ import annotations
 
@@ -143,7 +143,7 @@ def main(argv=None):
     p.add_argument('--i-root', type=Path, action='append', required=True,
                    help='completed I stage; give all four days')
     p.add_argument('--d-root', type=Path, action='append', required=True,
-                   help='completed eht_refine (tightD) stage; give all four days')
+                   help='completed eht_refine stage; give all four days')
     p.add_argument('--output-root', type=Path, required=True, help='new bundle directory')
     args = p.parse_args(argv)
     record = export(experiment.read_experiment(args.config), args.i_root, args.d_root, args.output_root)

@@ -407,7 +407,7 @@ def sample_dterms(distribution, sites, n, seed, *, residual_component_sigma, fix
 
     ``fixed_sites`` (pre-corrected stations, experiment.yaml eht_imaging.fixed_sites)
     use ZERO-mean residuals with the given per-component SD (complex
-    RMS sqrt(2) times larger), not their previously applied full D. Re/Im covariance is
+    RMS sqrt(2) times larger), not the full D already applied in the HOPS products. Re/Im covariance is
     preserved for other stations. For different-day independent ensembles use
     distinct seeds and record them; reusing a seed intentionally repeats draws.
     """

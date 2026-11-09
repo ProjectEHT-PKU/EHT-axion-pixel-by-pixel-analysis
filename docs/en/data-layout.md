@@ -153,6 +153,41 @@ The products are written by the commands on [RAPTOR production](raptor-productio
 [EHT imaging](eht-imaging.md) and [Analysis](analysis.md). `pixi run verify DIR` checks a
 stage directory.
 
+## Details
+
+### Default layout
+
+All roots are passed on the command line (or, for the RAPTOR and EHT imaging inputs, in
+`.env` / `.env.raptor`); nothing in the code assumes a location. The products of one
+experiment are kept below one data root with one directory per part:
+
+```text
+<data root>/
+  raptor/
+    plan.json                    frozen production plan (raptor_generate.py --plan --plan-output)
+    runs/<name>/                 run roots of raptor_generate.py (build/, jobs/, attempts/,
+                                 config.yaml, requests/); one per host or build
+    delivered/                   raptor_merge.py output root: data/raptor/res-*/..., inventory/
+  eht/
+    intensity/day-<day>/         eht_reconstruct.py --stage I
+    fiducial/day-<day>/          eht_reconstruct.py --stage fiducial
+    refine/day-<day>/            eht_refine.py
+    bundle/                      eht_export_bundle.py
+    sample/                      eht_sample.py
+    ensemble/                    eht_summarize.py
+  analysis/
+    templates/                   analysis_templates.py (--raptor-input-root raptor/delivered/data)
+    limits/                      analysis_limits.py
+    check-grid/                  analysis_check_grid.py with a denser phase and coupling grid
+    check-prior/                 analysis_check_grid.py with a wider coupling range
+    check-covariance/            analysis_check_covariance.py
+    summary/                     analysis_summarize.py
+```
+
+With this layout the RAPTOR run used for the results has two run roots, `runs/main`
+(18 234 jobs) and `runs/background` (96 axion-off 400-pixel jobs, labels 2050–3000, made
+with a second build); `raptor_merge.py` delivers both into `delivered/`.
+
 ## Related pages
 
 - [Documentation index](index.md)

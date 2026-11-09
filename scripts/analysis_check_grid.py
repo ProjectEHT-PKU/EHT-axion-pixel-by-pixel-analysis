@@ -4,7 +4,7 @@
 --phase-count, --coupling-points and --coupling-max override analysis.inference;
 everything else must be the experiment that produced the source limits. No EHT
 reselection, covariance refit or raw RAPTOR read: the source result's outputs are
-verified here; its raw lineage was verified when that stage was made, so the
+verified here; its raw lineage is verified when that stage is made, so the
 source manifests are recorded as inputs without re-hashing their whole lineage.
 """
 import argparse

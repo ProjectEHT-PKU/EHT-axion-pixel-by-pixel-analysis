@@ -79,12 +79,11 @@ files and `--no-env-file` disables them.
 
 | Key | Read by | Meaning |
 |---|---|---|
-| `EHT_OUTPUT_ROOT` | RAPTOR scripts | container of `production/<run id>` when no run root is given |
 | `EHT_IMAGING_INPUT_ROOT` | `eht_reconstruct.py` | directory of the HOPS uvfits files |
 | `EHT_IMAGING_INPUT_RECEIPT` | `eht_reconstruct.py` | input receipt JSON |
 | `EHT_IMAGING_FEED_ROTATION` | `eht_reconstruct.py` | feed-rotation table JSON |
 | `EHT_IMAGING_OFFICIAL_SCRIPT` | `eht_reconstruct.py` | official EHT imaging script |
-| `EHT_RAPTOR_SOURCE_ROOT`, `EHT_GRMHD_ROOT`, `EHT_RADIAL_LOW`, `EHT_RADIAL_HIGH`, `EHT_RUN_ID`, `EHT_PRODUCTION_ROOT`, `EHT_RAPTOR_THREADS`, `EHT_RAPTOR_WORKERS`, `EHT_RAPTOR_CPU_AFFINITY`, `EHT_RAPTOR_CPU_LIST`, `EHT_RAPTOR_TIMEOUT_SECONDS` | RAPTOR scripts | see [RAPTOR production](raptor-production.md) |
+| `EHT_RAPTOR_SOURCE_ROOT`, `EHT_GRMHD_ROOT`, `EHT_RADIAL_LOW`, `EHT_RADIAL_HIGH`, `EHT_RAPTOR_RUN_ROOT`, `EHT_RAPTOR_THREADS`, `EHT_RAPTOR_WORKERS`, `EHT_RAPTOR_CPU_AFFINITY`, `EHT_RAPTOR_CPU_LIST`, `EHT_RAPTOR_TIMEOUT_SECONDS` | RAPTOR scripts | see [RAPTOR production](raptor-production.md) |
 
 The analysis scripts, `eht_refine.py`, `eht_export_bundle.py`, `eht_sample.py` and
 `eht_summarize.py` read no `.env` file; all their paths are command-line options.
@@ -96,8 +95,8 @@ The analysis scripts, `eht_refine.py`, `eht_export_bundle.py`, `eht_sample.py` a
 - Machine paths and execution settings belong on the command line or in `.env`.
 - A script that writes scientific products uses `stage_directory` and declares every file
   it reads as an input ([Provenance](provenance.md)).
-- There is no compatibility code for products written by earlier versions; a changed
-  product needs a new output root. Scripts refuse existing output roots except where
+- A product is read only in the format the current code writes; a changed product needs a
+  new output root. Scripts refuse existing output roots except where
   resuming is part of the design ([Provenance](provenance.md#output-roots)).
 
 ## Related pages

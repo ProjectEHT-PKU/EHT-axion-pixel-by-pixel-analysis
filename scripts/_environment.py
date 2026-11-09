@@ -12,14 +12,14 @@ ROOT = Path(__file__).resolve().parents[1]
 # Machine-local locations only; scientific values live in experiment.yaml.
 PATH_KEYS = {
     # RAPTOR simulation, read from .env and .env.raptor
-    "EHT_OUTPUT_ROOT", "EHT_RAPTOR_SOURCE_ROOT", "EHT_PRODUCTION_ROOT",
+    "EHT_RAPTOR_SOURCE_ROOT", "EHT_RAPTOR_RUN_ROOT",
     "EHT_GRMHD_ROOT", "EHT_RADIAL_LOW", "EHT_RADIAL_HIGH",
     # EHT imaging, read from .env
     "EHT_IMAGING_INPUT_ROOT", "EHT_IMAGING_INPUT_RECEIPT", "EHT_IMAGING_FEED_ROTATION",
     "EHT_IMAGING_OFFICIAL_SCRIPT",
 }
 VALUE_KEYS = {
-    "EHT_RUN_ID", "EHT_RAPTOR_THREADS", "EHT_RAPTOR_TIMEOUT_SECONDS", "EHT_RAPTOR_WORKERS",
+    "EHT_RAPTOR_THREADS", "EHT_RAPTOR_TIMEOUT_SECONDS", "EHT_RAPTOR_WORKERS",
     "EHT_RAPTOR_CPU_AFFINITY", "EHT_RAPTOR_CPU_LIST",
 }
 

@@ -132,8 +132,8 @@ def deliver_stokes(plan, run_root, *, job_roots=None, output_root=None):
         background_res = config["raptor"]["background"]["resolution"]
         snap = config["raptor"]["snapshots"]
         labels = list(range(snap["start"], snap["stop"] + 1, snap["step"]))
-        # Preserve current res100 whole-file input contract. High-res delivery is
-        # per 10-time shard, compatible with the existing inclusive-step layout.
+        # Response products are one cube per alpha; background products are
+        # shards of at most 10 snapshots on the inclusive label grid.
         groups = [(a, response_res, labels) for a in config["shared"]["alphas"]]
         groups += [(None, background_res, labels[i:i + 10]) for i in range(0, len(labels), 10)]
         for alpha, resolution, group_labels in groups:

@@ -131,7 +131,7 @@ def test_failed_attempt_retained_and_resume_reruns(setup, mode, returncode):
 
 
 def test_any_ancestor_manifest_is_refused(setup):
-    setup["run"] = setup["run"].parent / "output-container/production/pilot"
+    setup["run"] = setup["run"].parent / "output-container/runs/main"
     container = setup["run"].parents[1]
     container.mkdir()
     (container / "manifest.json").write_text(json.dumps({"layout": "container"}))
@@ -143,7 +143,7 @@ def test_actual_stage_ancestor_still_refused(setup):
     parent = setup["run"].parent / "completed"
     with provenance.stage_directory(parent, "scientific-stage", {}) as temp:
         (temp / "result.txt").write_text("immutable")
-    setup["run"] = parent / "production/pilot"
+    setup["run"] = parent / "runs/main"
     with pytest.raises(ValueError, match="existing output stage"):
         invoke(setup)
 

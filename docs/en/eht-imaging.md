@@ -131,7 +131,7 @@ the fixed round budget.
 
 ### Refinement of the fiducial D terms
 
-`eht_refine.py` refines the fiducial D terms of one day (the "tightD" stage) with an exact
+`eht_refine.py` refines the fiducial D terms of one day (the refine stage) with an exact
 convex P solver (`eht_axion/eht/convex.py`). For fixed I and fixed D, the ehtim P objective
 with normalized regularizers (`norm_reg` true; the solver implements only this case) is
 convex in $P$:
@@ -174,9 +174,7 @@ one feed table. It copies, read-only:
 
 `bundle.json` lists every file with SHA-256 and size and records the science contract:
 `fsys`, `covariance_ddof`, `residual_component_sigma` (`residual_d_sigma`), the sky grid and
-the P objective weights, under the schema `eht-bundle-v2`. This format differs from the
-bundle recorded for the existing Monte Carlo run (schema and key names); comparing the
-two requires the planned migration of the existing EHT imaging products.
+the P objective weights, under the schema `eht-bundle-v2`.
 
 ### D-term Monte Carlo
 
@@ -248,10 +246,9 @@ the analysis has no re-centring option.
 
 - This is a method reproduction, not a bitwise reproduction of the published images. The
   official I script runs with a direct Fourier transform and a 120 µas field of view.
-- The locally solved D terms differ from Paper VII Table 5. The largest difference noted
-  during validation is for PV on 2017 April 10 (day 100), where $D_R$ differs by about 19
-  percentage points. The code does not compare with Table 5; this is a recorded validation
-  result.
+- The locally solved D terms differ from Paper VII Table 5. The largest difference is for
+  PV on 2017 April 10 (day 100), where $D_R$ differs by about 19 percentage points. The
+  code does not compare with Table 5.
 - `restart_rounds`, `maxit` and the refinement budget are numerical choices, not values
   from the paper.
 - The image centre for $\beta_2$ (and for all analysis features) is the grid centre, not

@@ -33,7 +33,7 @@ def test_unknown_individual_iqu_is_rejected_even_with_zero_operator(channel, non
 
 
 @pytest.mark.parametrize("sparse", [False, True])
-def test_finite_float64_observable_matches_original_formula(sparse):
+def test_finite_float64_observable_matches_explicit_formula(sparse):
     stokes = np.random.default_rng(827).normal(size=(3, 2, 2, 4))
     operator = np.array([[1.0, 0.25, 0.75, 0.5], [0.0, 1.0, 0.5, 2.0]])
     weights = stokes[..., 0]

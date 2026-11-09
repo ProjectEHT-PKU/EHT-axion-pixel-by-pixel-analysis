@@ -118,7 +118,7 @@ analysis import it); validation requires `eht_imaging.inputs` to have exactly th
 | Key | Value | Unit | Meaning | Read by |
 |---|---|---|---|---|
 | `inputs` | four `[file name, sha256]` | – | identity of the HOPS uvfits per day | `eht_reconstruct.py` (checked against the input receipt and the file bytes) |
-| `gain_tol` | [0.02, 0.2] | – | lower and upper fractional gain tolerance of the shared-gain self-calibration (the value of the official script; checked against the recorded I stages) | `eht_reconstruct.py` |
+| `gain_tol` | [0.02, 0.2] | – | lower and upper fractional gain tolerance of the shared-gain self-calibration (the value of the official script) | `eht_reconstruct.py` |
 | `fsys` | 0.005 | – | fractional systematic noise added in quadrature to RL/LR errors: $\sigma^2 \to \sigma^2 + (f_\mathrm{sys}\,\lvert(RR+LL)/2\rvert)^2$ | `add_fsys` in fiducial, refine and Monte Carlo; bundle contract |
 | `solve_sites` | AZ, LM, PV | – | stations whose D terms are solved | fiducial, refine, Monte Carlo D distribution |
 | `fixed_sites` | AA, AP, SM, JC | – | stations already leakage-corrected in the HOPS products (the only list of them in the code) | `load_native` metadata; `sample_dterms` zero-mean residual draws |
@@ -139,7 +139,6 @@ analysis import it); validation requires `eht_imaging.inputs` to have exactly th
 | `seed` | 20210405 | – | Monte Carlo seed; per day `SeedSequence([seed, day])` | `eht_sample.py` |
 | `covariance_ddof` | 1 | – | delta degrees of freedom of the four-day D covariance | `eht_sample.py`; bundle contract |
 | `residual_d_sigma` | 0.01 | – | per real/imaginary component SD of zero-mean D draws for `fixed_sites` | `eht_sample.py`; bundle contract |
-| `residual_d_convention` | `per_component_sd` | – | the only allowed convention for `residual_d_sigma`; kept because it is part of the recorded imaging parameter set | validation, recorded only |
 | `refine.outer_rounds` | 100 | – | P solve / D refit alternations before the final P solve | `eht_refine.py` |
 | `refine.gap_atol` | 1e-6 | objective units | absolute duality-gap tolerance of each exact P solve | `eht_refine.py` |
 | `refine.maxiter` | 20000 | – | P solver iterations per call | `eht_refine.py` |

@@ -61,10 +61,5 @@ tests/            synthetic unit and integration tests
 docs/en/          documentation
 ```
 
-A module-by-module list is in [Package map](docs/en/package-map.md). A Chinese summary of
-the 2026-11 restructuring is in [CLEANUP_ZH.md](CLEANUP_ZH.md).
-
-## Original project
-
-The original project (notebooks, simulations, archives) lives separately in
-`/home/canoziia/MyProject/PHYS/EHT_ZC`; this repository contains none of its data.
+A module-by-module list is in [Package map](docs/en/package-map.md), and the default data
+directory layout is in [Data layout](docs/en/data-layout.md).

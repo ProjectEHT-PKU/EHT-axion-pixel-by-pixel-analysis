@@ -17,7 +17,7 @@ def main(argv=None):
     parser.add_argument("--job-root", type=Path, action="append", required=True,
                         help="Source run containing jobs/ and its real build/; repeat for independent runs")
     parser.add_argument("--output-root", type=Path, required=True,
-                        help="New delivery container, disjoint from original source runs")
+                        help="New delivery container, disjoint from the source job roots")
     args = parser.parse_args(argv)
     plan = json.loads(args.plan.read_text())
     validate_ray_tracing(plan["config"])
@@ -37,7 +37,7 @@ def main(argv=None):
             if temporary is not None:
                 (temporary / "index.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(f"MERGE_COMPLETE: {len(products)} delivered products in {args.output_root / 'data'}")
-    print("Original HDF5, input snapshots and manifests were preserved; no science rerun.")
+    print("Job directories, input snapshots and manifests are only read; no RAPTOR run.")
     return 0
 
 

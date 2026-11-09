@@ -1,4 +1,4 @@
-"""Saved observation reuse preserves actual data, covariance and NULL semantics."""
+"""Saved observation reuse preserves the observed data, the covariance and the zero-data control."""
 from pathlib import Path
 import numpy as np
 import pytest
@@ -15,10 +15,10 @@ def test_saved_observation_roundtrip(tmp_path):
     path = tmp_path/'observations.npz'
     np.savez(path, means=means, standard_deviations=np.ones((4, 3)), covariances=cov,
              pair_differences=diff, pair_covariances=pairs, selected_indices=selected)
-    observed, null = load_observation(path)
+    observed, zero_data = load_observation(path)
     np.testing.assert_array_equal(observed.pair_differences, diff)
-    np.testing.assert_array_equal(null.pair_differences, np.zeros_like(diff))
-    np.testing.assert_array_equal(observed.pair_covariances, null.pair_covariances)
+    np.testing.assert_array_equal(zero_data.pair_differences, np.zeros_like(diff))
+    np.testing.assert_array_equal(observed.pair_covariances, zero_data.pair_covariances)
     np.testing.assert_array_equal(observed.selected_indices, selected)
     np.testing.assert_array_equal(observed.means, means)
 

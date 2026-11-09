@@ -64,7 +64,7 @@ def atomic(path, value):
 
 
 def verify_bundle(root, science):
-    """Hash each snapshot file once in controller; never inspect original roots."""
+    """Hash each bundle file once in the controller; the source stages are not read."""
     root = Path(root).resolve()
     raw = (root / 'bundle.json').read_bytes()
     b = json.loads(raw)

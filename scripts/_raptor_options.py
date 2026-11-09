@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-import re
 
 import _bootstrap  # noqa: F401
 from eht_axion.experiment import DEFAULT_PATH, read_experiment
@@ -20,13 +19,11 @@ def options(kind, argv=None):
     parser.add_argument("--config", type=Path, default=DEFAULT_PATH,
                         help="Experiment parameter file (default: experiment.yaml)")
     paths = {"source_root": "EHT_RAPTOR_SOURCE_ROOT",
-             "run_root": "EHT_PRODUCTION_ROOT", "fluid_root": "EHT_GRMHD_ROOT",
+             "run_root": "EHT_RAPTOR_RUN_ROOT", "fluid_root": "EHT_GRMHD_ROOT",
              "radial_low": "EHT_RADIAL_LOW", "radial_high": "EHT_RADIAL_HIGH"}
     for key, env in paths.items():
         parser.add_argument("--" + key.replace("_", "-"), type=Path,
                             help=f"Overrides ${env}; relative paths use current working directory")
-    parser.add_argument("--run-id",
-                        help="New run name under EHT_OUTPUT_ROOT/production; overrides EHT_RUN_ID")
     parser.add_argument("--source-lock", type=Path, default=ROOT / "raptor-source.lock.json")
     if kind == "generate":
         parser.add_argument("--plan", action="store_true", help="Validate and list tasks; never launch C")
@@ -51,14 +48,9 @@ def options(kind, argv=None):
     for key, env in paths.items():
         if getattr(args, key) is None and environment.get(env):
             setattr(args, key, Path(environment[env]))
-    if args.source_root is None:
-        args.source_root = ROOT.parent / "raptor"
-    if args.run_root is None:
-        run_id = args.run_id or environment.get("EHT_RUN_ID")
-        if not run_id or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}", run_id):
-            parser.error("Provide --run-root/EHT_PRODUCTION_ROOT, or a safe --run-id/EHT_RUN_ID")
-        output = Path(environment.get("EHT_OUTPUT_ROOT", str(ROOT.parent / "eht-pipeline-runs")))
-        args.run_root = output / "production" / run_id
+    for key in ("source_root", "run_root"):
+        if getattr(args, key) is None:
+            parser.error(f"Provide --{key.replace('_', '-')} or ${paths[key]}")
     try:
         reject_directory_symlinks(args.run_root)
         args.run_root = args.run_root.resolve()

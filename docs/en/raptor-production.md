@@ -20,8 +20,8 @@ cubes for the analysis. RAPTOR production does not read any EHT imaging product.
 
 ## Outputs
 
-All outputs are below one run root (`--run-root`, `EHT_PRODUCTION_ROOT`, or
-`EHT_OUTPUT_ROOT/production/<run id>`):
+All outputs are below one run root (`--run-root` or `EHT_RAPTOR_RUN_ROOT`; the default
+layout uses `raptor/runs/<name>/`, see [Data layout](data-layout.md#default-layout)):
 
 - `build/`: the compiled RAPTOR and its receipts (stage `raptor:build`).
 - `jobs/<task id>/`: one stage per task (stage `raptor:job`); failed attempts are kept in
@@ -53,7 +53,7 @@ pixi run -e raptor-build raptor-merge --plan plan.json \
 Options of `raptor_generate.py`: `--max-jobs N` (run only the first N tasks; delivery waits
 for the rest), `--threads` (OpenMP threads per RAPTOR process), `--workers` (concurrent
 processes), `--cpu-affinity none|physical|logical`, `--cpu-list`, `--timeout-seconds`. Both
-build and generate accept `--config`, `--run-id`, `--source-lock`, `--env-file` and
+build and generate accept `--config`, `--source-root`, `--run-root`, `--source-lock`, `--env-file` and
 `--no-env-file`.
 
 ## Details
@@ -190,10 +190,10 @@ lower bound), including cgroup-v2 limits.
 
 `raptor_build.py` and `raptor_generate.py` read `.env.raptor` and `.env` (copy
 `.env.raptor.example`). Keys: `EHT_RAPTOR_SOURCE_ROOT`, `EHT_GRMHD_ROOT`, `EHT_RADIAL_LOW`,
-`EHT_RADIAL_HIGH`, `EHT_RUN_ID`, `EHT_PRODUCTION_ROOT`, `EHT_OUTPUT_ROOT`,
-`EHT_RAPTOR_THREADS` (default 2), `EHT_RAPTOR_WORKERS` (default 1),
+`EHT_RADIAL_HIGH`, `EHT_RAPTOR_RUN_ROOT`, `EHT_RAPTOR_THREADS` (default 2), `EHT_RAPTOR_WORKERS` (default 1),
 `EHT_RAPTOR_CPU_AFFINITY` (default `none`), `EHT_RAPTOR_CPU_LIST`,
-`EHT_RAPTOR_TIMEOUT_SECONDS`. The run root must not overlap the source, the fluid
+`EHT_RAPTOR_TIMEOUT_SECONDS`. The source root and the run root have no default. The run
+root must not overlap the source, the fluid
 directory or the table directories, and a run root keeps the experiment file it was
 started with (`config.yaml`); a different file requires a new run.
 

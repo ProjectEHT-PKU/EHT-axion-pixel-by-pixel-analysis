@@ -1,4 +1,4 @@
-"""eht_export_bundle: synthetic I/tightD stages -> bundle accepted by eht_sample (no imaging)."""
+"""eht_export_bundle: synthetic I and refine stages -> bundle accepted by eht_sample (no imaging)."""
 import json
 from pathlib import Path
 

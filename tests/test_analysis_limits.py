@@ -41,7 +41,7 @@ def test_population_scatter_not_mean_error_and_pi_invariance():
 
 def test_independent_day_pair_sum_and_zero_data_control():
     data, centers = samples()
-    obs, null, metadata = build_observations(data, np.array([4, 14]), resultant_min=.7)
+    obs, zero_data, metadata = build_observations(data, np.array([4, 14]), resultant_min=.7)
     circular_means = np.array([.5 * np.angle(np.mean(np.exp(2j * v), axis=0)) for v in data])
     np.testing.assert_allclose(obs.means, circular_means, atol=1e-14)
     assert np.max(np.abs(circular_difference(obs.means, centers))) > .001
@@ -51,9 +51,9 @@ def test_independent_day_pair_sum_and_zero_data_control():
     np.testing.assert_allclose(offsets, circular_difference(centers, circular_means), atol=1e-14)
     for k, (a, b) in enumerate(((0, 1), (2, 3))):
         np.testing.assert_allclose(obs.pair_covariances[k], obs.covariances[a] + obs.covariances[b])
-    assert null.pair_covariances is obs.pair_covariances
-    assert null.covariances is obs.covariances
-    np.testing.assert_array_equal(null.pair_differences, np.zeros((2, 2)))
+    assert zero_data.pair_covariances is obs.pair_covariances
+    assert zero_data.covariances is obs.covariances
+    np.testing.assert_array_equal(zero_data.pair_differences, np.zeros((2, 2)))
     assert metadata['covariance_of_mean'] is False
     # Arbitrary independent draw permutations cannot change the answer.
     permuted = [v[np.random.default_rng(i).permutation(len(v))] for i, v in enumerate(data)]
@@ -122,7 +122,7 @@ def test_no_hidden_covariance_repair():
 
 def test_three_fixed_c_modes_share_grid_and_phase_product():
     data, _ = samples()
-    obs, null, _ = build_observations(data, np.array([0, 1]), resultant_min=.7)
+    obs, zero_data, _ = build_observations(data, np.array([0, 1]), resultant_min=.7)
     amp = {.1: np.array([[1., .8], [0., 0.]])}
     phase = {.1: np.array([[.1, .4], [0., 0.]])}
     options = LimitOptions(prior='log-uniform', credibility=.95, coupling_points=12, coupling_min=1 / 137,
@@ -132,14 +132,14 @@ def test_three_fixed_c_modes_share_grid_and_phase_product():
                            reference_norm=.1, cloud_coefficient=.03, cloud_pivot_alpha=.05,
                            cloud_exponent=1.75)
     for mode in ('std', 'cor', 'cor_fixed_background'):
-        for center in (obs, null):
-            _, cuts, info = calculate_observed(center, amp, phase, alphas=[.1], mode=mode,
+        for observation in (obs, zero_data):
+            _, cuts, info = calculate_observed(observation, amp, phase, alphas=[.1], mode=mode,
                                                 options=options)
             assert np.isfinite(cuts).all()
             assert info['response_model_variance_included'] is False
             assert info['phase_count'] == 8
             assert info['credibility'] == .95
-            assert info['data_nonzero_truth'] == (center is obs)
+            assert info['data_nonzero_truth'] == (observation is obs)
             if mode == 'cor_fixed_background':
                 expected = (np.array(obs.pair_covariances)
                             + np.eye(2) * np.deg2rad(options.grmhd_sigma_degrees)**2)
@@ -297,10 +297,10 @@ def test_save_all_six_cases_and_zero_data_control(tmp_path, monkeypatch):
     assert len((tmp_path / 'limits.csv').read_text().splitlines()) == 97
     for i in range(0, 12, 2):
         dim, mode, obs, options = calls[i]
-        null_dim, null_mode, null, null_options = calls[i + 1]
-        assert (dim, mode) == (null_dim, null_mode)
-        assert null.pair_covariances is obs.pair_covariances
-        assert options is null_options
-        np.testing.assert_array_equal(null.pair_differences, np.zeros((2, 2)))
+        zero_dim, zero_mode, zero_data, zero_options = calls[i + 1]
+        assert (dim, mode) == (zero_dim, zero_mode)
+        assert zero_data.pair_covariances is obs.pair_covariances
+        assert options is zero_options
+        np.testing.assert_array_equal(zero_data.pair_differences, np.zeros((2, 2)))
         assert np.any(np.array(obs.pair_differences) != 0)
         assert options.grmhd_sigma_degrees == np.rad2deg(.02 if dim == '1d' else .03)

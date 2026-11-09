@@ -256,8 +256,8 @@ def run(args):
                     "features": result["features"],
                 }
             )
-    # The source manifests are recorded inputs; their lineage was verified when
-    # those stages were made and is not re-hashed here.
+    # The source manifests are recorded inputs; their lineage is verified when
+    # those stages are made and is not re-hashed here.
     consumed += [provenance.manifest_path(source) for source in sources.values()]
     consumed.append(Path(__file__).resolve())
     identity = {

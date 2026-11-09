@@ -46,7 +46,6 @@ def test_bundle_bytes_seeds_and_4000_unique_tasks(tmp_path):
     science = batch.science_settings(SCRIPT.parents[1] / 'experiment.yaml')
     assert science['sites'] == ['AA', 'AP', 'AZ', 'JC', 'LM', 'PV', 'SM']
     assert (science['draws_per_day'], science['seed'], science['fsys']) == (1000, 20210405, .005)
-    # The settings recorded in the batch config of eht-uncertainty-remote-v1.
     assert science['monte_carlo'] == dict(initial_p_fraction=.05, gap_atol=1e-6, maxiter=50000,
                                           check_every=500, time_limit=600., retry_maxiter=200000,
                                           retry_time_limit=1800.)

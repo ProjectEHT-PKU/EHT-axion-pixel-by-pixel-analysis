@@ -43,7 +43,7 @@ SCHEMA = {
         "inputs", "gain_tol", "fsys", "solve_sites", "fixed_sites", "p_data", "p_reg", "norm_reg",
         "initial_m", "initial_evpa_deg", "rounds", "restart_rounds", "restart_blur_uas",
         "restart_domain_epsilon", "maxit", "stop", "shift_objective_constant", "uv_min",
-        "uncertainty_draws", "seed", "covariance_ddof", "residual_d_sigma", "residual_d_convention",
+        "uncertainty_draws", "seed", "covariance_ddof", "residual_d_sigma",
         "refine", "monte_carlo",
     },
     "eht_imaging.refine": {"outer_rounds", "gap_atol", "maxiter", "check_every", "time_limit",
@@ -266,9 +266,6 @@ def _validate_eht_imaging(config):
         _positive(mc[key], f"eht_imaging.monte_carlo.{key}")
     _number(mc["initial_p_fraction"], "eht_imaging.monte_carlo.initial_p_fraction", low=0, high=1,
             open_low=True, open_high=True)
-    # A fixed convention, kept in the YAML because it is part of the recorded imaging
-    # parameter set of the (not re-runnable) EHT imaging stages.
-    _choice(c["residual_d_convention"], "eht_imaging.residual_d_convention", ("per_component_sd",))
 
 
 def _validate_analysis(config):
@@ -423,5 +420,5 @@ _EHT_PARAMETER_ORDER = (
     "gain_tol", "fsys", "solve_sites", "fixed_sites", "p_data", "p_reg", "norm_reg", "initial_m",
     "initial_evpa_deg", "rounds", "restart_rounds", "restart_blur_uas", "restart_domain_epsilon",
     "maxit", "stop", "shift_objective_constant", "uv_min", "blur_fwhm_uas", "uncertainty_draws",
-    "seed", "covariance_ddof", "residual_d_sigma", "residual_d_convention",
+    "seed", "covariance_ddof", "residual_d_sigma",
 )
