@@ -30,8 +30,6 @@ PHASE_COUNT = 16
 # model/bhac/model.c: EOF-40 is eight 32-bit ints then a double; immediately
 # preceding it are ndimini ints nx[] and neqparini doubles. NSPIN is 3.
 FOOTER = struct.Struct("<8id")
-# Spin of the a094-high BHAC fluid, checked against every snapshot footer.
-EXPECTED_SPIN = 0.9375
 
 
 def canonical_alpha(alpha):
@@ -61,7 +59,7 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def read_snapshot_footer(path: Path, grid: dict) -> dict:
+def read_snapshot_footer(path: Path, grid: dict, fluid_spin: float) -> dict:
     """Read only the little-endian Linux BHAC footer, not its fluid or forest.
 
     Payload length is checked against a necessary lower bound, not certified as
@@ -89,8 +87,8 @@ def read_snapshot_footer(path: Path, grid: dict) -> dict:
         raise ValueError(f"BHAC block nx must divide the configured core nxlone grid: {path}")
     if not all(math.isfinite(value) for value in neqpar) or neqpar[0] <= 1:
         raise ValueError(f"Invalid BHAC neqpar/gamma: {path}")
-    if not math.isclose(neqpar[3], EXPECTED_SPIN, rel_tol=0, abs_tol=1e-12):
-        raise ValueError(f"BHAC actual spin must be {EXPECTED_SPIN}, got {neqpar[3]}: {path}")
+    if not math.isclose(neqpar[3], fluid_spin, rel_tol=0, abs_tol=1e-12):
+        raise ValueError(f"BHAC footer spin must be raptor.fluid_spin={fluid_spin}, got {neqpar[3]}: {path}")
     cells = math.prod(nx)
     payload = nleafs * (cells * nw + math.prod(n + 1 for n in nx) * nws) * 8
     minimum_size = payload + nleafs * 4 + FOOTER.size + meta_size
@@ -208,7 +206,7 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
     for label in range(start, stop + 1, step):
         name = f"data{label:06d}.dat"
         path = _path(fluid_root / name, "source_path")
-        metadata = read_snapshot_footer(path, p["grid"])
+        metadata = read_snapshot_footer(path, p["grid"], p["fluid_spin"])
         if snapshots:
             previous = snapshots[-1]
             expected = shared["label_step_tg"] * (label - previous["label"])
@@ -303,8 +301,9 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
             "Footer/payload lower-bound checks do not validate fluid values or AMR forest semantics.",
             "Radial CSV spin/provenance cannot be inferred from alpha,r,R columns; "
             "configured spins are declarations.",
-            "High table spin=0.99 intentionally differs from actual fluid spin=0.9375 "
-            "(explicit migration benchmark).",
+            "Declared radial-table spins " + ", ".join(
+                f"{k}={v['spin']}" for k, v in sorted(p["radial_tables"].items()))
+            + f"; fluid spin raptor.fluid_spin={p['fluid_spin']}.",
             "No radial amplitudes were renormalized; ray-radius coverage remains a core runtime check.",
             "Resource estimates are lower bounds only; "
             "caller must check disk/RAM with overhead and concurrency.",

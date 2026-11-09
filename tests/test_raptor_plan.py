@@ -184,7 +184,7 @@ def test_no_lexicographic_slice_or_extra_file_reads(inputs):
 
 @pytest.mark.parametrize("mutation,match", [
     ({"time": 15010.0}, "cadence"), ({"time": 15012.0}, "cadence"),
-    ({"time": float("nan")}, "Nonfinite"), ({"spin": 0.99}, "actual spin"),
+    ({"time": float("nan")}, "Nonfinite"), ({"spin": 0.99}, "footer spin"),
     ({"gamma": 1.0}, "gamma"), ({"gamma": 1.5}, "gamma changes"),
     ({"nx": (5, 2, 2)}, "divide"), ({"ndim": 2}, "layout"),
     ({"truncate": True}, "Truncated BHAC payload"),
@@ -273,7 +273,8 @@ def test_resource_lower_bounds_and_official_setup(inputs):
     assert "--sf=sfc" in req["official_setup_args"]
     assert "--sigma-cut=1.0" in req["official_setup_args"]
     assert "--uniform=0" in req["official_setup_args"]
-    metadata = read_snapshot_footer(fluid / "data001600.dat", config["raptor"]["grid"])
+    metadata = read_snapshot_footer(fluid / "data001600.dat", config["raptor"]["grid"],
+                                    config["raptor"]["fluid_spin"])
     assert metadata["gamma"] == 4 / 3
     assert metadata["spin"] == 0.9375
     assert metadata["body_verified"] is False

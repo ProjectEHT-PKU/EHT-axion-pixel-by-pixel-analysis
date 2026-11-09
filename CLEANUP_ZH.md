@@ -365,7 +365,7 @@ output.json 除 build 路径外相同、源与径向表 sha256 等于旧记录�
   链接计数改变（硬链接的固有行为）。原 `attempts/` 收据未迁移。
 * **运行中的两次中断**：第一次 `eht_summarize` 因一个变量名遮蔽错误失败（已修复并加了合成测试）；
   第一次 `limits-native` 运行时 tmux 服务进程意外退出（原因不明，内存充足），重新启动后正常完成。
-* `read_snapshot_footer` 中流体 spin 0.9375 的数据检查仍是代码常量。
+* 流体 spin 0.9375 已移入 `raptor.fluid_spin`（第三轮），`read_snapshot_footer` 用它检查每个快照的 footer。
 * **文档**：旧 `docs/` 已删除；英文文档在 `docs/en/` 重写（提交 d37b0b4），`tests/test_docs_links.py`
   检查其链接、锚点与结构；中文版 `docs/zh/` 尚未编写。
 * **合并耗时**：`raptor_merge` 对 18 330 个作业逐一做递归血统校验，第一轮约 1 小时（单进程）；

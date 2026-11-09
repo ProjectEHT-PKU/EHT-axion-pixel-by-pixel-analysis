@@ -74,7 +74,8 @@ toolchain; radial tables and snapshots are not build inputs.
 `plan_generation` (`eht_axion/raptor/plan.py`) reads only small inputs:
 
 - For each label it reads the BHAC footer of `data<label>.dat` (little-endian block
-  layout, time in $t_g$, adiabatic index, spin) and checks that the spin equals 0.9375,
+  layout, time in $t_g$, adiabatic index, spin) and checks that the spin equals
+  `raptor.fluid_spin` (0.9375),
   that the block size divides `raptor.grid.nxlone`, that the file is at least as long as
   the footer implies, and that consecutive footer times differ by
   `label_step_tg` × label difference.

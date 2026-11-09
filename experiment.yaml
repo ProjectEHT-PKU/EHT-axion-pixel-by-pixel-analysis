@@ -25,6 +25,7 @@ shared:  # values used by more than one part
 
 raptor:  # simulation input: what determines the ray-traced Stokes images
   camera_fov_rg: 46.2261         # camera width in gravitational radii
+  fluid_spin: 0.9375             # black-hole spin of the BHAC flow; checked against every snapshot footer
   build:                         # RAPTOR setup.sh options
     model: bhac
     metric: mks
@@ -52,7 +53,7 @@ raptor:  # simulation input: what determines the ray-traced Stokes images
     resolution: 400
   radial_tables:                 # radial-profile CSVs (paths given at run time) and their spin
     low: {spin: 0.9375}
-    high: {spin: 0.99}           # intentionally differs from the fluid spin 0.9375
+    high: {spin: 0.99}           # intentionally differs from raptor.fluid_spin
   alpha_table:                   # which radial table each alpha uses
     '0.10': low
     '0.15': low

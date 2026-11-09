@@ -251,7 +251,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
             raise ValueError("Task source differs from plan snapshot inventory")
         source = task["source_path"]
         if source not in footer_cache:
-            footer_cache[source] = read_snapshot_footer(Path(source), p["grid"])
+            footer_cache[source] = read_snapshot_footer(Path(source), p["grid"], p["fluid_spin"])
         if footer_cache[source]["time_tg"] != task["time_tg"] or task["time_tg"] != snapshot["time_tg"]:
             raise ValueError("Task time differs from live snapshot footer")
         if "metadata" in snapshot and footer_cache[source] != snapshot["metadata"]:

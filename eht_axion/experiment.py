@@ -28,7 +28,7 @@ PHYSICS_KEYS = ("mass_solar", "distance_mpc", "label_step_tg", "alphas", "princi
 SCHEMA = {
     "shared": set(PHYSICS_KEYS) | {"image"},
     "shared.image": {"shape", "fov_uas", "blur_fwhm_uas"},
-    "raptor": {"camera_fov_rg", "build", "plasma", "snapshots", "response", "background",
+    "raptor": {"camera_fov_rg", "fluid_spin", "build", "plasma", "snapshots", "response", "background",
                "radial_tables", "alpha_table", "grid"},
     "raptor.build": {"model", "metric", "integrator", "grid", "polarized", "sfc", "magnetic_polarity",
                      "sigma_cut", "thetae_min", "thetae_max", "uniform_output"},
@@ -161,6 +161,7 @@ def _validate_shared(config):
 def _validate_raptor(config):
     raptor = _section(config, "raptor")
     _positive(raptor["camera_fov_rg"], "raptor.camera_fov_rg")
+    _number(raptor["fluid_spin"], "raptor.fluid_spin", low=0, high=1)
     build = _section(config, "raptor.build")
     for key in ("model", "metric", "integrator", "grid", "magnetic_polarity"):
         if not isinstance(build[key], str):

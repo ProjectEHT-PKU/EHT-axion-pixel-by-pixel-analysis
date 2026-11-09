@@ -86,6 +86,7 @@ analysis import it); validation requires `eht_imaging.inputs` to have exactly th
 | Key | Value | Unit | Meaning | Read by |
 |---|---|---|---|---|
 | `camera_fov_rg` | 46.2261 | $r_g$ | camera width (176.5 µas) | RAPTOR `CAM_SIZE_X/Y`; preprocessing `init_fov` |
+| `fluid_spin` | 0.9375 | – | black-hole spin of the BHAC flow; every snapshot footer must report it | `read_snapshot_footer` (plan, job runner) |
 | `build.model` | `bhac` | – | `setup.sh --code` | `raptor/build.py` |
 | `build.metric` | `mks` | – | `--metric` | `raptor/build.py` |
 | `build.integrator` | `rk4` | – | `--int` | `raptor/build.py` |
@@ -108,7 +109,7 @@ analysis import it); validation requires `eht_imaging.inputs` to have exactly th
 | `response.reference_norm` | 0.1 | – | axion field normalization `AXION_NORM`; templates are per this norm | RAPTOR `model.in`; signal model |
 | `background.resolution` | 400 | pixels | side of the axion-off images for the GRMHD background | plan, delivery, `analysis_templates.py` |
 | `radial_tables.low.spin` | 0.9375 | – | declared spin of the low radial table | plan, task identity |
-| `radial_tables.high.spin` | 0.99 | – | declared spin of the high table (intentionally differs from the fluid spin 0.9375) | plan, task identity |
+| `radial_tables.high.spin` | 0.99 | – | declared spin of the high table (intentionally differs from `fluid_spin`) | plan, task identity |
 | `alpha_table` | 0.10–0.30 `low`, 0.35–0.44 `high` | – | radial table used for each $\alpha$ | plan |
 | `grid.nxlone`, `xprobmin`, `xprobmax`, `hslope` | see file | – | BHAC `grid_mks.in` coordinates; compared with the build's `grid_mks.in` and with snapshot footers | plan, job runner |
 
