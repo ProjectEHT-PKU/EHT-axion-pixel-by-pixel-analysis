@@ -38,7 +38,7 @@ pixi run -e eht-rebuild eht-reconstruct --stage fiducial --day 95 --i-root I95 -
 pixi run -e eht-rebuild eht-refine --day 95 --source-root PD95 --i-root I95 --output-root D95
 pixi run -e eht-rebuild eht-export-bundle --i-root I95 ... --d-root D95 ... --output-root BUNDLE
 pixi run -e eht-rebuild eht-sample --bundle-root BUNDLE --output-root MC
-pixi run -e eht-research eht-summarize --dataset-root DATASET --output-root ENSEMBLE
+pixi run -e eht-research eht-summarize --sample-root MC --output-root ENSEMBLE
 
 # Analysis (default environment)
 pixi run analysis-templates --raptor-input-root RUN_ROOT/data --output-root TEMPLATES

@@ -1,4 +1,4 @@
-"""eht_summarize: experiment-derived settings and the copy-receipt verification (synthetic)."""
+"""eht_summarize: experiment-derived settings and verification of an eht_sample output root (synthetic)."""
 import hashlib
 import importlib.util
 import json
@@ -23,14 +23,16 @@ def test_settings_come_from_experiment():
     assert settings == dict(draws=1000, shape=64, fov_uas=120.0, rmax_uas=60.0, window_degrees=10)
 
 
-def dataset(tmp_path, count=2):
-    root = tmp_path / 'copy'
-    results = root / 'results/full4000-v1'
+SCIENCE = {'draws_per_day': 2, 'seed': 1}
+
+
+def sample_root(tmp_path, count=2):
+    results = tmp_path / 'mc'
     results.mkdir(parents=True)
     draws = {d: {'draws': [{'AA': {'R': [0., 0.], 'L': [0., 0.]}} for _ in range(count)]} for d in s.en.DAYS}
     (results / 'all-draws.json').write_text(json.dumps(draws))
     tasks, receipts = [], {}
-    identity_plan = {'schema': 'eht-sample-batch-v2'}
+    identity_plan = {'schema': 'eht-sample-batch-v2', 'science': SCIENCE}
     encoded = json.dumps(identity_plan, sort_keys=True, separators=(',', ':')).encode()
     identity = hashlib.sha256(encoded).hexdigest()
     for d in s.en.DAYS:
@@ -55,23 +57,24 @@ def dataset(tmp_path, count=2):
     finish = dict(identity=identity, schema='eht-sample-finish-v2', numerically_certified=4 * count,
                   receipts=receipts)
     (results / 'finish.json').write_text(json.dumps(finish))
-    copy = dict(schema='eht-copyback-verified-v1', complete=True, copied_root=str(root.resolve()),
-                results_root=str(results.resolve()), certified_tasks=4 * count,
-                days={d: count for d in s.en.DAYS},
-                full_attempt_outputs_SHA_verified=True, exported_inputs_SHA_verified=True,
-                runtime_code_files_SHA_verified=True, identity=identity,
-                finish_sha256=sha(results / 'finish.json'), batch_sha256=sha(results / 'batch.json'))
-    (root / 'COPY_VERIFIED.json').write_text(json.dumps(copy))
-    return root
+    return results
 
 
-def test_verify_copy_uses_configured_draw_count(tmp_path):
-    root = dataset(tmp_path, count=2)
-    settings = dict(draws=2)
+def test_verify_batch_reads_the_sample_root_directly(tmp_path):
+    root = sample_root(tmp_path, count=2)
     with s.provenance.verification_session():
-        selected, paths, copy = s.verify_copy(root, settings)
+        selected, paths, identity = s.verify_batch(root, dict(draws=2), SCIENCE)
     assert {d: sorted(v) for d, v in selected.items()} == {d: [0, 1] for d in s.en.DAYS}
-    assert copy['certified_tasks'] == 8
-    with pytest.raises(ValueError, match='copy verification receipt'):
+    assert identity == json.loads((root / 'batch.json').read_text())['identity']
+    assert root / 'batch.json' in paths and root / 'finish.json' in paths
+    with pytest.raises(ValueError, match='inconsistent eht_sample batch'):
         with s.provenance.verification_session():
-            s.verify_copy(root, dict(draws=3))
+            s.verify_batch(root, dict(draws=3), SCIENCE)
+    with pytest.raises(ValueError, match='different experiment values'):
+        with s.provenance.verification_session():
+            s.verify_batch(root, dict(draws=2), dict(SCIENCE, seed=2))
+    batch = json.loads((root / 'batch.json').read_text())
+    (root / 'batch.json').write_text(json.dumps(dict(batch, science=dict(SCIENCE, seed=2))))
+    with pytest.raises(ValueError, match='inconsistent eht_sample batch'):  # identity no longer matches
+        with s.provenance.verification_session():
+            s.verify_batch(root, dict(draws=2), dict(SCIENCE, seed=2))

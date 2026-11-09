@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""EHT imaging: summarize the copied fixed-D FITS draws of eht_sample.py into EHT ensembles.
+"""EHT imaging: summarize the D-term Monte Carlo images of eht_sample.py into EHT ensembles.
 
 The ensembles are the EHT input of the analysis (analysis_limits.py).
 
-pixi run -e eht-research python scripts/eht_summarize.py --dataset-root ROOT --output-root OUT
-Draw count, sky grid and aperture (radius, width) come from experiment.yaml, the
-same values used by the analysis. Requires ROOT/COPY_VERIFIED.json with the
-original finish SHA and batch identity. Only the display19 images (blurred with
+pixi run -e eht-research eht-summarize --sample-root MC --output-root OUT
+MC is the output root of eht_sample.py; its batch must be finished and must have been
+made with the science values of the current experiment.yaml. Draw count, sky grid and
+aperture (radius, width) come from experiment.yaml. Only the display19 images (blurred with
 shared.image.blur_fwhm_uas, like the simulated images) are summarized.
 Outputs: native/display19/day-D/{stokes.npy,evpa.npy,aperture.npz,global.npz},
 axes.npz, report.json (conventions, registration, scope).
@@ -39,9 +39,14 @@ def summary_settings(config):
                 window_degrees=aperture['window_degrees'])
 
 
-def verify_copy(dataset, settings):
-    """Verify the copied batch (receipts, identity, certificates, SHA-256 of every consumed file)."""
-    dataset = Path(dataset).resolve(strict=True)
+def verify_batch(root, settings, science):
+    """Verify a finished eht_sample.py output root before any image is read.
+
+    batch.json must carry its own identity (SHA-256 of the plan) and the science values
+    ``science`` of the current experiment; finish.json must list one certified receipt
+    per draw; every consumed receipt, image and certificate is checked by SHA-256.
+    """
+    results = Path(root).resolve(strict=True)
     count = settings['draws']
     paths = []
 
@@ -52,25 +57,18 @@ def verify_copy(dataset, settings):
         paths.append(path)
         return read_json(path)
 
-    copy = checked(dataset / 'COPY_VERIFIED.json')
-    results = contained(dataset, 'results/full4000-v1')
-    if (copy.get('schema') != 'eht-copyback-verified-v1' or copy.get('complete') is not True
-            or copy.get('copied_root') != str(dataset) or copy.get('results_root') != str(results)
-            or copy.get('certified_tasks') != count * len(en.DAYS)
-            or copy.get('days') != {d: count for d in en.DAYS}
-            or not all(copy.get(k) is True for k in ('full_attempt_outputs_SHA_verified',
-                         'exported_inputs_SHA_verified', 'runtime_code_files_SHA_verified'))):
-        raise ValueError('unsupported/incomplete copy verification receipt')
-    finish = checked(results / 'finish.json', copy['finish_sha256'])
-    batch = checked(results / 'batch.json', copy['batch_sha256'])
-    identity = copy['identity']
+    batch = checked(results / 'batch.json')
+    finish = checked(results / 'finish.json')
+    identity = batch.get('identity')
     unsigned = dict(batch)
     unsigned.pop('identity', None)
     encoded = json.dumps(unsigned, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
-    if (hashlib.sha256(encoded).hexdigest() != identity or batch['identity'] != identity
-            or finish['identity'] != identity or finish['schema'] != 'eht-sample-finish-v2'
-            or finish['numerically_certified'] != count * len(en.DAYS)):
-        raise ValueError('batch/finish identity mismatch')
+    if (batch.get('schema') != 'eht-sample-batch-v2' or hashlib.sha256(encoded).hexdigest() != identity
+            or finish.get('schema') != 'eht-sample-finish-v2' or finish.get('identity') != identity
+            or finish.get('numerically_certified') != count * len(en.DAYS)):
+        raise ValueError('incomplete or inconsistent eht_sample batch (batch.json / finish.json)')
+    if batch.get('science') != json.loads(json.dumps(science)):
+        raise ValueError('eht_sample batch was made with different experiment values')
     draws = checked(results / 'all-draws.json')
     taskpath = results / 'tasks.jsonl'
     provenance.sha256(taskpath)
@@ -105,7 +103,7 @@ def verify_copy(dataset, settings):
         if not (solver['numerically_certified'] and -1e-10 <= solver['best_gap'] <= cert['gap_atol']):
             raise ValueError('invalid numerical certificate')
         selected[d][k] = products
-    return selected, list(dict.fromkeys(paths)), copy
+    return selected, list(dict.fromkeys(paths)), identity
 
 
 def run(selected, out, settings):
@@ -155,26 +153,26 @@ def run(selected, out, settings):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--dataset-root', type=Path, required=True)
+    p.add_argument('--sample-root', type=Path, required=True, help='finished eht_sample.py output root')
     p.add_argument('--output-root', type=Path, required=True)
     p.add_argument('--config', type=Path, default=ROOT / 'experiment.yaml', help='default: experiment.yaml')
     args = p.parse_args(argv)
     from eht_axion.experiment import read_experiment
+    from eht_sample import science_settings
     settings = summary_settings(read_experiment(args.config))
-    dataset, destination = args.dataset_root.resolve(), args.output_root.resolve()
-    if destination.is_relative_to(dataset) or dataset.is_relative_to(destination):
-        p.error('dataset and output roots must be separate and non-nested')
+    sample, destination = args.sample_root.resolve(), args.output_root.resolve()
+    if destination.is_relative_to(sample) or sample.is_relative_to(destination):
+        p.error('sample and output roots must be separate and non-nested')
     if destination.exists():
         p.error(f'new output root required: {destination}')
     with provenance.verification_session():
-        selected, inputs, copy = verify_copy(dataset, settings)
+        selected, inputs, identity = verify_batch(sample, settings, science_settings(args.config))
         inputs += [Path(__file__).resolve(), args.config.resolve(),
                    ROOT / 'eht_axion/eht/ensemble.py', ROOT / 'eht_axion/evpa.py']
-        config = dict(copy_identity=copy['identity'], rmax_uas=settings['rmax_uas'],
-                      source_kind='verified-copy-custom-batch', draw_count=settings['draws'] * len(en.DAYS))
+        config = dict(batch_identity=identity, rmax_uas=settings['rmax_uas'],
+                      draw_count=settings['draws'] * len(en.DAYS))
         with provenance.stage_directory(destination, 'eht:ensemble', config, inputs) as out:
             if out is not None:
-                (out / 'copy-receipt.json').write_text(json.dumps(copy, indent=2) + '\n')
                 records = provenance.describe_inputs(inputs)
                 (out / 'consumed-inputs.json').write_text(json.dumps(records, indent=2) + '\n')
                 run(selected, out, settings)

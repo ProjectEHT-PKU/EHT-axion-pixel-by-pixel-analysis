@@ -125,7 +125,7 @@ pixi run -e eht-rebuild eht-refine --day 95 --source-root PD95 --i-root I95 --ou
 #   （四天 95/96/100/101 各做一次，然后）
 pixi run -e eht-rebuild eht-export-bundle --i-root I95 --i-root I96 --i-root I100 --i-root I101 --d-root D95 --d-root D96 --d-root D100 --d-root D101 --output-root BUNDLE
 pixi run -e eht-rebuild eht-sample --bundle-root BUNDLE --output-root MC
-pixi run -e eht-research eht-summarize --dataset-root MC_COPY --output-root ENSEMBLE
+pixi run -e eht-research eht-summarize --sample-root MC --output-root ENSEMBLE
 # 分析（默认环境，需要上面两类产品）
 pixi run analysis-templates --raptor-input-root MERGED/data --output-root TEMPLATES
 pixi run analysis-limits --templates TEMPLATES --ensemble ENSEMBLE --output-root LIMITS

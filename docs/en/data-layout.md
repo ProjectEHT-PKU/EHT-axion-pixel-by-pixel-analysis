@@ -81,7 +81,7 @@ MC/                              no manifest; batch receipts instead
     best-raw-IQU.fits, best-display-IQU-additional19uas.fits
 ENSEMBLE/                        stage eht:ensemble
   axes.npz                       east_uas (64), north_uas (64), angle_deg (360)
-  report.json, copy-receipt.json, consumed-inputs.json
+  report.json, consumed-inputs.json
   native/display19/day-<day>/
     stokes.npy                   float64 (1000, 64, 64, 4): draw, y, x, IQUV
     evpa.npy                     float64 (1000, 64, 64): radians in [0, pi), NaN if I <= 0
@@ -95,8 +95,7 @@ percent). FITS images have four HDUs I, Q, U, V on native `RA---SIN`/`DEC--SIN` 
 east offset decreases with the x index and the north offset increases with the y index.
 `<day>-<draw>` uses a four-digit draw index, for example `95-0042`.
 
-`eht_summarize.py` reads `DATASET/COPY_VERIFIED.json` and `DATASET/results/full4000-v1/`,
-which must contain the `MC/` files listed above.
+`eht_summarize.py` reads the `MC/` root above directly.
 
 ### Analysis
 

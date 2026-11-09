@@ -56,7 +56,7 @@ pixi run -e eht-rebuild eht-refine --day 95 --source-root PD95 --i-root I95 --ou
 pixi run -e eht-rebuild eht-export-bundle --i-root I95 --i-root I96 --i-root I100 --i-root I101 \
     --d-root D95 --d-root D96 --d-root D100 --d-root D101 --output-root BUNDLE
 pixi run -e eht-rebuild eht-sample --bundle-root BUNDLE --output-root MC --workers 64 --threads 2
-pixi run -e eht-research eht-summarize --dataset-root DATASET --output-root ENSEMBLE
+pixi run -e eht-research eht-summarize --sample-root MC --output-root ENSEMBLE
 ```
 
 `eht_reconstruct.py --plan` only verifies and hashes the inputs and prints the plan.
@@ -68,8 +68,9 @@ its bytes become a stage input, and its presence is not an automatic approval.
 `--resume`. A run with the same output root resumes; it requires an identical batch
 identity (bundle, science values and code).
 
-`eht_summarize.py` reads `DATASET/COPY_VERIFIED.json` and the Monte Carlo results in
-`DATASET/results/full4000-v1/` (see [Ensemble summary](#ensemble-summary)).
+`eht_summarize.py` reads the output root of `eht_sample.py` directly (see
+[Ensemble summary](#ensemble-summary)). Running the Monte Carlo on another host and copying
+its output root back is an operational matter outside the pipeline.
 
 ## Details
 
@@ -204,11 +205,12 @@ are certified.
 
 ### Ensemble summary
 
-`eht_summarize.py` consumes a copy of the Monte Carlo output: it expects
-`DATASET/COPY_VERIFIED.json` (schema `eht-copyback-verified-v1`, with the batch identity,
-the SHA-256 of `batch.json` and `finish.json`, and flags confirming that the copied files
-were hash-checked) and the batch in `DATASET/results/full4000-v1/`. It checks the receipts,
-identities, certificates and the SHA-256 of every consumed file, then reads the 1000
+`eht_summarize.py` reads a finished `eht_sample.py` output root (`--sample-root`). It
+requires that `batch.json` carries its own identity (the SHA-256 of the batch plan), that
+its recorded science values equal those `eht_sample.py` derives from the current
+`experiment.yaml`, and that `finish.json` has the same identity and lists one certified
+receipt per draw. It checks the receipts, certificates and the SHA-256 of every consumed
+file, then reads the 1000
 display19 images per day (no further blur) and writes, per day under
 `native/display19/day-<day>/`:
 
