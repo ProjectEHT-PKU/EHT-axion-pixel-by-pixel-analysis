@@ -13,7 +13,6 @@ from scipy.ndimage import gaussian_filter
 from scipy.sparse import csr_matrix
 
 from eht_axion.pipeline import raptor
-from scripts import raptor_tools
 
 
 def digest(path):
@@ -525,60 +524,3 @@ def test_existing_products_are_not_overwritten(tmp_path):
     with pytest.raises(FileExistsError):
         raptor.preprocess_cube(phase_cube(times=1), tmp_path / "stage", **kwargs)
     assert digest(result["stokes"]) == before
-
-
-def test_script_subcommands_small_end_to_end(tmp_path):
-    script = Path(__file__).resolve().parents[1] / "scripts" / "raptor_tools.py"
-    env = dict(os.environ)
-    env.pop("PYTHONPATH", None)
-
-    def run(*args):
-        process = subprocess.run([sys.executable, str(script), *map(str, args)],
-                                 cwd=tmp_path, env=env, capture_output=True, text=True, check=True)
-        return json.loads(process.stdout)
-
-    path = save(tmp_path / "input.npy", phase_cube(times=4, n=2))
-    processed, fitted, summary, bg = [tmp_path / name for name in ("processed", "fit", "sum", "bg")]
-    assert "stokes" in run("preprocess", path, "--output-dir", processed, "--sigma", 0,
-                            "--init-fov", 2, "--final-fov", 2, "--rotation-angle", 0,
-                            "--final-shape", 2)
-    assert "fits_1d" in run("fit", processed / "stokes.npy", "--output-dir", fitted,
-                             "--fov", 2, "--angular-bins", 4)
-    assert "templates" in run("summarize", "--fit", f"0.3={fitted / 'response-1d.npz'}",
-                              "--output-dir", summary)
-    assert "diagnostics" in run("background", processed / "stokes.npy", "--output-dir", bg)
-    h5py = pytest.importorskip("h5py")
-    hdf = tmp_path / "image.h5"
-    with h5py.File(hdf, "w") as file:
-        for c in "IQUV":
-            file.create_dataset(c, data=np.ones((2, 2)))
-    mapping = tmp_path / "mapping.json"
-    mapping.write_text(json.dumps({"datasets": {c: c for c in "IQUV"}, "image_shape": [2, 2]}))
-    assert "stokes" in run("convert", hdf, "--output-dir", tmp_path / "converted",
-                            "--mapping", mapping, "--states-per-time", 1)
-
-
-def test_script_main_background_defaults_and_validation(tmp_path, monkeypatch, capsys):
-    seen = {}
-
-    def background(**kwargs):
-        seen.update(kwargs)
-        return {"metadata": tmp_path / "summary.json"}
-
-    monkeypatch.setattr(raptor_tools, "estimate_background", background)
-    args = ["background", "input.npy", "--output-dir", str(tmp_path)]
-    assert raptor_tools.main(args) == 0
-    assert json.loads(capsys.readouterr().out) == {"metadata": str(tmp_path / "summary.json")}
-    assert seen == dict(
-        inputs=[Path("input.npy")], output_dir=tmp_path, lag=3, cadence_hours=26.68 / 3,
-        noaxion_state=0, mask=None, difference="angular", method="mle", bins=100,
-        minimum_samples=2, domain="2d", fov=None, weighting="intensity", radial_max=None,
-        window_degrees=10, angular_bins=360, legacy_threshold=0.2,
-    )
-    assert raptor_tools.main([*args, "--noaxion-state", "none"]) == 0
-    assert seen["noaxion_state"] is None
-    with pytest.raises(SystemExit) as error:
-        raptor_tools.main([*args, "--noaxion-state", "invalid"])
-    assert error.value.code == 2
-    assert not hasattr(raptor, "main")
-    assert not hasattr(raptor, "argparse")

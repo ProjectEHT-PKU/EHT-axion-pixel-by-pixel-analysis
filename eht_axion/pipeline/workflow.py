@@ -8,8 +8,8 @@ from .config import read_config
 from .common import (
     stage_directory, verify_stage, manifest_path, reject_directory_symlinks, verification_session,
 )
-from .layout import RunLayout, input_raptor_files, input_eht_file
-from .constants import PhysicalScale, analysis_geometry
+from .layout import RunLayout, input_raptor_files
+from .constants import analysis_geometry
 
 
 def stage_inputs(directory):
@@ -36,7 +36,7 @@ def run_stage(
     """
     from types import SimpleNamespace
 
-    if stage not in {"all", "raptor", "eht", "background", "observations", "inference", "figures"}:
+    if stage not in {"all", "raptor"}:
         raise ValueError(f"Unknown research stage: {stage}")
     args = SimpleNamespace(
         config=Path(config),
@@ -48,15 +48,11 @@ def run_stage(
         rebuild=rebuild,
         reuse_imported=reuse_imported,
     )
-    from .raptor import preprocess_cube, fit_processed, summarize_fits, estimate_background
-    from .eht import run_eht_stage
-    from .products import build_observations
+    from .raptor import preprocess_cube, fit_processed, summarize_fits
 
     config = read_config(args.config)
     if "final_fov_uas" in config["image"] and not {"cloud", "eht_input"} <= config.keys():
         raise ValueError("Angular analysis requires explicit cloud and eht_input contracts")
-    scale = PhysicalScale(**config["physical"])
-    aperture = config["aperture"]
     geometry = analysis_geometry(config)
     reject_directory_symlinks(args.output_root)
     output = args.output_root.resolve()
@@ -89,11 +85,6 @@ def run_stage(
     if args.rebuild:
         targets = {
             "raptor": ["raptor/processed", "raptor/response", "raptor/templates"],
-            "eht": ["eht"],
-            "background": ["raptor/background", "background"],
-            "observations": ["observations"],
-            "inference": ["inference"],
-            "figures": ["figures"],
         }
         for name, directories in targets.items():
             if do(name) and any((output / d).is_symlink() for d in directories):
@@ -137,124 +128,6 @@ def run_stage(
             ) as temporary:
                 if temporary is not None:
                     summarize_fits(fits, temporary)
-    if do("eht"):
-        if source is None:
-            raise ValueError("--input-root required for EHT stage")
-        params = dict(
-            trust_pickle=args.trust_pickle,
-            topset_size=config["eht"]["topset_size"],
-            weighting=aperture["weighting"],
-            fov=fit_params["fov"],
-            radial_max=fit_params["radial_max"],
-            window_degrees=aperture["window_degrees"],
-            angular_bins=aperture["angular_bins"],
-            inherit_2d_mask=config["eht"]["inherit_2d_mask_in_1d"],
-            min_radius=config["eht"]["min_radius_rg"],
-            intensity_fraction=config["eht"]["intensity_fraction"],
-            historical_mask=config["eht"]["historical_mask"],
-        )
-        if "eht_input" in config:
-            contract = config["eht_input"]
-            params.update(expected_shape=contract["shape"], angular_fov_uas=contract["fov_uas"],
-                          pixel_size_uas=contract["pixel_size_uas"], angle_roll=contract["angle_roll"],
-                          rank_offsets={int(k): v for k, v in contract["rank_offsets"].items()},
-                          final_offsets={int(k): v for k, v in contract["final_offsets"].items()},
-                          exclude_columns=contract["exclude_columns"],
-                          exclusion_rectangles=contract["exclusion_rectangles"])
-        raw = source
-        eht_inputs = [input_eht_file(raw, d) for d in (95, 96, 100, 101)]
-        geometry_evidence = raw / "eht-input-geometry.json"
-        if "eht_input" in config:
-            if not geometry_evidence.is_file():
-                raise ValueError("Declared EHT sky geometry requires eht-input-geometry.json evidence")
-            evidence = json.loads(geometry_evidence.read_text())
-            declared = config["eht_input"]
-            if evidence.get("input_geometry") != {
-                    "shape": declared["shape"], "fov_uas": declared["fov_uas"],
-                    "pixel_size_uas": declared["pixel_size_uas"]}:
-                raise ValueError("EHT header evidence differs from declared input sky grid")
-            eht_inputs += [geometry_evidence] + [Path(p) for p in evidence["fits_samples"]]
-        with stage(
-            layout.eht,
-            "eht:ensemble",
-            params,
-            eht_inputs,
-            rebuild=args.rebuild,
-        ) as temporary:
-            if temporary is not None:
-                run_eht_stage(raw, temporary, **params)
-    if do("background"):
-        if raptor_source is None:
-            raise ValueError("--input-root or --raptor-input-root required for background stage")
-        cfg = config["background"]
-        alpha, res = cfg["alpha"], cfg["source_resolution"]
-        cubes = input_raptor_files(raptor_source, alpha, res)
-        from ..producer.delivery import generated_inputs
-
-        inputs, _ = generated_inputs(cubes, config, alpha=alpha, resolution=res,
-                                     verified=validated_lineage)
-        from ..producer.delivery import input_cadence_hours
-
-        cadence = input_cadence_hours(cubes, config)
-        processed = layout.background_processed
-        with stage(
-            processed,
-            "raptor:background-preprocess",
-            dict(process_params, state_indices=[0]),
-            inputs,
-            rebuild=args.rebuild,
-        ) as temporary:
-            if temporary is not None:
-                preprocess_cube(cubes, temporary, state_indices=[0], **process_params)
-        mask = layout.eht / "mask.npy"
-        params = dict(
-            lag=cfg["lag_frames"],
-            cadence_hours=cadence,
-            method=cfg["method"],
-        )
-        with stage(
-            layout.background,
-            "raptor:background",
-            dict(params, physical=scale.metadata(), source_alpha=alpha, source_resolution=res),
-            stage_inputs(processed) + [manifest_path(layout.eht), mask],
-            rebuild=args.rebuild,
-        ) as temporary:
-            if temporary is not None:
-                estimate_background(processed / "stokes.npy", temporary, mask=mask, **params)
-    if do("observations"):
-        for dim in ("1d", "2d"):
-            templates = layout.templates(dim) / "templates.npz"
-            eht_dir = layout.eht
-            params = dict(
-                angular_offset=config["eht"]["angular_offset"],
-                covariance_ridge=config["eht"]["covariance_ridge"],
-            )
-            with stage(
-                layout.observations(dim),
-                "observations:covariance",
-                dict(params, dimension=dim),
-                stage_inputs(eht_dir) + [manifest_path(layout.templates(dim)), templates],
-                rebuild=args.rebuild,
-            ) as temporary:
-                if temporary is not None:
-                    build_observations(eht_dir, templates, dim, temporary / "observations.npz", **params)
-    if do("inference"):
-        from .inference import run_inference
-
-        run_inference(output, config, rebuild=args.rebuild, reuse_imported=reuse)
-    if do("figures"):
-        from .figures import plot_results
-
-        inference_dir = layout.inference
-        with stage(
-            layout.figures,
-            "figures:limits",
-            {},
-            stage_inputs(inference_dir),
-            rebuild=args.rebuild,
-        ) as temporary:
-            if temporary is not None:
-                plot_results(inference_dir, temporary, reuse_imported=reuse)
     output.mkdir(parents=True, exist_ok=True)
     snapshot = output / "config.yaml"
     reject_directory_symlinks(snapshot)

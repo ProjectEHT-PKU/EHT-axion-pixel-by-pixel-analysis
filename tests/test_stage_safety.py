@@ -36,28 +36,6 @@ def test_lowlevel_rejects_dangling_file_link(tmp_path):
     assert not external.exists()
 
 
-def test_expert_eht_writer_rejects_directory_link(tmp_path):
-    from eht_axion.pipeline.eht import run_eht_stage
-
-    target = tmp_path / "external"
-    alias = tmp_path / "eht-output"
-    alias.symlink_to(target, target_is_directory=True)
-    with pytest.raises(ValueError, match="shared directory symlink"):
-        run_eht_stage(tmp_path / "input", alias, trust_pickle=True)
-    assert not target.exists()
-
-
-def test_observation_writer_rejects_file_link_before_inputs(tmp_path):
-    from eht_axion.pipeline.products import build_observations
-
-    target = tmp_path / "external.npz"
-    alias = tmp_path / "observations.npz"
-    alias.symlink_to(target)
-    with pytest.raises(ValueError, match="output file symlink"):
-        build_observations(tmp_path / "eht", tmp_path / "templates.npz", "1d", alias)
-    assert not target.exists()
-
-
 def test_origin_inputs_are_validated_recursively(tmp_path):
     raw = tmp_path / "raw.txt"
     raw.write_text("v1")
