@@ -531,10 +531,10 @@
     {
       "old": "calculate_eht_ensemble_limits: --centering native (paper invocation, limits-native-v1)",
       "old_value": "native",
-      "new": "analysis.features.centering",
+      "new": "scripts/analysis_limits.py CENTERING (fixed; Paper VII Sec. 5.2 centring = zero shift)",
       "new_value": "native",
       "equal": true,
-      "note": ""
+      "note": "the centroid alternative was removed (user decision: Paper VII only)"
     },
     {
       "old": "gridcheck.inference.phase_count",

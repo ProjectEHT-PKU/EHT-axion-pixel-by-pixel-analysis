@@ -143,7 +143,7 @@ def test_three_fixed_c_modes_share_grid_and_phase_product():
 def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, monkeypatch):
     import json
 
-    config = driver.effective_config(driver.read_experiment(), 'centroid')
+    config = driver.read_experiment()
     ensemble, theory = tmp_path / 'ensemble', tmp_path / 'theory'
     ensemble.mkdir()
     grid = (np.arange(64) - 31.5) * 1.875
@@ -156,7 +156,7 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
         maps = np.ones((64, 64, 4))
         maps[..., 1] = np.cos(2 * native_chi)
         maps[..., 2] = np.sin(2 * native_chi)
-        directory = ensemble / f'icentroid/display19/day-{day}'
+        directory = ensemble / f'native/display19/day-{day}'
         directory.mkdir(parents=True)
         arrays[directory / 'stokes.npy'] = np.broadcast_to(maps, (1000, 64, 64, 4))
         arrays[directory / 'evpa.npy'] = np.broadcast_to(native_chi, (1000, 64, 64))

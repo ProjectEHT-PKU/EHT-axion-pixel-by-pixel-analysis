@@ -2,8 +2,8 @@
 
 Inputs: the templates root of analysis_templates.py and the fixed-D EHT ensemble
 summary of eht_summarize.py. Feature selection, cloud model, background and the
-inference grid/prior come from experiment.yaml (section analysis); --centering
-overrides analysis.features.centering (used for the centroid comparison only).
+inference grid/prior come from experiment.yaml (section analysis). The EHT images
+are used as reconstructed (Paper VII Sec. 5.2 centring = zero shift, 'native').
 D-draw image scatter is a working covariance, not calibrated noise. Both day
 pairs share one phase nuisance parameter, marginalized after multiplying likelihoods.
 """
@@ -29,6 +29,10 @@ from eht_axion.research.ensemble_limits import (
     DAYS, MODES, branch_risk, build_observations, covariance_diagnostics,
 )
 from eht_axion.research.observed import calculate_observed
+
+
+# Paper VII Sec. 5.2 centring = zero shift in this reproduction: no registration.
+CENTERING = 'native'
 
 
 def options_from_config(config, background_sigma_radians):
@@ -258,7 +262,7 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     matching the declared additional19uas theory kernel approximation.
     """
     features = config['analysis']['features']
-    centering, mask_mode, stride = features['centering'], features['mask_mode'], features['pixel_stride']
+    mask_mode, stride = features['mask_mode'], features['pixel_stride']
     record = verify_stage(ensemble, recursive=True, _seen=verified)
     if record['stage'] != 'research:eht-fixed-D-ensemble':
         raise ValueError('Unexpected EHT120 ensemble stage')
@@ -280,9 +284,9 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
         east_axis, north_axis, angles = z['east_uas'], z['north_uas'], z['angle_deg']
     if not np.array_equal(angles, np.arange(360)):
         raise ValueError('Audited North0/East90 aperture bins require identity mapping, no extra roll')
-    # Ensemble products are stored per centering mode at the display19 resolution
+    # Native (unshifted) ensemble products at the display19 resolution
     # (EHT images blurred with shared.image.blur_fwhm_uas, like the simulated images).
-    mode = 'native' if centering == 'native' else 'icentroid'
+    mode = CENTERING
     days = {str(d): dict(stokes=f'{mode}/display19/day-{d}/stokes.npy',
                          evpa_1d=f'{mode}/display19/day-{d}/aperture.npz',
                          evpa_2d=f'{mode}/display19/day-{d}/evpa.npy') for d in DAYS}
@@ -411,21 +415,13 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
         sigmas[dim] = dict(stokes=str(stokes_path), cadence_hours=metadata['cadence_hours'],
                            lag=metadata['lag'], source_unmasked_sigma=sigma)
         background_inputs += [manifest_path(directory), summary, diagnostic]
-    return prepared, inputs, dict(stage=record['stage'], centering=centering,
+    return prepared, inputs, dict(stage=record['stage'], centering=CENTERING,
         background_selection='pooled scalar on final selected features, no response variance'), \
         sigmas, background_inputs
 
 
-def effective_config(config, centering=None):
-    """The experiment with an optional --centering override applied (a copy)."""
-    config = json.loads(json.dumps(config))
-    if centering is not None:
-        config['analysis']['features']['centering'] = centering
-    return config
-
-
 def run(args):
-    config = effective_config(read_experiment(args.config), args.centering)
+    config = read_experiment(args.config)
     features = config['analysis']['features']
     if args.output_root.exists():
         raise FileExistsError('New output root required')
@@ -436,7 +432,7 @@ def run(args):
             args.ensemble.resolve(), args.templates.resolve(), config, products, verified=seen)
         identity = dict(schema='eht120-observed-ensemble-limits-v1',
                         scientific_profile=config,
-                        resultant_min=features['resultant_min'], centering=features['centering'],
+                        resultant_min=features['resultant_min'], centering=CENTERING,
                         pixel_stride=features['pixel_stride'], mask_mode=features['mask_mode'],
                         ensemble=source_identity, covariance='D-draw population scatter; independent days',
                         scope='working-covariance conditional research credible limits')
@@ -455,8 +451,6 @@ def main(argv=None):
     p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: experiment.yaml')
     for name in ('ensemble', 'templates', 'output-root'):
         p.add_argument('--'+name, type=Path, required=True)
-    p.add_argument('--centering', choices=['native', 'centroid'],
-                   help='override analysis.features.centering (centroid comparison)')
     run(p.parse_args(argv))
 
 

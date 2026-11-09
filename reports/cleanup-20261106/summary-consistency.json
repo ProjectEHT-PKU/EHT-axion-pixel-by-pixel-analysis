@@ -1,0 +1,11 @@
+{
+  "purpose": "New summary (native limits as primary) consistent with original native products",
+  "summary_limits_equal_original_native_limits": true,
+  "entries": 96,
+  "grid_max_delta_dex": {
+    "summary": 0.004026097551201868,
+    "original_native_gridcheck": 0.004026097551201868,
+    "equal": true
+  },
+  "note": "The original eht-120uas-results-summary-v1 used centroid limits as primary; the new summary uses the Paper VII native limits, so it is not compared file-by-file."
+}

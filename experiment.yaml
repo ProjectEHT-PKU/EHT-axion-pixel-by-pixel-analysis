@@ -105,8 +105,8 @@ analysis:  # process 3: from simulated images and EHT ensembles to limits on c
     window_degrees: 10
     radial_max_fraction: 1.0     # of the image half-FOV (60 uas)
     angular_bins: 360            # one-degree grid
-  features:                      # selection of EHT likelihood features
-    centering: native            # Paper VII Sec. 5.2 centring = zero shift in this reproduction
+  features:                      # selection of EHT likelihood features (EHT images used as
+                                 # reconstructed: Paper VII Sec. 5.2 centring = zero shift)
     mask_mode: intensity-polarization
     intensity_fraction: 0.1      # mean I >= 0.1 max
     polarization_fraction: 0.2   # mean |P| >= 0.2 max

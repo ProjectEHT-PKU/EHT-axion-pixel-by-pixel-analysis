@@ -5,8 +5,8 @@ pixi run -e eht-research python scripts/eht_summarize.py --dataset-root ROOT --o
 Draw count, sky grid, aperture (radius, width) and the resultant threshold come
 from experiment.yaml, the same values used by the analysis.
 Requires ROOT/COPY_VERIFIED.json with the original finish SHA and batch identity.
-Outputs: {native,icentroid}/{raw,display19}/day-D/{stokes.npy,evpa.npy,
-map-summary.npz,aperture.npz,global.npz}; pair summaries under each mode's pairs/.
+Outputs: native/{raw,display19}/day-D/{stokes.npy,evpa.npy,
+map-summary.npz,aperture.npz,global.npz}; pair summaries under native/*/pairs/.
 See report.json for estimator definitions, registration, and conditional scope.
 """
 from pathlib import Path
@@ -123,7 +123,6 @@ def run(selected, out, settings):
     draws, n, rmin = settings['draws'], settings['shape'], settings['rmin']
     pixel = settings['fov_uas'] / n
     reference = None
-    registrations = {}
     summaries = {}
     for d in en.DAYS:
         daily = {}
@@ -149,45 +148,27 @@ def run(selected, out, settings):
                 samples[k] = loaded['stokes']
             samples.flush()
             daily[resolution] = samples
-        offset = en.centroid_offset(np.mean(daily['raw'][..., 0], axis=0), reference[0], reference[1])
-        registrations[d] = dict(offset_yx_pixels=offset.tolist(), edge_I_fraction_lost={})
-        for resolution, native in daily.items():
-            for mode in ('native', 'icentroid'):
-                directory = out / mode / resolution / ('day-' + d)
-                if mode == 'native':
-                    samples = native
-                else:
-                    directory.mkdir(parents=True)
-                    samples = np.lib.format.open_memmap(directory / 'stokes.npy', mode='w+',
-                                                       dtype='float64', shape=native.shape)
-                    en.translate_ensemble(native, offset, samples)
-                    before = native[..., 0].sum(axis=(1, 2))
-                    after = samples[..., 0].sum(axis=(1, 2))
-                    loss = 1 - after / before
-                    registrations[d]['edge_I_fraction_lost'][resolution] = dict(
-                        minimum=float(loss.min()), maximum=float(loss.max()), mean=float(loss.mean()))
-                summaries[mode, resolution, d] = en.summarize(
-                    samples, *reference[:2], directory, rmin, settings['rmax_uas'],
-                    settings['window_degrees'])
-                print(f'SUMMARIZED {mode}/{resolution}/day-{d}', flush=True)
-                if mode == 'icentroid':
-                    del samples
+        # Paper VII Sec. 5.2 centring = zero shift: the images are used as reconstructed.
+        for resolution, samples in daily.items():
+            directory = out / 'native' / resolution / ('day-' + d)
+            summaries[resolution, d] = en.summarize(
+                samples, *reference[:2], directory, rmin, settings['rmax_uas'],
+                settings['window_degrees'])
+            print(f'SUMMARIZED native/{resolution}/day-{d}', flush=True)
         del daily
-    for mode in ('native', 'icentroid'):
-        for resolution in ('raw', 'display19'):
-            directory = out / mode / resolution / 'pairs'
-            directory.mkdir()
-            for later, earlier in en.PAIRS:
-                a, ca = summaries[mode, resolution, later]
-                b, cb = summaries[mode, resolution, earlier]
-                np.savez(directory / f'{later}-{earlier}.npz', **en.independent_difference(a, b, ca, cb))
+    for resolution in ('raw', 'display19'):
+        directory = out / 'native' / resolution / 'pairs'
+        directory.mkdir()
+        for later, earlier in en.PAIRS:
+            a, ca = summaries[resolution, later]
+            b, cb = summaries[resolution, earlier]
+            np.savez(directory / f'{later}-{earlier}.npz', **en.independent_difference(a, b, ca, cb))
     report = dict(schema='eht-fixed-D-ensemble-summary-v1', days=list(en.DAYS), draws_per_day=draws,
-                  registrations=registrations, rmin=rmin, rmax_uas=settings['rmax_uas'],
+                  rmin=rmin, rmax_uas=settings['rmax_uas'],
                   aperture_full_width_deg=float(settings['window_degrees']),
                   map_order='draw,y,x,IQUV; native FITS E decreases along x, N increases along y',
                   angle_convention='EVPA radians modulo pi, E of N; aperture angles degrees E of N; no roll',
-                  registration='raw ensemble mean I centroid to sky zero; one bilinear zero-padded shift/day '
-                               'shared by all channels/draws/resolutions; no angle recentering or clipping',
+                  registration='none: Paper VII Sec. 5.2 centring = zero shift; images used as reconstructed',
                   resolution='raw physical products and existing additional19uas FWHM display products; '
                              'no blur applied',
                   estimator='circular mean of per-draw EVPA, NOT EVPA of mean Stokes',

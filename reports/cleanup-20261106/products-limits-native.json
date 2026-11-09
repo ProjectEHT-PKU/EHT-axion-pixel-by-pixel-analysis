@@ -1,0 +1,1235 @@
+{
+  "summary": {
+    "old_root": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-observed-limits-native-v1",
+    "new_root": "/home/canoziia/GRMHD_DATA/analysis/cleanup-verify-opus-20261106/limits-native",
+    "tolerance": 1e-12,
+    "only_in_old": [],
+    "only_in_new": [],
+    "compared_files": 36,
+    "arrays": 16,
+    "arrays_bitwise_identical": 16,
+    "arrays_max_abs_diff": 0.0,
+    "json_csv_files": 19,
+    "json_csv_numeric_equal": 19,
+    "json_csv_fully_identical": 15,
+    "other_files": {
+      "observed-vs-null.png": true
+    },
+    "all_numerics_equal_within_tol": true,
+    "all_arrays_bitwise": true
+  },
+  "files": {
+    "background-selected-1d.json": {
+      "kind": "json",
+      "equal": false,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [
+        {
+          "path": "/stokes",
+          "old": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-observed-templates-v1/raptor/background/stokes.npy",
+          "new": "/home/canoziia/GRMHD_DATA/analysis/cleanup-verify-opus-20261106/templates/raptor/background/stokes.npy"
+        }
+      ],
+      "string_difference_count": 1
+    },
+    "background-selected-1d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "background-selected-2d.json": {
+      "kind": "json",
+      "equal": false,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [
+        {
+          "path": "/stokes",
+          "old": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-observed-templates-v1/raptor/background/stokes.npy",
+          "new": "/home/canoziia/GRMHD_DATA/analysis/cleanup-verify-opus-20261106/templates/raptor/background/stokes.npy"
+        }
+      ],
+      "string_difference_count": 1
+    },
+    "background-selected-2d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "limits.csv": {
+      "kind": "csv",
+      "equal": true,
+      "numeric_equal": true
+    },
+    "manifest.json": {
+      "kind": "manifest",
+      "equal": false,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [
+        {
+          "path": "/config/scientific_profile/analysis",
+          "old": "<missing>",
+          "new": {
+            "rotation_degrees": 108.0,
+            "aperture": {
+              "weighting": "intensity",
+              "window_degrees": 10,
+              "radial_max_fraction": 1.0,
+              "angular_bins": 360
+            },
+            "features": {
+              "centering": "native",
+              "mask_mode": "intensity-polarization",
+              "intensity_fraction": 0.1,
+              "polarization_fraction": 0.2,
+              "min_radius_rg": 2.0,
+              "pixel_stride": 5,
+              "sector_spacing_degrees": 10,
+              "sector_offset_degrees": 4,
+              "resultant_min": 0.7
+            },
+            "cloud": {
+              "coefficient": 0.03,
+              "pivot_alpha": 0.05,
+              "exponent": 1.75
+            },
+            "background": {
+              "lag_frames": 3,
+              "method": "mle"
+            },
+            "inference": {
+              "phase_count": 64,
+              "coupling_points": 120,
+              "coupling_min": 0.0072992700729927005,
+              "coupling_max": 1000.0,
+              "prior": "log-uniform",
+              "exposure_hours": 6.0,
+              "day_gap_hours": 24.0,
+              "pair_separation_hours": 120.0
+            }
+          }
+        },
+        {
+          "path": "/config/scientific_profile/aperture",
+          "old": {
+            "weighting": "intensity",
+            "window_degrees": 10,
+            "radial_max_fraction": 1.0,
+            "angular_bins": 360
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/config/scientific_profile/background",
+          "old": {
+            "alpha": 0.3,
+            "source_resolution": 400,
+            "lag_frames": 3,
+            "method": "mle"
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/config/scientific_profile/cloud",
+          "old": {
+            "coefficient": 0.03,
+            "pivot_alpha": 0.05,
+            "exponent": 1.75,
+            "reference_norm": 0.1
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/config/scientific_profile/data",
+          "old": {
+            "alphas": [
+              0.1,
+              0.15,
+              0.2,
+              0.25,
+              0.3,
+              0.35,
+              0.4,
+              0.44
+            ]
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/config/scientific_profile/eht",
+          "old": {
+            "topset_size": 1572,
+            "min_radius_rg": 2.0,
+            "intensity_fraction": 0.1,
+            "historical_mask": true,
+            "inherit_2d_mask_in_1d": false,
+            "angular_offset": 4,
+            "covariance_ridge": 0.0
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/config/scientific_profile/eht_imaging",
+          "old": "<missing>",
+          "new": {
+            "inputs": {
+              "95": [
+                "SR2_M87_2017_095_lo_hops_zbl-dtcal+selfcal.uvfits",
+                "a749309931dbaa506b7a1575e1eef49af97b3ea62ded1fa717efadbaa2fdd5b4"
+              ],
+              "96": [
+                "SR2_M87_2017_096_lo_hops_zbl-dtcal+selfcal.uvfits",
+                "2376a3300ce49e458efc3f4403d98dce62cdd9b045f982f0ed73efd199ef6947"
+              ],
+              "100": [
+                "SR2_M87_2017_100_lo_hops_zbl-dtcal+selfcal.uvfits",
+                "1987e2e25ed47b90dbc13a2216a131e25fbc5b6a2a807d009e81dc579f766937"
+              ],
+              "101": [
+                "SR2_M87_2017_101_lo_hops_zbl-dtcal+selfcal.uvfits",
+                "5cf936dce926b5b13a0f39065096da1f836ab52ca95fdfffef581057029e8d5b"
+              ]
+            },
+            "flux_jy": 0.6,
+            "fsys": 0.005,
+            "solve_sites": [
+              "AZ",
+              "LM",
+              "PV"
+            ],
+            "fixed_sites": [
+              "AA",
+              "AP",
+              "SM",
+              "JC"
+            ],
+            "p_data": {
+              "pvis": 1.0,
+              "m": 1.0
+            },
+            "p_reg": {
+              "hw": 100.0,
+              "ptv": 1.0
+            },
+            "norm_reg": true,
+            "initial_m": 0.1,
+            "initial_evpa_deg": 0.0,
+            "rounds": 50,
+            "restart_rounds": [
+              2,
+              12,
+              22,
+              32,
+              42
+            ],
+            "restart_blur_uas": 20.0,
+            "restart_domain_epsilon": 1e-08,
+            "maxit": 500,
+            "stop": 1e-08,
+            "shift_objective_constant": true,
+            "uv_min": 100000000.0,
+            "uncertainty_draws": 1000,
+            "seed": 20210405,
+            "covariance_ddof": 1,
+            "residual_d_sigma": 0.01,
+            "residual_d_convention": "per_component_sd"
+          }
+        },
+        {
+          "path": "/config/scientific_profile/eht_input",
+          "old": {
+            "shape": 64,
+            "fov_uas": 120.0,
+            "pixel_size_uas": 1.875,
+            "angle_roll": -90,
+            "rank_offsets": {
+              "95": [
+                0,
+                0
+              ],
+              "96": [
+                0,
+                0
+              ],
+              "100": [
+                0,
+                0
+              ],
+              "101": [
+                0,
+                0
+              ]
+            },
+            "final_offsets": {
+              "95": [
+                0,
+                0
+              ],
+              "96": [
+                0,
+                0
+              ],
+              "100": [
+                0,
+                0
+              ],
+              "101": [
+                0,
+                0
+              ]
+            },
+            "exclude_columns": 5,
+            "exclusion_rectangles": [
+              [
+                48,
+                55,
+                10,
+                19
+              ]
+            ]
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/config/scientific_profile/image",
+          "old": {
+            "initial_fov_rg": 46.2261,
+            "final_fov_uas": 120.0,
+            "final_shape": 64,
+            "rotation_degrees": 108.0,
+            "gaussian_fwhm_uas": 19.0
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/config/scientific_profile/inference",
+          "old": {
+            "phase_count": 64,
+            "coupling_points": 120,
+            "coupling_min": 0.0072992700729927005,
+            "coupling_max": 1000.0,
+            "prior": "log-uniform",
+            "principal_n": 2,
+            "exposure_hours": 6.0,
+            "day_gap_hours": 24.0,
+            "pair_separation_hours": 120.0
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/config/scientific_profile/physical",
+          "old": {
+            "mass_solar": 6500000000.0,
+            "distance_mpc": 16.8,
+            "label_step_tg": 0.1
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/config/scientific_profile/producer",
+          "old": {
+            "build": {
+              "model": "bhac",
+              "metric": "mks",
+              "integrator": "rk4",
+              "grid": "SMR",
+              "polarized": true,
+              "sfc": true,
+              "magnetic_polarity": "plus",
+              "sigma_cut": 1.0,
+              "thetae_min": 0.001,
+              "thetae_max": 100.0,
+              "uniform_output": false
+            },
+            "plasma": {
+              "mass_unit_g": 3e+25,
+              "r_low": 1.0,
+              "r_high": 1.0,
+              "inclination_degrees": 163.0,
+              "frequency_hz": 230000000000.0,
+              "step_size": 0.005
+            },
+            "snapshots": {
+              "start": 1600,
+              "stop": 3000,
+              "step": 10
+            },
+            "response": {
+              "resolution": 100,
+              "phase_count": 16,
+              "reference_norm": 0.1
+            },
+            "background": {
+              "resolution": 400
+            },
+            "radial_tables": {
+              "low": {
+                "spin": 0.9375
+              },
+              "high": {
+                "spin": 0.99
+              }
+            },
+            "alpha_table": {
+              "0.10": "low",
+              "0.15": "low",
+              "0.20": "low",
+              "0.25": "low",
+              "0.30": "low",
+              "0.35": "high",
+              "0.40": "high",
+              "0.44": "high"
+            },
+            "grid": {
+              "nxlone": [
+                96,
+                48,
+                48
+              ],
+              "xprobmin": [
+                0.17395330712343798,
+                0.0,
+                0.0
+              ],
+              "xprobmax": [
+                7.824046010856292,
+                0.5,
+                1.0
+              ],
+              "hslope": 0.0
+            }
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/config/scientific_profile/raptor",
+          "old": "<missing>",
+          "new": {
+            "camera_fov_rg": 46.2261,
+            "build": {
+              "model": "bhac",
+              "metric": "mks",
+              "integrator": "rk4",
+              "grid": "SMR",
+              "polarized": true,
+              "sfc": true,
+              "magnetic_polarity": "plus",
+              "sigma_cut": 1.0,
+              "thetae_min": 0.001,
+              "thetae_max": 100.0,
+              "uniform_output": false
+            },
+            "plasma": {
+              "mass_unit_g": 3e+25,
+              "r_low": 1.0,
+              "r_high": 1.0,
+              "inclination_degrees": 163.0,
+              "frequency_hz": 230000000000.0,
+              "step_size": 0.005
+            },
+            "snapshots": {
+              "start": 1600,
+              "stop": 3000,
+              "step": 10
+            },
+            "response": {
+              "resolution": 100,
+              "reference_norm": 0.1
+            },
+            "background": {
+              "resolution": 400
+            },
+            "radial_tables": {
+              "low": {
+                "spin": 0.9375
+              },
+              "high": {
+                "spin": 0.99
+              }
+            },
+            "alpha_table": {
+              "0.10": "low",
+              "0.15": "low",
+              "0.20": "low",
+              "0.25": "low",
+              "0.30": "low",
+              "0.35": "high",
+              "0.40": "high",
+              "0.44": "high"
+            },
+            "grid": {
+              "nxlone": [
+                96,
+                48,
+                48
+              ],
+              "xprobmin": [
+                0.17395330712343798,
+                0.0,
+                0.0
+              ],
+              "xprobmax": [
+                7.824046010856292,
+                0.5,
+                1.0
+              ],
+              "hslope": 0.0
+            }
+          }
+        },
+        {
+          "path": "/config/scientific_profile/shared",
+          "old": "<missing>",
+          "new": {
+            "mass_solar": 6500000000.0,
+            "distance_mpc": 16.8,
+            "label_step_tg": 0.1,
+            "alphas": [
+              0.1,
+              0.15,
+              0.2,
+              0.25,
+              0.3,
+              0.35,
+              0.4,
+              0.44
+            ],
+            "principal_n": 2,
+            "image": {
+              "shape": 64,
+              "fov_uas": 120.0,
+              "blur_fwhm_uas": 19.0
+            }
+          }
+        }
+      ],
+      "string_difference_count": 14,
+      "same_output_names": true,
+      "outputs_with_identical_sha": [
+        "background-selected-1d.npz",
+        "background-selected-2d.npz",
+        "limits.csv",
+        "null-comparison-cor-1d.json",
+        "null-comparison-cor-1d.npz",
+        "null-comparison-cor-2d.json",
+        "null-comparison-cor-2d.npz",
+        "null-comparison-cor_fixed_background-1d.json",
+        "null-comparison-cor_fixed_background-1d.npz",
+        "null-comparison-cor_fixed_background-2d.json",
+        "null-comparison-cor_fixed_background-2d.npz",
+        "null-comparison-std-1d.json",
+        "null-comparison-std-1d.npz",
+        "null-comparison-std-2d.json",
+        "null-comparison-std-2d.npz",
+        "observations-1d.json",
+        "observations-1d.npz",
+        "observations-2d.json",
+        "observations-2d.npz",
+        "observed-cor-1d.json",
+        "observed-cor-1d.npz",
+        "observed-cor-2d.json",
+        "observed-cor-2d.npz",
+        "observed-cor_fixed_background-1d.json",
+        "observed-cor_fixed_background-1d.npz",
+        "observed-cor_fixed_background-2d.json",
+        "observed-cor_fixed_background-2d.npz",
+        "observed-std-1d.json",
+        "observed-std-1d.npz",
+        "observed-std-2d.json",
+        "observed-std-2d.npz",
+        "observed-vs-null.png"
+      ],
+      "outputs_with_different_sha": [
+        "background-selected-1d.json",
+        "background-selected-2d.json",
+        "report.json"
+      ]
+    },
+    "null-comparison-cor-1d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "null-comparison-cor-1d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "null-comparison-cor-2d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "null-comparison-cor-2d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "null-comparison-cor_fixed_background-1d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "null-comparison-cor_fixed_background-1d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "null-comparison-cor_fixed_background-2d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "null-comparison-cor_fixed_background-2d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "null-comparison-std-1d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "null-comparison-std-1d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "null-comparison-std-2d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "null-comparison-std-2d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "observations-1d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "observations-1d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "observations-2d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "observations-2d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "observed-cor-1d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "observed-cor-1d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "observed-cor-2d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "observed-cor-2d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "observed-cor_fixed_background-1d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "observed-cor_fixed_background-1d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "observed-cor_fixed_background-2d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "observed-cor_fixed_background-2d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "observed-std-1d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "observed-std-1d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "observed-std-2d.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "observed-std-2d.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "observed-vs-null.png": {
+      "kind": "png",
+      "equal": true,
+      "informational": true
+    },
+    "report.json": {
+      "kind": "json",
+      "equal": false,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [
+        {
+          "path": "/scientific_profile/analysis",
+          "old": "<missing>",
+          "new": {
+            "rotation_degrees": 108.0,
+            "aperture": {
+              "weighting": "intensity",
+              "window_degrees": 10,
+              "radial_max_fraction": 1.0,
+              "angular_bins": 360
+            },
+            "features": {
+              "centering": "native",
+              "mask_mode": "intensity-polarization",
+              "intensity_fraction": 0.1,
+              "polarization_fraction": 0.2,
+              "min_radius_rg": 2.0,
+              "pixel_stride": 5,
+              "sector_spacing_degrees": 10,
+              "sector_offset_degrees": 4,
+              "resultant_min": 0.7
+            },
+            "cloud": {
+              "coefficient": 0.03,
+              "pivot_alpha": 0.05,
+              "exponent": 1.75
+            },
+            "background": {
+              "lag_frames": 3,
+              "method": "mle"
+            },
+            "inference": {
+              "phase_count": 64,
+              "coupling_points": 120,
+              "coupling_min": 0.0072992700729927005,
+              "coupling_max": 1000.0,
+              "prior": "log-uniform",
+              "exposure_hours": 6.0,
+              "day_gap_hours": 24.0,
+              "pair_separation_hours": 120.0
+            }
+          }
+        },
+        {
+          "path": "/scientific_profile/aperture",
+          "old": {
+            "weighting": "intensity",
+            "window_degrees": 10,
+            "radial_max_fraction": 1.0,
+            "angular_bins": 360
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/scientific_profile/background",
+          "old": {
+            "alpha": 0.3,
+            "source_resolution": 400,
+            "lag_frames": 3,
+            "method": "mle"
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/scientific_profile/cloud",
+          "old": {
+            "coefficient": 0.03,
+            "pivot_alpha": 0.05,
+            "exponent": 1.75,
+            "reference_norm": 0.1
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/scientific_profile/data",
+          "old": {
+            "alphas": [
+              0.1,
+              0.15,
+              0.2,
+              0.25,
+              0.3,
+              0.35,
+              0.4,
+              0.44
+            ]
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/scientific_profile/eht",
+          "old": {
+            "topset_size": 1572,
+            "min_radius_rg": 2.0,
+            "intensity_fraction": 0.1,
+            "historical_mask": true,
+            "inherit_2d_mask_in_1d": false,
+            "angular_offset": 4,
+            "covariance_ridge": 0.0
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/scientific_profile/eht_imaging",
+          "old": "<missing>",
+          "new": {
+            "inputs": {
+              "95": [
+                "SR2_M87_2017_095_lo_hops_zbl-dtcal+selfcal.uvfits",
+                "a749309931dbaa506b7a1575e1eef49af97b3ea62ded1fa717efadbaa2fdd5b4"
+              ],
+              "96": [
+                "SR2_M87_2017_096_lo_hops_zbl-dtcal+selfcal.uvfits",
+                "2376a3300ce49e458efc3f4403d98dce62cdd9b045f982f0ed73efd199ef6947"
+              ],
+              "100": [
+                "SR2_M87_2017_100_lo_hops_zbl-dtcal+selfcal.uvfits",
+                "1987e2e25ed47b90dbc13a2216a131e25fbc5b6a2a807d009e81dc579f766937"
+              ],
+              "101": [
+                "SR2_M87_2017_101_lo_hops_zbl-dtcal+selfcal.uvfits",
+                "5cf936dce926b5b13a0f39065096da1f836ab52ca95fdfffef581057029e8d5b"
+              ]
+            },
+            "flux_jy": 0.6,
+            "fsys": 0.005,
+            "solve_sites": [
+              "AZ",
+              "LM",
+              "PV"
+            ],
+            "fixed_sites": [
+              "AA",
+              "AP",
+              "SM",
+              "JC"
+            ],
+            "p_data": {
+              "pvis": 1.0,
+              "m": 1.0
+            },
+            "p_reg": {
+              "hw": 100.0,
+              "ptv": 1.0
+            },
+            "norm_reg": true,
+            "initial_m": 0.1,
+            "initial_evpa_deg": 0.0,
+            "rounds": 50,
+            "restart_rounds": [
+              2,
+              12,
+              22,
+              32,
+              42
+            ],
+            "restart_blur_uas": 20.0,
+            "restart_domain_epsilon": 1e-08,
+            "maxit": 500,
+            "stop": 1e-08,
+            "shift_objective_constant": true,
+            "uv_min": 100000000.0,
+            "uncertainty_draws": 1000,
+            "seed": 20210405,
+            "covariance_ddof": 1,
+            "residual_d_sigma": 0.01,
+            "residual_d_convention": "per_component_sd"
+          }
+        },
+        {
+          "path": "/scientific_profile/eht_input",
+          "old": {
+            "shape": 64,
+            "fov_uas": 120.0,
+            "pixel_size_uas": 1.875,
+            "angle_roll": -90,
+            "rank_offsets": {
+              "95": [
+                0,
+                0
+              ],
+              "96": [
+                0,
+                0
+              ],
+              "100": [
+                0,
+                0
+              ],
+              "101": [
+                0,
+                0
+              ]
+            },
+            "final_offsets": {
+              "95": [
+                0,
+                0
+              ],
+              "96": [
+                0,
+                0
+              ],
+              "100": [
+                0,
+                0
+              ],
+              "101": [
+                0,
+                0
+              ]
+            },
+            "exclude_columns": 5,
+            "exclusion_rectangles": [
+              [
+                48,
+                55,
+                10,
+                19
+              ]
+            ]
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/scientific_profile/image",
+          "old": {
+            "initial_fov_rg": 46.2261,
+            "final_fov_uas": 120.0,
+            "final_shape": 64,
+            "rotation_degrees": 108.0,
+            "gaussian_fwhm_uas": 19.0
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/scientific_profile/inference",
+          "old": {
+            "phase_count": 64,
+            "coupling_points": 120,
+            "coupling_min": 0.0072992700729927005,
+            "coupling_max": 1000.0,
+            "prior": "log-uniform",
+            "principal_n": 2,
+            "exposure_hours": 6.0,
+            "day_gap_hours": 24.0,
+            "pair_separation_hours": 120.0
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/scientific_profile/physical",
+          "old": {
+            "mass_solar": 6500000000.0,
+            "distance_mpc": 16.8,
+            "label_step_tg": 0.1
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/scientific_profile/producer",
+          "old": {
+            "build": {
+              "model": "bhac",
+              "metric": "mks",
+              "integrator": "rk4",
+              "grid": "SMR",
+              "polarized": true,
+              "sfc": true,
+              "magnetic_polarity": "plus",
+              "sigma_cut": 1.0,
+              "thetae_min": 0.001,
+              "thetae_max": 100.0,
+              "uniform_output": false
+            },
+            "plasma": {
+              "mass_unit_g": 3e+25,
+              "r_low": 1.0,
+              "r_high": 1.0,
+              "inclination_degrees": 163.0,
+              "frequency_hz": 230000000000.0,
+              "step_size": 0.005
+            },
+            "snapshots": {
+              "start": 1600,
+              "stop": 3000,
+              "step": 10
+            },
+            "response": {
+              "resolution": 100,
+              "phase_count": 16,
+              "reference_norm": 0.1
+            },
+            "background": {
+              "resolution": 400
+            },
+            "radial_tables": {
+              "low": {
+                "spin": 0.9375
+              },
+              "high": {
+                "spin": 0.99
+              }
+            },
+            "alpha_table": {
+              "0.10": "low",
+              "0.15": "low",
+              "0.20": "low",
+              "0.25": "low",
+              "0.30": "low",
+              "0.35": "high",
+              "0.40": "high",
+              "0.44": "high"
+            },
+            "grid": {
+              "nxlone": [
+                96,
+                48,
+                48
+              ],
+              "xprobmin": [
+                0.17395330712343798,
+                0.0,
+                0.0
+              ],
+              "xprobmax": [
+                7.824046010856292,
+                0.5,
+                1.0
+              ],
+              "hslope": 0.0
+            }
+          },
+          "new": "<missing>"
+        },
+        {
+          "path": "/scientific_profile/raptor",
+          "old": "<missing>",
+          "new": {
+            "camera_fov_rg": 46.2261,
+            "build": {
+              "model": "bhac",
+              "metric": "mks",
+              "integrator": "rk4",
+              "grid": "SMR",
+              "polarized": true,
+              "sfc": true,
+              "magnetic_polarity": "plus",
+              "sigma_cut": 1.0,
+              "thetae_min": 0.001,
+              "thetae_max": 100.0,
+              "uniform_output": false
+            },
+            "plasma": {
+              "mass_unit_g": 3e+25,
+              "r_low": 1.0,
+              "r_high": 1.0,
+              "inclination_degrees": 163.0,
+              "frequency_hz": 230000000000.0,
+              "step_size": 0.005
+            },
+            "snapshots": {
+              "start": 1600,
+              "stop": 3000,
+              "step": 10
+            },
+            "response": {
+              "resolution": 100,
+              "reference_norm": 0.1
+            },
+            "background": {
+              "resolution": 400
+            },
+            "radial_tables": {
+              "low": {
+                "spin": 0.9375
+              },
+              "high": {
+                "spin": 0.99
+              }
+            },
+            "alpha_table": {
+              "0.10": "low",
+              "0.15": "low",
+              "0.20": "low",
+              "0.25": "low",
+              "0.30": "low",
+              "0.35": "high",
+              "0.40": "high",
+              "0.44": "high"
+            },
+            "grid": {
+              "nxlone": [
+                96,
+                48,
+                48
+              ],
+              "xprobmin": [
+                0.17395330712343798,
+                0.0,
+                0.0
+              ],
+              "xprobmax": [
+                7.824046010856292,
+                0.5,
+                1.0
+              ],
+              "hslope": 0.0
+            }
+          }
+        },
+        {
+          "path": "/scientific_profile/shared",
+          "old": "<missing>",
+          "new": {
+            "mass_solar": 6500000000.0,
+            "distance_mpc": 16.8,
+            "label_step_tg": 0.1,
+            "alphas": [
+              0.1,
+              0.15,
+              0.2,
+              0.25,
+              0.3,
+              0.35,
+              0.4,
+              0.44
+            ],
+            "principal_n": 2,
+            "image": {
+              "shape": 64,
+              "fov_uas": 120.0,
+              "blur_fwhm_uas": 19.0
+            }
+          }
+        }
+      ],
+      "string_difference_count": 14
+    }
+  }
+}

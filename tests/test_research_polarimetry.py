@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from eht_axion.research.polarimetry import aperture_curves, evpa, load_stokes_fits, shift_stokes
+from eht_axion.research.polarimetry import aperture_curves, evpa, load_stokes_fits
 
 
 def test_native_fits(tmp_path):
@@ -51,18 +51,6 @@ def test_evpa():
     assert np.isnan(evpa([0, np.nan, 1], [0, 1, np.inf])).all()
 
 
-def test_shift_is_coherent_across_stokes():
-    a = np.zeros((41, 43, 4))
-    a[15:20, 17:21] = [1, 2, -3, 4]
-    a[23, 26] = [2, 4, -6, 8]
-    moved = shift_stokes(a, (3, -4))
-    assert_allclose(shift_stokes(moved, (-3, 4)), a)
-    half = shift_stokes(a, (.5, -.5))
-    assert_allclose(half[..., 1], 2*half[..., 0])
-    assert_allclose(half[..., 2], -3*half[..., 0])
-    assert_allclose(half[..., 3], 4*half[..., 0])
-
-
 def test_aperture_pa_weighting_wrap_and_radius():
     # North at x=1,y=2; east at x=0,y=1 (east is displayed left).
     a = np.zeros((3, 3, 4))
@@ -81,10 +69,5 @@ def test_aperture_pa_weighting_wrap_and_radius():
 
 def test_invalid_inputs():
     a = np.zeros((3, 4, 4))
-    for operation in (lambda: shift_stokes(a, (np.nan, 0)),
-                      lambda: aperture_curves(a, [0], [0], [0])):
-        with pytest.raises(ValueError):
-            operation()
-    a[0, 0, 2] = np.nan
     with pytest.raises(ValueError):
-        shift_stokes(a, (0, 0))
+        aperture_curves(a, [0], [0], [0])

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .polarimetry import aperture_curves, evpa, shift_stokes
+from .polarimetry import aperture_curves, evpa
 
 DAYS = ('95', '96', '100', '101')
 PAIRS = (('96', '95'), ('101', '100'))
@@ -69,33 +69,11 @@ def independent_difference(later, earlier, covariance_later, covariance_earlier)
                 valid=later['valid'] & earlier['valid'])
 
 
-def centroid_offset(mean_i, east, north):
-    """I-only fractional (dy,dx) moving the centroid to sky offset (0,0).
-
-    Signed I weights, no positivity clipping or +/-8 pixel search clipping.
-    Fail if total I is nonpositive or measured centroid is outside the image.
-    """
-    i, e, n = np.asarray(mean_i), np.asarray(east), np.asarray(north)
-    if i.shape != (len(n), len(e)) or not np.isfinite(i).all() or i.sum() <= 0:
-        raise ValueError('finite I with positive total and matching axes required')
-    ce, cn = np.sum(i * e[None, :]) / i.sum(), np.sum(i * n[:, None]) / i.sum()
-    if not min(e) <= ce <= max(e) or not min(n) <= cn <= max(n):
-        raise ValueError('I centroid outside field')
-    return np.array([-cn / (n[1] - n[0]), -ce / (e[1] - e[0])])
-
-
-def translate_ensemble(samples, offset, destination):
-    """Same nonperiodic bilinear IQUV translation for every draw."""
-    for k, image in enumerate(samples):
-        destination[k] = shift_stokes(image, offset)
-    destination.flush()
-
-
 def global_diagnostics(image, east, north):
     """Whole-field m_net, m_resolved, EVPA and beta_2 (E-of-N azimuth).
 
     beta_2 = sum[(Q+iU) exp(-2i phi)]/sum I. No annular paper-specific cut.
-    phi origin is grid sky zero; centered variant is I-centroid referenced.
+    phi origin is the grid sky zero (no re-centring, Paper VII Sec. 5.2).
     """
     i, q, u = (image[..., k] for k in range(3))
     p, total = q + 1j*u, i.sum()

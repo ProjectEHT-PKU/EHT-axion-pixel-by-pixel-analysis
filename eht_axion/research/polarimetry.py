@@ -6,7 +6,6 @@ relative image translation, NOT absolute/official consensus astrometric calibrat
 """
 
 import numpy as np
-from scipy.ndimage import shift
 
 from ..angles import circular_difference
 from ..stokes import finite_evpa
@@ -86,14 +85,6 @@ def load_stokes_fits(path):
     return dict(stokes=image, header=h, east_uas=east, north_uas=north,
                 pixel_uas=np.abs([h["CDELT2"], h["CDELT1"]]) * 3.6e9,
                 frequency_hz=frequency, bunit=bunit)
-
-
-def shift_stokes(image, offset_yx):
-    """Translate every channel identically in pixels; no polarization rotation."""
-    a, offset = _image(image), np.asarray(offset_yx, dtype=float)
-    if offset.shape != (2,) or not np.isfinite(offset).all():
-        raise ValueError("offset_yx must be a finite (dy,dx)")
-    return shift(a, (*offset, 0), order=1, mode="constant", cval=0, prefilter=False)
 
 
 def evpa(q, u):

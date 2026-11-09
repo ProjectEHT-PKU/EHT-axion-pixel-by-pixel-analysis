@@ -2,6 +2,9 @@
 # End-to-end rerun of the NEW code on the migrated job root (no ray tracing, no imaging),
 # then numerical comparison with the original products. Run after migration/migrate_jobs.py.
 # Usage: run_verification.sh [first_step]   (steps run in order; <= 8 cores via taskset)
+# Record of the 2026-11-09 run: merge/templates/ensemble/limits-native ran with commits
+# 64ca9a1..afb7118, checks/comparisons with afb7118; the summary step with the final code.
+# The centroid variant was dropped (Paper VII only), see CLEANUP_ZH.md.
 set -euo pipefail
 W=/home/canoziia/MyProject/PHYS/eht-script-pipeline-cleanup
 V=/home/canoziia/GRMHD_DATA/analysis/cleanup-verify-opus-20261106
@@ -36,24 +39,19 @@ step templates $T $PY scripts/analysis_templates.py --raptor-input-root "$V/rapt
 # Process 2 -> 3 boundary: EHT ensemble summary of the 4000 recorded draws
 step ensemble $T $PYE scripts/eht_summarize.py --dataset-root "$A/eht-uncertainty-remote-v1" \
   --output-root "$V/eht-ensemble"
-# Process 3.2 limits (native = paper; centroid = comparison)
+# Process 3.2 limits (Paper VII: images used as reconstructed, zero shift)
 step limits-native $T $PY scripts/analysis_limits.py --templates "$V/templates" --ensemble "$V/eht-ensemble" \
   --output-root "$V/limits-native"
-step limits-centroid $T $PY scripts/analysis_limits.py --templates "$V/templates" --ensemble "$V/eht-ensemble" \
-  --centering centroid --output-root "$V/limits-centroid"
-# Process 3.3/3.4 checks, for both centerings
-for c in native centroid; do
-  step gridcheck-$c $T $PY scripts/analysis_check_grid.py --source "$V/limits-$c" --templates "$V/templates" \
-    --output-root "$V/$c-gridcheck" --phase-count 128 --coupling-points 240
-  step priorcheck-$c $T $PY scripts/analysis_check_grid.py --source "$V/limits-$c" --templates "$V/templates" \
-    --output-root "$V/$c-priorcheck" --phase-count 128 --coupling-points 260 --coupling-max 10000
-  step covcheck-$c $T $PY scripts/analysis_check_covariance.py --source "$V/limits-$c" --templates "$V/templates" \
-    --output-root "$V/$c-covcheck"
-done
-# Process 3.5 summary (same source roles as eht-120uas-results-summary-v1)
-step summary $T $PY scripts/analysis_summarize.py --primary "$V/limits-centroid" --gridcheck "$V/centroid-gridcheck" \
-  --priorcheck "$V/centroid-priorcheck" --native "$V/limits-native" --covcheck "$V/centroid-covcheck" \
-  --output-root "$V/results-summary"
+# Process 3.3/3.4 checks
+step gridcheck-native $T $PY scripts/analysis_check_grid.py --source "$V/limits-native" --templates "$V/templates" \
+  --output-root "$V/native-gridcheck" --phase-count 128 --coupling-points 240
+step priorcheck-native $T $PY scripts/analysis_check_grid.py --source "$V/limits-native" --templates "$V/templates" \
+  --output-root "$V/native-priorcheck" --phase-count 128 --coupling-points 260 --coupling-max 10000
+step covcheck-native $T $PY scripts/analysis_check_covariance.py --source "$V/limits-native" --templates "$V/templates" \
+  --output-root "$V/native-covcheck"
+# Process 3.5 summary (native limits are the primary result)
+step summary $T $PY scripts/analysis_summarize.py --limits "$V/limits-native" --gridcheck "$V/native-gridcheck" \
+  --priorcheck "$V/native-priorcheck" --covcheck "$V/native-covcheck" --output-root "$V/results-summary"
 
 # Comparisons with the original products
 C="$T $PY reports/cleanup-20261106/compare_products.py"
@@ -63,13 +61,8 @@ $C $OLD_MERGED/data $V/raptor-merged/data merged-raptor
 $C $A/eht-120uas-observed-templates-v1 $V/templates templates --skip invocations config.yaml manifest.json template-run
 $C $A/eht-mc-summary-v1 $V/eht-ensemble eht-ensemble
 $C $A/eht-120uas-observed-limits-native-v1 $V/limits-native limits-native
-$C $A/eht-120uas-observed-limits-v1 $V/limits-centroid limits-centroid
 $C $A/eht-120uas-native-gridcheck-v1 $V/native-gridcheck native-gridcheck
 $C $A/eht-120uas-native-priorcheck-v1 $V/native-priorcheck native-priorcheck
 $C $A/eht-120uas-native-covcheck-v1 $V/native-covcheck native-covcheck
-$C $A/eht-120uas-observed-limits-gridcheck-v1 $V/centroid-gridcheck centroid-gridcheck
-$C $A/eht-120uas-observed-limits-priorcheck-v1 $V/centroid-priorcheck centroid-priorcheck
-$C $A/eht-120uas-observed-covcheck-v1 $V/centroid-covcheck centroid-covcheck
-$C $A/eht-120uas-results-summary-v1 $V/results-summary results-summary
 "
 echo ALL_DONE >> "$V/logs/timings.txt"

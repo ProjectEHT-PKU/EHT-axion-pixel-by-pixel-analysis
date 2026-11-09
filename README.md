@@ -50,12 +50,12 @@ pixi run analysis-check-grid --source LIMITS --templates TEMPLATES --output-root
 pixi run analysis-check-grid --source LIMITS --templates TEMPLATES --output-root PRIOR \
     --phase-count 128 --coupling-points 260 --coupling-max 10000
 pixi run analysis-check-covariance --source LIMITS --templates TEMPLATES --output-root COV
-pixi run analysis-summarize --primary LIMITS_CENTROID --native LIMITS --gridcheck GRID \
-    --priorcheck PRIOR --covcheck COV --output-root SUMMARY
+pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR --covcheck COV \
+    --output-root SUMMARY
 ```
 
-`analysis-limits` uses `analysis.features.centering` (native, Paper VII §5.2
-centring = zero shift); `--centering centroid` reproduces the centroid comparison.
+The analysis follows EHT Paper VII only: the EHT images are used as reconstructed
+(Paper VII §5.2 centring = zero shift in this reproduction); there is no re-centring option.
 Every output root must be new. Each step writes stage directories with a
 `manifest.json` recording parameters, input/output SHA-256 and code hashes;
 `pixi run verify DIR --recursive` re-checks a stage and its whole lineage.

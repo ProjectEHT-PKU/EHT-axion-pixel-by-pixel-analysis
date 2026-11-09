@@ -37,7 +37,6 @@ def main(argv=None):
         common.verify_stage(args.source, recursive=False)
         source_report = json.loads((args.source/'report.json').read_text())
         config = json.loads(json.dumps(read_experiment(args.config)))
-        config['analysis']['features']['centering'] = source_report['centering']
         if config != source_report['scientific_profile']:
             raise ValueError('The source limits were produced from a different experiment')
         draws = config['eht_imaging']['uncertainty_draws']

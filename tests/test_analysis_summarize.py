@@ -41,7 +41,7 @@ def test_comparisons_dense_reference_and_selection():
     assert len(rows) == 24
     assert max(abs(r["delta_dex"]) for r in rows) == pytest.approx(0.004)
     assert rows[0]["ratio"] == pytest.approx(10**0.004)
-    assert rows[0]["features_test"] == 3  # Native differences retain changed N.
+    assert rows[0]["features_test"] == 3  # changed selections are reported, not hidden
     test["results"]["observed-std-1d"]["alphas"] = [0.2, 0.3]
     with pytest.raises(ValueError, match="Alpha"):
         comparisons(base, test)
@@ -78,12 +78,10 @@ def test_plots_and_saved_fit_extraction(tmp_path):
         assert (tmp_path / name).stat().st_size > 1000
 
 
-def test_pending_native_fails_without_creating_summary(tmp_path):
+def test_pending_source_fails_without_creating_summary(tmp_path):
     args = SimpleNamespace(
-        **{
-            key: tmp_path / key
-            for key in ("primary", "gridcheck", "priorcheck", "native", "output_root")
-        }
+        **{key: tmp_path / key for key in ("limits", "gridcheck", "priorcheck", "output_root")},
+        covcheck=None,
     )
     with pytest.raises((FileNotFoundError, ValueError)):
         run(args)

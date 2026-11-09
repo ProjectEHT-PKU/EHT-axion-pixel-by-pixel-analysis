@@ -45,7 +45,7 @@ SCHEMA = {
     },
     "analysis": {"rotation_degrees", "aperture", "features", "cloud", "background", "inference"},
     "analysis.aperture": {"weighting", "window_degrees", "radial_max_fraction", "angular_bins"},
-    "analysis.features": {"centering", "mask_mode", "intensity_fraction", "polarization_fraction",
+    "analysis.features": {"mask_mode", "intensity_fraction", "polarization_fraction",
                           "min_radius_rg", "pixel_stride", "sector_spacing_degrees",
                           "sector_offset_degrees", "resultant_min"},
     "analysis.cloud": {"coefficient", "pivot_alpha", "exponent"},
@@ -244,7 +244,6 @@ def _validate_analysis(config):
     if _integer(aperture["angular_bins"], "analysis.aperture.angular_bins") != 360:
         raise ValueError("analysis.aperture.angular_bins must be 360 (one-degree bins)")
     features = _section(config, "analysis.features")
-    _choice(features["centering"], "analysis.features.centering", ("native", "centroid"))
     _choice(features["mask_mode"], "analysis.features.mask_mode", ("intensity-polarization", "intensity"))
     for key in ("intensity_fraction", "polarization_fraction"):
         _number(features[key], f"analysis.features.{key}", low=0, high=1, open_high=True)

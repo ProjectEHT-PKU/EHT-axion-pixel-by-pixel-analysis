@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from eht_axion.research import ensemble as en
-from eht_axion.research.polarimetry import aperture_curves, evpa, shift_stokes
+from eht_axion.research.polarimetry import aperture_curves, evpa
 
 
 def test_seam_and_population_covariance():
@@ -80,16 +80,8 @@ def test_written_summary_contract(tmp_path):
     assert np.load(tmp_path / 'evpa.npy', mmap_mode='r').shape == (3, 8, 8)
 
 
-def test_centroid_shift_no_spin_rotation():
-    east = -(np.arange(65) - 32) * 1.875
-    north = (np.arange(65) - 32) * 1.875
-    image = np.zeros((65, 65, 4))
-    image[35, 28] = [2., .4, .8, .1]
-    offset = en.centroid_offset(image[..., 0], east, north)
-    np.testing.assert_allclose(offset, [-3., 4.])
-    shifted = shift_stokes(image, offset)
-    np.testing.assert_allclose(shifted[32, 32], image[35, 28])
-    assert evpa(shifted[32, 32, 1], shifted[32, 32, 2]) == evpa(.4, .8)
+def test_evpa_spin2_convention():
+    assert evpa(.4, .8) == pytest.approx(.5 * np.arctan2(.8, .4))
     assert np.isnan(evpa(0., 0.))
     # Q+iU spin-2 rotation changes chi by half its complex phase.
     p = (.4 + .8j) * np.exp(2j * .3)

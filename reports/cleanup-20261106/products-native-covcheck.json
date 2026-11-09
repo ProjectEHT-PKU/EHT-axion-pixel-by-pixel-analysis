@@ -1,0 +1,65 @@
+{
+  "summary": {
+    "old_root": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-native-covcheck-v1",
+    "new_root": "/home/canoziia/GRMHD_DATA/analysis/cleanup-verify-opus-20261106/native-covcheck",
+    "tolerance": 1e-12,
+    "only_in_old": [],
+    "only_in_new": [],
+    "compared_files": 3,
+    "arrays": 0,
+    "arrays_bitwise_identical": 0,
+    "arrays_max_abs_diff": 0.0,
+    "json_csv_files": 3,
+    "json_csv_numeric_equal": 3,
+    "json_csv_fully_identical": 1,
+    "other_files": {},
+    "all_numerics_equal_within_tol": true,
+    "all_arrays_bitwise": true
+  },
+  "files": {
+    "covariance-sensitivity.csv": {
+      "kind": "csv",
+      "equal": true,
+      "numeric_equal": true
+    },
+    "manifest.json": {
+      "kind": "manifest",
+      "equal": false,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [
+        {
+          "path": "/config/source",
+          "old": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-observed-limits-native-v1",
+          "new": "/home/canoziia/GRMHD_DATA/analysis/cleanup-verify-opus-20261106/limits-native"
+        }
+      ],
+      "string_difference_count": 1,
+      "same_output_names": true,
+      "outputs_with_identical_sha": [
+        "covariance-sensitivity.csv"
+      ],
+      "outputs_with_different_sha": [
+        "report.json"
+      ]
+    },
+    "report.json": {
+      "kind": "json",
+      "equal": false,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [
+        {
+          "path": "/source",
+          "old": "/home/canoziia/GRMHD_DATA/analysis/eht-120uas-observed-limits-native-v1",
+          "new": "/home/canoziia/GRMHD_DATA/analysis/cleanup-verify-opus-20261106/limits-native"
+        }
+      ],
+      "string_difference_count": 1
+    }
+  }
+}

@@ -1,0 +1,667 @@
+{
+  "summary": {
+    "old_root": "/home/canoziia/GRMHD_DATA/analysis/eht-mc-summary-v1",
+    "new_root": "/home/canoziia/GRMHD_DATA/analysis/cleanup-verify-opus-20261106/eht-ensemble",
+    "tolerance": 1e-12,
+    "only_in_old": [],
+    "only_in_new": [],
+    "compared_files": 93,
+    "arrays": 89,
+    "arrays_bitwise_identical": 89,
+    "arrays_max_abs_diff": 0.0,
+    "json_csv_files": 4,
+    "json_csv_numeric_equal": 4,
+    "json_csv_fully_identical": 3,
+    "other_files": {},
+    "all_numerics_equal_within_tol": true,
+    "all_arrays_bitwise": true
+  },
+  "files": {
+    "axes.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "consumed-inputs.json": {
+      "kind": "provenance",
+      "equal": false,
+      "numeric_equal": true,
+      "same_bytes": 16005,
+      "only_old": [
+        "/home/canoziia/MyProject/PHYS/eht-script-pipeline/eht_axion/research/ensemble.py",
+        "/home/canoziia/MyProject/PHYS/eht-script-pipeline/eht_axion/research/polarimetry.py",
+        "/home/canoziia/MyProject/PHYS/eht-script-pipeline/scripts/process_eht_mc.py"
+      ],
+      "only_new": [
+        "/home/canoziia/MyProject/PHYS/eht-script-pipeline-cleanup/eht_axion/research/ensemble.py",
+        "/home/canoziia/MyProject/PHYS/eht-script-pipeline-cleanup/eht_axion/research/polarimetry.py",
+        "/home/canoziia/MyProject/PHYS/eht-script-pipeline-cleanup/experiment.yaml",
+        "/home/canoziia/MyProject/PHYS/eht-script-pipeline-cleanup/scripts/eht_summarize.py"
+      ]
+    },
+    "copy-receipt.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    },
+    "icentroid/display19/day-100/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/day-100/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/display19/day-100/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/day-100/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/day-100/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/display19/day-101/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/day-101/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/display19/day-101/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/day-101/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/day-101/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/display19/day-95/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/day-95/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/display19/day-95/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/day-95/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/day-95/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/display19/day-96/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/day-96/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/display19/day-96/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/day-96/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/day-96/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/display19/pairs/101-100.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/display19/pairs/96-95.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-100/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-100/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/raw/day-100/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-100/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-100/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/raw/day-101/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-101/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/raw/day-101/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-101/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-101/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/raw/day-95/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-95/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/raw/day-95/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-95/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-95/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/raw/day-96/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-96/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/raw/day-96/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-96/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/day-96/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "icentroid/raw/pairs/101-100.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "icentroid/raw/pairs/96-95.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "manifest.json": {
+      "kind": "manifest",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0,
+      "same_output_names": true,
+      "outputs_with_identical_sha": [
+        "axes.npz",
+        "copy-receipt.json",
+        "icentroid/display19/day-100/aperture.npz",
+        "icentroid/display19/day-100/evpa.npy",
+        "icentroid/display19/day-100/global.npz",
+        "icentroid/display19/day-100/map-summary.npz",
+        "icentroid/display19/day-100/stokes.npy",
+        "icentroid/display19/day-101/aperture.npz",
+        "icentroid/display19/day-101/evpa.npy",
+        "icentroid/display19/day-101/global.npz",
+        "icentroid/display19/day-101/map-summary.npz",
+        "icentroid/display19/day-101/stokes.npy",
+        "icentroid/display19/day-95/aperture.npz",
+        "icentroid/display19/day-95/evpa.npy",
+        "icentroid/display19/day-95/global.npz",
+        "icentroid/display19/day-95/map-summary.npz",
+        "icentroid/display19/day-95/stokes.npy",
+        "icentroid/display19/day-96/aperture.npz",
+        "icentroid/display19/day-96/evpa.npy",
+        "icentroid/display19/day-96/global.npz",
+        "icentroid/display19/day-96/map-summary.npz",
+        "icentroid/display19/day-96/stokes.npy",
+        "icentroid/display19/pairs/101-100.npz",
+        "icentroid/display19/pairs/96-95.npz",
+        "icentroid/raw/day-100/aperture.npz",
+        "icentroid/raw/day-100/evpa.npy",
+        "icentroid/raw/day-100/global.npz",
+        "icentroid/raw/day-100/map-summary.npz",
+        "icentroid/raw/day-100/stokes.npy",
+        "icentroid/raw/day-101/aperture.npz",
+        "icentroid/raw/day-101/evpa.npy",
+        "icentroid/raw/day-101/global.npz",
+        "icentroid/raw/day-101/map-summary.npz",
+        "icentroid/raw/day-101/stokes.npy",
+        "icentroid/raw/day-95/aperture.npz",
+        "icentroid/raw/day-95/evpa.npy",
+        "icentroid/raw/day-95/global.npz",
+        "icentroid/raw/day-95/map-summary.npz",
+        "icentroid/raw/day-95/stokes.npy",
+        "icentroid/raw/day-96/aperture.npz",
+        "icentroid/raw/day-96/evpa.npy",
+        "icentroid/raw/day-96/global.npz",
+        "icentroid/raw/day-96/map-summary.npz",
+        "icentroid/raw/day-96/stokes.npy",
+        "icentroid/raw/pairs/101-100.npz",
+        "icentroid/raw/pairs/96-95.npz",
+        "native/display19/day-100/aperture.npz",
+        "native/display19/day-100/evpa.npy",
+        "native/display19/day-100/global.npz",
+        "native/display19/day-100/map-summary.npz",
+        "native/display19/day-100/stokes.npy",
+        "native/display19/day-101/aperture.npz",
+        "native/display19/day-101/evpa.npy",
+        "native/display19/day-101/global.npz",
+        "native/display19/day-101/map-summary.npz",
+        "native/display19/day-101/stokes.npy",
+        "native/display19/day-95/aperture.npz",
+        "native/display19/day-95/evpa.npy",
+        "native/display19/day-95/global.npz",
+        "native/display19/day-95/map-summary.npz",
+        "native/display19/day-95/stokes.npy",
+        "native/display19/day-96/aperture.npz",
+        "native/display19/day-96/evpa.npy",
+        "native/display19/day-96/global.npz",
+        "native/display19/day-96/map-summary.npz",
+        "native/display19/day-96/stokes.npy",
+        "native/display19/pairs/101-100.npz",
+        "native/display19/pairs/96-95.npz",
+        "native/raw/day-100/aperture.npz",
+        "native/raw/day-100/evpa.npy",
+        "native/raw/day-100/global.npz",
+        "native/raw/day-100/map-summary.npz",
+        "native/raw/day-100/stokes.npy",
+        "native/raw/day-101/aperture.npz",
+        "native/raw/day-101/evpa.npy",
+        "native/raw/day-101/global.npz",
+        "native/raw/day-101/map-summary.npz",
+        "native/raw/day-101/stokes.npy",
+        "native/raw/day-95/aperture.npz",
+        "native/raw/day-95/evpa.npy",
+        "native/raw/day-95/global.npz",
+        "native/raw/day-95/map-summary.npz",
+        "native/raw/day-95/stokes.npy",
+        "native/raw/day-96/aperture.npz",
+        "native/raw/day-96/evpa.npy",
+        "native/raw/day-96/global.npz",
+        "native/raw/day-96/map-summary.npz",
+        "native/raw/day-96/stokes.npy",
+        "native/raw/pairs/101-100.npz",
+        "native/raw/pairs/96-95.npz",
+        "report.json"
+      ],
+      "outputs_with_different_sha": [
+        "consumed-inputs.json"
+      ]
+    },
+    "native/display19/day-100/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/day-100/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/display19/day-100/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/day-100/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/day-100/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/display19/day-101/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/day-101/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/display19/day-101/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/day-101/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/day-101/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/display19/day-95/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/day-95/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/display19/day-95/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/day-95/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/day-95/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/display19/day-96/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/day-96/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/display19/day-96/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/day-96/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/day-96/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/display19/pairs/101-100.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/display19/pairs/96-95.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-100/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-100/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/raw/day-100/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-100/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-100/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/raw/day-101/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-101/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/raw/day-101/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-101/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-101/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/raw/day-95/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-95/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/raw/day-95/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-95/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-95/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/raw/day-96/aperture.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-96/evpa.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/raw/day-96/global.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-96/map-summary.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/day-96/stokes.npy": {
+      "kind": "npy",
+      "equal": true,
+      "max_abs_diff": 0.0
+    },
+    "native/raw/pairs/101-100.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "native/raw/pairs/96-95.npz": {
+      "kind": "npz",
+      "equal": true,
+      "max_abs_diff": 0.0,
+      "unequal_fields": {}
+    },
+    "report.json": {
+      "kind": "json",
+      "equal": true,
+      "numeric_equal": true,
+      "numeric_mismatches": [],
+      "numeric_mismatch_count": 0,
+      "numeric_within_tol": 0,
+      "string_differences": [],
+      "string_difference_count": 0
+    }
+  }
+}

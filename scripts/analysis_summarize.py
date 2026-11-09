@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Summarize completed small EHT120 products; never recursively reopen raw inputs.
+"""Process 3, step 5: summary tables/figures of the limits and their checks.
 
-Native comparison is required for a final stage. If pending, exit and run later;
-this helper deliberately does not poll the producer or certify raw provenance.
+Inputs are completed small stages only (limits of analysis_limits.py, the grid and
+prior checks of analysis_check_grid.py, optionally the covariance check); raw
+inputs are never reopened and their provenance is inherited, not re-certified.
 """
 
 from __future__ import annotations
@@ -176,13 +177,11 @@ def run(args):
     destination = args.output_root.resolve()
     if destination.exists():
         raise FileExistsError("Use a new summary output root")
-    sources = {
-        name: getattr(args, name).resolve()
-        for name in ("primary", "gridcheck", "priorcheck", "native")
-    }
+    sources = {"primary": args.limits.resolve()}
+    sources.update({name: getattr(args, name).resolve() for name in ("gridcheck", "priorcheck")})
     if getattr(args, "covcheck", None) is not None:
         sources["covcheck"] = args.covcheck.resolve()
-    # Fail fast if native has not committed its manifest. No waiting/monitor loop.
+    # Fail fast if a source has not committed its manifest. No waiting/monitor loop.
     for source in sources.values():
         common.complete_manifest(source)
     reports, consumed, records = {}, [], {}
@@ -212,7 +211,6 @@ def run(args):
     for label, reference, test in (
         ("grid_vs_primary", "primary", "gridcheck"),
         ("prior_vs_dense_grid", "gridcheck", "priorcheck"),
-        ("native_vs_primary", "primary", "native"),
     ):
         comparisons_all[label] = comparisons(reports[reference], reports[test])
     # Grid and prior changes must not silently include a reselection.
@@ -316,8 +314,6 @@ def run(args):
             )
         lines += [
             "",
-            "Native changes selection N; differences are not pure centering effects.",
-            "",
             "## Alpha=0.30 goodness of fit",
             "",
             "| Dimension | Mode | Components | Null chi2 | Best joint-grid chi2 |",
@@ -349,7 +345,8 @@ def run(args):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("primary", "gridcheck", "priorcheck", "native", "output-root"):
+    parser.add_argument("--limits", type=Path, required=True, help="analysis_limits.py output root")
+    for name in ("gridcheck", "priorcheck", "output-root"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument(
         "--covcheck",

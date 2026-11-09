@@ -92,6 +92,12 @@ def compare_file(old, new, tol):
                     unequal_fields={k: v for k, v in fields.items() if not v["equal"]})
     if suffix == ".json":
         a, b = json.loads(old.read_text()), json.loads(new.read_text())
+        if (isinstance(a, list) and isinstance(b, list) and all(isinstance(e, dict) and "sha256" in e for e in a + b)):
+            # Provenance list of consumed files: compare by content hash, report path-level changes.
+            sa, sb = {e["sha256"]: e["path"] for e in a}, {e["sha256"]: e["path"] for e in b}
+            return dict(kind="provenance", equal=a == b, numeric_equal=True, same_bytes=len(set(sa) & set(sb)),
+                        only_old=sorted(sa[h] for h in set(sa) - set(sb)),
+                        only_new=sorted(sb[h] for h in set(sb) - set(sa)))
         if old.name == "manifest.json":
             outputs_a = {e["path"]: e["sha256"] for e in a.get("outputs", [])}
             outputs_b = {e["path"]: e["sha256"] for e in b.get("outputs", [])}
@@ -140,7 +146,7 @@ def compare(old_root, new_root, tol=1e-12, skip=()):
         results[str(rel)] = compare_file(old_root / rel, new_root / rel, tol)
     numeric_kinds = ("npy", "npz")
     arrays = {k: v for k, v in results.items() if v["kind"] in numeric_kinds}
-    texts = {k: v for k, v in results.items() if v["kind"] in ("json", "manifest", "csv")}
+    texts = {k: v for k, v in results.items() if v["kind"] in ("json", "manifest", "csv", "provenance")}
     summary = dict(
         old_root=str(old_root), new_root=str(new_root), tolerance=tol,
         only_in_old=sorted(map(str, files_old - files_new)), only_in_new=sorted(map(str, files_new - files_old)),

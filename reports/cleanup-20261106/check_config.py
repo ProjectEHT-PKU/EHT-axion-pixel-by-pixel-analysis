@@ -118,11 +118,16 @@ literals = [  # calculate_eht_ensemble_limits.py at main: literal or CLI default
     ("--mask-mode default", "intensity-polarization", "mask_mode"),
     ("sector spacing literal 10 (np.arange(360) % 10 == 4)", 10, "sector_spacing_degrees"),
     ("sector offset literal 4", 4, "sector_offset_degrees"),
-    ("--centering native (paper invocation, limits-native-v1)", "native", "centering"),
+
 ]
 for source, value, key in literals:
     check(f"calculate_eht_ensemble_limits: {source}", value, f"analysis.features.{key}",
           X["analysis"]["features"][key])
+sys.path.insert(0, str(NEW / "scripts"))
+import analysis_limits  # noqa: E402
+check("calculate_eht_ensemble_limits: --centering native (paper invocation, limits-native-v1)", "native",
+      "scripts/analysis_limits.py CENTERING (fixed; Paper VII Sec. 5.2 centring = zero shift)",
+      analysis_limits.CENTERING, "the centroid alternative was removed (user decision: Paper VII only)")
 for name, cfg, overrides in (("gridcheck", G, ("phase_count", "coupling_points")),
                              ("priorcheck", R, ("phase_count", "coupling_points", "coupling_max"))):
     for key in overrides:

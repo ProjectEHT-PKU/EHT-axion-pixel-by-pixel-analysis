@@ -46,7 +46,6 @@ def run(args):
             raise ValueError('Expected completed primary observed analysis')
         source_config = record['config']['scientific_profile']
         experiment = json.loads(json.dumps(read_experiment(args.config)))
-        experiment['analysis']['features']['centering'] = record['config']['centering']
         if experiment != source_config:
             raise ValueError('The source limits were produced from a different experiment')
         config = json.loads(json.dumps(source_config))
