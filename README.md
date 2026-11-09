@@ -80,7 +80,6 @@ eht_axion/
   model.py limits.py statistics.py observations.py polarization.py angles.py stokes.py
 scripts/               raptor_*, eht_*, analysis_* entry points, verify_products
 tests/                 synthetic unit/integration tests
-reports/               versioned evidence (reports/cleanup-20261106: equivalence of this layout)
 docs/                  historical design notes (written for the earlier configs/ layout)
 ```
 

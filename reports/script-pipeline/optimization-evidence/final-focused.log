@@ -1,8 +1,0 @@
-.............                                                            [100%]
-=============================== warnings summary ===============================
-tests/test_eht_d_tolerance.py::test_tight_options_are_scoped_to_d
-  /home/canoziia/MyProject/PHYS/eht-script-pipeline/.pixi/envs/eht-rebuild/lib/python3.12/site-packages/ehtim/image.py:30: PendingDeprecationWarning: Importing from numpy.matlib is deprecated since 1.19.0. The matrix subclass is not the recommended way to represent matrices or deal with linear algebra (see https://docs.scipy.org/doc/numpy/user/numpy-for-matlab-users.html). Please adjust your code to use regular ndarray.
-    import numpy.matlib as matlib
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-13 passed, 1 warning in 4.86s

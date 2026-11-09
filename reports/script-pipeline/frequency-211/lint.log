@@ -1,2 +1,0 @@
-✨ Pixi task (lint): ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts: (Check code using explicit rules; no external Ruff configuration)
-All checks passed!

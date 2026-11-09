@@ -1,9 +1,0 @@
-VARIANT_FINISHED datafit_shared failed False
-VARIANT_FINISHED datafit_perday failed False
-VARIANT_FINISHED all4800 failed False
-VARIANT_FINISHED legacy_evpa failed False
-VARIANT_FINISHED datafit_shared-raw-1d failed False
-VARIANT_FINISHED legacy_evpa-raw-1d failed False
-ALL_CASES_FINISHED failures=[]
-
-EXIT=0

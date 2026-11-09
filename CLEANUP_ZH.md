@@ -145,8 +145,7 @@ pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR 
   径向表内容 sha256 与 spin、网格、build 设置（`producer/plan.py::task_identity`）。分析、天空网格、
   EHT 成像参数不进入 id。生产计划只保存“射线追踪子集”（`shared` 的物理量 + `raptor` 段），
   `generated.json` 为 schema v2。
-* **迁移**：`reports/cleanup-20261106/migration/migrate_jobs.py`（不在 `scripts/` 或 `eht_axion/` 中，
-  不属于流水线）。它用新代码生成新计划，把两个旧作业根（`/home/canoziia/PHYS-production/results/m65-211`
+* **迁移**：一次性脚本 `migrate_jobs.py`（不属于流水线，不在本分支中；见下文“证据与一次性脚本的位置”）。它用新代码生成新计划，把两个旧作业根（`/home/canoziia/PHYS-production/results/m65-211`
   的 18 234 个作业、`/home/canoziia/GRMHD_DATA/production/pilot-m65-t3000-res400-t16` 的 96 个作业）
   逐一对应到新任务，并对每个作业断言：旧 task.json 除 id 外与新代码会记录的完全相同、model.in 字节相同、
   grid 与 build 相同、源快照与径向表 sha256 与旧记录相同、旧输出收据成功。然后在
@@ -161,8 +160,15 @@ pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR 
 
 ## 等价性证据
 
-所有证据 JSON 同时保存在 `reports/cleanup-20261106/` 与
+### 证据与一次性脚本的位置
+
+`reports/` 目录已从本分支删除（并加入 `.gitignore`）。等价性证据 JSON、一次性迁移脚本
+（`migration/migrate_jobs.py`）以及验证脚本（`check_config.py`、`check_raptor_plan.py`、
+`check_eht_plan.py`、`check_eht_sample.py`、`compare_products.py`、`run_verification.sh`、`_side.py`）
+保存在**只在本地、不推送**的分支 `local/cleanup-evidence-20261106`（提交 de5a28c）的
+`reports/cleanup-20261106/` 中；证据 JSON 另有一份在
 `/home/canoziia/GRMHD_DATA/analysis/cleanup-verify-opus-20261106/evidence/`。
+流水线代码、测试与 pixi 任务都不读取这些 JSON，也不导入这些脚本。下文提到的脚本名与 JSON 名均指该位置。
 
 ### 配置（`config-equivalence.json`）
 

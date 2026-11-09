@@ -31,4 +31,7 @@ runs/
 !.env.example
 !.env.raptor.example
 
-# Pixi manifests and text/SVG validation evidence remain tracked.
+# Validation evidence is kept out of this branch (see CLEANUP_ZH.md).
+reports/
+
+# Pixi manifests remain tracked.

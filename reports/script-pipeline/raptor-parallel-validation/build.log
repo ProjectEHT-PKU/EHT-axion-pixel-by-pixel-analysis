@@ -1,5 +1,0 @@
-✨ Pixi task (build-raptor in raptor-build): python scripts/build_raptor.py --run-root /home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned
-COMPLETE producer-build: /home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/build
-Verified build: /home/canoziia/GRMHD_DATA/production/pilot-m65-a030-t1600-8x6-pinned/build
-
-EXIT=0
