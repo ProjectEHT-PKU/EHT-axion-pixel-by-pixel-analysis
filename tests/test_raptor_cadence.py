@@ -56,7 +56,7 @@ def test_generated_cadence_uses_mass_not_label_step_or_distance(tmp_path, config
     path = footer_input(tmp_path, "generated", [15010, 15013, 15016])
     original = input_cadence_hours([path], config)
     config["shared"]["mass_solar"] *= 1.25
-    # The cadence helper is not a producer validator: label conversion is never
+    # The cadence comes from the footer times only: label conversion is never
     # used for footer times, even if this analysis-only value differs from 0.1.
     config["shared"]["label_step_tg"] = 0.2
     config["shared"]["distance_mpc"] *= 0.8

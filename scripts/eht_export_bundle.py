@@ -8,7 +8,7 @@ feed-rotation table recorded by the I stages. bundle.json lists every file with
 its SHA-256 and the science contract checked by eht_sample.py (fsys, D-term
 statistics convention, sky grid, imaging weights) taken from experiment.yaml.
 
-    pixi run -e eht-rebuild eht-export-bundle --i-root I95 ... --d-root D95 ... --output-root BUNDLE
+    pixi run -e eht-imaging eht-export-bundle --i-root I95 ... --d-root D95 ... --output-root BUNDLE
 
 Both stage kinds must be complete, lineage-verified, of the same day set, made
 with the eht_imaging parameters of experiment.yaml, and every P solve of the

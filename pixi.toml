@@ -22,7 +22,8 @@ OMP_NUM_THREADS = "2"
 PYTHONUNBUFFERED = "1"
 
 # Scientific parameters: experiment.yaml. RAPTOR simulation and EHT imaging are independent
-# inputs (RAPTOR tasks need -e raptor-build, EHT imaging -e eht-rebuild); the analysis combines them.
+# inputs (RAPTOR tasks need -e raptor-build, EHT imaging -e eht-imaging, the EHT ensemble
+# summary -e eht-summary); the analysis combines them.
 [feature.raptor-build]
 platforms = ["linux-64"]
 
@@ -39,19 +40,19 @@ raptor-build = { cmd = "python scripts/raptor_build.py", description = "RAPTOR: 
 raptor-generate = { cmd = "python scripts/raptor_generate.py", description = "RAPTOR: plan/run jobs and deliver Stokes cubes" }
 raptor-merge = { cmd = "python scripts/raptor_merge.py", description = "RAPTOR: merge job roots of several hosts into delivered cubes" }
 
-[feature.eht-research.dependencies]
+[feature.eht-summary.dependencies]
 astropy = ">=6,<8"
 
-[feature.eht-rebuild.pypi-dependencies]
+[feature.eht-imaging.pypi-dependencies]
 ehtim = "==1.3.2"
 
-[feature.eht-rebuild.tasks]
+[feature.eht-imaging.tasks]
 eht-reconstruct = { cmd = "python scripts/eht_reconstruct.py", description = "EHT imaging: Paper VII stages I / fiducial, one day per root" }
 eht-refine = { cmd = "python scripts/eht_refine.py", description = "EHT imaging: exact convex P refinement and D refits of a fiducial stage (settings: eht_imaging.refine)" }
 eht-export-bundle = { cmd = "python scripts/eht_export_bundle.py", description = "EHT imaging: bundle the four I and refined-D stages as the Monte Carlo input" }
 eht-sample = { cmd = "python scripts/eht_sample.py", description = "EHT imaging: fixed-D Monte Carlo, one P image per D draw (settings: eht_imaging.monte_carlo)" }
 
-[feature.eht-research.tasks]
+[feature.eht-summary.tasks]
 eht-summarize = { cmd = "python scripts/eht_summarize.py", description = "EHT imaging: summarize the draws into EHT ensembles for the analysis" }
 
 # Analysis (combines RAPTOR and EHT products) and maintenance tasks; default environment.
@@ -69,5 +70,5 @@ check = { depends-on = ["test", "lint"], description = "Run tests and lint" }
 [environments]
 default = { features = [] }
 raptor-build = { features = ["raptor-build"] }
-eht-research = { features = ["eht-research"] }
-eht-rebuild = { features = ["eht-research", "eht-rebuild"] }
+eht-summary = { features = ["eht-summary"] }
+eht-imaging = { features = ["eht-summary", "eht-imaging"] }

@@ -3,7 +3,7 @@
 
 The ensembles are the EHT input of the analysis (analysis_limits.py).
 
-pixi run -e eht-research eht-summarize --sample-root MC --output-root OUT
+pixi run -e eht-summary eht-summarize --sample-root MC --output-root OUT
 MC is the output root of eht_sample.py; its batch must be finished and must have been
 made with the science values of the current experiment.yaml. Draw count and sky grid
 come from experiment.yaml. Only the blurred images (blurred with

@@ -41,22 +41,22 @@ File details are on [Data layout](data-layout.md).
 
 ## How to run
 
-Environment `eht-rebuild` (ehtim 1.3.2, astropy); `eht_summarize.py` needs only
-`eht-research`. Every command writes one new root.
+Environment `eht-imaging` (ehtim 1.3.2, astropy); `eht_summarize.py` needs only
+`eht-summary` (astropy). Every command writes one new root.
 
 ```bash
 # one root per day and stage; repeat for 95, 96, 100, 101
-pixi run -e eht-rebuild eht-reconstruct --stage I --day 95 --output-root I95 --plan
-pixi run -e eht-rebuild eht-reconstruct --stage I --day 95 --output-root I95 --review-file REVIEW
-pixi run -e eht-rebuild eht-reconstruct --stage fiducial --day 95 --i-root I95 \
+pixi run -e eht-imaging eht-reconstruct --stage I --day 95 --output-root I95 --plan
+pixi run -e eht-imaging eht-reconstruct --stage I --day 95 --output-root I95 --review-file REVIEW
+pixi run -e eht-imaging eht-reconstruct --stage fiducial --day 95 --i-root I95 \
     --output-root PD95 --review-file REVIEW
-pixi run -e eht-rebuild eht-refine --day 95 --source-root PD95 --i-root I95 --output-root D95
+pixi run -e eht-imaging eht-refine --day 95 --source-root PD95 --i-root I95 --output-root D95
 
 # after the four days
-pixi run -e eht-rebuild eht-export-bundle --i-root I95 --i-root I96 --i-root I100 --i-root I101 \
+pixi run -e eht-imaging eht-export-bundle --i-root I95 --i-root I96 --i-root I100 --i-root I101 \
     --d-root D95 --d-root D96 --d-root D100 --d-root D101 --output-root BUNDLE
-pixi run -e eht-rebuild eht-sample --bundle-root BUNDLE --output-root MC --workers 64 --threads 2
-pixi run -e eht-research eht-summarize --sample-root MC --output-root ENSEMBLE
+pixi run -e eht-imaging eht-sample --bundle-root BUNDLE --output-root MC --workers 64 --threads 2
+pixi run -e eht-summary eht-summarize --sample-root MC --output-root ENSEMBLE
 ```
 
 `eht_reconstruct.py --plan` only verifies and hashes the inputs and prints the plan.

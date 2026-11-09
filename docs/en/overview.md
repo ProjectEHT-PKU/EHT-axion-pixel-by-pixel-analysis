@@ -37,8 +37,8 @@ and [Analysis](analysis.md); environments are listed in [Development](developmen
 | Part | Scripts | Pixi environment |
 |---|---|---|
 | RAPTOR simulation | `raptor_build.py`, `raptor_generate.py`, `raptor_merge.py` | `raptor-build` |
-| EHT imaging | `eht_reconstruct.py`, `eht_refine.py`, `eht_export_bundle.py`, `eht_sample.py` | `eht-rebuild` |
-| EHT imaging summary | `eht_summarize.py` | `eht-research` |
+| EHT imaging | `eht_reconstruct.py`, `eht_refine.py`, `eht_export_bundle.py`, `eht_sample.py` | `eht-imaging` |
+| EHT imaging summary | `eht_summarize.py` | `eht-summary` |
 | Analysis | `analysis_templates.py`, `analysis_limits.py`, `analysis_check_grid.py`, `analysis_check_covariance.py`, `analysis_summarize.py` | `default` |
 
 Every script writes into a new output root and refuses to overwrite existing results.

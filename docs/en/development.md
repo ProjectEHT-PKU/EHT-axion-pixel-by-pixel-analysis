@@ -23,7 +23,7 @@ None; tests write only to temporary directories.
 ```bash
 pixi install --locked
 pixi run check                       # tests and lint in the default environment
-pixi run -e eht-rebuild test         # all tests, including those that need ehtim and astropy
+pixi run -e eht-imaging test         # all tests, including those that need ehtim and astropy
 pixi run lint
 pixi run verify PATH/TO/STAGE --recursive
 ```
@@ -36,8 +36,8 @@ pixi run verify PATH/TO/STAGE --recursive
 |---|---|---|
 | `default` | Python 3.12, numpy, scipy, matplotlib, h5py, PyYAML, pytest, ruff, python-dotenv | analysis scripts, tests, lint, `verify` |
 | `raptor-build` | C compiler, make, GSL, HDF5, pkg-config, rsync (linux-64 only) | `raptor-build`, `raptor-generate`, `raptor-merge` |
-| `eht-research` | astropy | `eht-summarize` |
-| `eht-rebuild` | astropy and ehtim 1.3.2 | `eht-reconstruct`, `eht-refine`, `eht-export-bundle`, `eht-sample` |
+| `eht-summary` | astropy | `eht-summarize` |
+| `eht-imaging` | astropy and ehtim 1.3.2 | `eht-reconstruct`, `eht-refine`, `eht-export-bundle`, `eht-sample` |
 
 All environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_NUM_THREADS=2` and
 `PYTHONUNBUFFERED=1`.
@@ -58,7 +58,7 @@ All environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_NUM_THREAD
 
 The tests use synthetic inputs only; they never read observational data or run RAPTOR. In
 the default environment the tests that need ehtim or astropy are skipped; the
-`eht-rebuild` environment runs all of them. Some tests are not unit tests of a function but
+`eht-imaging` environment runs all of them. Some tests are not unit tests of a function but
 checks of repository rules:
 
 - `test_experiment.py` checks validation of every section of `experiment.yaml` and that no

@@ -206,7 +206,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
         raise ValueError("Production plan requires expected_core_commit")
     from ..experiment import validate_ray_tracing
     from ..physics import omega
-    from .plan import _parameters, canonical_alpha, read_snapshot_footer, validate_radial_table
+    from .plan import _parameters, alpha_key, read_snapshot_footer, validate_radial_table
 
     config = validate_ray_tracing(plan["config"])
     p = config["raptor"]
@@ -272,7 +272,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
         norm = p["response"]["reference_norm"] if enabled else 0.
         table_path = None
         if enabled:
-            table_id = p["alpha_table"][canonical_alpha(alpha)]
+            table_id = p["alpha_table"][alpha_key(alpha)]
             table = plan["radial_tables"][table_id]
             table_path = str(Path(table["path"]).resolve(strict=True))
             if (task["table_id"] != table_id or task["table_path"] != table_path

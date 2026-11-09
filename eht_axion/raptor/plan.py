@@ -32,7 +32,7 @@ PHASE_COUNT = 16
 FOOTER = struct.Struct("<8id")
 
 
-def canonical_alpha(alpha):
+def alpha_key(alpha):
     """raptor.alpha_table keys omit the filesystem layout's ``alpha-`` prefix."""
     return alpha_label(alpha).removeprefix("alpha-")
 
@@ -225,7 +225,7 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
     for table_id in p["radial_tables"]:
         path = _path(radial_paths[table_id], f"radial_paths.{table_id}")
         required = [alpha for alpha in shared["alphas"]
-                    if p["alpha_table"][canonical_alpha(alpha)] == table_id]
+                    if p["alpha_table"][alpha_key(alpha)] == table_id]
         # Unique physical files are loaded once, even if explicitly mapped twice.
         key = str(path)
         if key not in table_cache:
@@ -240,7 +240,7 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
 
     def append_task(snapshot, resolution, alpha=None, phase=0):
         enabled = alpha is not None
-        table_id = p["alpha_table"][canonical_alpha(alpha)] if enabled else None
+        table_id = p["alpha_table"][alpha_key(alpha)] if enabled else None
         table = tables[table_id] if enabled else None
         omega = float(physics.omega(alpha, shared["principal_n"])) if enabled else 0.0
         norm = p["response"]["reference_norm"] if enabled else 0.0

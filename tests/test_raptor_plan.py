@@ -1,4 +1,4 @@
-"""Synthetic BHAC footers and CSVs only: no ray tracing or historical outputs."""
+"""Synthetic BHAC footers and CSVs only: no ray tracing and no stored RAPTOR outputs."""
 
 from copy import deepcopy
 import hashlib
