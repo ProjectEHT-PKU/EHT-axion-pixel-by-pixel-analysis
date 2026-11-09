@@ -351,7 +351,7 @@ def test_fiducial_total_d_solves_against_fresh_base_and_final_p_only(tmp_path, c
 
 
 def test_source_stage_must_declare_consumed_products(tmp_path, monkeypatch):
-    verified = Mock(return_value=dict(stage='research:eht-official:I', config=dict(day=95)))
+    verified = Mock(return_value=dict(stage='eht:i', config=dict(day=95)))
     monkeypatch.setattr(w.provenance, 'verify_stage', verified)
     declared = Mock(side_effect=ValueError('Consumed product is not a declared stage output'))
     monkeypatch.setattr(w.provenance, 'require_declared_outputs', declared)

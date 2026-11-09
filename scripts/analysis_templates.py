@@ -3,13 +3,13 @@
 Reads the delivered Stokes cubes (scripts/raptor_merge.py or raptor_generate.py)
 and writes, into a NEW output root, one verified stage per step:
 
-  raptor/processed/alpha-*      raptor:preprocess             blur, rotate, resample to the sky grid
-  raptor/response/alpha-*       raptor:fit                    per-snapshot first-harmonic EVPA response
-  raptor/templates/{1d,2d}      raptor:summarize              template mean/std over the snapshots
-  raptor/background             raptor:background-preprocess  axion-off frames on the sky grid
+  processed/alpha-*      analysis:preprocess   blur, rotate, resample to the sky grid
+  response/alpha-*       analysis:fit          per-snapshot first-harmonic EVPA response
+  templates/{1d,2d}      analysis:templates    template mean/std over the snapshots
+  background             analysis:background   axion-off frames on the sky grid
 
 The GRMHD background sigma is computed by analysis_limits.py on exactly the
-features used in the likelihood, from raptor/background. No ray tracing, no EHT data.
+features used in the likelihood, from background/. No ray tracing, no EHT data.
 """
 from pathlib import Path
 import argparse
@@ -22,7 +22,7 @@ from eht_axion.provenance import (
     manifest_path, reject_directory_symlinks, stage_directory, verification_session, verify_stage,
 )
 from eht_axion.raptor.delivery import generated_inputs
-from eht_axion.raptor.layout import BACKGROUND_DIRECTORY_ALPHA, input_raptor_files
+from eht_axion.raptor.layout import input_raptor_files
 
 
 def stage_inputs(directory):
@@ -52,27 +52,27 @@ def run(config_path, raptor_root, output_root):
             cubes = input_raptor_files(raptor_root, alpha, response_resolution)
             inputs, labels = generated_inputs(cubes, config, alpha=alpha, resolution=response_resolution,
                                               verified=verified)
-            with stage_directory(layout.processed(alpha), "raptor:preprocess", preprocess, inputs) as out:
+            with stage_directory(layout.processed(alpha), "analysis:preprocess", preprocess, inputs) as out:
                 if out is not None:
                     preprocess_cube(cubes, out, **preprocess)
             fit = dict(aperture, snapshot_labels=labels)
-            with stage_directory(layout.response(alpha), "raptor:fit", fit,
+            with stage_directory(layout.response(alpha), "analysis:fit", fit,
                                  stage_inputs(layout.processed(alpha))) as out:
                 if out is not None:
                     fit_processed(layout.processed(alpha), out, **fit)
         for dim in ("1d", "2d"):
             fits = {a: layout.response(a) / f"response-{dim}.npz" for a in alphas}
             inputs = [p for a in alphas for p in (manifest_path(layout.response(a)), fits[a])]
-            with stage_directory(layout.templates(dim), "raptor:summarize",
+            with stage_directory(layout.templates(dim), "analysis:templates",
                                  {"dimension": dim, "method": "mle"}, inputs) as out:
                 if out is not None:
                     summarize_fits(fits, out)
 
-        cubes = input_raptor_files(raptor_root, BACKGROUND_DIRECTORY_ALPHA, background_resolution)
-        inputs, _ = generated_inputs(cubes, config, alpha=BACKGROUND_DIRECTORY_ALPHA,
+        cubes = input_raptor_files(raptor_root, None, background_resolution)
+        inputs, _ = generated_inputs(cubes, config, alpha=None,
                                      resolution=background_resolution, verified=verified)
         params = dict(preprocess, state_indices=[0])
-        with stage_directory(layout.background_processed, "raptor:background-preprocess",
+        with stage_directory(layout.background_processed, "analysis:background",
                              params, inputs) as out:
             if out is not None:
                 preprocess_cube(cubes, out, **params)
@@ -87,7 +87,7 @@ def main(argv=None):
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", type=Path, default=DEFAULT_PATH, help="default: experiment.yaml")
     parser.add_argument("--raptor-input-root", type=Path, required=True,
-                        help="delivered data root containing raptor/res-*/alpha-*/")
+                        help="delivered data root containing raptor/res-*/")
     parser.add_argument("--output-root", type=Path, required=True, help="new directory")
     args = parser.parse_args(argv)
     run(args.config, args.raptor_input_root, args.output_root)

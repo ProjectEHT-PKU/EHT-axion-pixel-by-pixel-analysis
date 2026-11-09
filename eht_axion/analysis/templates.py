@@ -380,14 +380,14 @@ class RunLayout:
         object.__setattr__(self, "root", Path(self.root))
 
     def processed(self, alpha):
-        return self.root / "raptor" / "processed" / alpha_label(alpha)
+        return self.root / "processed" / alpha_label(alpha)
 
     def response(self, alpha):
-        return self.root / "raptor" / "response" / alpha_label(alpha)
+        return self.root / "response" / alpha_label(alpha)
 
     def templates(self, dimension):
-        return self.root / "raptor" / "templates" / dimension
+        return self.root / "templates" / dimension
 
     @property
     def background_processed(self):
-        return self.root / "raptor" / "background"
+        return self.root / "background"

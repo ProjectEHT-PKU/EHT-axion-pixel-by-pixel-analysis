@@ -31,7 +31,7 @@ the top level.
 | `outputs.py` | Validation of one job's HDF5 and spectrum | `validate_job_output`, `read_core_constants`, `hdf_mapping` |
 | `convert.py` | Job HDF5 blocks to a float64 Stokes cube; small array-file helpers | `convert_hdf5` |
 | `delivery.py` | Delivery and merge of cubes; checks of delivered cubes against the experiment | `deliver_stokes`, `generated_inputs`, `input_cadence_hours`, `validate_processed_source` |
-| `layout.py` | Directory layout of the delivered cubes | `alpha_label`, `input_raptor_files`, `BACKGROUND_DIRECTORY_ALPHA` |
+| `layout.py` | Directory layout of the delivered cubes (`alpha-<α>/` and `background/`) | `alpha_label`, `product_directory`, `input_raptor_files` |
 
 ### EHT imaging: eht_axion/eht
 

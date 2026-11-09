@@ -30,6 +30,7 @@ from _environment import add_environment_options, resolve_environment
 
 DAYS = (95, 96, 100, 101)
 I_PRODUCTS = ('final-fixedI.fits', 'clean-gaincal-pol.uvfits')
+EHT_STAGES = {'I': 'eht:i', 'fiducial': 'eht:fiducial'}  # --stage -> recorded stage name
 
 
 def dump(path, value):
@@ -82,7 +83,7 @@ def adapt_official(text, fov_uas):
 def stage_inputs(root, stage, day=None, products=()):
     """Verify the entire source closure AND that each consumed file is declared."""
     m = provenance.verify_stage(root, recursive=True)
-    if m['stage'] != 'research:eht-official:' + stage or (day is not None and m['config']['day'] != day):
+    if m['stage'] != EHT_STAGES[stage] or (day is not None and m['config']['day'] != day):
         raise ValueError(f'Expected official {stage} stage for day {day}: {root}')
     paths = [root / name for name in products]
     provenance.require_declared_outputs(root, paths)
@@ -373,7 +374,7 @@ def main(argv=None):
         declared = {r['path'] for r in plan['inputs']}
         if any(str(p.resolve()) not in declared for p in Path(eh.__file__).resolve().parent.rglob('*.py')):
             raise ValueError('loaded ehtim source is outside declared package closure')
-        with provenance.stage_directory(args.output_root, 'research:eht-official:' + args.stage, plan,
+        with provenance.stage_directory(args.output_root, EHT_STAGES[args.stage], plan,
                                     [Path(r['path']) for r in plan['inputs']]) as out:
             if out is None:
                 raise FileExistsError('new stage/day root required')

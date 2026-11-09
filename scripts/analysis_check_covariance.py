@@ -47,7 +47,7 @@ def main(argv=None):
                   args.source/'report.json', Path(__file__).with_name('analysis_limits.py')]
         products = {}
         for dim in ('1d', '2d'):
-            root = args.templates/'raptor/templates'/dim
+            root = args.templates/'templates'/dim
             provenance.verify_stage(root, recursive=False)
             provenance.require_declared_outputs(root, [root/'templates.npz'])
             products[dim] = load_templates(root/'templates.npz', dim)
@@ -58,7 +58,7 @@ def main(argv=None):
         identity = dict(source=str(args.source), fixed_observed_centers=True, fixed_selection=True,
                         covariance_halves=[list(range(half)), list(range(half, draws))],
                         covariance_regularization='none', scope='finite MC sensitivity, not new error model')
-        with provenance.stage_directory(args.output_root, 'research:eht120-covariance-check',
+        with provenance.stage_directory(args.output_root, 'analysis:check-covariance',
                                     identity, inputs, verify_lineage=False) as out:
             results, table = {}, []
             for dim in ('1d', '2d'):

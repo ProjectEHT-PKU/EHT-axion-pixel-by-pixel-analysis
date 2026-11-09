@@ -53,7 +53,7 @@ scientific products:
 
 | Field | Content |
 |---|---|
-| `stage` | stage name, for example `raptor:fit` |
+| `stage` | stage name, for example `analysis:fit` |
 | `schema` | manifest schema version (1) |
 | `config` | the parameter record of the stage |
 | `inputs` | for each input file: absolute `path`, `size`, `sha256` |
@@ -105,22 +105,27 @@ setting as for new stages: recursively by default, outputs only with
 
 ### Stage names
 
-Stage names are fixed identifiers recorded in manifests and checked by the consumers:
+Stage names are fixed identifiers recorded in manifests and checked by the consumers. They
+have the form `<part>:<step>` with the part `raptor`, `eht` or `analysis`. JSON records
+outside manifests carry schema strings of the form `<part>-<record>-v<N>`
+(`raptor-generated-v2`, `raptor-merge-v2`, `eht-bundle-v2`, `eht-sample-batch-v2`,
+`eht-sample-task-v2`, `eht-sample-finish-v2`, `eht-ensemble-v2`, `analysis-limits-v2`,
+`analysis-summary-v2`).
 
 | Stage | Written by |
 |---|---|
-| `producer-build` | `raptor_build.py` |
-| `producer-job` | `raptor_generate.py` (one per task) |
-| `producer:delivery` | `raptor_generate.py`, `raptor_merge.py` (one per product) |
-| `producer:merged-inventory` | `raptor_merge.py` |
-| `research:eht-official:I`, `research:eht-official:fiducial` | `eht_reconstruct.py` |
-| `research:eht-convex:fiducial` | `eht_refine.py` |
-| `research:eht-fixed-D-ensemble` | `eht_summarize.py` |
-| `raptor:preprocess`, `raptor:fit`, `raptor:summarize`, `raptor:background-preprocess` | `analysis_templates.py` |
-| `research:eht120-observed-limits` | `analysis_limits.py` |
-| `research:eht120-limit-numerics` | `analysis_check_grid.py` |
-| `research:eht120-covariance-check` | `analysis_check_covariance.py` |
-| `research:eht120-results-summary` | `analysis_summarize.py` |
+| `raptor:build` | `raptor_build.py` |
+| `raptor:job` | `raptor_generate.py` (one per task) |
+| `raptor:delivery` | `raptor_generate.py`, `raptor_merge.py` (one per product) |
+| `raptor:merge` | `raptor_merge.py` |
+| `eht:i`, `eht:fiducial` | `eht_reconstruct.py` |
+| `eht:refine` | `eht_refine.py` |
+| `eht:ensemble` | `eht_summarize.py` |
+| `analysis:preprocess`, `analysis:fit`, `analysis:templates`, `analysis:background` | `analysis_templates.py` |
+| `analysis:limits` | `analysis_limits.py` |
+| `analysis:check-grid` | `analysis_check_grid.py` |
+| `analysis:check-covariance` | `analysis_check_covariance.py` |
+| `analysis:summary` | `analysis_summarize.py` |
 
 ### Receipts outside stage directories
 

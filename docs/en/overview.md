@@ -20,7 +20,7 @@ $c$ of an axion-induced EVPA oscillation in M87\*.
 
 ## Outputs
 
-- Delivered RAPTOR Stokes cubes (`data/raptor/res-*/alpha-*/`), see
+- Delivered RAPTOR Stokes cubes (`data/raptor/res-*/alpha-*/` and `data/raptor/res-400/background/`), see
   [RAPTOR production](raptor-production.md).
 - The EHT ensemble: 1000 D-term Monte Carlo images per day, summarized per day, see
   [EHT imaging](eht-imaging.md).

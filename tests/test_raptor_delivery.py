@@ -35,7 +35,7 @@ def delivered(tmp_path_factory):
     plan = plan_generation(config, fluid, tables, run / "build")
     plan["expected_core_commit"] = "synthetic-commit"
     build = run / "build"
-    with stage_directory(build, "producer-build", {
+    with stage_directory(build, "raptor:build", {
         "source_commit": "synthetic-commit", "settings": config["raptor"]["build"]
     }) as temp:
         (temp / "RAPTOR").write_text("synthetic binary, never executed")
@@ -62,7 +62,7 @@ def delivered(tmp_path_factory):
         prepared, identity, inputs = _prepare_task(task)
         prepared["core_constants"] = CORE_CONSTANTS
         prepared["core_constants_source"] = str(build / "definitions.h")
-        with stage_directory(run / "jobs" / task["id"], "producer-job", identity,
+        with stage_directory(run / "jobs" / task["id"], "raptor:job", identity,
                              base_inputs + inputs) as temp:
             write_products(temp, prepared["parameters"], prepared["output_slot"])
             (temp / "success.json").write_text(json.dumps({
@@ -76,7 +76,7 @@ def test_delivery_shapes_axes_labels_and_ancestry(delivered):
     config, run, products = delivered
     assert len(products) == 2
     for alpha, resolution, shape in ((.2, 100, (2, 17, 100, 100, 4)),
-                                     (.3, 400, (2, 1, 400, 400, 4))):
+                                     (None, 400, (2, 1, 400, 400, 4))):
         paths = input_raptor_files(run / "data", alpha, resolution)
         assert len(paths) == 1
         array = np.load(paths[0], mmap_mode="r")
@@ -147,14 +147,14 @@ def test_generated_data_reaches_templates_and_background(delivered, tmp_path):
     path.write_text(yaml.safe_dump(profile))
     output = tmp_path / "analysis"
     run_templates(path, run / "data", output)
-    with np.load(output / "raptor/response/alpha-0.20/response-2d.npz") as z:
+    with np.load(output / "response/alpha-0.20/response-2d.npz") as z:
         np.testing.assert_array_equal(z["snapshot_labels"], [1600, 1610])
-    record = verify_stage(output / "raptor/processed/alpha-0.20", recursive=True)
+    record = verify_stage(output / "processed/alpha-0.20", recursive=True)
     validate_processed_source(record, profile, alpha=.2, resolution=100)
-    bg = verify_stage(output / "raptor/background", recursive=True)
-    validate_processed_source(bg, profile, alpha=.3, resolution=400)
+    bg = verify_stage(output / "background", recursive=True)
+    validate_processed_source(bg, profile, alpha=None, resolution=400)
     assert bg["config"]["state_indices"] == [0]
-    assert np.load(output / "raptor/background/stokes.npy", mmap_mode="r").shape == (2, 1, 8, 8, 4)
+    assert np.load(output / "background/stokes.npy", mmap_mode="r").shape == (2, 1, 8, 8, 4)
     assert not (output / "background-unmasked").exists()
     delivered = [Path(e["path"]) for e in bg["inputs"] if e["path"].endswith(".npy")]
     assert input_cadence_hours(delivered, profile) > 0

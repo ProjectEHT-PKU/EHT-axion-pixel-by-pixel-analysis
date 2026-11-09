@@ -24,7 +24,7 @@ def _write_build(root, config, compiler, *, settings=None):
     build = root / "build"
     identity = {"source_commit": "fake", "settings": config["raptor"]["build"]
                 if settings is None else settings}
-    with provenance.stage_directory(build, "producer-build", identity) as temporary:
+    with provenance.stage_directory(build, "raptor:build", identity) as temporary:
         # Executable permission is part of the build contract; this is never launched.
         (temporary / "RAPTOR").write_text(f"synthetic RAPTOR built by {compiler}; never execute\n")
         (temporary / "RAPTOR").chmod(0o755)
@@ -52,7 +52,7 @@ def _write_job(root, task, build_inputs, *, extra_inputs=(), omit_binary=False):
     prepared, identity, raw_inputs = _prepare_task(task)
     prepared.update(core_constants=CORE_CONSTANTS, core_constants_source=str(build_inputs[-1]))
     inputs = [path for path in build_inputs if not (omit_binary and path.name == "RAPTOR")]
-    with provenance.stage_directory(root / "jobs" / task["id"], "producer-job", identity,
+    with provenance.stage_directory(root / "jobs" / task["id"], "raptor:job", identity,
                                 inputs + raw_inputs + list(extra_inputs)) as temporary:
         write_products(temporary, prepared["parameters"], prepared["output_slot"])
         (temporary / "task.json").write_text(json.dumps(identity))
@@ -123,13 +123,13 @@ def test_merged_shapes_canonical_layout_and_labels(merged):
     m = merged
     expected_paths = [
         m.output / "data/raptor/res-100/alpha-0.20/stokes.npy",
-        m.output / "data/raptor/res-400/alpha-0.30/t1600-t1610/stokes-t1600-t1610.npy",
+        m.output / "data/raptor/res-400/background/t1600-t1610/stokes-t1600-t1610.npy",
     ]
     assert m.products == expected_paths
     assert not m.run.exists()
     for root in m.roots:
         assert not (root / "data").exists()
-    for alpha, resolution, states, expected_path in zip((.2, .3), (100, 400), (17, 1), expected_paths):
+    for alpha, resolution, states, expected_path in zip((.2, None), (100, 400), (17, 1), expected_paths):
         paths = input_raptor_files(m.output / "data", alpha, resolution)
         assert paths == [expected_path]
         cube = np.load(paths[0], mmap_mode="r", allow_pickle=False)
@@ -193,9 +193,9 @@ def test_merged_background_reaches_real_downstream_path(merged, tmp_path):
     config_path.write_text(yaml.safe_dump(profile))
     analysis = tmp_path / "analysis"
     run_templates(config_path, merged.output / "data", analysis)
-    processed = analysis / "raptor/background"
+    processed = analysis / "background"
     record = provenance.verify_stage(processed, recursive=True)
-    validate_processed_source(record, profile, alpha=.3, resolution=400)
+    validate_processed_source(record, profile, alpha=None, resolution=400)
     assert np.load(processed / "stokes.npy", mmap_mode="r").shape == (2, 1, 8, 8, 4)
     closure = set(provenance.source_closure([processed / "manifest.json"]))
     assert {p for p in closure if p.name == "RAPTOR"} == {build[1] for build in merged.builds}

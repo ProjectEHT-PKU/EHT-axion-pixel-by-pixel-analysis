@@ -28,11 +28,11 @@ def main(argv=None):
         for path in products:
             inputs += [manifest_path(path.parent), path, path.parent / "generated.json",
                        path.parent / "sources.json"]
-        summary = {"layout": "raptor-multi-source-delivery-v1", "tasks": len(plan["tasks"]),
+        summary = {"layout": "raptor-merge-v2", "tasks": len(plan["tasks"]),
                    "source_roots": [str(p.resolve()) for p in args.job_root],
                    "science": plan["config"],
                    "products": [str(p.resolve()) for p in products]}
-        with stage_directory(args.output_root / "inventory", "producer:merged-inventory",
+        with stage_directory(args.output_root / "inventory", "raptor:merge",
                              summary, inputs) as temporary:
             if temporary is not None:
                 (temporary / "index.json").write_text(json.dumps(summary, indent=2) + "\n")

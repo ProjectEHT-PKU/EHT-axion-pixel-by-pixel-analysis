@@ -163,21 +163,21 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
         aperture = np.broadcast_to(np.arange(360) * .001, (1000, 360))
         np.savez(directory / 'aperture.npz', samples_rad=aperture, angle_deg=np.arange(360),
                  intensity=np.ones_like(aperture), polarized_brightness=np.ones_like(aperture))
-    report = dict(schema='eht-fixed-D-ensemble-summary-v1', days=[str(d) for d in driver.DAYS],
+    report = dict(schema='eht-ensemble-v2', days=[str(d) for d in driver.DAYS],
         draws_per_day=1000, rmax_uas=60., aperture_full_width_deg=10.,
         angle_convention='EVPA radians modulo pi, E of N; aperture angles degrees E of N; no roll',
         map_order='draw,y,x,IQUV; native FITS E decreases along x, N increases along y')
     (ensemble / 'report.json').write_text(json.dumps(report))
-    records = {ensemble: dict(stage='research:eht-fixed-D-ensemble', config=dict(draw_count=4000))}
+    records = {ensemble: dict(stage='eht:ensemble', config=dict(draw_count=4000))}
     original_load = np.load
     monkeypatch.setattr(driver.np, 'load',
                         lambda p, **kw: arrays[p] if p in arrays else original_load(p, **kw))
-    processed = theory / 'raptor/background'
+    processed = theory / 'background'
     processed.mkdir(parents=True)
     np.save(processed / 'stokes.npy', np.ones((5, 1, 64, 64, 4)))
     geometry = driver.analysis_geometry(config)
-    delivered = tmp_path / 'raptor/res-400/alpha-0.30/t1600-t1690/stokes-t1600-t1690.npy'
-    records[processed] = dict(stage='raptor:background-preprocess',
+    delivered = tmp_path / 'raptor/res-400/background/t1600-t1690/stokes-t1600-t1690.npy'
+    records[processed] = dict(stage='analysis:background',
                              config=dict(geometry['image_preprocess'], state_indices=[0]),
                              inputs=[dict(path=str(delivered)), dict(path=str(delivered.parent / 'x.json'))])
     checked, cadences = [], []
@@ -196,7 +196,7 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
                 '2d': (None, None, None, valid2d)}
     prepared, _, _, sigmas, background_inputs = driver.prepare_limit_inputs(
         ensemble, theory, config, products, verified=set())
-    assert checked == [('raptor:background-preprocess', 0.3, 400)]
+    assert checked == [('analysis:background', None, 400)]
     assert cadences == [[delivered]]
     assert sigmas == {dim: dict(stokes=str(processed / 'stokes.npy'), cadence_hours=8.)
                       for dim in ('1d', '2d')}

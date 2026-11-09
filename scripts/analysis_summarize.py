@@ -184,9 +184,9 @@ def run(args):
     for name, source in sources.items():
         record = provenance.verify_stage(source, recursive=False)
         expected = (
-            "research:eht120-limit-numerics"
+            "analysis:check-grid"
             if name in ("gridcheck", "priorcheck")
-            else "research:eht120-observed-limits"
+            else "analysis:limits"
         )
         if name != "covcheck" and record["stage"] != expected:
             raise ValueError(f"Unexpected {name} stage")
@@ -231,7 +231,7 @@ def run(args):
     consumed += [provenance.manifest_path(source) for source in sources.values()]
     consumed.append(Path(__file__).resolve())
     identity = {
-        "schema": "eht120-results-summary-v1",
+        "schema": "analysis-summary-v2",
         "sources": {k: str(v) for k, v in sources.items()},
         "verification": (
             "completed small stage outputs only; raw lineage inherited, not rehashed"
@@ -240,7 +240,7 @@ def run(args):
         "calibration_certification": False,
     }
     with provenance.stage_directory(
-        destination, "research:eht120-results-summary", identity, consumed, verify_lineage=False
+        destination, "analysis:summary", identity, consumed, verify_lineage=False
     ) as out:
         write_csv(out / "limits.csv", limits)
         write_csv(out / "alpha030-chi2.csv", fits)

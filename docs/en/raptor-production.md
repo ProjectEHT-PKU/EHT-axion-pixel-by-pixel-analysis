@@ -23,17 +23,17 @@ cubes for the analysis. RAPTOR production does not read any EHT imaging product.
 All outputs are below one run root (`--run-root`, `EHT_PRODUCTION_ROOT`, or
 `EHT_OUTPUT_ROOT/production/<run id>`):
 
-- `build/`: the compiled RAPTOR and its receipts (stage `producer-build`).
-- `jobs/<task id>/`: one stage per task (stage `producer-job`); failed attempts are kept in
+- `build/`: the compiled RAPTOR and its receipts (stage `raptor:build`).
+- `jobs/<task id>/`: one stage per task (stage `raptor:job`); failed attempts are kept in
   `attempts/<task id>/`.
 - `data/raptor/res-100/alpha-<α>/stokes.npy`: one delivered cube per $\alpha$, and
-  `data/raptor/res-400/alpha-0.30/t<A>-t<B>/stokes-t<A>-t<B>.npy`: axion-off time shards
-  (stage `producer:delivery`).
+  `data/raptor/res-400/background/t<A>-t<B>/stokes-t<A>-t<B>.npy`: axion-off time shards
+  (stage `raptor:delivery`).
 - `config.yaml` (a copy of the experiment file) and `requests/<uuid>.json` (one record per
   invocation).
 
 `raptor_merge.py` writes the same `data/raptor/...` tree into a new output root, plus
-`inventory/` (stage `producer:merged-inventory`). File details are on
+`inventory/` (stage `raptor:merge`). File details are on
 [Data layout](data-layout.md).
 
 ## How to run
@@ -161,9 +161,8 @@ re-validated. Then it writes:
 
 - for each $\alpha$: `res-100/alpha-<α>/stokes.npy` of shape (141, 17, 100, 100, 4); state 0
   is the axion-off baseline and state $k+1$ has axion phase $k\pi/8$;
-- for the axion-off background: `res-400/alpha-0.30/t<A>-t<B>/stokes-t<A>-t<B>.npy`, shards
-  of at most 10 snapshots, shape $(T, 1, 400, 400, 4)$. The directory label `alpha-0.30`
-  (`BACKGROUND_DIRECTORY_ALPHA`) is only a name; no axion field enters these frames.
+- for the axion-off background: `res-400/background/t<A>-t<B>/stokes-t<A>-t<B>.npy`, shards
+  of at most 10 snapshots, shape $(T, 1, 400, 400, 4)$.
 
 Each product directory contains `generated.json`: the ray-tracing configuration, $\alpha$
 (null for the background), resolution, snapshot labels, footer times in $t_g$, state count,

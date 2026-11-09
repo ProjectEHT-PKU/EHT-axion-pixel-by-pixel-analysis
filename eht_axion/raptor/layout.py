@@ -1,12 +1,8 @@
-"""Directory layout of the delivered RAPTOR Stokes cubes (raptor/res-*/alpha-*/)."""
+"""Directory layout of the delivered RAPTOR Stokes cubes (raptor/res-*/{alpha-*,background}/)."""
 
 from decimal import Decimal, DecimalException
 from pathlib import Path
 import re
-
-# The axion-off (state 0) background frames are delivered under this alpha
-# directory name. It is only a directory label: no axion field enters them.
-BACKGROUND_DIRECTORY_ALPHA = 0.3
 
 _SHARD_NAME = re.compile(r"stokes-t([0-9]+)-t([0-9]+)\.npy")
 
@@ -21,14 +17,20 @@ def alpha_label(alpha):
     return f"alpha-{value:.2f}"
 
 
+def product_directory(root, alpha, resolution):
+    """root/raptor/res-<resolution>/alpha-<alpha>, or .../background for alpha None."""
+    name = "background" if alpha is None else alpha_label(alpha)
+    return Path(root) / "raptor" / f"res-{resolution}" / name
+
+
 def input_raptor_files(root, alpha, resolution):
-    """Delivered Stokes cube(s) for one alpha/resolution, in time order.
+    """Delivered Stokes cube(s) for one alpha (None: axion-off background), in time order.
 
     Response products are one ``stokes.npy``; background products are time
     shards ``tA-tB/stokes-tA-tB.npy``. Identity, labels and shapes are checked
     by raptor.delivery.generated_inputs, not inferred from file names.
     """
-    base = Path(root) / "raptor" / f"res-{resolution}" / alpha_label(alpha)
+    base = product_directory(root, alpha, resolution)
     whole = base / "stokes.npy"
     shards = sorted(base.glob("t*/stokes-t*.npy"))
     if whole.is_file() and shards:
@@ -36,7 +38,7 @@ def input_raptor_files(root, alpha, resolution):
     if whole.is_file():
         return [whole]
     if not shards:
-        raise FileNotFoundError(f"No RAPTOR product for {alpha_label(alpha)}, res={resolution}: {root}")
+        raise FileNotFoundError(f"No RAPTOR product in {base}")
     named = []
     for path in shards:
         match = _SHARD_NAME.fullmatch(path.name)

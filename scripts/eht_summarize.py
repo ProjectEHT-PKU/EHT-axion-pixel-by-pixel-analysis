@@ -68,7 +68,7 @@ def verify_copy(dataset, settings):
     unsigned.pop('identity', None)
     encoded = json.dumps(unsigned, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
     if (hashlib.sha256(encoded).hexdigest() != identity or batch['identity'] != identity
-            or finish['identity'] != identity or finish['schema'] != 'eht-uncertainty-finish-v1'
+            or finish['identity'] != identity or finish['schema'] != 'eht-sample-finish-v2'
             or finish['numerically_certified'] != count * len(en.DAYS)):
         raise ValueError('batch/finish identity mismatch')
     draws = checked(results / 'all-draws.json')
@@ -90,7 +90,7 @@ def verify_copy(dataset, settings):
         directory = contained(results, entry['directory'])
         receipt = checked(directory / 'taskreceipt.json', entry['sha256'])
         if (receipt['task'] != task or receipt['identity'] != identity
-                or receipt['status'] != 'certified' or receipt['schema'] != 'eht-uncertainty-task-v1'):
+                or receipt['status'] != 'certified' or receipt['schema'] != 'eht-sample-task-v2'):
             raise ValueError('selected receipt identity/status mismatch')
         products = {}
         for kind, name in [('display19', 'best-display-IQU-additional19uas.fits'),
@@ -137,7 +137,7 @@ def run(selected, out, settings):
         en.summarize(samples, *reference[:2], directory, settings['rmax_uas'], settings['window_degrees'])
         print(f'SUMMARIZED native/display19/day-{d}', flush=True)
         del samples
-    report = dict(schema='eht-fixed-D-ensemble-summary-v1', days=list(en.DAYS), draws_per_day=draws,
+    report = dict(schema='eht-ensemble-v2', days=list(en.DAYS), draws_per_day=draws,
                   rmax_uas=settings['rmax_uas'],
                   aperture_full_width_deg=float(settings['window_degrees']),
                   map_order='draw,y,x,IQUV; native FITS E decreases along x, N increases along y',
@@ -172,7 +172,7 @@ def main(argv=None):
                    ROOT / 'eht_axion/eht/ensemble.py', ROOT / 'eht_axion/evpa.py']
         config = dict(copy_identity=copy['identity'], rmax_uas=settings['rmax_uas'],
                       source_kind='verified-copy-custom-batch', draw_count=settings['draws'] * len(en.DAYS))
-        with provenance.stage_directory(destination, 'research:eht-fixed-D-ensemble', config, inputs) as out:
+        with provenance.stage_directory(destination, 'eht:ensemble', config, inputs) as out:
             if out is not None:
                 (out / 'copy-receipt.json').write_text(json.dumps(copy, indent=2) + '\n')
                 records = provenance.describe_inputs(inputs)

@@ -333,7 +333,7 @@ class _Processes:
             _kill_group(process)
 
 
-_EXECUTION = ContextVar("producer_job_execution", default=None)
+_EXECUTION = ContextVar("raptor_job_execution", default=None)
 
 
 def _observed_cpu_set(pid):
@@ -588,7 +588,7 @@ def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, bas
     try:
         registry.check()
         provenance.reject_directory_symlinks(attempt_parent)
-        with provenance.stage_directory(destination, "producer-job", config, inputs) as temporary:
+        with provenance.stage_directory(destination, "raptor:job", config, inputs) as temporary:
             registry.check()
             if temporary is None:
                 # A generic complete manifest alone is insufficient.

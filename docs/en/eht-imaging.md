@@ -168,7 +168,7 @@ one feed table. It copies, read-only:
 
 `bundle.json` lists every file with SHA-256 and size and records the science contract:
 `fsys`, `covariance_ddof`, `residual_component_sigma` (`residual_d_sigma`), the sky grid and
-the P objective weights, and `source_kind = localrebuiltfourdayfiducial`. The equivalence
+the P objective weights, under the schema `eht-bundle-v2`. The equivalence
 of this script's output with the bundle recorded for the existing Monte Carlo run has not
 yet been checked.
 

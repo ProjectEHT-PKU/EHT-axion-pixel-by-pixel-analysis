@@ -37,7 +37,7 @@ def build_plan(a):
     refine = config['eht_imaging']['refine']
     source = provenance.verify_stage(a.source_root, recursive=True)
     im, files = original.stage_inputs(a.i_root, 'I', a.day, original.I_PRODUCTS)
-    if source['stage'] != 'research:eht-official:fiducial' or source['config']['day'] != a.day:
+    if source['stage'] != 'eht:fiducial' or source['config']['day'] != a.day:
         raise ValueError('source must be the fiducial stage of the same day')
     c = source['config']['parameters']
     if c != im['config']['parameters']:
@@ -164,7 +164,7 @@ def main(argv=None):
             package_sources = Path(module.__file__).resolve().parent.rglob('*.py')
             if any(str(p.resolve()) not in declared for p in package_sources):
                 raise ValueError('actual imported package outside declared closure')
-        with provenance.stage_directory(a.output_root, 'research:eht-convex:fiducial', plan,
+        with provenance.stage_directory(a.output_root, 'eht:refine', plan,
                                     [Path(r['path']) for r in plan['inputs']]) as out:
             if out is None:
                 raise FileExistsError(a.output_root)

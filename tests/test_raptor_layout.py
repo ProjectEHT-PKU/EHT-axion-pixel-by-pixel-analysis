@@ -3,7 +3,7 @@ import pytest
 
 from eht_axion.provenance import manifest_path, stage_directory, verify_stage
 from eht_axion.analysis.templates import RunLayout
-from eht_axion.raptor.layout import BACKGROUND_DIRECTORY_ALPHA, alpha_label, input_raptor_files
+from eht_axion.raptor.layout import alpha_label, input_raptor_files, product_directory
 
 
 def test_alpha_identity_format():
@@ -22,10 +22,11 @@ def cube(path, times=1):
 def test_response_whole_cube_and_background_shards(tmp_path):
     whole = cube(tmp_path / "raptor/res-100/alpha-0.20/stokes.npy")
     assert input_raptor_files(tmp_path, 0.2, 100) == [whole]
-    base = tmp_path / "raptor/res-400" / alpha_label(BACKGROUND_DIRECTORY_ALPHA)
+    base = tmp_path / "raptor/res-400/background"
+    assert product_directory(tmp_path, None, 400) == base
     late = cube(base / "t1700-t1790/stokes-t1700-t1790.npy")
     early = cube(base / "t1600-t1690/stokes-t1600-t1690.npy")
-    assert input_raptor_files(tmp_path, BACKGROUND_DIRECTORY_ALPHA, 400) == [early, late]
+    assert input_raptor_files(tmp_path, None, 400) == [early, late]
 
 
 def test_missing_ambiguous_and_misnamed_products(tmp_path):
@@ -44,10 +45,10 @@ def test_missing_ambiguous_and_misnamed_products(tmp_path):
 
 def test_run_layout_directories(tmp_path):
     layout = RunLayout(tmp_path)
-    assert layout.processed(0.1) == tmp_path / "raptor/processed/alpha-0.10"
-    assert layout.response(0.44) == tmp_path / "raptor/response/alpha-0.44"
-    assert layout.templates("2d") == tmp_path / "raptor/templates/2d"
-    assert layout.background_processed == tmp_path / "raptor/background"
+    assert layout.processed(0.1) == tmp_path / "processed/alpha-0.10"
+    assert layout.response(0.44) == tmp_path / "response/alpha-0.44"
+    assert layout.templates("2d") == tmp_path / "templates/2d"
+    assert layout.background_processed == tmp_path / "background"
 
 
 def test_recursive_lineage_refuses_changed_source(tmp_path):

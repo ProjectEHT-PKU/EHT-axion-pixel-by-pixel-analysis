@@ -34,9 +34,8 @@ def snapshot(tmp_path):
     feed.write_text('{}')
     feed.chmod(0o444)
     files.append(dict(path=feed.name, sha256=batch.sha(feed)))
-    b = dict(schema=1, days=days, files=files, feed_file=feed.name,
-             covariance_ddof=1, residual_component_sigma=.01, fsys=.005,
-             source_kind='localrebuiltfourdayfiducial')
+    b = dict(schema='eht-bundle-v2', days=days, files=files, feed_file=feed.name,
+             covariance_ddof=1, residual_component_sigma=.01, fsys=.005)
     (root / 'bundle.json').write_text(json.dumps(b))
     return root, b
 

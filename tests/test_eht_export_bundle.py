@@ -23,13 +23,13 @@ def stages(tmp_path, config, *, certified=True, days=w.DAYS, feed=None):
     i_roots, d_roots = [], []
     for day in days:
         i_root = tmp_path / f'I-{day}'
-        with provenance.stage_directory(i_root, 'research:eht-official:I',
+        with provenance.stage_directory(i_root, 'eht:i',
                                         dict(day=day, parameters=parameters), [feed]) as out:
             (out / 'final-fixedI.fits').write_bytes(f'I {day}'.encode())
             (out / 'clean-gaincal-pol.uvfits').write_bytes(f'obs {day}'.encode())
         d_root = tmp_path / f'D-{day}'
         inputs = [i_root / 'manifest.json', i_root / 'final-fixedI.fits', i_root / 'clean-gaincal-pol.uvfits']
-        with provenance.stage_directory(d_root, 'research:eht-convex:fiducial',
+        with provenance.stage_directory(d_root, 'eht:refine',
                                     dict(day=day, parameters=parameters), inputs) as out:
             (out / 'final-dterms.json').write_text(json.dumps({'AZ': [[.01, 0], [0, .01]]}))
             (out / 'termination.json').write_text(json.dumps(dict(all_P_numerically_certified=certified)))

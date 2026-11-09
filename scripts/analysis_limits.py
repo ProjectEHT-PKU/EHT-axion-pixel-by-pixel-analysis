@@ -27,7 +27,7 @@ from eht_axion.provenance import (
     manifest_path, require_declared_outputs, stage_directory, verification_session, verify_stage,
 )
 from eht_axion.raptor.delivery import input_cadence_hours, validate_processed_source
-from eht_axion.raptor.layout import BACKGROUND_DIRECTORY_ALPHA, alpha_label
+from eht_axion.raptor.layout import alpha_label
 
 
 # Paper VII Sec. 5.2 centring = zero shift in this reproduction: no registration.
@@ -60,20 +60,20 @@ def validate_templates(root, config, seen):
     geometry = analysis_geometry(config)
     for alpha in config['shared']['alphas']:
         label = alpha_label(alpha)
-        processed = root / 'raptor/processed' / label
+        processed = root / 'processed' / label
         record = verify_stage(processed, recursive=True, _seen=seen)
         validate_processed_source(record, config, alpha=alpha,
                                   resolution=config['raptor']['response']['resolution'], verified=seen)
         if record['config'] != geometry['image_preprocess']:
             raise ValueError('Theory preprocessing differs from selected geometry')
-        record = verify_stage(root / 'raptor/response' / label, recursive=True, _seen=seen)
+        record = verify_stage(root / 'response' / label, recursive=True, _seen=seen)
         if {k: v for k, v in record['config'].items() if k != 'snapshot_labels'} != geometry['aperturefit']:
             raise ValueError('Theory aperture differs from selected geometry')
     products, inputs = {}, []
     for dim in ('1d', '2d'):
-        directory = root / 'raptor/templates' / dim
+        directory = root / 'templates' / dim
         record = verify_stage(directory, recursive=True, _seen=seen)
-        if record['stage'] != 'raptor:summarize':
+        if record['stage'] != 'analysis:templates':
             raise ValueError('Unexpected theory template stage')
         path = directory / 'templates.npz'
         require_declared_outputs(directory, [path])
@@ -255,13 +255,13 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     features = config['analysis']['features']
     stride = features['pixel_stride']
     record = verify_stage(ensemble, recursive=True, _seen=verified)
-    if record['stage'] != 'research:eht-fixed-D-ensemble':
+    if record['stage'] != 'eht:ensemble':
         raise ValueError('Unexpected EHT120 ensemble stage')
     report_path = ensemble / 'report.json'
     require_declared_outputs(ensemble, [report_path])
     report = json.loads(report_path.read_text())
     draws = config['eht_imaging']['uncertainty_draws']
-    if (report.get('schema') != 'eht-fixed-D-ensemble-summary-v1'
+    if (report.get('schema') != 'eht-ensemble-v2'
             or report.get('days') != [str(d) for d in DAYS] or report.get('draws_per_day') != draws
             or record['config'].get('draw_count') != draws * len(DAYS)
             or report.get('angle_convention') !=
@@ -372,9 +372,9 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
                 inference_1d='recomputed bilinear CSR theory quadrature on transposed per-draw Stokes',
                 native_aperture_role='brightness selection diagnostics only; EVPA samples not used',
                 quadrature=geometry['aperturefit'], qu_rotation='none')))
-    processed = templates / 'raptor/background'
+    processed = templates / 'background'
     processed_record = verify_stage(processed, recursive=True, _seen=verified)
-    if processed_record['stage'] != 'raptor:background-preprocess':
+    if processed_record['stage'] != 'analysis:background':
         raise ValueError('Unexpected background preprocessing stage')
     preprocessing = {k: v for k, v in processed_record['config'].items() if k != 'state_indices'}
     if (preprocessing != geometry['image_preprocess']
@@ -383,7 +383,7 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     stokes_path = processed / 'stokes.npy'
     require_declared_outputs(processed, [stokes_path])
     # Frame spacing from the GRMHD snapshot times recorded with the delivered cubes.
-    validate_processed_source(processed_record, config, alpha=BACKGROUND_DIRECTORY_ALPHA,
+    validate_processed_source(processed_record, config, alpha=None,
                               resolution=config['raptor']['background']['resolution'], verified=verified)
     delivered = [Path(e['path']) for e in processed_record['inputs'] if Path(e['path']).suffix == '.npy']
     cadence = input_cadence_hours(delivered, config)
@@ -405,7 +405,7 @@ def run(args):
         products, inputs = validate_templates(args.templates.resolve(), config, seen)
         prepared, source_inputs, source_identity, sigmas, background_inputs = prepare_limit_inputs(
             args.ensemble.resolve(), args.templates.resolve(), config, products, verified=seen)
-        identity = dict(schema='eht120-observed-ensemble-limits-v1',
+        identity = dict(schema='analysis-limits-v2',
                         scientific_profile=config,
                         resultant_min=features['resultant_min'], centering=CENTERING,
                         pixel_stride=features['pixel_stride'],
@@ -415,7 +415,7 @@ def run(args):
         inputs += source_inputs + background_inputs + [args.config.resolve(), Path(__file__).resolve()]
         inputs += sorted((project / 'eht_axion').rglob('*.py'))
         inputs += [project / 'pixi.toml', project / 'pixi.lock']
-        with stage_directory(args.output_root.resolve(), 'research:eht120-observed-limits',
+        with stage_directory(args.output_root.resolve(), 'analysis:limits',
                              identity, inputs) as out:
             if out is not None:
                 return save_results(out, products, prepared, config, sigmas, identity)

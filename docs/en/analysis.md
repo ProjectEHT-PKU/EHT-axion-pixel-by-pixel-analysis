@@ -11,7 +11,7 @@ $c$, together with a zero-data control and numerical checks.
 ## Inputs
 
 - The delivered RAPTOR data root (`data/` of a delivery or merge), containing
-  `raptor/res-100/alpha-<α>/` and `raptor/res-400/alpha-0.30/`
+  `raptor/res-100/alpha-<α>/` and `raptor/res-400/background/`
   ([RAPTOR production](raptor-production.md)).
 - The EHT ensemble stage of `eht_summarize.py` ([EHT imaging](eht-imaging.md)).
 - `experiment.yaml`: `shared`, `analysis`, and from the other sections
@@ -68,7 +68,7 @@ channel, `preprocess_frame`:
 No flux renormalization is applied. Axis 0 of the simulated images is identified with the
 west direction (decreasing east offset) and axis 1 with north, matching the transposed
 EHT maps (see [Feature selection](#feature-selection)). Response cubes keep all 17 states;
-the background cube keeps state 0 only (`raptor:background-preprocess`).
+the background cube keeps state 0 only (`analysis:background`).
 
 ### Response fit
 

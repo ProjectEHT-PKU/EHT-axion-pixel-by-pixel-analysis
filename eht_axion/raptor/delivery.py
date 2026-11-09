@@ -1,4 +1,4 @@
-"""Delivery: verified RAPTOR job HDF5 -> Stokes cubes (data/raptor/res-*/alpha-*/), and checks of
+"""Delivery: verified RAPTOR job HDF5 -> Stokes cubes (data/raptor/res-*/{alpha-*,background}/), and checks of
 delivered cubes against this experiment (generated_inputs, input_cadence_hours, validate_processed_source)."""
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from ..provenance import (
     manifest_path, require_declared_outputs, stage_directory, verification_session, verify_stage,
 )
 from .convert import convert_hdf5
-from .layout import BACKGROUND_DIRECTORY_ALPHA, alpha_label
+from .layout import product_directory
 from .plan import PHASE_COUNT
 
 
@@ -22,7 +22,7 @@ def _job_files(run_root, task, build_inputs, verified=None):
     from .jobs import _prepare_task
 
     _, expected, raw_inputs = _prepare_task(task)
-    if record["stage"] != "producer-job" or any(record["config"].get(k) != v for k, v in expected.items()):
+    if record["stage"] != "raptor:job" or any(record["config"].get(k) != v for k, v in expected.items()):
         raise ValueError("Completed job belongs to a different generation task")
     require_declared_outputs(directory, [directory / "success.json", directory / "output.json"])
     success = json.loads((directory / "success.json").read_text())
@@ -152,8 +152,7 @@ def deliver_stokes(plan, run_root, *, job_roots=None, output_root=None):
                     inputs += [receipt, hdf]
                 grid.append(row)
                 times.append(baseline["time_tg"])
-            alias = BACKGROUND_DIRECTORY_ALPHA if alpha is None else alpha
-            base = target / "data" / "raptor" / f"res-{resolution}" / alpha_label(alias)
+            base = product_directory(target / "data", alpha, resolution)
             if alpha is None:
                 destination = base / f"t{group_labels[0]}-t{group_labels[-1]}"
                 filename = f"stokes-t{group_labels[0]}-t{group_labels[-1]}.npy"
@@ -161,7 +160,7 @@ def deliver_stokes(plan, run_root, *, job_roots=None, output_root=None):
                 destination, filename = base, "stokes.npy"
             identity = _identity(config, alpha=alpha, resolution=resolution, labels=group_labels,
                                  times=times)
-            with stage_directory(destination, "producer:delivery", identity,
+            with stage_directory(destination, "raptor:delivery", identity,
                                  list(dict.fromkeys(inputs))) as temp:
                 if temp is not None:
                     frequency = config["raptor"]["plasma"]["frequency_hz"]
@@ -181,21 +180,22 @@ def deliver_stokes(plan, run_root, *, job_roots=None, output_root=None):
 def generated_inputs(paths, config, *, alpha, resolution, verified=None):
     """Verify delivered RAPTOR products against this experiment; return inputs and labels.
 
-    Each product must be a complete producer:delivery stage whose generated.json
+    ``alpha`` is None for the axion-off background products.
+
+    Each product must be a complete raptor:delivery stage whose generated.json
     equals the identity this experiment would deliver (ray-tracing settings,
     alpha, resolution); the labels must cover raptor.snapshots exactly.
     """
     paths = [Path(p) for p in paths]
     seen = set() if verified is None else verified
     inputs, labels = list(paths), []
-    background = resolution == config["raptor"]["background"]["resolution"]
     for path in paths:
         directory = path.parent
         verify_stage(directory, recursive=True, _seen=seen)
         metadata = directory / "generated.json"
         require_declared_outputs(directory, [path, metadata])
         record = json.loads(metadata.read_text())
-        expected = _identity(config, alpha=None if background else alpha, resolution=resolution,
+        expected = _identity(config, alpha=alpha, resolution=resolution,
                              labels=record.get("snapshot_labels"), times=record.get("times_tg"))
         if record != expected:
             raise ValueError(f"Generated RAPTOR identity differs from this experiment: {metadata}")

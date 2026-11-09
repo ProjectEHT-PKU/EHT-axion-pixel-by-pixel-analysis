@@ -79,7 +79,7 @@ if mode == "failure" or (mode == "mixed" and task_id == "baseline-1"):
     sys.exit(7)
 '''
     build = tmp_path / "build"
-    with provenance.stage_directory(build, "producer-build", {"fake": True}) as temporary:
+    with provenance.stage_directory(build, "raptor:build", {"fake": True}) as temporary:
         binary = temporary / "RAPTOR"
         binary.write_text(script)
         binary.chmod(0o755)
@@ -352,7 +352,7 @@ def production(setup):
     plan["expected_core_commit"] = "synthetic-core-commit"
     production_build = setup["build"].with_name("production-build")
     settings = {"settings": config["raptor"]["build"], "source_commit": "synthetic-core-commit"}
-    with provenance.stage_directory(production_build, "producer-build", settings) as work:
+    with provenance.stage_directory(production_build, "raptor:build", settings) as work:
         for name in ("RAPTOR", "definitions.h"):
             import shutil
             shutil.copy2(setup["build"] / name, work / name)

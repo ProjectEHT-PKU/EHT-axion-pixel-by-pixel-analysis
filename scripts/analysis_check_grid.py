@@ -44,7 +44,7 @@ def run(args):
         # Verify the complete RESULT outputs. This check need not rehash every
         # unchanged raw RT ancestor once more for a numerical-only repeat.
         record = provenance.verify_stage(args.source, recursive=False)
-        if record['stage'] != 'research:eht120-observed-limits':
+        if record['stage'] != 'analysis:limits':
             raise ValueError('Expected completed primary observed analysis')
         source_config = record['config']['scientific_profile']
         experiment = json.loads(json.dumps(read_experiment(args.config)))
@@ -66,7 +66,7 @@ def run(args):
             provenance.manifest_path(args.source), reportpath, *obsfiles,
             Path(__file__).with_name('analysis_limits.py')]
         for dim in ('1d', '2d'):
-            root = args.templates/'raptor/templates'/dim
+            root = args.templates/'templates'/dim
             provenance.verify_stage(root, recursive=False)
             provenance.require_declared_outputs(root, [root/'templates.npz'])
             products[dim] = load_templates(root/'templates.npz', dim)
@@ -75,7 +75,7 @@ def run(args):
         identity = dict(changed=changed, source=str(args.source),
             source_verified='completed result outputs + recorded producer inputs; no raw RT rehash',
             same_selected_observations=True, same_covariance=True, canonical_NULL_modified=False)
-        with provenance.stage_directory(args.output_root, 'research:eht120-limit-numerics',
+        with provenance.stage_directory(args.output_root, 'analysis:check-grid',
                                     identity, inputs, verify_lineage=False) as out:
             results, rows = {}, []
             for dim in ('1d', '2d'):

@@ -30,7 +30,7 @@ DAYS = (95, 96, 100, 101)
 I_FILES = {'final-fixedI.fits': 'fixedI.fits', 'clean-gaincal-pol.uvfits': 'gaincal-pol.uvfits'}
 D_FILES = ('final-dterms.json', 'termination.json', 'steps.json')
 D_LINEAGE = ('manifest.json', 'plan.json', 'termination.json', 'steps.json')
-SOURCE_KIND = 'localrebuiltfourdayfiducial'
+SCHEMA = 'eht-bundle-v2'
 
 
 def _by_day(roots, stage, config):
@@ -57,8 +57,8 @@ def _by_day(roots, stage, config):
 
 def verify_sources(i_roots, d_roots, config):
     """Return {day: (I root, D root)} and the feed-rotation table recorded by the I stages."""
-    images = _by_day(i_roots, 'research:eht-official:I', config)
-    dterms = _by_day(d_roots, 'research:eht-convex:fiducial', config)
+    images = _by_day(i_roots, 'eht:i', config)
+    dterms = _by_day(d_roots, 'eht:refine', config)
     feeds = {manifest['config']['parameters']['feed_rotation_file'] for _, manifest in images.values()}
     if len(feeds) != 1:
         raise ValueError('the four I stages used different feed-rotation tables')
@@ -87,8 +87,8 @@ def verify_sources(i_roots, d_roots, config):
 def bundle_record(config):
     """The science contract of the bundle (checked by eht_sample.verify_bundle)."""
     c, image = config['eht_imaging'], config['shared']['image']
-    return dict(schema=1, created_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                source_kind=SOURCE_KIND, days={}, files=[], feed_file='feed-rotation.json',
+    return dict(schema=SCHEMA, created_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                days={}, files=[], feed_file='feed-rotation.json',
                 covariance_ddof=c['covariance_ddof'], residual_component_sigma=c['residual_d_sigma'],
                 fsys=c['fsys'],
                 image=dict(npix=image['shape'], fov_uas=image['fov_uas'],
