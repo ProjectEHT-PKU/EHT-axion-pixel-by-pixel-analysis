@@ -1,11 +1,12 @@
 """Exact convex fixed-I/fixed-D polarimetric (P) imaging solver: diagonal PDHG with a
 floating-point duality-gap certificate (NumPy only).
 
-J = official P objective + 2 + 100 log(2), pvis=m=ptv=1, hw=100.
+J = official ehtim P objective (normalized regularizers) + pvis + m + hw ln 2,
+with the data-term weights pvis, m and the regularizer weights hw (entropy) and
+ptv (total variation) of experiment.yaml eht_imaging.p_data / p_reg.
 Complex inner products are Re(vdot). TV has exterior-zero right/bottom rows.
 Numerical primal/dual certificates are floating-point, NOT interval proofs or
-EVPA/image uncertainty. Source lineage: eht-cartesian-exact.py,
-eht-primaldual.py, eht-primaldual-precond.py (ported, not imported).
+EVPA/image uncertainty.
 
 Schur proof: a=abs(K), c=column sums, d=row sums. tau*c=theta;
 sigma*d<=theta (the two TV channels share theta/max(dx,dy)). Weighted
@@ -76,9 +77,15 @@ def conjugate(v, w):
 
 
 class CartesianProblem:
-    def __init__(self, intensity, shape, data, tvnorm, flux):
+    """J(P) for fixed I; ``weights`` holds pvis, m (data terms), hw and ptv (regularizers)."""
+
+    def __init__(self, intensity, shape, data, tvnorm, flux, *, weights):
         self.I, self.shape = np.array(intensity, float, copy=True).ravel(), tuple(shape)
         self.flux, self.tvnorm = float(flux), float(tvnorm)
+        if set(weights) != {'pvis', 'm', 'hw', 'ptv'} or not all(
+                np.isfinite(v) and v > 0 for v in weights.values()):
+            raise ValueError('positive finite weights pvis, m, hw, ptv required')
+        self.weights = {key: float(value) for key, value in weights.items()}
         if (self.I.size != np.prod(shape) or not np.isfinite(self.I).all()
                 or np.any(self.I <= 0) or not np.isfinite([flux, tvnorm]).all()
                 or min(flux, tvnorm) <= 0):
@@ -96,7 +103,7 @@ class CartesianProblem:
                 if np.any(ai == 0):
                     raise ValueError('undefined m: A I = 0')
                 A = A / ai[:, None]
-            self.data.append((d, sigma**2, A, A.conj().T.copy()))
+            self.data.append((d, sigma**2, A, A.conj().T.copy(), self.weights[name]))
 
     def physical(self, P):
         P = np.asarray(P, complex).ravel()
@@ -104,22 +111,33 @@ class CartesianProblem:
         if not np.isfinite(P).all() or np.any(m > 1):
             raise ValueError('P outside physical disk; no clipping')
         f, g = 0., np.zeros_like(P)
-        for d, variance, A, AH in self.data:
+        for d, variance, A, AH, weight in self.data:
             residual = A @ P-d
-            f += np.sum(abs(residual)**2/variance)/(2*len(d))
-            g += AH @ (residual/variance)/len(d)
-        f += 100*np.sum(self.I*h(m))/self.flux
+            f += weight*np.sum(abs(residual)**2/variance)/(2*len(d))
+            g += weight*(AH @ (residual/variance))/len(d)
+        hw, tv = self.weights['hw'], self.weights['ptv']/self.tvnorm
+        f += hw*np.sum(self.I*h(m))/self.flux
         unit = np.divide(P, abs(P), out=np.zeros_like(P), where=abs(P) != 0)
         with np.errstate(divide='ignore', invalid='ignore'):
-            g += 100/self.flux*np.arctanh(m)*unit
+            g += hw/self.flux*np.arctanh(m)*unit
         t = D(P, self.shape)
         den = np.sqrt(np.sum(abs(t)**2, axis=0))
         u = np.divide(t, den, out=np.zeros_like(t), where=den != 0)
-        return float(f+den.sum()/self.tvnorm), g+DH(u)/self.tvnorm
+        return float(f+tv*den.sum()), g+tv*DH(u)
 
 
-def exact_cartesian_problem(fixed, obs, library=None):
-    """Use official cached tuples; constructing Imager never runs an optimizer."""
+def exact_cartesian_problem(fixed, obs, *, p_data, p_reg, norm_reg, library=None):
+    """The fixed-I P problem with the official ehtim data tuples and the given weights.
+
+    ``p_data`` = {pvis, m}, ``p_reg`` = {hw, ptv} and ``norm_reg`` come from
+    experiment.yaml eht_imaging. Only normalized regularizers (norm_reg true) are
+    implemented. Constructing the ehtim Imager runs no optimizer. ``library`` is the
+    ehtim module, or an already constructed Imager (tests).
+    """
+    if norm_reg is not True:
+        raise ValueError('the exact P solver implements normalized regularizers only (norm_reg true)')
+    if set(p_data) != {'pvis', 'm'} or set(p_reg) != {'hw', 'ptv'}:
+        raise ValueError('p_data must hold pvis, m and p_reg must hold hw, ptv')
     if library is None:
         from .calibration import _library
         library = _library()
@@ -132,10 +150,10 @@ def exact_cartesian_problem(fixed, obs, library=None):
         initial.add_pol_image(np.zeros((fixed.ydim, fixed.xdim)), 'V')
         im = library.imager.Imager(obs, initial, prior_im=initial,
             flux=float(fixed.total_flux()), pol='P', transform=['mcv'],
-            data_term={'pvis': 1, 'm': 1}, reg_term={'hw': 100, 'ptv': 1},
+            data_term=dict(p_data), reg_term=dict(p_reg),
             norm_reg=True, norm_init=False, ttype='direct')
-    if (im.dat_term_next != {'pvis': 1, 'm': 1}
-            or im.reg_term_next != {'hw': 100, 'ptv': 1}
+    if (im.dat_term_next != dict(p_data)
+            or im.reg_term_next != dict(p_reg)
             or not im.norm_reg or im._ttype != 'direct' or not np.all(im._embed_mask)
             or im.chisq_transform or im.chisq_offset_gradient != 0):
         raise ValueError('unsupported official objective/weights/mask')
@@ -144,23 +162,25 @@ def exact_cartesian_problem(fixed, obs, library=None):
     if im.flux_next != flux:
         raise ValueError('official flux differs from fixed I')
     return CartesianProblem(fixed.imvec, (fixed.ydim, fixed.xdim),
-                            im._data_tuples, flux*fixed.psize/im.beam_size, flux)
+                            im._data_tuples, flux*fixed.psize/im.beam_size, flux,
+                            weights={**p_data, **p_reg})
 
 
 class Split:
     def __init__(self, problem):
         self.p, self.I = problem, problem.I
-        self.w = 100*self.I/problem.flux
-        self.B = np.concatenate([A*self.I[None, :]/np.sqrt(var[:, None]*len(d))
-                                 for d, var, A, _ in problem.data])
+        self.w = problem.weights['hw']*self.I/problem.flux
+        self.tv = problem.weights['ptv']/problem.tvnorm
+        self.B = np.concatenate([np.sqrt(wt)*A*self.I[None, :]/np.sqrt(var[:, None]*len(d))
+                                 for d, var, A, _, wt in problem.data])
         self.BH = self.B.conj().T.copy()
-        self.b = np.concatenate([d/np.sqrt(var*len(d)) for d, var, _, _ in problem.data])
+        self.b = np.concatenate([np.sqrt(wt)*d/np.sqrt(var*len(d)) for d, var, _, _, wt in problem.data])
 
     def T(self, x):
-        return D(self.I*x, self.p.shape)/self.p.tvnorm
+        return self.tv*D(self.I*x, self.p.shape)
 
     def TH(self, r):
-        return self.I*DH(r)/self.p.tvnorm
+        return self.tv*self.I*DH(r)
 
     def dual(self, x):
         t = self.T(x)
@@ -190,7 +210,7 @@ def checked_gap(primal, lower):
 
 def steps(s):
     ab = abs(s.B)
-    intensity = s.I.reshape(s.p.shape)/s.p.tvnorm
+    intensity = s.tv*s.I.reshape(s.p.shape)
     rx, ry = intensity.copy(), intensity.copy()
     rx[:, :-1] += intensity[:, 1:]
     ry[:-1, :] += intensity[1:, :]

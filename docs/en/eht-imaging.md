@@ -91,11 +91,13 @@ Data are scan-averaged coherently once.
   substitutions: the Fourier transform type `nfft` becomes `direct`, and the field of view
   128 µas becomes `shared.image.fov_uas` (120 µas). The final image `im_out` of the script
   (after its own restoring blur) is the fixed I image; it must already be positive, finite
-  and on the 64 × 64, 120 µas grid;
+  and on the 64 × 64, 120 µas grid. All other settings of the script are used unchanged;
+  in particular the compact flux density of 0.6 Jy (`zbl = 0.60`) is fixed inside the
+  official script and is not an `experiment.yaml` value;
 - solves **shared station gains**: on the native scan-averaged data with baselines shorter
   than `uv_min` removed, an ehtim self-calibration of all stations (including PV) against
-  the fixed I image with `method='both'`, `gain_tol=[0.02, 0.2]`, and equal right and left
-  gains;
+  the fixed I image with `method='both'`, gain tolerance `eht_imaging.gain_tol`
+  ([0.02, 0.2], the value of the official script), and equal right and left gains;
 - applies these gains to the native circular data and writes
   `clean-gaincal-pol.uvfits`, `shared-gains.npz` and `polarization-input.json`.
 
@@ -129,19 +131,22 @@ the fixed round budget.
 ### Refinement of the fiducial D terms
 
 `eht_refine.py` refines the fiducial D terms of one day (the "tightD" stage) with an exact
-convex P solver (`eht_axion/eht/convex.py`). For fixed I and fixed D, the Paper VII P
-objective with `pvis` = `m` = `ptv` = 1, `hw` = 100 and normalized regularizers is convex
-in $P$:
+convex P solver (`eht_axion/eht/convex.py`). For fixed I and fixed D, the ehtim P objective
+with normalized regularizers (`norm_reg` true; the solver implements only this case) is
+convex in $P$:
 
 $$
-J(P) = \sum_{t\in\{\mathrm{pvis},m\}} \frac{1}{2N_t}\sum_j \frac{\lvert (A_t P)_j - d_{t,j}\rvert^2}{\sigma_{t,j}^2}
- + \frac{100}{F}\sum_x I_x\, h\!\left(\frac{\lvert P_x\rvert}{I_x}\right)
- + \frac{\mathrm{TV}(P)}{\tau_\mathrm{TV}},
+J(P) = \sum_{t\in\{\mathrm{pvis},m\}} \frac{w_t}{2N_t}\sum_j \frac{\lvert (A_t P)_j - d_{t,j}\rvert^2}{\sigma_{t,j}^2}
+ + \frac{h_w}{F}\sum_x I_x\, h\!\left(\frac{\lvert P_x\rvert}{I_x}\right)
+ + p_\mathrm{tv}\,\frac{\mathrm{TV}(P)}{\tau_\mathrm{TV}},
 $$
 
-with $h(m) = \tfrac12[(1+m)\ln(1+m) + (1-m)\ln(1-m)]$, $F$ the total flux and
-$\tau_\mathrm{TV}$ the ehtim TV normalization. The data tuples are those of the official
-ehtim imager. `solve_problem` runs a diagonally preconditioned primal-dual hybrid gradient
+with the weights $w_\mathrm{pvis}$, $w_m$ (`eht_imaging.p_data`) and $h_w$, $p_\mathrm{tv}$
+(`eht_imaging.p_reg`; 1, 1, 100, 1), $h(m) = \tfrac12[(1+m)\ln(1+m) + (1-m)\ln(1-m)]$, $F$
+the total flux and $\tau_\mathrm{TV}$ the ehtim TV normalization. $J$ equals the ehtim
+objective plus the constant $w_\mathrm{pvis} + w_m + h_w\ln 2$ (unit test against ehtim for
+several weight sets). The data tuples are those of the official ehtim imager, built with
+the same weights. `solve_problem` runs a diagonally preconditioned primal-dual hybrid gradient
 (PDHG) method and computes, every `check_every` iterations, a feasible dual lower bound;
 the returned P is certified when the best primal value minus the best lower bound is at
 most `gap_atol`. This is a floating-point certificate, not interval arithmetic.
@@ -174,18 +179,19 @@ yet been checked.
 
 ### D-term Monte Carlo
 
-`eht_sample.py` verifies the bundle (every file hash, the science contract against
-`experiment.yaml`) and then:
+`eht_sample.py` verifies the bundle (every file hash; `fsys`, `covariance_ddof`,
+`residual_component_sigma` and the P objective weights against `experiment.yaml`) and then:
 
 - forms the D-term distribution (`d_distribution`): for each station in `solve_sites` and
   each hand R, L, the mean and the 2 × 2 covariance of $(\mathrm{Re}\,D, \mathrm{Im}\,D)$ over
   the four refined daily solutions, with `covariance_ddof` = 1;
 - draws `uncertainty_draws` = 1000 D sets per day (`sample_dterms`) with seed
-  `SeedSequence([seed, day])`: bivariate normal for AZ, LM, PV; zero-mean normal with
-  standard deviation `residual_d_sigma` = 0.01 per real and imaginary component for the
-  pre-corrected stations AA, AP, SM, JC. Thermal noise is not resampled;
+  `SeedSequence([seed, day])`: bivariate normal for the `solve_sites` (AZ, LM, PV);
+  zero-mean normal with standard deviation `residual_d_sigma` = 0.01 per real and imaginary
+  component for the `fixed_sites` (AA, AP, SM, JC). Thermal noise is not resampled;
 - for each draw: adds `fsys`, applies the drawn D terms once, and solves the exact convex P
-  problem from $P = 0.05\,I$ (`initial_p_fraction`) with `eht_imaging.monte_carlo`
+  problem (weights `p_data`, `p_reg`) from $P = 0.05\,I$ (`initial_p_fraction`) with
+  `eht_imaging.monte_carlo`
   (`gap_atol`, `maxiter` 50000, `check_every`, `time_limit` 600 s). An uncertified draw gets
   one second attempt with `retry_maxiter` 200000 and `retry_time_limit` 1800 s; a task with
   two uncertified attempts or two errors is reported as exhausted;

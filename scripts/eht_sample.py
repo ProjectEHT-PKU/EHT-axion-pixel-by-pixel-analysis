@@ -28,9 +28,10 @@ import time
 import traceback
 
 from _bootstrap import ROOT as _BOOTSTRAP
+from eht_axion.experiment import EHT_DAYS
 from eht_axion.provenance import contained_path as contained, sha256 as sha
 
-DAYS = ('95', '96', '100', '101')
+DAYS = tuple(str(day) for day in EHT_DAYS)  # bundle and task keys are strings
 _CACHE = {}
 
 
@@ -43,7 +44,8 @@ def science_settings(config_path):
     return dict(npix=image['shape'], fov_uas=image['fov_uas'], display_blur_uas=image['blur_fwhm_uas'],
                 uv_min=c['uv_min'], fsys=c['fsys'], covariance_ddof=c['covariance_ddof'],
                 residual_component_sigma=c['residual_d_sigma'], solve_sites=c['solve_sites'],
-                sites=sorted(c['solve_sites'] + c['fixed_sites']),
+                fixed_sites=c['fixed_sites'], sites=sorted(c['solve_sites'] + c['fixed_sites']),
+                p_data=c['p_data'], p_reg=c['p_reg'], norm_reg=c['norm_reg'],
                 draws_per_day=c['uncertainty_draws'], seed=c['seed'], monte_carlo=c['monte_carlo'])
 
 
@@ -69,7 +71,9 @@ def verify_bundle(root, science):
     if (b.get('schema') != 'eht-bundle-v2' or set(b['days']) != set(DAYS)
             or b.get('covariance_ddof') != science['covariance_ddof']
             or b.get('residual_component_sigma') != science['residual_component_sigma']
-            or b.get('fsys') != science['fsys']):
+            or b.get('fsys') != science['fsys']
+            or b.get('objective') != dict(**science['p_data'], **science['p_reg'],
+                                          norm_reg=science['norm_reg'])):
         raise ValueError('unsupported bundle science contract')
     files = {}
     for item in b['files']:
@@ -137,7 +141,8 @@ def make_draws(root, bundle, n, seed, science):
     distribution = core.d_distribution(daily, ddof=science['covariance_ddof'])
     return {d: core.sample_dterms(distribution, science['sites'], n,
                 int(np.random.SeedSequence([seed, int(d)]).generate_state(1)[0]),
-                residual_component_sigma=science['residual_component_sigma']) for d in DAYS}
+                residual_component_sigma=science['residual_component_sigma'],
+                fixed_sites=science['fixed_sites']) for d in DAYS}
 
 
 def enumerate_tasks(draws):
@@ -222,7 +227,8 @@ def run_attempt(root, bundle, task, directory, config, identity, numerical_attem
             terms = {s: task['dterms'][s] for s in present}
             noisy = core.add_fsys(base.copy(), science['fsys'])
             obs = core.make_imaging_obs(core.apply_fixed_d(noisy, terms))
-            problem = opt.exact_cartesian_problem(fixed, obs)
+            problem = opt.exact_cartesian_problem(fixed, obs, p_data=science['p_data'],
+                                                  p_reg=science['p_reg'], norm_reg=science['norm_reg'])
             maxiter, limit = attempt_budget(config, numerical_attempt)
             initial = config['initial_p_fraction'] * fixed.imvec.astype(complex)
             P, report, trace = opt.solve_problem(problem, initial,

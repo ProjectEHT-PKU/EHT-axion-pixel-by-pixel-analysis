@@ -28,7 +28,6 @@ from eht_axion import experiment
 from eht_axion import provenance
 from _environment import add_environment_options, resolve_environment
 
-DAYS = (95, 96, 100, 101)
 I_PRODUCTS = ('final-fixedI.fits', 'clean-gaincal-pol.uvfits')
 EHT_STAGES = {'I': 'eht:i', 'fiducial': 'eht:fiducial'}  # --stage -> recorded stage name
 
@@ -41,7 +40,7 @@ def parser():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=experiment.DEFAULT_PATH, help='default: experiment.yaml')
     p.add_argument('--stage', choices=('I', 'fiducial'), required=True)
-    p.add_argument('--day', type=int, choices=DAYS, required=True)
+    p.add_argument('--day', type=int, choices=experiment.EHT_DAYS, required=True)
     for name, env in LOCATION_ENV.items():
         p.add_argument('--' + name.replace('_', '-'), type=Path, help=f'absolute path; overrides ${env}')
     p.add_argument('--i-root', type=Path, help='completed I stage for the SAME day')
@@ -93,10 +92,6 @@ def stage_inputs(root, stage, day=None, products=()):
 def build_plan(args):
     config = experiment.read_experiment(args.config)
     c = experiment.eht_imaging_parameters(config, locations(args))
-    from eht_axion.eht import calibration as core
-
-    if set(c['fixed_sites']) != set(core._PRECORRECTED):
-        raise ValueError(f'fixed_sites must be the HOPS-precorrected stations {core._PRECORRECTED}')
     if (args.stage == 'I' and args.i_root) or (args.stage != 'I' and args.i_root is None):
         raise ValueError('--i-root required exactly for the fiducial stage')
     rawroot = Path(c['input_root'])
@@ -114,7 +109,7 @@ def build_plan(args):
     if args.i_root:
         m, files = stage_inputs(args.i_root, 'I', args.day, I_PRODUCTS)
         upstream = m['config']['parameters']
-        for key in ('npix', 'fov_uas', 'flux_jy'):
+        for key in ('npix', 'fov_uas'):
             if upstream[key] != c[key]:
                 raise ValueError(f'I-stage domain differs: {key}')
         if upstream['feed_rotation_file'] != c['feed_rotation_file']:
@@ -156,7 +151,8 @@ def run_i(plan, core, eh, out):
     import numpy as np
 
     c = plan['parameters']
-    native, native_meta = core.load_native(plan['raw'], c['feed_rotation_file'], scan_average=True)
+    native, native_meta = core.load_native(plan['raw'], c['feed_rotation_file'], scan_average=True,
+                                           fixed_sites=c['fixed_sites'], solve_sites=c['solve_sites'])
     text = Path(c['official_script']).read_text()
     (out / 'official-I-original.py').write_text(text)
     executable = out / 'official-I-120-direct.py'
@@ -175,7 +171,7 @@ def run_i(plan, core, eh, out):
     fitcopy = native.switch_polrep('stokes')
     stations = sorted(set(native.data['t1']) | set(native.data['t2']))
     cal = eh.selfcal(fitcopy, fixed, pol='I', sites=stations, method='both',
-                     ttype='direct', gain_tol=[.02, .2], caltable=True, processes=-1)
+                     ttype='direct', gain_tol=c['gain_tol'], caltable=True, processes=-1)
     for station in stations:
         gains = cal.data[station]
         if not len(gains) or not np.isfinite(gains['rscale']).all():
@@ -197,8 +193,8 @@ def run_i(plan, core, eh, out):
          source='pre-I native circular, scan averaged; preserved unequal RL/LR errors',
          gain_model=f"final 5uas-restored {c['fov_uas']:g}uas fixed I; all stations including PV",
          no_I_noise_inflation=True, no_reverse_taper=True, rf_hz=float(native.rf),
-         fov_uas=float(fixed.fovx() / eh.RADPERUAS), flux_jy=float(fixed.total_flux()),
-         note='0.6Jy is the official compact-flux constraint, not post-hoc image renormalization'))
+         fov_uas=float(fixed.fovx() / eh.RADPERUAS), fixed_I_total_flux_jy=float(fixed.total_flux()),
+         note='the compact flux (zbl) is set inside the unchanged official script; no image renormalization'))
 
 
 def load_gaincal_base(path, c, eh):

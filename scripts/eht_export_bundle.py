@@ -26,7 +26,7 @@ from _bootstrap import ROOT  # noqa: F401
 from eht_axion import experiment
 from eht_axion import provenance
 
-DAYS = (95, 96, 100, 101)
+DAYS = experiment.EHT_DAYS
 I_FILES = {'final-fixedI.fits': 'fixedI.fits', 'clean-gaincal-pol.uvfits': 'gaincal-pol.uvfits'}
 D_FILES = ('final-dterms.json', 'termination.json', 'steps.json')
 D_LINEAGE = ('manifest.json', 'plan.json', 'termination.json', 'steps.json')

@@ -35,7 +35,8 @@ def snapshot(tmp_path):
     feed.chmod(0o444)
     files.append(dict(path=feed.name, sha256=batch.sha(feed)))
     b = dict(schema='eht-bundle-v2', days=days, files=files, feed_file=feed.name,
-             covariance_ddof=1, residual_component_sigma=.01, fsys=.005)
+             covariance_ddof=1, residual_component_sigma=.01, fsys=.005,
+             objective=dict(pvis=1.0, m=1.0, hw=100.0, ptv=1.0, norm_reg=True))
     (root / 'bundle.json').write_text(json.dumps(b))
     return root, b
 
@@ -72,6 +73,8 @@ def test_bundle_bytes_seeds_and_4000_unique_tasks(tmp_path):
         batch.verify_bundle(root, science)
     with pytest.raises(ValueError, match='science contract'):
         batch.verify_bundle(root, dict(science, fsys=.01))
+    with pytest.raises(ValueError, match='science contract'):
+        batch.verify_bundle(root, dict(science, p_reg=dict(hw=50.0, ptv=1.0)))
     with pytest.raises(ValueError, match='Unsafe'):
         batch.contained(root, '../escape')
 
@@ -81,7 +84,8 @@ def test_receipts_retry_and_tiny_exact_solver(tmp_path):
     intensity = np.ones(4)
     A = np.eye(4, dtype=complex)
     problem = opt.CartesianProblem(intensity, (2, 2),
-                {name: (np.zeros(4, complex), np.ones(4), A) for name in ('pvis', 'm')}, 1., 4.)
+                {name: (np.zeros(4, complex), np.ones(4), A) for name in ('pvis', 'm')}, 1., 4.,
+                weights=dict(pvis=1., m=1., hw=100., ptv=1.))
     task = dict(id='95-0000', day='95', draw=0, dterms={})
     config = dict(maxiter=1, time_limit=10, gap_atol=1e-8, retry_maxiter=7, retry_time_limit=20.)
     assert batch.attempt_budget(config, 1) == (1, 10)

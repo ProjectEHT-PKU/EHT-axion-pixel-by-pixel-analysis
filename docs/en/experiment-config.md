@@ -64,7 +64,9 @@ converted to $r_g$) must fit inside `raptor.camera_fov_rg`, and
 | `eht_imaging_parameters` | flat dictionary of the `eht_imaging` values (without `refine` and `monte_carlo`), the sky grid (`npix`, `fov_uas`, `display_blur_uas`) and four machine locations | EHT imaging stages, `eht_refine.py`, `eht_export_bundle.py` |
 
 `ANGULAR_BINS = 360` (one-degree aperture bins) and `EHT_DAYS = (95, 96, 100, 101)` are
-code constants in the same module, not YAML values.
+code constants in the same module, not YAML values. `EHT_DAYS` is the only list of the
+observing days in the code (the EHT imaging scripts, the ensemble summary and the
+analysis import it); validation requires `eht_imaging.inputs` to have exactly these days.
 
 ### Section shared
 
@@ -115,11 +117,11 @@ code constants in the same module, not YAML values.
 | Key | Value | Unit | Meaning | Read by |
 |---|---|---|---|---|
 | `inputs` | four `[file name, sha256]` | – | identity of the HOPS uvfits per day | `eht_reconstruct.py` (checked against the input receipt and the file bytes) |
-| `flux_jy` | 0.6 | Jy | compact flux of the official I workflow; recorded and compared between stages | `eht_reconstruct.py` (see note below) |
+| `gain_tol` | [0.02, 0.2] | – | lower and upper fractional gain tolerance of the shared-gain self-calibration (the value of the official script; checked against the recorded I stages) | `eht_reconstruct.py` |
 | `fsys` | 0.005 | – | fractional systematic noise added in quadrature to RL/LR errors: $\sigma^2 \to \sigma^2 + (f_\mathrm{sys}\,\lvert(RR+LL)/2\rvert)^2$ | `add_fsys` in fiducial, refine and Monte Carlo; bundle contract |
 | `solve_sites` | AZ, LM, PV | – | stations whose D terms are solved | fiducial, refine, Monte Carlo D distribution |
-| `fixed_sites` | AA, AP, SM, JC | – | stations already leakage-corrected in the HOPS products; must equal `calibration._PRECORRECTED` | `eht_reconstruct.py`; Monte Carlo residual D draws |
-| `p_data` | pvis 1.0, m 1.0 | – | ehtim data-term weights of P imaging | fiducial `Imager`; refine check; bundle contract |
+| `fixed_sites` | AA, AP, SM, JC | – | stations already leakage-corrected in the HOPS products (the only list of them in the code) | `load_native` metadata; `sample_dterms` zero-mean residual draws |
+| `p_data` | pvis 1.0, m 1.0 | – | ehtim data-term weights of P imaging | fiducial `Imager`; exact P solver of `eht_refine.py` and `eht_sample.py`; bundle contract |
 | `p_reg` | hw 100.0, ptv 1.0 | – | ehtim regularizer weights (entropy, total variation) | as `p_data` |
 | `norm_reg` | true | – | ehtim regularizer normalization | as `p_data` |
 | `initial_m` | 0.1 | – | initial fractional polarization of the fiducial P image | `eht_reconstruct.py` |
@@ -151,9 +153,9 @@ code constants in the same module, not YAML values.
 | `monte_carlo.retry_maxiter` | 200000 | – | iterations of the second attempt of an uncertified draw | `eht_sample.py` |
 | `monte_carlo.retry_time_limit` | 1800.0 | s | time of the second attempt | `eht_sample.py` |
 
-Note on `flux_jy`: the official script sets its own compact flux (`zbl = 0.60`); the code
-does not pass `flux_jy` to it and P imaging uses the total flux of the fixed I image.
-`flux_jy` is recorded in the plans and compared between the I and fiducial stages.
+The compact flux density of the official I workflow (0.6 Jy, `zbl = 0.60`) is fixed inside
+the official EHT script, which runs unchanged apart from two substitutions
+([EHT imaging](eht-imaging.md#i-stage)); P imaging uses the total flux of the fixed I image.
 
 `refine` and `monte_carlo` are recorded in the plans of `eht_refine.py` and
 `eht_sample.py`, not in the flat parameter set of the imaging stages.

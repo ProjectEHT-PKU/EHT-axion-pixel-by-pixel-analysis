@@ -129,6 +129,8 @@ def test_unknown_section_and_field_rejected(config):
     (("eht_imaging", "restart_rounds"), [1], "restart_rounds"),
     (("eht_imaging", "fixed_sites"), ["AZ"], "overlap"),
     (("eht_imaging", "norm_reg"), 1, "true or false"),
+    (("eht_imaging", "gain_tol"), [0.02], "gain_tol"),
+    (("eht_imaging", "gain_tol"), [0.02, -0.2], "gain_tol"),
     (("analysis", "features", "polarization_fraction"), 1.0, "< 1"),
     (("analysis", "features", "polarization_fraction"), -0.1, ">= 0"),
     (("analysis", "features", "sector_offset_degrees"), 10, "<= 9"),

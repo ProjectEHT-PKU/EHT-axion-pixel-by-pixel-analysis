@@ -14,8 +14,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ..evpa import circular_difference
+from ..experiment import EHT_DAYS
 
-DAYS = (95, 96, 100, 101)
+DAYS = EHT_DAYS
 
 
 @dataclass(frozen=True)

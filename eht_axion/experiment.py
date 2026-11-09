@@ -40,7 +40,7 @@ SCHEMA = {
     "raptor.radial_tables": {"low", "high"},
     "raptor.grid": {"nxlone", "xprobmin", "xprobmax", "hslope"},
     "eht_imaging": {
-        "inputs", "flux_jy", "fsys", "solve_sites", "fixed_sites", "p_data", "p_reg", "norm_reg",
+        "inputs", "gain_tol", "fsys", "solve_sites", "fixed_sites", "p_data", "p_reg", "norm_reg",
         "initial_m", "initial_evpa_deg", "rounds", "restart_rounds", "restart_blur_uas",
         "restart_domain_epsilon", "maxit", "stop", "shift_objective_constant", "uv_min",
         "uncertainty_draws", "seed", "covariance_ddof", "residual_d_sigma", "residual_d_convention",
@@ -221,7 +221,12 @@ def _validate_eht_imaging(config):
     for key in ("rounds", "maxit", "uncertainty_draws", "covariance_ddof"):
         _integer(c[key], f"eht_imaging.{key}")
     _integer(c["seed"], "eht_imaging.seed", low=0)
-    for key in ("flux_jy", "fsys", "restart_blur_uas", "stop", "uv_min", "residual_d_sigma"):
+    gain_tol = c["gain_tol"]
+    if not isinstance(gain_tol, list) or len(gain_tol) != 2:
+        raise ValueError("eht_imaging.gain_tol must be [lower, upper] fractional gain tolerances")
+    for value in gain_tol:
+        _positive(value, "eht_imaging.gain_tol")
+    for key in ("fsys", "restart_blur_uas", "stop", "uv_min", "residual_d_sigma"):
         _positive(c[key], f"eht_imaging.{key}")
     _number(c["initial_m"], "eht_imaging.initial_m", low=0, high=1, open_low=True, open_high=True)
     _number(c["restart_domain_epsilon"], "eht_imaging.restart_domain_epsilon",
@@ -414,7 +419,7 @@ def eht_imaging_parameters(config, locations):
 
 _EHT_PARAMETER_ORDER = (
     "input_root", "input_receipt", "feed_rotation_file", "official_script", "inputs", "npix", "fov_uas",
-    "flux_jy", "fsys", "solve_sites", "fixed_sites", "p_data", "p_reg", "norm_reg", "initial_m",
+    "gain_tol", "fsys", "solve_sites", "fixed_sites", "p_data", "p_reg", "norm_reg", "initial_m",
     "initial_evpa_deg", "rounds", "restart_rounds", "restart_blur_uas", "restart_domain_epsilon",
     "maxit", "stop", "shift_objective_constant", "uv_min", "display_blur_uas", "uncertainty_draws",
     "seed", "covariance_ddof", "residual_d_sigma", "residual_d_convention",

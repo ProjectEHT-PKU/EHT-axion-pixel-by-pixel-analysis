@@ -24,7 +24,6 @@ import numpy as np
 
 
 _PRODUCTS = ("rr", "ll", "rl", "lr")
-_PRECORRECTED = ("AA", "AP", "SM", "JC")
 
 
 def _library():
@@ -53,8 +52,12 @@ def _metadata(obs, **updates):
     return obs
 
 
-def load_native(path, feed_file, *, scan_average):
+def load_native(path, feed_file, *, scan_average, fixed_sites, solve_sites):
     """Load released HOPS zbl-dtcal+selfcal data without a Stokes conversion.
+
+    ``fixed_sites`` (leakage-corrected in the HOPS products) and ``solve_sites``
+    (D terms still to be solved) come from experiment.yaml eht_imaging and are
+    recorded in the metadata.
 
     Stage flags are from the 2023-D01-01 release README (not the loader's
     ambiguous dcal default). This recognizes the release filename convention;
@@ -92,7 +95,7 @@ def load_native(path, feed_file, *, scan_average):
             row[key] = value
     obs.tarr["dr"] = obs.tarr["dl"] = 0j
     obs.ampcal = obs.phasecal = obs.frcal = True
-    obs.dcal = False  # AA/AP/SM/JC precorrected, AZ/LM/PV still unsolved.
+    obs.dcal = False  # fixed_sites are pre-corrected, solve_sites still unsolved.
     scan_source = "not_requested"
     if scan_average:
         scan_source = "UVFITS_NX"
@@ -104,7 +107,7 @@ def load_native(path, feed_file, *, scan_average):
     meta = dict(input=str(path.resolve()), feed_file=str(feed_file.resolve()),
                 calibration_source="2023-D01-01 release README: HOPS zbl-dtcal+selfcal",
                 provenance_hash_verified_here=False, native_polrep="circ", fr_off_unit="degrees",
-                precorrected_sites=list(_PRECORRECTED), remaining_d_sites=["AZ", "LM", "PV"],
+                precorrected_sites=list(fixed_sites), remaining_d_sites=list(solve_sites),
                 missing_product_policy="drop complete row if any product/error invalid",
                 rows_loaded=before, rows_flagged=int((~keep).sum()), rows_output=len(obs.data),
                 scan_average=bool(scan_average), scan_source=scan_source,
@@ -399,15 +402,16 @@ def d_distribution(dailyD, *, ddof):
                 independence="between stations, hands and separate calls/days; no temporal covariance")
 
 
-def sample_dterms(distribution, sites, n, seed, *, residual_component_sigma):
+def sample_dterms(distribution, sites, n, seed, *, residual_component_sigma, fixed_sites):
     """Deterministic Generator draws, no thermal resampling or D refitting.
 
-    AA/AP/SM/JC use ZERO-mean residuals with the given per-component SD (complex
+    ``fixed_sites`` (pre-corrected stations, experiment.yaml eht_imaging.fixed_sites)
+    use ZERO-mean residuals with the given per-component SD (complex
     RMS sqrt(2) times larger), not their previously applied full D. Re/Im covariance is
     preserved for other stations. For different-day independent ensembles use
     distinct seeds and record them; reusing a seed intentionally repeats draws.
     """
-    sites = sorted(sites)
+    sites, fixed_sites = sorted(sites), sorted(fixed_sites)
     if (not sites or len(set(sites)) != len(sites) or isinstance(n, bool)
             or not isinstance(n, (int, np.integer)) or n < 1):
         raise ValueError("unique nonempty sites and positive integer n required")
@@ -421,7 +425,7 @@ def sample_dterms(distribution, sites, n, seed, *, residual_component_sigma):
     for site in sites:
         used[site] = {}
         for hand in ("R", "L"):
-            if site in _PRECORRECTED:
+            if site in fixed_sites:
                 mean, covariance = np.zeros(2), np.eye(2) * residual_component_sigma ** 2
             else:
                 entry = distribution["entries"][site][hand]
@@ -437,7 +441,7 @@ def sample_dterms(distribution, sites, n, seed, *, residual_component_sigma):
                 draws[k].setdefault(site, {})[hand] = xy[k].tolist()
     return dict(seed=int(seed), bit_generator=type(rng.bit_generator).__name__, n=int(n), sites=sites,
                 source_ids=list(distribution["source_ids"]), ddof=distribution["ddof"],
-                residual_component_sigma=float(residual_component_sigma),
+                residual_component_sigma=float(residual_component_sigma), fixed_sites=fixed_sites,
                 residual_sigma_convention="per real/imaginary component; zero mean",
                 independence=distribution["independence"], distributions=used, draws=draws,
                 thermal_resampled=False, refit_d_after_draw=False)

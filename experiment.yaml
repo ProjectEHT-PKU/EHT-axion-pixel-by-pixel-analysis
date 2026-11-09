@@ -77,7 +77,7 @@ eht_imaging:  # observation input: Paper IV/VII method (fixed I, D-term solution
     96: [SR2_M87_2017_096_lo_hops_zbl-dtcal+selfcal.uvfits, 2376a3300ce49e458efc3f4403d98dce62cdd9b045f982f0ed73efd199ef6947]
     100: [SR2_M87_2017_100_lo_hops_zbl-dtcal+selfcal.uvfits, 1987e2e25ed47b90dbc13a2216a131e25fbc5b6a2a807d009e81dc579f766937]
     101: [SR2_M87_2017_101_lo_hops_zbl-dtcal+selfcal.uvfits, 5cf936dce926b5b13a0f39065096da1f836ab52ca95fdfffef581057029e8d5b]
-  flux_jy: 0.6                   # compact-flux constraint of the official I workflow
+  gain_tol: [0.02, 0.2]          # shared-gain self-calibration tolerance (as in the official script)
   fsys: 0.005                    # fractional systematic noise
   solve_sites: [AZ, LM, PV]      # D terms solved here
   fixed_sites: [AA, AP, SM, JC]  # already leakage-corrected in the HOPS products

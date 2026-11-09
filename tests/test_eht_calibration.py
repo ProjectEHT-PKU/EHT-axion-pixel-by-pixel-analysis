@@ -278,21 +278,24 @@ def test_load_native_flags_feed_and_official_scan_api(toy, monkeypatch, tmp_path
 
     monkeypatch.setattr(eh.obsdata, "load_uvfits", loader)
     path = tmp_path / "SR2_M87_2017_101_lo_hops_zbl-dtcal+selfcal.uvfits"
-    loaded, meta = core.load_native(path, feed, scan_average=False)
+    sites = dict(fixed_sites=["AA", "AP", "SM", "JC"], solve_sites=["AZ", "LM", "PV"])
+    loaded, meta = core.load_native(path, feed, scan_average=False, **sites)
+    assert meta["precorrected_sites"] == sites["fixed_sites"]
+    assert meta["remaining_d_sites"] == sites["solve_sites"]
     assert calls == [dict(polrep="circ", remove_nan=False)]
     assert meta["rows_flagged"] == 3 and len(loaded.data) == len(raw.data) - 3
     assert loaded.polrep == "circ" and loaded.ampcal and loaded.phasecal and loaded.frcal
     assert not loaded.dcal
     np.testing.assert_array_equal(loaded.tarr["fr_off"], raw.tarr["fr_off"])
     np.testing.assert_array_equal(loaded.tarr["dr"], 0)
-    averaged, receipt = core.load_native(path, feed, scan_average=True)
+    averaged, receipt = core.load_native(path, feed, scan_average=True, **sites)
     assert receipt["scan_average"] is True
     expected = loaded.avg_coherent(0, scan_avg=True)
     for p in core._PRODUCTS:
         np.testing.assert_array_equal(averaged.data[p + "sigma"], expected.data[p + "sigma"])
     assert averaged.polrep == "circ"
     with pytest.raises(ValueError, match="declared"):
-        core.load_native(tmp_path / "unknown.uvfits", feed, scan_average=True)
+        core.load_native(tmp_path / "unknown.uvfits", feed, scan_average=True, **sites)
 
 
 def daily_solutions():
@@ -313,10 +316,13 @@ def test_distributions_covariance_and_sampling():
                                np.array(distribution["entries"]["AZ"]["R"]["covariance"]) * .75)
     sites = ["AZ", "PV", "AA", "AP", "SM", "JC"]
     state = np.random.get_state()
-    samples = core.sample_dterms(distribution, sites, 2000, 2021, residual_component_sigma=.01)
+    fixed = ["AA", "AP", "SM", "JC"]
+    samples = core.sample_dterms(distribution, sites, 2000, 2021, residual_component_sigma=.01,
+                                 fixed_sites=fixed)
     assert samples == core.sample_dterms(distribution, reversed(sites), 2000, 2021,
-                                         residual_component_sigma=.01)
-    assert samples != core.sample_dterms(distribution, sites, 2000, 2022, residual_component_sigma=.01)
+                                         residual_component_sigma=.01, fixed_sites=fixed)
+    assert samples != core.sample_dterms(distribution, sites, 2000, 2022, residual_component_sigma=.01,
+                                         fixed_sites=fixed)
     np.testing.assert_array_equal(np.random.get_state()[1], state[1])
     az = np.array([d["AZ"]["R"] for d in samples["draws"]])
     # Rank-one covariance gives a stringent direct test of within-D correlation.
@@ -324,7 +330,8 @@ def test_distributions_covariance_and_sampling():
     aa = np.array([d["AA"]["R"] for d in samples["draws"]])
     np.testing.assert_allclose(aa.mean(axis=0), 0, atol=.0007)
     np.testing.assert_allclose(aa.std(axis=0), .01, rtol=.07)
-    for site in core._PRECORRECTED:
+    assert samples["fixed_sites"] == sorted(fixed)
+    for site in fixed:
         assert samples["distributions"][site]["R"]["mean"] == [0, 0]
         assert samples["distributions"][site]["L"]["covariance"] == [[.0001, 0], [0, .0001]]
     assert samples["source_ids"] == sorted(daily)

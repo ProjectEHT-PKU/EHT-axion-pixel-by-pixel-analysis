@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 
 from ..evpa import circular_difference, finite_evpa
+from ..experiment import EHT_DAYS
 
 def _image(image):
     a = np.asarray(image, dtype=np.float64)
@@ -136,7 +137,7 @@ def aperture_curves(image, east, north, binangles, *, window, rmax_uas=None):
                 polarized_brightness=np.array(brightness), evpa_rad=np.array(chi), count=np.array(count))
 
 
-DAYS = ('95', '96', '100', '101')
+DAYS = tuple(str(day) for day in EHT_DAYS)  # day keys of the Monte Carlo batch
 GLOBAL_COLUMNS = ('total_I', 'm_net', 'm_resolved', 'evpa_rad', 'beta2_real', 'beta2_imag')
 
 

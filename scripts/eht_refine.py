@@ -25,7 +25,7 @@ from eht_axion.eht import convex as solver
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=experiment.DEFAULT_PATH, help='default: experiment.yaml')
-    p.add_argument('--day', type=int, choices=original.DAYS, required=True)
+    p.add_argument('--day', type=int, choices=experiment.EHT_DAYS, required=True)
     p.add_argument('--source-root', type=Path, required=True, help='completed fiducial stage of this day')
     p.add_argument('--i-root', type=Path, required=True, help='completed I stage of this day')
     p.add_argument('--output-root', type=Path, required=True, help='new directory')
@@ -45,9 +45,6 @@ def build_plan(a):
     locations = {key: c[key] for key in experiment.EHT_LOCATIONS}
     if c != json.loads(json.dumps(experiment.eht_imaging_parameters(config, locations))):
         raise ValueError('source imaging parameters differ from experiment.yaml eht_imaging')
-    # The exact convex solver (eht.convex) implements exactly these weights.
-    if c['p_data'] != {'pvis': 1, 'm': 1} or c['p_reg'] != {'hw': 100, 'ptv': 1} or c['norm_reg'] is not True:
-        raise ValueError('the exact P solver implements only the Paper VII weights')
     recorded = {Path(r['path']).resolve() for r in provenance.describe_inputs(
         provenance.source_closure([provenance.manifest_path(a.source_root)]))}
     if any((a.i_root/n).resolve() not in recorded for n in original.I_PRODUCTS):
@@ -103,7 +100,8 @@ def run(a, plan, core, eh, out):
 
     def problem(d):
         obs = core.make_imaging_obs(core.apply_fixed_d(core.add_fsys(base.copy(), c['fsys']), d))
-        return solver.exact_cartesian_problem(fixed, obs, eh)
+        return solver.exact_cartesian_problem(fixed, obs, library=eh, p_data=c['p_data'],
+                                              p_reg=c['p_reg'], norm_reg=c['norm_reg'])
 
     count = refine['outer_rounds'] + 1
     for r in range(1, count+1):
