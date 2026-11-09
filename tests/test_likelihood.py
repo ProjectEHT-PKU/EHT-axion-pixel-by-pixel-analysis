@@ -283,7 +283,7 @@ def test_multiple_alphas_interpolation_and_resolved_options():
     assert np.isfinite(cuts).all()
     assert np.shape(diag["phase_log_likelihood"]) == (3, 23, 64)
     assert diag["effective_options"]["phase_count"] == 64
-    assert "legacy" not in diag["effective_options"]
+    assert set(diag["effective_options"]) == set(opts.__dataclass_fields__)
     json.dumps(diag, allow_nan=False)
 
 

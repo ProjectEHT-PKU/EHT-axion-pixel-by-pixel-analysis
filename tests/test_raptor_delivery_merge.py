@@ -119,7 +119,7 @@ def merged(tmp_path_factory):
         assert _unchanged_records(roots, raw_inputs) == before
 
 
-def test_merged_shapes_canonical_layout_and_labels(merged):
+def test_merged_shapes_layout_and_labels(merged):
     m = merged
     expected_paths = [
         m.output / "data/raptor/res-100/alpha-0.20/stokes.npy",
