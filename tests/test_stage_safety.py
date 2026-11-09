@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from eht_axion.pipeline import common
-from eht_axion.pipeline.raptor import preprocess_stokes
+from eht_axion.pipeline.raptor import preprocess_cube
 
 
 @pytest.mark.parametrize("rebuild", [False, True])
@@ -31,8 +31,9 @@ def test_lowlevel_rejects_dangling_file_link(tmp_path):
     external = tmp_path / "external.npy"
     (out / "stokes.npy").symlink_to(external)
     with pytest.raises(ValueError, match="output file symlink"):
-        preprocess_stokes(np.ones((1, 2, 2, 4)), out, sigma=0, init_fov=2,
-                          final_fov=2, rotation_angle=0, final_shape=2)
+        np.save(tmp_path / "cube.npy", np.ones((1, 1, 2, 2, 4)))
+        preprocess_cube(tmp_path / "cube.npy", out, sigma=0, init_fov=2,
+                        final_fov=2, rotation_angle=0, final_shape=2)
     assert not external.exists()
 
 

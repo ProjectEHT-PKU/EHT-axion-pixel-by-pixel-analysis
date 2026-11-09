@@ -21,42 +21,39 @@ def test_finite_evpa_rejects_nonfinite_and_zero_but_not_finite_extremes():
 
 
 @pytest.mark.parametrize("sparse", [False, True])
-@pytest.mark.parametrize("weighting", ["intensity", "flux"])
-def test_padding_is_zero_flux_and_unused_v_does_not_change_evpa(sparse, weighting):
+def test_padding_is_zero_flux_and_unused_v_does_not_change_evpa(sparse):
     stokes = np.ones((2, 2, 2, 4))
     stokes[..., 0] = 2
     stokes[:, 0, 0, :] = np.nan
     operator = np.ones((1, 4))
     if sparse:
         operator = csr_matrix(operator)
-    reference = integrate_stokes(stokes, operator, weighting)
+    reference = integrate_stokes(stokes, operator)
     np.testing.assert_array_equal(reference, np.full((2, 1), np.pi / 8))
     stokes[:, 1, 1, 3] = np.nan
     stokes[:, 1, 0, 3] = np.inf
-    np.testing.assert_array_equal(integrate_stokes(stokes, operator, weighting), reference)
-    assert np.isnan(integrate_stokes(np.full_like(stokes, np.nan), operator, weighting)).all()
+    np.testing.assert_array_equal(integrate_stokes(stokes, operator), reference)
+    assert np.isnan(integrate_stokes(np.full_like(stokes, np.nan), operator)).all()
 
 
-@pytest.mark.parametrize("weighting", ["intensity", "flux"])
 @pytest.mark.parametrize("channel", [0, 1, 2])
 @pytest.mark.parametrize("nonfinite", [np.nan, np.inf, -np.inf])
-def test_unknown_individual_iqu_is_rejected_even_with_zero_operator(weighting, channel, nonfinite):
+def test_unknown_individual_iqu_is_rejected_even_with_zero_operator(channel, nonfinite):
     stokes = np.ones((2, 2, 4))
     stokes[0, 0, channel] = nonfinite
     with pytest.raises(ValueError, match="Nonfinite I/Q/U.*padding"):
-        integrate_stokes(stokes, np.zeros((1, 4)), weighting)
+        integrate_stokes(stokes, np.zeros((1, 4)))
 
 
 @pytest.mark.parametrize("sparse", [False, True])
-@pytest.mark.parametrize("weighting", ["intensity", "flux"])
-def test_finite_float64_observable_matches_original_formula(sparse, weighting):
+def test_finite_float64_observable_matches_original_formula(sparse):
     stokes = np.random.default_rng(827).normal(size=(3, 2, 2, 4))
     operator = np.array([[1.0, 0.25, 0.75, 0.5], [0.0, 1.0, 0.5, 2.0]])
-    weights = stokes[..., 0] if weighting == "intensity" else np.ones((3, 2, 2))
+    weights = stokes[..., 0]
     q = (stokes[..., 1] * weights).reshape(3, 4) @ operator.T
     u = (stokes[..., 2] * weights).reshape(3, 4) @ operator.T
     expected = 0.5 * np.arctan2(u, q)
-    actual = integrate_stokes(stokes, csr_matrix(operator) if sparse else operator, weighting)
+    actual = integrate_stokes(stokes, csr_matrix(operator) if sparse else operator)
     np.testing.assert_allclose(actual, expected, rtol=0, atol=2e-16)
 
 
@@ -82,7 +79,6 @@ def test_finite_inputs_with_overflowing_weighted_product_are_rejected(channel):
     stokes[..., channel] = 1e200
     with pytest.raises(ValueError, match="Nonfinite float64 intensity-weighted Stokes product"):
         integrate_stokes(stokes, np.ones((1, 4)))
-    assert np.isfinite(integrate_stokes(stokes, np.ones((1, 4)), "flux")).all()
 
 
 @pytest.mark.parametrize("sparse", [False, True])
@@ -92,12 +88,11 @@ def test_zero_integrated_polarization_is_undefined(sparse):
     operator = np.ones((1, 4))
     if sparse:
         operator = csr_matrix(operator)
-    for weighting in ("intensity", "flux"):
-        assert np.isnan(integrate_stokes(stokes, operator, weighting)).all()
+    assert np.isnan(integrate_stokes(stokes, operator)).all()
 
 
 def test_nonfinite_integrated_qu_cannot_become_finite_angle():
     stokes = np.ones((2, 2, 4))
     stokes[..., 1] = 1e308
     with np.errstate(over="ignore", invalid="ignore"):
-        assert np.isnan(integrate_stokes(stokes, np.ones((1, 4)), "flux")).all()
+        assert np.isnan(integrate_stokes(stokes, np.ones((1, 4)))).all()

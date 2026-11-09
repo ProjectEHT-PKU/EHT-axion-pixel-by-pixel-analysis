@@ -36,9 +36,9 @@ def test_physical_scale_and_validation():
         PhysicalScale(mass_solar=float("nan"), distance_mpc=16.8, label_step_tg=0.1)
 
 
-def test_aperture_area_exact_and_weighting():
+def test_aperture_area_exact_and_intensity_weighting():
     operator = aperture_operator(
-        shape=4, fov=4, radial_max=1.9, angular_bins=4, window_degrees=10, radial_resolution=0.2
+        shape=4, fov=4, radial_max=1.9, angular_bins=4, window_degrees=10
     )
     area = 0.5 * 1.9**2 * np.deg2rad(10)
     np.testing.assert_allclose(np.asarray(operator.sum(axis=1)).ravel(), area, rtol=1e-12)
@@ -47,14 +47,13 @@ def test_aperture_area_exact_and_weighting():
     image[..., 1] = 1
     image[..., 2] = 1
     np.testing.assert_allclose(integrate_stokes(image, operator), np.pi / 8)
-    np.testing.assert_allclose(integrate_stokes(image, operator, "flux"), np.pi / 8)
     image[...] = 0
     assert np.isnan(integrate_stokes(image, operator)).all()
 
 
 def test_window_center_symmetry():
     op = aperture_operator(
-        shape=16, fov=4, radial_max=1.5, angular_bins=360, window_degrees=10, radial_resolution=0.1
+        shape=16, fov=4, radial_max=1.5, angular_bins=360, window_degrees=10
     )
     # x-positive aperture is exactly symmetric under reflection y -> -y.
     row = op[0].toarray().reshape(16, 16)

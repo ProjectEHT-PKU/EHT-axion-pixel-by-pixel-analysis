@@ -200,11 +200,11 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     np.testing.assert_allclose(daily[0], .002 * 35 + .004 * 20)
     np.testing.assert_allclose(coords, [[-grid[20], grid[35]]])
     from eht_axion.pipeline.raptor import _integrate
-    expected = _integrate(maps.transpose(1, 0, 2), driver.theory_aperture_operator(config), 'intensity')
+    expected = _integrate(maps.transpose(1, 0, 2), driver.theory_aperture_operator(config))
     indices = prepared['1d'][0]
     np.testing.assert_allclose(prepared['1d'][1][0][0], expected[indices])
     assert not np.allclose(expected[indices], indices * .001)  # native sectors were deliberately different
-    wrong = _integrate(maps, driver.theory_aperture_operator(config), 'intensity')
+    wrong = _integrate(maps, driver.theory_aperture_operator(config))
     assert not np.allclose(expected[indices], wrong[indices])
     assert isinstance(sigmas['1d'], dict)  # actual selected sigma is derived only after R selection
     np.savez(ensemble / 'axes.npz', east_uas=-grid, north_uas=grid,
@@ -247,7 +247,7 @@ def test_selected_background_exact_feature_domain(tmp_path, monkeypatch, dimensi
         selected = np.array([4, 14])
         import eht_axion.polarization as pol
         monkeypatch.setattr(driver, 'theory_aperture_operator', lambda config: None)
-        def integrated(frame, operator, weighting):
+        def integrated(frame, operator):
             out = np.zeros(360)
             out[94] = .5 * np.arctan2(frame[20, 35, 2], frame[20, 35, 1])
             out[104] = .5 * np.arctan2(frame[30, 40, 2], frame[30, 40, 1])

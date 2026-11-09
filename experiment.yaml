@@ -102,11 +102,9 @@ eht_imaging:  # observation input: Paper IV/VII method (fixed I, D-term solution
 
 analysis:  # combines both inputs: from simulated images and EHT ensembles to limits on c
   rotation_degrees: 108.0        # rotate simulated images onto the sky
-  aperture:                      # 1D observable: intensity-weighted pizza-slice EVPA
-    weighting: intensity
+  aperture:                      # 1D observable: intensity-weighted pizza-slice EVPA, 1-degree bins
     window_degrees: 10
     radial_max_fraction: 1.0     # of the image half-FOV (60 uas)
-    angular_bins: 360            # one-degree grid
   features:                      # selection of EHT likelihood features (EHT images used as
                                  # reconstructed: Paper VII Sec. 5.2 centring = zero shift)
     mask_mode: intensity-polarization

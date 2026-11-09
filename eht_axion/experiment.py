@@ -46,7 +46,7 @@ SCHEMA = {
         "uncertainty_draws", "seed", "covariance_ddof", "residual_d_sigma", "residual_d_convention",
     },
     "analysis": {"rotation_degrees", "aperture", "features", "cloud", "background", "inference"},
-    "analysis.aperture": {"weighting", "window_degrees", "radial_max_fraction", "angular_bins"},
+    "analysis.aperture": {"window_degrees", "radial_max_fraction"},
     "analysis.features": {"mask_mode", "intensity_fraction", "polarization_fraction",
                           "min_radius_rg", "pixel_stride", "sector_spacing_degrees",
                           "sector_offset_degrees", "resultant_min"},
@@ -56,6 +56,9 @@ SCHEMA = {
                            "credibility", "exposure_hours", "day_gap_hours", "pair_separation_hours"},
 }
 EHT_DAYS = (95, 96, 100, 101)
+# The 1D observable uses one-degree aperture bins (an angle grid, not a parameter);
+# aperture EVPAs are always intensity weighted (EHT VII).
+ANGULAR_BINS = 360
 # Machine-local eht-imaging locations; recorded in the imaging plan, never in YAML.
 EHT_LOCATIONS = ("input_root", "input_receipt", "feed_rotation_file", "official_script")
 
@@ -239,12 +242,9 @@ def _validate_analysis(config):
     analysis = _section(config, "analysis")
     _number(analysis["rotation_degrees"], "analysis.rotation_degrees")
     aperture = _section(config, "analysis.aperture")
-    _choice(aperture["weighting"], "analysis.aperture.weighting", ("intensity", "flux"))
     _number(aperture["window_degrees"], "analysis.aperture.window_degrees", low=0, high=360, open_low=True)
     _number(aperture["radial_max_fraction"], "analysis.aperture.radial_max_fraction",
             low=0, high=1, open_low=True)
-    if _integer(aperture["angular_bins"], "analysis.aperture.angular_bins") != 360:
-        raise ValueError("analysis.aperture.angular_bins must be 360 (one-degree bins)")
     features = _section(config, "analysis.features")
     _choice(features["mask_mode"], "analysis.features.mask_mode", ("intensity-polarization", "intensity"))
     for key in ("intensity_fraction", "polarization_fraction"):
@@ -262,7 +262,7 @@ def _validate_analysis(config):
     _number(cloud["exponent"], "analysis.cloud.exponent")
     background = _section(config, "analysis.background")
     _integer(background["lag_frames"], "analysis.background.lag_frames")
-    _choice(background["method"], "analysis.background.method", ("mle", "legacy_hist"))
+    _choice(background["method"], "analysis.background.method", ("mle",))
     inference = _section(config, "analysis.inference")
     _integer(inference["phase_count"], "analysis.inference.phase_count", low=2)
     _integer(inference["coupling_points"], "analysis.inference.coupling_points", low=2)
@@ -354,10 +354,9 @@ def analysis_geometry(config) -> dict:
         },
         "aperturefit": {
             "fov": final_fov,
-            "weighting": aperture["weighting"],
             "radial_max": radial_max,
             "window_degrees": aperture["window_degrees"],
-            "angular_bins": aperture["angular_bins"],
+            "angular_bins": ANGULAR_BINS,
         },
         "metadata": dict(
             scale.metadata(),

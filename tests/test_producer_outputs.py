@@ -68,8 +68,8 @@ def test_valid_output_and_explicit_converter_mapping(products, tmp_path):
     assert metadata["core_constants"] == CORE_CONSTANTS
     assert metadata["axes"][:2] == ["x/alpha", "y/beta"]
     assert metadata["state_slot"] == 0
-    result = convert_hdf5(directory / metadata["hdf5"], tmp_path / "converted", **metadata["mapping"])
-    cube = np.load(result["stokes"])
+    result = convert_hdf5([[directory / metadata["hdf5"]]], tmp_path / "converted", **metadata["mapping"])
+    cube = np.load(result["stokes"])[0, 0]
     expected = (1 + np.arange(20)[:, None] * 2 + np.arange(20)[None, :] * 3) * 1e20
     for channel, factor in enumerate([1, .2, -.3, .01]):
         np.testing.assert_allclose(cube[..., channel], expected * factor)

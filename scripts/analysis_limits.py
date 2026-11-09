@@ -185,7 +185,6 @@ def selected_background(out, dimension, selected, config, source):
     from eht_axion.angles import circular_difference
     from eht_axion.pipeline.raptor import _integrate
 
-    geometry = analysis_geometry(config)
     maps = np.load(source['stokes'], mmap_mode='r', allow_pickle=False)
     n = config['shared']['image']['shape']
     if maps.ndim != 5 or maps.shape[1:] != (1, n, n, 4):
@@ -194,7 +193,6 @@ def selected_background(out, dimension, selected, config, source):
     if (isinstance(lag, bool) or not isinstance(lag, int) or lag < 1 or lag >= len(maps)
             or lag != config['analysis']['background']['lag_frames']):
         raise ValueError('Background lag differs from configuration')
-    aperture = geometry['aperturefit']
     operator = None
     if dimension == '1d':
         operator = theory_aperture_operator(config)
@@ -202,7 +200,7 @@ def selected_background(out, dimension, selected, config, source):
     for frame in maps:
         frame = frame[0]
         if dimension == '1d':
-            theta = _integrate(frame, operator, aperture['weighting'])[selected]
+            theta = _integrate(frame, operator)[selected]
         else:
             pixels = frame.reshape(-1, 4)[selected]
             if np.any((pixels[:, 1] == 0) & (pixels[:, 2] == 0)):
@@ -233,7 +231,7 @@ def theory_aperture_operator(config):
     from eht_axion.pipeline.raptor import _operator
 
     settings = analysis_geometry(config)['aperturefit']
-    return _operator(config['shared']['image']['shape'], settings['fov'], None,
+    return _operator(config['shared']['image']['shape'], settings['fov'],
                      settings['radial_max'], settings['window_degrees'], settings['angular_bins'])
 
 
@@ -247,9 +245,8 @@ def matched_aperture_samples(native_maps, config, operator):
     from eht_axion.pipeline.raptor import _integrate
 
     curves = np.empty((len(native_maps), 360))
-    weighting = config['analysis']['aperture']['weighting']
     for k, frame in enumerate(native_maps):
-        curves[k] = _integrate(frame.transpose(1, 0, 2), operator, weighting)
+        curves[k] = _integrate(frame.transpose(1, 0, 2), operator)
     return curves
 
 

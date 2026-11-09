@@ -15,11 +15,9 @@ from numpy.lib.format import open_memmap
 from scipy.ndimage import gaussian_filter, map_coordinates
 from scipy.optimize import curve_fit
 
-__all__ = [
-    "convert_hdf5", "preprocess_frame", "preprocess_stokes", "preprocess_cube",
-    "fit_phase_dft", "fit_stokes", "fit_processed", "summarize_fits",
-    "estimate_background",
-]
+# Numerical constants of the stages (not scientific parameters).
+_MINIMUM_SAMPLES = 2  # a standard deviation needs at least two snapshots
+_HISTOGRAM_BINS = 100  # diagnostic histogram of background differences
 
 
 def _real_dtype(dtype, *, output=False):
@@ -66,22 +64,18 @@ class _Series:
     """Logical time series over explicitly ordered shards; never concatenate."""
 
     def __init__(self, inputs, *, ndim=(4, 5), stokes=True):
-        if isinstance(inputs, np.ndarray):
-            self.paths = []
-            self.arrays = [inputs]
-        else:
-            if isinstance(inputs, (str, Path)):
-                inputs = [inputs]
-            self.paths = [Path(p) for p in inputs]
-            if not self.paths:
-                raise ValueError("at least one input shard is required")
-            if len({p.resolve() for p in self.paths}) != len(self.paths):
-                raise ValueError("duplicate input shards")
-            self.arrays = []
-            for path in self.paths:
-                array = self._load(path)
-                _real_dtype(array.dtype)
-                self.arrays.append(array)
+        if isinstance(inputs, (str, Path)):
+            inputs = [inputs]
+        self.paths = [Path(p) for p in inputs]
+        if not self.paths:
+            raise ValueError("at least one input shard is required")
+        if len({p.resolve() for p in self.paths}) != len(self.paths):
+            raise ValueError("duplicate input shards")
+        self.arrays = []
+        for path in self.paths:
+            array = self._load(path)
+            _real_dtype(array.dtype)
+            self.arrays.append(array)
         first = self.arrays[0]
         for array in self.arrays:
             _real_dtype(array.dtype)
@@ -115,8 +109,6 @@ class _Series:
 
 
 def _snapshot_labels(labels, length):
-    if labels is None:
-        return 1600 + 10 * np.arange(length, dtype=np.int64)
     labels = np.asarray(labels)
     if labels.shape != (length,) or labels.dtype.kind not in "iu":
         raise ValueError("snapshot_labels must be a one-dimensional integer array of length T")
@@ -124,13 +116,11 @@ def _snapshot_labels(labels, length):
 
 
 class _FitSeries(_Series):
-    """Read named responses or legacy columns with identical frame semantics."""
+    """Read a named response file (response-*.npz of fit_processed) as (T, spatial..., 3)."""
 
     def _load(self, path):
-        if path.suffix == ".npy":
-            return super()._load(path)
         if path.suffix != ".npz":
-            raise ValueError(f"expected a .npy or .npz fit input: {path}")
+            raise ValueError(f"expected a response .npz fit input: {path}")
         with np.load(path, allow_pickle=False) as response:
             keys = ("amplitude", "phase", "baseline")
             if not set((*keys, "snapshot_labels")).issubset(response.files):
@@ -144,19 +134,13 @@ class _FitSeries(_Series):
                 if array.shape != first.shape or array.dtype != first.dtype:
                     raise ValueError("response arrays must have identical shape and dtype")
             _snapshot_labels(response["snapshot_labels"], first.shape[0])
-            # Moderate products only; stacking preserves each legacy column exactly.
             return np.stack(arrays, axis=-1)
 
 
 def _hdf_sources(sources):
-    if isinstance(sources, (str, Path)):
-        return [Path(sources)], ()
-    sources = list(sources)
-    if not sources:
-        raise ValueError("at least one HDF5 source is required")
-    if all(isinstance(p, (str, Path)) for p in sources):
-        return [Path(p) for p in sources], (len(sources),)
     rows = [list(row) for row in sources]
+    if not rows:
+        raise ValueError("at least one HDF5 source is required")
     if not rows[0] or any(len(row) != len(rows[0]) for row in rows):
         raise ValueError("HDF5 source grid must be rectangular (time, state)")
     return [Path(p) for row in rows for p in row], (len(rows), len(rows[0]))
@@ -164,48 +148,42 @@ def _hdf_sources(sources):
 
 def convert_hdf5(
     sources, output_dir, *, datasets: Mapping[str, str], image_shape: tuple[int, int],
-    block_origins=None, pixel_shape: tuple[int, int] | None = None, dtype="float64",
+    block_origins, pixel_shape: tuple[int, int],
 ) -> dict[str, Path]:
-    """Convert named IQUV datasets, optionally tiled, to stokes.npy.
+    """Convert the core's tiled IQUV datasets to a float64 (T,S,H,W,4) stokes.npy.
 
-    A path gives (H,W,4), a path list (T,H,W,4), a nested time/state path
-    list (T,S,H,W,4). block_origins[b] is the (axis0,axis1) pixel origin of
-    source block b. Flattened block pixels use C order, never inferred order.
+    ``sources`` is a rectangular time x state grid of HDF5 paths. block_origins[b]
+    is the (axis0,axis1) pixel origin of source block b; flattened block pixels
+    use C order, never an inferred order.
     """
     import h5py  # Optional dependency: only conversion needs h5py.
 
     if set(datasets) != set("IQUV") or len(set(datasets.values())) != 4:
         raise ValueError("datasets must map I,Q,U,V to four distinct explicit dataset names")
-    if len(image_shape) != 2:
-        raise ValueError("image_shape must have two dimensions")
+    if len(image_shape) != 2 or len(pixel_shape) != 2:
+        raise ValueError("image_shape and pixel_shape must have two dimensions")
     image_shape = tuple(_integer(v, "image_shape") for v in image_shape)
-    dtype = _real_dtype(dtype, output=True)
+    pixel_shape = tuple(_integer(v, "pixel_shape") for v in pixel_shape)
     paths, leading = _hdf_sources(sources)
-    origins = None
-    if block_origins is not None:
-        if pixel_shape is None or len(pixel_shape) != 2:
-            raise ValueError("pixel_shape is required with block_origins")
-        pixel_shape = tuple(_integer(v, "pixel_shape") for v in pixel_shape)
-        raw = np.asarray(block_origins)
-        if raw.ndim != 2 or raw.shape[1] != 2 or raw.dtype.kind not in "iu":
-            raise ValueError("block_origins must be an integer (blocks,2) array")
-        origins = raw.astype(np.int64)
-        coverage = np.zeros(image_shape, dtype=bool)
-        for x, y in origins:
-            if x < 0 or y < 0 or x + pixel_shape[0] > image_shape[0] or (
-                y + pixel_shape[1] > image_shape[1]
-            ):
-                raise ValueError("block lies outside image_shape")
-            region = coverage[x:x + pixel_shape[0], y:y + pixel_shape[1]]
-            if region.any():
-                raise ValueError("overlapping HDF5 blocks")
-            region[:] = True
-        if not coverage.all():
-            raise ValueError("block mapping does not cover the entire image")
-    elif pixel_shape is not None:
-        raise ValueError("pixel_shape requires block_origins")
+    raw = np.asarray(block_origins)
+    if raw.ndim != 2 or raw.shape[1] != 2 or raw.dtype.kind not in "iu":
+        raise ValueError("block_origins must be an integer (blocks,2) array")
+    origins = raw.astype(np.int64)
+    coverage = np.zeros(image_shape, dtype=bool)
+    for x, y in origins:
+        if x < 0 or y < 0 or x + pixel_shape[0] > image_shape[0] or (
+            y + pixel_shape[1] > image_shape[1]
+        ):
+            raise ValueError("block lies outside image_shape")
+        region = coverage[x:x + pixel_shape[0], y:y + pixel_shape[1]]
+        if region.any():
+            raise ValueError("overlapping HDF5 blocks")
+        region[:] = True
+    if not coverage.all():
+        raise ValueError("block mapping does not cover the entire image")
 
     # Validate every header before creating output; inspect no large data here.
+    expected = [(len(origins), int(np.prod(pixel_shape))), (len(origins),) + pixel_shape]
     for path in paths:
         with h5py.File(path, "r") as source:
             for name in datasets.values():
@@ -213,38 +191,32 @@ def convert_hdf5(
                     raise ValueError(f"missing HDF5 dataset {name!r} in {path}")
                 data = source[name]
                 _real_dtype(data.dtype)
-                expected = [image_shape] if origins is None else [
-                    (len(origins), int(np.prod(pixel_shape))), (len(origins),) + pixel_shape,
-                ]
                 if data.shape not in expected:
                     raise ValueError(f"dataset {name!r} shape {data.shape}, expected {expected}")
     result = _outputs(output_dir, {"stokes": "stokes.npy", "metadata": "convert.json"}, paths)
     shape = leading + image_shape + (4,)
-    output = open_memmap(result["stokes"], mode="w+", dtype=dtype, shape=shape)
+    output = open_memmap(result["stokes"], mode="w+", dtype=np.float64, shape=shape)
     frames = output.reshape((len(paths),) + image_shape + (4,))
     for i, path in enumerate(paths):
         with h5py.File(path, "r") as source:
             for channel, label in enumerate("IQUV"):
                 data = source[datasets[label]]
-                if origins is None:
-                    frames[i, ..., channel] = data[...]
-                else:
-                    for b, (x, y) in enumerate(origins):
-                        frames[i, x:x + pixel_shape[0], y:y + pixel_shape[1], channel] = (
-                            data[b].reshape(pixel_shape)
-                        )
+                for b, (x, y) in enumerate(origins):
+                    frames[i, x:x + pixel_shape[0], y:y + pixel_shape[1], channel] = (
+                        data[b].reshape(pixel_shape)
+                    )
     output.flush()
     del frames, output
     _metadata(result["metadata"], stage="convert", inputs=[str(p) for p in paths],
-              datasets=dict(datasets), shape=list(shape), dtype=str(dtype),
-              block_origins=None if origins is None else origins.tolist(),
+              datasets=dict(datasets), shape=list(shape), dtype="float64",
+              block_origins=origins.tolist(),
               pixel_shape=pixel_shape, pixel_order="C", stokes_axis=list("IQUV"))
     return result
 
 
 def preprocess_frame(
     stokes, *, sigma: float, init_fov: float, final_fov: float,
-    rotation_angle: float, final_shape: int = 64,
+    rotation_angle: float, final_shape: int,
 ) -> np.ndarray:
     """Blur then inverse-map a square frame; actively rotate Q+iU by exp(2iθ).
 
@@ -281,56 +253,41 @@ def preprocess_frame(
     return output
 
 
-def preprocess_stokes(
+def preprocess_cube(
     inputs, output_dir, *, sigma: float, init_fov: float, final_fov: float,
-    rotation_angle: float, final_shape: int = 64, dtype="float64", state_indices=None,
+    rotation_angle: float, final_shape: int, state_indices=None,
 ) -> dict[str, Path]:
-    """Process one image at a time; state_indices selects states retaining axis1."""
-    series = _Series(inputs)
-    dtype = _real_dtype(dtype, output=True)
+    """Preprocess delivered (T,S,N,N,4) cubes one image at a time into float64 stokes.npy.
+
+    ``state_indices`` selects states (all if None) and retains the state axis.
+    """
+    series = _Series(inputs, ndim=(5,))
     # Validate geometry before creating products, using only a tiny dummy frame.
     params = dict(sigma=sigma, init_fov=init_fov, final_fov=final_fov,
                   rotation_angle=rotation_angle, final_shape=final_shape)
     preprocess_frame(np.zeros((2, 2, 4)), **{**params, "final_shape": 2})
     final_shape = _integer(final_shape, "final_shape", 2)
     if state_indices is not None:
-        if len(series.shape) != 5:
-            raise ValueError("state_indices requires a 5D input with a state axis")
         state_indices = [_integer(i, "state index", 0) for i in state_indices]
         if not state_indices or len(set(state_indices)) != len(state_indices):
             raise ValueError("state_indices must be nonempty and unique")
         if max(state_indices) >= series.shape[1]:
             raise ValueError("state_indices is outside the state axis")
-    states = (list(range(series.shape[1])) if state_indices is None else state_indices
-              ) if len(series.shape) == 5 else None
-    leading = (series.shape[0], len(states)) if states is not None else (series.shape[0],)
-    shape = leading + (final_shape, final_shape, 4)
+    states = list(range(series.shape[1])) if state_indices is None else state_indices
+    shape = (series.shape[0], len(states), final_shape, final_shape, 4)
     result = _outputs(output_dir, {"stokes": "stokes.npy", "metadata": "processing.json"},
                       series.paths)
-    output = open_memmap(result["stokes"], mode="w+", dtype=dtype, shape=shape)
+    output = open_memmap(result["stokes"], mode="w+", dtype=np.float64, shape=shape)
     for t in range(series.shape[0]):
-        if len(series.shape) == 4:
-            output[t] = preprocess_frame(series.frame(t), **params)
-        else:
-            for destination_state, source_state in enumerate(states):
-                output[t, destination_state] = preprocess_frame(series.frame(t)[source_state], **params)
+        for destination_state, source_state in enumerate(states):
+            output[t, destination_state] = preprocess_frame(series.frame(t)[source_state], **params)
     output.flush()
     del output
     _metadata(result["metadata"], stage="preprocess", **series.describe(), **params,
-              output_shape=list(shape), dtype=str(dtype), state_indices=state_indices,
+              output_shape=list(shape), dtype="float64", state_indices=state_indices,
               sigma_units="FOV units (stddev)",
               interpolation="bilinear", boundary="nearest", spin2="Q+iU -> exp(2iθ)(Q+iU)")
     return result
-
-
-def preprocess_cube(
-    sources, output_dir, *, sigma: float, init_fov: float, final_fov: float,
-    rotation_angle: float, final_shape: int = 64, dtype="float64", state_indices=None,
-) -> dict[str, Path]:
-    """Parent-orchestrator entry point; see preprocess_stokes for the contract."""
-    return preprocess_stokes(sources, output_dir, sigma=sigma, init_fov=init_fov,
-                             final_fov=final_fov, rotation_angle=rotation_angle,
-                             final_shape=final_shape, dtype=dtype, state_indices=state_indices)
 
 
 def _wrap(angle, period):
@@ -346,16 +303,13 @@ def _evpa(stokes):
 def fit_phase_dft(evpa, *, phase_axis: int = 0) -> np.ndarray:
     """Return [..., amplitude, phi, mean_EVPA] for mean+A*cos(ψ+phi).
 
-    Exactly 16 equally spaced ψ=2πk/16 are used. A 17-state input has state0
-    discarded, including for the circular branch reference. EVPA has period π;
+    Exactly 16 equally spaced ψ=2πk/16 are required. EVPA has period π;
     center on its circular mean, lift onto that branch, then take the DFT.
     A missing phase invalidates that location. Zero amplitude has undefined phi.
     """
     values = np.moveaxis(np.asarray(evpa, dtype=np.float64), phase_axis, 0)
-    if values.shape[0] == 17:
-        values = values[1:]
     if values.shape[0] != 16:
-        raise ValueError("expected 16 phases or noaxion state0 + 16 phases")
+        raise ValueError("expected 16 phases")
     finite = np.all(np.isfinite(values), axis=0)
     vector = np.mean(np.exp(2j * values), axis=0)
     center = np.angle(vector) / 2
@@ -376,26 +330,21 @@ def fit_phase_dft(evpa, *, phase_axis: int = 0) -> np.ndarray:
     return np.where(valid[..., None], output, np.nan)
 
 
-def _operator(shape, fov, operator, radial_max, window_degrees, angular_bins):
+def _operator(shape, fov, radial_max, window_degrees, angular_bins):
     _positive(fov, "fov")
     angular_bins = _integer(angular_bins, "angular_bins")
     if angular_bins % 4:
         raise ValueError("EHT 90-degree alignment requires angular_bins divisible by 4")
-    if operator is None:
-        from eht_axion.polarization import aperture_operator
+    from eht_axion.polarization import aperture_operator
 
-        operator = aperture_operator(shape=shape, fov=fov, radial_max=radial_max,
-                                     window_degrees=window_degrees, angular_bins=angular_bins)
-    if operator.shape != (angular_bins, shape * shape):
-        raise ValueError(f"operator must have shape ({angular_bins}, {shape * shape})")
-    return operator
+    return aperture_operator(shape=shape, fov=fov, radial_max=radial_max,
+                             window_degrees=window_degrees, angular_bins=angular_bins)
 
 
-def _integrate(stokes, operator, weighting):
-    # No fallback to the old flux-only operator: that would silently change science.
+def _integrate(stokes, operator):
     from eht_axion.polarization import integrate_stokes
 
-    evpa = integrate_stokes(stokes, operator, weighting=weighting)
+    evpa = integrate_stokes(stokes, operator)
     # RAPTOR aperture zero is +x. EHT bin zero corresponds to RAPTOR +y:
     # output[k] = aperture[k+90] on the standard 360-bin grid.
     shift = -evpa.shape[-1] // 4
@@ -404,63 +353,47 @@ def _integrate(stokes, operator, weighting):
     return np.roll(evpa, shift, axis=-1)
 
 
-def fit_stokes(
-    inputs, output_dir, *, fov: float, operator=None, weighting="intensity",
-    radial_max=None, window_degrees=10, angular_bins=360, dtype="float64",
-    snapshot_labels=None,
+def fit_processed(
+    input_dir, output_dir, *, fov: float, radial_max: float, window_degrees: float,
+    angular_bins: int, snapshot_labels,
 ) -> dict[str, Path]:
-    """Fit processed (T,16|17,N,N,4) Stokes, streaming one time frame.
+    """Fit input_dir/stokes.npy, processed (T,17,N,N,4), streaming one time frame.
 
-    response-{2d,1d}.npz keys: amplitude, phase, baseline (all radians),
-    snapshot_labels. Labels are caller-provided or the unverified convention
-    1600+10*i, even for short synthetic inputs; they are not inferred from data.
+    State 0 (axion off) is excluded; the 16 phase states are fitted per pixel (2D)
+    and per intensity-weighted aperture bin (1D). response-{2d,1d}.npz keys:
+    amplitude, phase, baseline (all radians), snapshot_labels (from the caller,
+    i.e. from the verified delivered data).
     """
-    series = _Series(inputs, ndim=(5,))
-    if series.shape[1] not in (16, 17):
-        raise ValueError("fit requires 16 phase states or state0 + 16 phases")
-    if weighting not in ("intensity", "flux"):
-        raise ValueError("weighting must be intensity or flux")
-    dtype = _real_dtype(dtype, output=True)
+    series = _Series(Path(input_dir) / "stokes.npy", ndim=(5,))
+    if series.shape[1] != 17:
+        raise ValueError("fit requires state0 + 16 phase states")
     labels = _snapshot_labels(snapshot_labels, series.shape[0])
     n = series.shape[-2]
-    operator = _operator(n, fov, operator, radial_max, window_degrees, angular_bins)
+    operator = _operator(n, fov, radial_max, window_degrees, angular_bins)
     result = _outputs(output_dir, {"fits_2d": "response-2d.npz", "fits_1d": "response-1d.npz",
                                   "metadata": "response.json"}, series.paths)
-    two = np.empty((series.shape[0], n, n, 3), dtype=dtype)
-    one = np.empty((series.shape[0], angular_bins, 3), dtype=dtype)
+    two = np.empty((series.shape[0], n, n, 3))
+    one = np.empty((series.shape[0], angular_bins, 3))
     for t in range(series.shape[0]):
         # Exclude noaxion before any integration or circular statistics.
         states = series.frame(t)[-16:]
         two[t] = fit_phase_dft(_evpa(states))
-        one[t] = fit_phase_dft(_integrate(states, operator, weighting))
+        one[t] = fit_phase_dft(_integrate(states, operator))
     for name, data in (("fits_2d", two), ("fits_1d", one)):
         np.savez(result[name], amplitude=data[..., 0], phase=data[..., 1],
                  baseline=data[..., 2], snapshot_labels=labels)
     del two, one
-    _metadata(result["metadata"], stage="fit", **series.describe(), dtype=str(dtype), fov=fov,
-              weighting=weighting, radial_max=radial_max, window_degrees=window_degrees,
+    _metadata(result["metadata"], stage="fit", **series.describe(), dtype="float64", fov=fov,
+              weighting="intensity", radial_max=radial_max, window_degrees=window_degrees,
               angular_bins=angular_bins, state0_used=False, phase_count=16,
               phase_convention="mean + amplitude*cos(2*pi*k/16 + phi)", units="rad",
               response_keys=["amplitude", "phase", "baseline", "snapshot_labels"],
               baseline_convention="mean EVPA on fitted circular branch",
               snapshot_labels=labels.tolist(),
-              snapshot_labels_source="default_convention" if snapshot_labels is None else "caller",
-              snapshot_labels_verified=False,
               angular_alignment="EHT: np.roll(aperture_evpa, -angular_bins//4, axis=-1)",
               angular_roll_bins=-angular_bins // 4,
-              operator_source="caller or polarization.aperture_operator")
+              operator_source="polarization.aperture_operator")
     return result
-
-
-def fit_processed(
-    input_dir, output_dir, *, fov: float, operator=None, weighting="intensity",
-    radial_max=None, window_degrees=10, angular_bins=360, dtype="float64",
-    snapshot_labels=None,
-) -> dict[str, Path]:
-    """Fit input_dir/stokes.npy; parent owns transactions and cache handling."""
-    return fit_stokes(Path(input_dir) / "stokes.npy", output_dir, fov=fov, operator=operator,
-                      weighting=weighting, radial_max=radial_max, window_degrees=window_degrees,
-                      angular_bins=angular_bins, dtype=dtype, snapshot_labels=snapshot_labels)
 
 
 def _moments_update(count, mean, m2, values):
@@ -472,17 +405,15 @@ def _moments_update(count, mean, m2, values):
     return new_count, new_mean, new_m2
 
 
-def summarize_fits(
-    fits_by_alpha: Mapping[float, object], output_dir, *, minimum_samples=2,
-) -> dict[str, Path]:
+def summarize_fits(fits_by_alpha: Mapping[float, object], output_dir) -> dict[str, Path]:
     """Gaussian MLE time distributions; circularly lift phases before fitting.
 
-    Supply one dimension at a time: {alpha: response_path}, legacy 3-column
-    NPY/arrays, or ordered mixed-format shards. Labels do not enter statistics.
-    templates.npz arrays have shape (alpha, spatial...).
-    No pickle, normality gate, or histogram-fit rejection is used.
+    Supply one dimension at a time: {alpha: response-*.npz}. Labels do not enter
+    statistics. templates.npz arrays have shape (alpha, spatial...). A location
+    needs at least two finite snapshots. No pickle, normality gate, or
+    histogram-fit rejection is used.
     """
-    minimum_samples = _integer(minimum_samples, "minimum_samples")
+    minimum_samples = _MINIMUM_SAMPLES
     if not fits_by_alpha:
         raise ValueError("at least one alpha is required")
     alphas = sorted(fits_by_alpha)
@@ -575,7 +506,7 @@ def estimate_background(
     if domain == "1d":
         if fov is None:
             raise ValueError("fov is required for integrated background")
-        operator = _operator(n, fov, operator, radial_max, window_degrees, angular_bins)
+        operator = _operator(n, fov, radial_max, window_degrees, angular_bins)
     if not np.isfinite(legacy_threshold) or legacy_threshold <= 0:
         raise ValueError("legacy_threshold must be finite and positive")
 
@@ -588,7 +519,7 @@ def estimate_background(
             return evpa if mask is None else evpa[mask]
         if mask is not None:
             frame = np.where(mask[..., None], frame, 0)
-        return _integrate(frame, operator, weighting)
+        return _integrate(frame, operator)
 
     def chunks():
         for t in range(series.shape[0] - lag):

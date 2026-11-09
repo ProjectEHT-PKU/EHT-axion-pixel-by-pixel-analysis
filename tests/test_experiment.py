@@ -48,7 +48,7 @@ def test_analysis_geometry_from_independent_formula(config):
         sigma=19 / theta / math.sqrt(8 * math.log(2)), init_fov=46.2261, final_fov=120 / theta,
         final_shape=64, rotation_angle=108 * math.pi / 180))
     assert aperture == dict(fov=image["final_fov"], radial_max=image["final_fov"] / 2,
-                            weighting="intensity", window_degrees=10, angular_bins=360)
+                            window_degrees=10, angular_bins=360)
     assert metadata["tg_seconds"] == pytest.approx(seconds)
     assert metadata["final_fov_uas"] == pytest.approx(120)
     assert metadata["radial_max_uas"] == 60.0
@@ -126,11 +126,10 @@ def test_unknown_section_and_field_rejected(config):
     (("eht_imaging", "restart_rounds"), [1], "restart_rounds"),
     (("eht_imaging", "fixed_sites"), ["AZ"], "overlap"),
     (("eht_imaging", "norm_reg"), 1, "true or false"),
-    (("analysis", "aperture", "angular_bins"), 180, "360"),
     (("analysis", "features", "sector_offset_degrees"), 10, "<= 9"),
     (("analysis", "features", "min_radius_rg"), 100.0, "inside the aperture"),
     (("analysis", "inference", "coupling_max"), 0.001, "coupling_max"),
-    (("analysis", "background", "method"), "histogram", "one of"),
+    (("analysis", "background", "method"), "legacy_hist", "one of"),
 ])
 def test_invalid_values_rejected(config, path, value, match):
     target = config

@@ -19,26 +19,26 @@ def _linear_pixel_weights(coordinate: NDArray, grid_min: float, spacing: float, 
     return lower, lower + 1, 1 - fraction, fraction
 
 
+# Quadrature resolution of the aperture integral (numerical, not scientific):
+# radial step in the FOV unit and angular step in degrees.
+RADIAL_RESOLUTION = 0.02
+ANGULAR_RESOLUTION_DEGREES = 0.2
+
+
 @lru_cache(maxsize=8)
-def aperture_operator(
-    shape: int = 64,
-    fov: float = 32.6868,
-    radial_max: float | None = None,
-    window_degrees: float = 10,
-    angular_bins: int = 360,
-    radial_resolution: float = 0.02,
-    angular_resolution_degrees: float = 0.2,
-):
+def aperture_operator(*, shape: int, fov: float, radial_max: float, window_degrees: float,
+                      angular_bins: int):
     """Bilinear integration of r dr dphi over exactly centered pizza apertures.
 
     Angle zero is +x, increasing toward +y. Pixel centers are half a pixel
     inside the FOV, matching ImageS. Edge clamping retains the historical spline
     boundary convention. Both radial endpoints have trapezoidal half-weights;
-    the final radius is exact. This new operator does not alter legacy helpers.
+    the final radius is exact.
     """
     from scipy.sparse import csr_matrix
 
-    radius = fov / 2 if radial_max is None else radial_max
+    radius = radial_max
+    radial_resolution, angular_resolution_degrees = RADIAL_RESOLUTION, ANGULAR_RESOLUTION_DEGREES
     if (
         shape < 2
         or angular_bins < 1
@@ -82,13 +82,11 @@ def aperture_operator(
     return vstack(rows, format="csr")
 
 
-def integrate_stokes(stokes, operator, weighting: str = "intensity"):
-    """Coherent aperture EVPA in radians, preserving explicit weight semantics.
+def integrate_stokes(stokes, operator):
+    """Intensity-weighted coherent aperture EVPA, arg integral I(Q+iU)/2 (EHT VII), radians.
 
-    intensity: arg integral I(Q+iU)/2, EHT-VII intensity-weighted statistic.
-    flux: arg integral (Q+iU)/2, total polarized flux angle.
     Only all-four-channel NaN pixels are spatial padding (zero flux). Other
-    nonfinite I/Q/U values are rejected, even in flux mode; unused V values do
+    nonfinite I/Q/U values are rejected; unused V values do
     not affect this observable. Products are float64 and must remain finite.
     Zero or nonfinite integrated polarization is undefined (NaN), not zero EVPA.
     """
@@ -97,20 +95,17 @@ def integrate_stokes(stokes, operator, weighting: str = "intensity"):
         raise ValueError("Stokes must have square trailing (H,W,4) dimensions")
     if len(operator.shape) != 2 or operator.shape[1] != data.shape[-2] ** 2:
         raise ValueError("Invalid operator shape for Stokes image")
-    if weighting not in ("intensity", "flux"):
-        raise ValueError("weighting must be intensity or flux")
     padding = np.isnan(data).all(axis=-1)
     if np.any(~np.isfinite(data[..., :3]) & ~padding[..., None]):
         raise ValueError("Nonfinite I/Q/U outside all-channel NaN spatial padding")
     q = np.where(padding, 0.0, data[..., 1])
     u = np.where(padding, 0.0, data[..., 2])
-    if weighting == "intensity":
-        intensity = np.where(padding, 0.0, data[..., 0])
-        with np.errstate(over="ignore", invalid="ignore"):
-            q = q * intensity
-            u = u * intensity
-        if not np.isfinite(q).all() or not np.isfinite(u).all():
-            raise ValueError("Nonfinite float64 intensity-weighted Stokes product")
+    intensity = np.where(padding, 0.0, data[..., 0])
+    with np.errstate(over="ignore", invalid="ignore"):
+        q = q * intensity
+        u = u * intensity
+    if not np.isfinite(q).all() or not np.isfinite(u).all():
+        raise ValueError("Nonfinite float64 intensity-weighted Stokes product")
     flat_q = q.reshape(-1, operator.shape[1])
     flat_u = u.reshape(-1, operator.shape[1])
     qi = operator.dot(flat_q.T).T
