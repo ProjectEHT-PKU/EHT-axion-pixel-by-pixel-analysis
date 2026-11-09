@@ -1,4 +1,4 @@
-# 流水线整理说明（2026-11-06，分支 `cleanup/experiment-config`）
+# 流水线整理说明（2026-11-06 起，分支 `cleanup/experiment-config`）
 
 本次整理的目标：让物理学家能逐项审核整个流水线。所有科学参数集中到仓库根目录的
 **一个**参数文件 `experiment.yaml`，每个数值只写一次；删除旧的“空假设（null-only）”
@@ -13,7 +13,7 @@
 * **EHT 成像**（输入之一）：按 EHT Paper VII 对 2017 年 M87* uvfits 数据做固定 I 的偏振成像、
   D 项求解，以及每天 1000 次 D 项抽样（共 4000 幅图像）；
 * **分析**（结合二者）：模拟图像预处理（19 µas 模糊、旋转 108°、重采样到 64²/120 µas）、逐快照
-   一阶谐波 EVPA 响应拟合、141 个快照上的模板、由无轴子快照对给出的背景 σ、EHT 系综上的
+   一阶谐波 EVPA 响应拟合、141 个快照上的模板、由无轴子快照（相隔 3 帧）在最终特征上给出的背景 σ、EHT 系综上的
    特征选择、高斯似然、对相位边缘化的贝叶斯 c 上限。分析只遵循 EHT Paper VII：EHT 图像按重建
    结果直接使用（Paper VII 第 5.2 节的居中在本复现中等于零平移，即原来的 `native`）；
    原有的“质心居中（centroid）”备选方案已按用户决定从代码中整体删除。
@@ -47,17 +47,21 @@
 另外删除了库函数签名里**隐藏的科学默认值**（`LimitOptions`、`evpa_templates`、`omega`、
 `cloud_amplitude_scaling`、`calculate_observed` 的 alpha 网格、常量 `ALPHAS / AXION_NORM /
 TIME_CONVERSION`）——它们是 YAML 数值的副本；现在所有值都由调用者从 `experiment.yaml` 传入。
+第二轮死代码清理见下节“死代码清理（第二轮）”。
 
 ### 行数（`.py` 与 `.yaml`）
 
-| 目录 | 整理前（main 5b1807b） | 整理后 | 变化 |
-|---|---|---|---|
-| `eht_axion/` | 42 个文件，10 055 行 | 29 个文件，5 230 行 | −48 % |
-| `scripts/` | 60 个文件，9 578 行 | 17 个文件，3 018 行 | −68 % |
-| `tests/` | 75 个文件，13 036 行 | 37 个文件，6 027 行 | −54 % |
-| `configs/` → `experiment.yaml` | 11 个文件，886 行 | 1 个文件，133 行 | −85 % |
+| 目录 | 整理前（main 5b1807b） | 第一轮后（2671db1） | 第二轮后（当前） | 总变化 |
+|---|---|---|---|---|
+| `eht_axion/` | 42 个文件，10 055 行 | 29 个文件，5 232 行 | 29 个文件，4 912 行 | −51 % |
+| `scripts/` | 60 个文件，9 578 行 | 17 个文件，3 020 行 | 17 个文件，2 860 行 | −70 % |
+| `tests/` | 75 个文件，13 036 行 | 37 个文件，6 027 行 | 36 个文件，5 796 行 | −56 % |
+| `configs/` → `experiment.yaml` | 11 个文件，886 行 | 1 个文件，135 行 | 1 个文件，154 行 | −83 % |
 
-测试：整理前 1715 个（eht-rebuild 环境），整理后 659 个，全部通过；默认环境 648 通过、
+第二轮里 `scripts/` 新增了 `eht_export_bundle.py`（约 150 行），`experiment.yaml` 新增了
+`eht_imaging.refine / monte_carlo` 与 `analysis.inference.credibility`，因此净减少小于删除量。
+
+测试：整理前 1715 个（eht-rebuild 环境），当前 606 个，全部通过；默认环境 595 通过、
 11 个因缺少 ehtim/astropy 跳过。`ruff`（E,F,W，行宽 110）无告警（main 上有 49 条）。
 
 ---
@@ -71,8 +75,8 @@ TIME_CONVERSION`）——它们是 YAML 数值的副本；现在所有值都由�
 |---|---|
 | `shared` | 不止一个部分用到的值：M87* 质量与距离、快照标签步长、alpha 网格、主量子数 n，以及公共天空网格（64 像素、120 µas）和 19 µas 匹配模糊（EHT 的 display19 产品与模拟图像用的是**同一个**物理量：天空平面上对 I/Q/U/V 施加的圆高斯核 FWHM，已核对 ehtim `blur_circ` 与 `pipeline.raptor.preprocess_frame`） |
 | `raptor` | RAPTOR 模拟（独立输入）：相机宽度 46.2261 rg、build 选项、等离子体参数、快照区间、响应/背景分辨率与轴子归一化、径向函数表及 spin、alpha→表的对应、BHAC 网格 |
-| `eht_imaging` | EHT 成像（独立输入）：原 `eht-official.yaml` 去掉移入 `shared` 的 npix/fov/display_blur 以及四个机器路径；保留 uvfits 文件名 + sha256（数据身份）、权重、轮数、重启方案、D 项统计、抽样数与种子 |
-| `analysis` | 分析（结合两个输入）：旋转角、孔径、特征选择规则（强度/偏振阈值 0.1/0.2、像素步长 5、10° 扇区间隔与 4° 偏移、最小半径 2 rg、mask 模式、resultant ≥ 0.7）、云振幅 b(α) 参数、背景时滞与方法、推断网格/先验/时间 |
+| `eht_imaging` | EHT 成像（独立输入）：原 `eht-official.yaml` 去掉移入 `shared` 的 npix/fov/display_blur 以及四个机器路径；保留 uvfits 文件名 + sha256（数据身份）、权重、轮数、重启方案、D 项统计、抽样数与种子；`refine`：`eht_refine.py`（凸优化 P 求解 + D 重拟合，“tightD”）的轮数、P 求解器容差/迭代/时限与 D 优化器（L-BFGS-B）选项；`monte_carlo`：`eht_sample.py` 每个 D 抽样的 P 求解设置。后两者不属于成像阶段记录的平面参数集 |
+| `analysis` | 分析（结合两个输入）：旋转角、孔径（宽度、半径；1° 分箱与强度加权是固定定义）、特征选择规则（强度/偏振阈值 0.1/0.2、像素步长 5、10° 扇区间隔与 4° 偏移、最小半径 2 rg、mask 模式、resultant ≥ 0.7）、云振幅 b(α) 参数、背景时滞（帧数）、推断网格/先验/可信度 0.95/时间 |
 
 设计决定（均为“每个值只写一次”）：
 
@@ -95,6 +99,10 @@ TIME_CONVERSION`）——它们是 YAML 数值的副本；现在所有值都由�
 * 原先 `eht_sample`（批量 D 项蒙特卡洛）与 `eht_summarize`（系综汇总）中硬编码的抽样数、种子、
   fsys、D 项统计、站点、网格、显示模糊、孔径半径/宽度、resultant 阈值，现在都从 `experiment.yaml` 读取。
 * 名称 `shared` 保留（它同时包含天空网格与模糊核，不只是物理常数）。
+* 库函数签名里没有科学默认值（单元测试 `test_library_signatures_have_no_numeric_default_values`
+  检查 `eht_axion` 的全部公共函数）；只剩执行设置（线程/进程数）和数组轴号等非科学默认值。
+* `eht_imaging.residual_d_convention` 只允许 `per_component_sd`，仍留在 YAML 中，因为它属于
+  已记录（且不再重跑）的 EHT 成像阶段的平面参数集；改动它会使这些阶段与 YAML 不一致。
 
 ---
 
@@ -112,6 +120,9 @@ pixi run -e raptor-build raptor-merge --plan plan.json --job-root RUN_A --job-ro
 # EHT 成像（环境 eht-rebuild；uvfits 位置来自 .env）
 pixi run -e eht-rebuild eht-reconstruct --stage I --day 95 --output-root I95 --review-file REVIEW
 pixi run -e eht-rebuild eht-reconstruct --stage fiducial --day 95 --i-root I95 --output-root PD95 --review-file REVIEW
+pixi run -e eht-rebuild eht-refine --day 95 --source-root PD95 --i-root I95 --output-root D95
+#   （四天 95/96/100/101 各做一次，然后）
+pixi run -e eht-rebuild eht-export-bundle --i-root I95 --i-root I96 --i-root I100 --i-root I101 --d-root D95 --d-root D96 --d-root D100 --d-root D101 --output-root BUNDLE
 pixi run -e eht-rebuild eht-sample --bundle-root BUNDLE --output-root MC
 pixi run -e eht-research eht-summarize --dataset-root MC_COPY --output-root ENSEMBLE
 # 分析（默认环境，需要上面两类产品）
@@ -124,14 +135,76 @@ pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR 
 ```
 
 脚本一览（按所属部分）：`raptor_build / raptor_generate / raptor_merge`，
-`eht_reconstruct / eht_refine / eht_refine_d / eht_sample / eht_summarize`，
+`eht_reconstruct / eht_refine / eht_export_bundle / eht_sample / eht_summarize`，
 `analysis_templates / analysis_limits / analysis_check_grid / analysis_check_covariance / analysis_summarize`，
 以及 `verify_products`。`analysis_templates.py` 取代了原来的 `start_eht_120_templates.py` + `_stage.py` +
-`workflow.run_stage` 的 RAPTOR 分支，产生同名阶段与相同参数（`raptor:preprocess`、`raptor:fit`、
-`raptor:summarize`、`raptor:background-preprocess`、`raptor:background-unmasked`）。
+`workflow.run_stage` 的 RAPTOR 分支，产生阶段 `raptor:preprocess`、`raptor:fit`、`raptor:summarize`、
+`raptor:background-preprocess`（`raptor:background-unmasked` 已在第二轮删除，见下节）。
 
 溯源（provenance）保持不变：每个阶段目录有 `manifest.json`，记录参数、输入/输出 SHA-256、代码哈希、
 运行环境；`pixi run verify DIR --recursive` 重新检查整条血统。只删除了纯“副本一致性”检查。
+网格/先验/协方差检查和汇总只消费已验证的小型结果阶段：它们把源 manifest 作为输入哈希记录，
+但不再重新哈希整条血统（`stage_directory(..., verify_lineage=False)`），取代了原来复制 manifest 的
+“`-source-receipts`”旁路目录。
+
+---
+
+## 死代码清理（第二轮）
+
+依据 `reports/DEADCODE_ZH.md`（本地、被 git 忽略）的发现与用户决定，分 6 个提交完成
+（58c3715、e936c45、271faad、9f2e846、26e0b62、55a3d78）。只跑了单元测试与 ruff，没有任何数据任务。
+
+* **似然**：`LimitOptions` 删除 8 个历史方法开关（legacy、std_covariance、duplicate_phase_endpoint、
+  circular_phase_interpolation、shared_epoch_uncertainty、combine_epochs_by_product、
+  include_parameter_logdet、posterior_method）及其代码；结果 JSON 的 `effective_options` 相应变化。
+  `evpa_templates` 只返回信号（原“模板传播误差”从未进入似然），固定使用无重复端点的相位网格和圆插值。
+  删除 legacy-sigma 的 std 协方差。可信度 0.95 移入 `analysis.inference.credibility`。
+  **保留**：模板节点之间的 alpha 插值、均匀先验（合理的扩展/稳健性对照）。
+* **RAPTOR 图像阶段**：`convert_hdf5` 只接受内核实际产生的（时间 × 态）10×10 分块 HDF5；预处理/拟合只读
+  文件中的 5 维立方体（删除内存数组、外部 operator、dtype 选项、默认快照标签 1600+10i、17 态分支）；
+  `summarize_fits` 只读 `response-*.npz`；孔径 EVPA 固定为强度加权（EHT VII；flux 加权删除）；
+  `aperture_operator` 无默认值（过时的 `fov=32.6868` 删除），积分分辨率是命名常量；
+  `analysis.aperture.angular_bins` 改为常量 `experiment.ANGULAR_BINS = 360`（仍记录在阶段参数中）。
+* **删除 `raptor:background-unmasked` 阶段**（用户决定）：它的全特征 σ 从未进入似然，只向后传递时滞和
+  帧间隔。现在 `analysis_limits.py` 直接取 `analysis.background.lag_frames`，帧间隔由
+  `raptor:background-preprocess` 所消费的交付立方体的 `generated.json` 中记录的 GRMHD 快照时间计算
+  （这些 `generated.json` 登记为输入，并先做与响应立方体相同的身份检查）；不再写 `source_unmasked_sigma`。
+  `selected_background`（最终特征上的背景 σ）不变。`estimate_background`、`RunLayout.background_unmasked`、
+  `analysis.background.method` 随之删除。
+* **EHT 成像**：删除 `eht_reconstruct --stage uncertainty`（单机 D 项抽样试点）与 `write_d_samples`
+  ——论文的抽样由 `eht_sample.py` 完成；删除 `eht_refine --mode fixed-d / --draw-id`；`eht_sample` 的
+  `--draws-per-day/--seed` 覆盖删除。`eht_summarize` 只建 display19 系综（raw 系综从未被读取），只写
+  `evpa.npy`、`aperture.npz`（angle_deg、intensity、polarized_brightness）、`global.npz`；删除 pairs、
+  map-summary、circular_summary、selected_covariance、independent_difference。**保留** `global_diagnostics`
+  （m_net、m_resolved、EVPA、β₂，可与 Paper VII 对照）。
+* **可审计性**：
+  - tightD 的全部数值设置写入 `eht_imaging.refine`，数值与
+    `eht-convex-tightD-{95,96,100,101}-100round-v1/manifest.json` 的记录逐项核对一致
+    （outer_rounds 100、P 间隙容差 1e-6、maxiter 20000、check_every 500、time_limit 300 s；
+    D 优化器 ftol 1e-13、gtol 1e-9、maxiter 10000、maxcor 50、maxls 50、maxfun 100000）。
+    `eht_refine.py` 的命令行只剩路径；D 选项通过 `fit_forward_d(optimizer_options=..., records=...)`
+    只在私有求解器命名空间内替换 scipy.optimize，原先用 monkeypatch 包装的 `eht_refine_d.py` 删除。
+    `eht_reconstruct` 的 fiducial 阶段传 `optimizer_options=None`（ehtim 官方选项，与记录一致）。
+  - `eht_sample.py` 的 P 求解设置写入 `eht_imaging.monte_carlo`（初值 0.05 I、间隙 1e-6、maxiter 50000、
+    check_every 500、600 s、重试 200000 / 1800 s；与 `eht-uncertainty-remote-v1` 的 batch 记录一致），
+    命令行只剩执行选项。
+  - bundle 导出进入仓库：`scripts/eht_export_bundle.py`（pixi 任务 `eht-export-bundle`）取代数据目录中的
+    `export-script.py`：显式给出四个 I 与四个 tightD 根，科学契约（fsys、D 统计约定、天空网格、成像权重）
+    取自 `experiment.yaml`，馈源旋转表取自 I 阶段的记录输入，复制件只读；单元测试用合成阶段检查
+    bundle 能被 `eht_sample.verify_bundle` 接受。**它与已记录 bundle
+    （`eht-uncertainty-remote-v1/inputs/bundle.json`）的等价性尚未检查，留到最终验证**（预期差别：
+    `created_utc`、复制进去的脚本文件名与内容）。
+* **溯源与生产**：删除 `stage_directory(rebuild=True)` 及 `.previous` 替换逻辑（没有脚本提供此功能）；
+  新增 `verify_lineage=False` 取代 `-source-receipts`；交付/合并不再重读每个作业的 HDF5 重算
+  `output.json`（仍校验作业 manifest 中 output.json 与 HDF5 的 SHA-256）；删除 `output_slot` 回退、
+  默认内核常数、`evpa-1d` 分支、重复的 Cholesky/特征值/读取前检查。
+* **测试**：删除只测试上述代码的测试，`test_211_frequency.py`、`test_shared_evpa.py` 删除
+  （与 `test_model.py`、`test_stokes_validation.py` 重复）；新增 `test_eht_refine.py`、
+  `test_eht_export_bundle.py` 和“无科学默认值”检查。
+
+**未按报告做的**：C5 建议让协方差检查复用 `ensemble_limits.moments`，但二者数值不同（检查以全体抽样的
+中心为准，`moments` 以半数抽样自身的中心为准），因此只删除了重复的 Cholesky；C11（新输出根下不可能的
+缓存命中分支）行数可忽略，未改；`analysis.features.mask_mode` 的 `intensity` 备选报告中留给用户决定，未改。
 
 ---
 
@@ -226,8 +299,8 @@ output.json 除 build 路径外相同、源与径向表 sha256 等于旧记录�
 
 ### 测试与静态检查
 
-`pytest`（eht-rebuild 环境）659 通过；默认环境 648 通过 / 11 跳过；`ruff check --select E,F,W`
-（行宽 110）无告警。
+第一轮结束时：`pytest`（eht-rebuild 环境）659 通过；默认环境 648 通过 / 11 跳过；ruff 无告警。
+第二轮结束时：606 通过；默认环境 595 通过 / 11 跳过；ruff 无告警。
 
 ---
 
@@ -245,14 +318,19 @@ output.json 除 build 路径外相同、源与径向表 sha256 等于旧记录�
     `limits-native`）——这是“不兼容旧产品”的设计，因此最终代码下需要从 `analysis_limits` 起重跑才能
     继续做新检查（约 25 分钟，主要是全链血统哈希）。
 * **未执行的科学计算**：没有运行 RAPTOR 射线追踪，也没有运行 EHT 重建/成像（只做 `--plan` 重放与
-  D 项抽样重放）；`eht_refine.py / eht_refine_d.py` 只有单元测试，未在真实数据上验证。
+  D 项抽样重放）；`eht_refine.py` 与 `eht_export_bundle.py` 只有单元测试，未在真实数据上验证。
+* **第二轮之后尚未重新验证**（按用户规则，代码仍在变动，暂不做端到端重算）：上文的产品比较由第二轮之前的
+  代码完成。第二轮删除了 `raptor:background-unmasked`、改变了 `raptor:fit` 的参数记录（无 `weighting`
+  键）、`effective_options`、EHT 系综的输出文件集合（无 raw、pairs、map-summary）和 `eht_sample`
+  batch 配置（多了 `initial_p_fraction`、`check_every` 等键），因此最终验证需要从 `analysis_templates`
+  和 `eht_summarize` 起重算，并单独核对 `eht_export_bundle.py` 与记录 bundle 的等价性。另外，已记录的
+  I 阶段 manifest 引用了主检出中已改动的代码文件，其递归血统校验会失败（第一轮已发现，对 PD 阶段同样），
+  最终验证需要为此单独处理。
 * **原文件只读**：迁移只读取并硬链接原作业文件；内容与 mtime 不变，但硬链接会使 inode 的 ctime 与
   链接计数改变（硬链接的固有行为）。原 `attempts/` 收据未迁移。
 * **运行中的两次中断**：第一次 `eht_summarize` 因一个变量名遮蔽错误失败（已修复并加了合成测试）；
   第一次 `limits-native` 运行时 tmux 服务进程意外退出（原因不明，内存充足），重新启动后正常完成。
-* **库中保留的方法开关**：`LimitOptions` 仍保留 `legacy`、`std_covariance` 等方法字段（它们写进结果 JSON，
-  删除会改变记录格式）；活跃链路固定使用非 legacy 路径。`read_snapshot_footer` 中流体 spin 0.9375 的
-  数据检查仍是代码常量。
+* `read_snapshot_footer` 中流体 spin 0.9375 的数据检查仍是代码常量。
 * **文档**：`docs/` 下的历史文档按要求未改，仍描述旧的 `configs/` 布局；README 已更新并注明。
-* **合并耗时**：`raptor_merge` 对 18 330 个作业逐一做递归血统校验，约 1 小时（单进程）；如需加速可并行，
-  但本次未改动这部分逻辑。
+* **合并耗时**：`raptor_merge` 对 18 330 个作业逐一做递归血统校验，第一轮约 1 小时（单进程）；
+  第二轮已去掉对每个 HDF5 的重读，实际耗时待最终验证时测量。

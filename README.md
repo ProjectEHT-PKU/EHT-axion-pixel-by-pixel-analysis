@@ -2,8 +2,8 @@
 
 Scripts for two independent inputs — RAPTOR ray-traced images of a GRMHD flow with
 an axion field, and EHT 2017 M87* polarimetric reconstructions — and the analysis that
-combines them into phase-marginalized Bayesian limits on the axion–photon coupling c. Not an installable package: run
-the scripts directly (or through `pixi run`). Chinese summary of the structure and
+combines them into phase-marginalized Bayesian limits on the axion–photon coupling c.
+Not an installable package: run the scripts directly (or through `pixi run`). Chinese summary of the structure and
 of the 2026-11 cleanup: [CLEANUP_ZH.md](CLEANUP_ZH.md).
 
 ## One parameter file
@@ -15,15 +15,17 @@ in four sections:
 |---|---|---|
 | `shared` | more than one part | M87* mass/distance, label step, alphas, principal n, common sky grid (64², 120 µas) and the 19 µas matching blur |
 | `raptor` | RAPTOR simulation (independent input) | camera width, build options, plasma, snapshots, response/background resolution, radial tables, BHAC grid |
-| `eht_imaging` | EHT imaging (independent input) | Paper VII imaging: uvfits identity (name + sha256), weights, rounds, D-term statistics, draws |
-| `analysis` | analysis (combines both inputs) | rotation, aperture, feature-selection rules, cloud model, background lag, inference grid/prior/times |
+| `eht_imaging` | EHT imaging (independent input) | Paper VII imaging: uvfits identity (name + sha256), weights, rounds, D-term statistics, draws; solver settings of the D refinement (`refine`) and of the D-term Monte Carlo (`monte_carlo`) |
+| `analysis` | analysis (combines both inputs) | rotation, aperture, feature-selection rules, cloud model, background lag, inference grid/prior/credibility/times |
 
 Each script reads `shared` plus its own section; the analysis also reads the raptor
 and eht_imaging values it needs (e.g. camera width, response norm, draw count).
 `eht_axion/experiment.py` validates the file and derives everything else (unit
 conversions, the ray-tracing subset that defines RAPTOR job ids, the flat
-eht-imaging parameter set). Machine paths are not in the YAML: they are CLI
-options or `.env` / `.env.raptor` entries (see `.env.example`, `.env.raptor.example`).
+eht-imaging parameter set). Library functions have no scientific default values.
+Machine paths and execution options (workers, threads, memory) are not in the YAML:
+they are CLI options or `.env` / `.env.raptor` entries (see `.env.example`,
+`.env.raptor.example`).
 
 ## Run
 
@@ -43,6 +45,10 @@ pixi run -e raptor-build raptor-merge --plan plan.json --job-root RUN_A --job-ro
 # EHT imaging (environment eht-rebuild; uvfits locations from .env)
 pixi run -e eht-rebuild eht-reconstruct --stage I --day 95 --output-root I95 --review-file REVIEW
 pixi run -e eht-rebuild eht-reconstruct --stage fiducial --day 95 --i-root I95 --output-root PD95 --review-file REVIEW
+pixi run -e eht-rebuild eht-refine --day 95 --source-root PD95 --i-root I95 --output-root D95
+#   (each of the four days 95, 96, 100, 101; then)
+pixi run -e eht-rebuild eht-export-bundle --i-root I95 --i-root I96 --i-root I100 --i-root I101 \
+    --d-root D95 --d-root D96 --d-root D100 --d-root D101 --output-root BUNDLE
 pixi run -e eht-rebuild eht-sample --bundle-root BUNDLE --output-root MC    # 4 days x 1000 D draws
 pixi run -e eht-research eht-summarize --dataset-root MC_COPY --output-root ENSEMBLE
 
@@ -72,8 +78,8 @@ eht_axion/
   experiment.py        load/validate experiment.yaml, derived settings
   producer/            RAPTOR build, task plan (job ids), job runner, delivery of Stokes cubes
   pipeline/            stage manifests (common), layout, unit constants, RAPTOR image
-                       preprocessing / response fit / templates / background (raptor),
-                       template reader (products)
+                       preprocessing / response fit / templates (raptor), template reader
+                       (products)
   research/            eht-imaging helpers (eht_official, eht_optimizer), EHT ensemble
                        summaries (ensemble, polarimetry), observed likelihood (observed,
                        ensemble_limits)
