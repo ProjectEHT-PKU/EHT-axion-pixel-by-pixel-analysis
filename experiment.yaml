@@ -43,9 +43,8 @@ raptor:  # process 1: what determines the ray-traced Stokes images
     frequency_hz: 230.0e+9
     step_size: 0.005
   snapshots: {start: 1600, stop: 3000, step: 10}   # inclusive GRMHD labels -> 141 snapshots
-  response:                      # axion-on images for every alpha
+  response:                      # axion-on images for every alpha and the 16 core phases k*pi/8
     resolution: 100              # pixels per side
-    phase_count: 16              # axion phases k*pi/8 (core convention)
     reference_norm: 0.1          # axion field normalisation; templates are per this norm
   background:                    # axion-off (state 0) images used for the GRMHD background
     resolution: 400

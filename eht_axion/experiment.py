@@ -33,7 +33,7 @@ SCHEMA = {
     "raptor.plasma": {"mass_unit_g", "r_low", "r_high", "inclination_degrees", "frequency_hz",
                       "step_size"},
     "raptor.snapshots": {"start", "stop", "step"},
-    "raptor.response": {"resolution", "phase_count", "reference_norm"},
+    "raptor.response": {"resolution", "reference_norm"},
     "raptor.background": {"resolution"},
     "raptor.radial_tables": {"low", "high"},
     "raptor.grid": {"nxlone", "xprobmin", "xprobmax", "hslope"},
@@ -175,7 +175,6 @@ def _validate_raptor(config):
         value = _integer(section["resolution"], f"raptor.{name}.resolution")
         if value % 10:  # the core writes 10x10-pixel blocks
             raise ValueError(f"raptor.{name}.resolution must be a multiple of 10")
-    _integer(response["phase_count"], "raptor.response.phase_count")
     _positive(response["reference_norm"], "raptor.response.reference_norm")
     tables = _section(config, "raptor.radial_tables")
     for table_id, entry in tables.items():
