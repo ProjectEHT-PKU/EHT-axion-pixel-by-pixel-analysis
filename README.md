@@ -72,18 +72,35 @@ Every output root must be new. Each step writes stage directories with a
 
 ## Code
 
+The package mirrors the scripts: `eht_axion/raptor` serves `raptor_*`, `eht_axion/eht`
+serves `eht_*`, `eht_axion/analysis` serves `analysis_*`.
+
 ```text
 experiment.yaml        the parameter file
 eht_axion/
   experiment.py        load/validate experiment.yaml, derived settings
-  producer/            RAPTOR build, task plan (job ids), job runner, delivery of Stokes cubes
-  pipeline/            stage manifests (common), layout, unit constants, RAPTOR image
-                       preprocessing / response fit / templates (raptor), template reader
-                       (products)
-  research/            eht-imaging helpers (eht_official, eht_optimizer), EHT ensemble
-                       summaries (ensemble, polarimetry), observed likelihood (observed,
-                       ensemble_limits)
-  model.py limits.py statistics.py observations.py polarization.py angles.py stokes.py
+  provenance.py        stage manifests, SHA-256 of inputs/outputs, atomic stage directories
+  physics.py           constants, M87* unit scales, axion 211 frequency omega(alpha)
+  evpa.py              EVPA validity and pi-periodic differences (shared by eht/ and analysis/)
+  raptor/              RAPTOR production
+    plan.py              task plan and job ids
+    build.py             pinned RAPTOR build
+    jobs.py affinity.py  job runner, CPU allocation
+    outputs.py           validation of one job's HDF5/spectrum
+    convert.py           job HDF5 -> Stokes cube
+    delivery.py          delivery/merge of cubes; checks of delivered cubes
+    layout.py            delivered-cube directory layout
+  eht/                 EHT imaging
+    calibration.py       Paper VII primitives: native data, fsys, D terms, D-term sampling
+    convex.py            exact convex P solver with duality-gap certificate
+    ensemble.py          FITS reader, sector apertures, per-day ensemble summaries
+  analysis/            analysis of both inputs
+    templates.py         simulated images -> response templates (and their reader)
+    aperture.py          intensity-weighted aperture EVPA (1D observable)
+    model.py             axion EVPA signal model
+    observations.py      EHT features -> daily moments and day-pair differences
+    likelihood.py        Gaussian likelihood, limit options, limits on c
+    posterior.py         posterior CDF and upper limit on a grid
 scripts/               raptor_*, eht_*, analysis_* entry points, verify_products
 tests/                 synthetic unit/integration tests
 docs/                  historical design notes (written for the earlier configs/ layout)

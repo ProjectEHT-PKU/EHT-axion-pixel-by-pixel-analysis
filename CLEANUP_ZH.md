@@ -33,6 +33,7 @@
 | `eht_axion/producer/config.py` | 整个文件 | 生产配置校验并入 `eht_axion/experiment.py`；硬编码副本（GRID、alpha 表、spin、build 默认值）删除 |
 | `tests/` | 40 个测试文件 | 只测试已删除代码的测试；混合测试只删除相关部分 |
 
+（本节及下节中的模块名是当时的旧路径；现在的包结构见“包结构”一节。）
 保留模块中删除的死代码（静态可达性分析：从全部保留脚本出发，沿函数名引用递归求可达的
 `eht_axion` 顶层定义，不可达者删除）：`limits.calculate_from_products / calculate_limits` 及其 legacy 辅助函数
 （只被旧 inference 使用；`research/observed.py` 只用到 `LimitOptions` 与 `_validate_request`）、
@@ -208,6 +209,37 @@ pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR 
 亮度 ≥ `intensity_fraction` × 当天最大值且偏振亮度 ≥ `polarization_fraction` × 当天最大值；
 只按亮度选择时把 `polarization_fraction` 设为 0（校验允许 0）。论文取值（0.1/0.2，原 `intensity-polarization`
 模式）下的选择逐位不变，只是结果的 identity/selection 记录中不再有 `mask_mode` 字段。
+
+---
+
+## 包结构（按内容组织，与 scripts/ 对应）
+
+`eht_axion/raptor` 对应 `raptor_*` 脚本，`eht_axion/eht` 对应 `eht_*` 脚本，`eht_axion/analysis` 对应
+`analysis_*` 脚本；三处共用的放在顶层。只是移动/改名并更新 import 与模块说明，计算不变
+（提交 ac29a2f；旧的 `pipeline/`、`producer/`、`research/` 已删除，没有兼容转发）。
+
+| 模块 | 内容 | 来源 |
+|---|---|---|
+| `experiment.py` | 读取/校验 `experiment.yaml`、派生量 | 不变 |
+| `provenance.py` | 阶段 manifest、输入输出 SHA-256、原子阶段目录 | `pipeline/common.py` |
+| `physics.py` | 物理常数、M87* 单位换算、轴子 211 频率 omega(α) | `pipeline/constants.py` + `model.omega` |
+| `evpa.py` | EVPA 有效性、以 π 为周期的角度差 | `stokes.py` + `angles.py` |
+| `raptor/plan.py build.py jobs.py affinity.py outputs.py delivery.py` | 任务计划与作业 id、构建、作业运行、CPU 分配、单个作业输出校验、交付/合并与交付立方体检查 | `producer/*` |
+| `raptor/convert.py` | 作业 HDF5 → Stokes 立方体（及共用的数组文件小工具） | 从 `pipeline/raptor.py` 拆出 |
+| `raptor/layout.py` | 交付立方体的目录布局 | `pipeline/layout.py` |
+| `eht/calibration.py` | Paper VII 原语：原生数据、fsys、D 项改正、正向 D 拟合、D 项分布与抽样 | `research/eht_official.py` |
+| `eht/convex.py` | 带对偶间隙证书的精确凸 P 求解器 | `research/eht_optimizer.py` |
+| `eht/ensemble.py` | FITS 读取、扇区孔径、每天系综汇总 | `research/polarimetry.py` + `research/ensemble.py` |
+| `analysis/templates.py` | 模拟图像预处理、响应拟合、模板汇总与读取、模板根目录布局 | `pipeline/raptor.py` + `pipeline/products.py` + `RunLayout` |
+| `analysis/aperture.py` | 强度加权孔径 EVPA（一维观测量） | `polarization.py` |
+| `analysis/model.py` | 轴子 EVPA 信号模型 | `model.py` |
+| `analysis/observations.py` | EHT 特征 → 每天圆矩与两组日差 | `research/ensemble_limits.py` + `observations.py` |
+| `analysis/likelihood.py` | 似然、`LimitOptions`、c 的上限 | `research/observed.py` + `limits.py` |
+| `analysis/posterior.py` | 网格上的后验 CDF 与上限 | `statistics.py` |
+
+输出中记录的阶段名与 schema 字符串（如 `raptor:fit`、`research:eht-fixed-D-ensemble`、
+`producer:delivery`）保持不变：其中 EHT 成像阶段（`research:eht-official:*`、`research:eht-convex:*`）
+已记录且不再重跑，只改其余部分会造成不一致。
 
 ---
 
