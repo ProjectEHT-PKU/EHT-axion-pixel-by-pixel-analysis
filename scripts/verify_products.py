@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import _bootstrap  # noqa: F401
-from eht_axion.pipeline.common import verify_stage
+from eht_axion.provenance import verify_stage
 
 
 def main(argv=None):

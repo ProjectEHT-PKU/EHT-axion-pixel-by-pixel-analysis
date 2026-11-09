@@ -78,7 +78,7 @@ def test_bundle_bytes_seeds_and_4000_unique_tasks(tmp_path):
 
 
 def test_receipts_retry_and_tiny_exact_solver(tmp_path):
-    from eht_axion.research import eht_optimizer as opt
+    from eht_axion.eht import convex as opt
     intensity = np.ones(4)
     A = np.eye(4, dtype=complex)
     problem = opt.CartesianProblem(intensity, (2, 2),

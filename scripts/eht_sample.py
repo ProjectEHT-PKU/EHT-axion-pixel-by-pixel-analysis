@@ -28,7 +28,7 @@ import time
 import traceback
 
 from _bootstrap import ROOT as _BOOTSTRAP
-from eht_axion.pipeline.common import contained_path as contained, sha256 as sha
+from eht_axion.provenance import contained_path as contained, sha256 as sha
 
 DAYS = ('95', '96', '100', '101')
 _CACHE = {}
@@ -129,7 +129,7 @@ def source_identity():
 
 def make_draws(root, bundle, n, seed, science):
     import numpy as np
-    from eht_axion.research import eht_official as core
+    from eht_axion.eht import calibration as core
     solve = set(science['solve_sites'])
     daily = {d: json.loads(contained(root, bundle['days'][d]['dterms']).read_text()) for d in DAYS}
     daily = {d: {s: v for s, v in terms.items() if s in solve} for d, terms in daily.items()}
@@ -205,7 +205,7 @@ def run_attempt(root, bundle, task, directory, config, identity, numerical_attem
         try:
             import numpy as np
             import eht_reconstruct as driver
-            from eht_axion.research import eht_official as core, eht_optimizer as opt
+            from eht_axion.eht import calibration as core, convex as opt
             eh = core._library()
             d = task['day']
             if d not in _CACHE:

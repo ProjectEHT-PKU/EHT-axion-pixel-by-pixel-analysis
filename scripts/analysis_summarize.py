@@ -16,9 +16,8 @@ from pathlib import Path
 import _bootstrap  # noqa: F401
 import numpy as np
 
-from eht_axion.pipeline import common
-
-MODES = ("std", "cor", "cor_fixed_background")
+from eht_axion import provenance
+from eht_axion.analysis.likelihood import MODES
 
 
 def comparisons(primary, other):
@@ -183,7 +182,7 @@ def run(args):
         sources["covcheck"] = args.covcheck.resolve()
     reports, consumed, records = {}, [], {}
     for name, source in sources.items():
-        record = common.verify_stage(source, recursive=False)
+        record = provenance.verify_stage(source, recursive=False)
         expected = (
             "research:eht120-limit-numerics"
             if name in ("gridcheck", "priorcheck")
@@ -200,7 +199,7 @@ def run(args):
                 for mode in MODES
             ]
             paths += [source / f"observations-{dim}.json" for dim in ("1d", "2d")]
-        common.require_declared_outputs(source, paths)
+        provenance.require_declared_outputs(source, paths)
         consumed += paths
         reports[name] = json.loads(paths[0].read_text())
     primary = reports["primary"]
@@ -229,7 +228,7 @@ def run(args):
             )
     # The source manifests are recorded inputs; their lineage was verified when
     # those stages were made and is not re-hashed here.
-    consumed += [common.manifest_path(source) for source in sources.values()]
+    consumed += [provenance.manifest_path(source) for source in sources.values()]
     consumed.append(Path(__file__).resolve())
     identity = {
         "schema": "eht120-results-summary-v1",
@@ -240,7 +239,7 @@ def run(args):
         "canonical_NULL_modified": False,
         "calibration_certification": False,
     }
-    with common.stage_directory(
+    with provenance.stage_directory(
         destination, "research:eht120-results-summary", identity, consumed, verify_lineage=False
     ) as out:
         write_csv(out / "limits.csv", limits)

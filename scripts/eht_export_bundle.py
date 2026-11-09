@@ -24,7 +24,7 @@ import shutil
 
 from _bootstrap import ROOT  # noqa: F401
 from eht_axion import experiment
-from eht_axion.pipeline import common
+from eht_axion import provenance
 
 DAYS = (95, 96, 100, 101)
 I_FILES = {'final-fixedI.fits': 'fixedI.fits', 'clean-gaincal-pol.uvfits': 'gaincal-pol.uvfits'}
@@ -38,7 +38,7 @@ def _by_day(roots, stage, config):
     result = {}
     for root in roots:
         root = Path(root).resolve(strict=True)
-        manifest = common.verify_stage(root, recursive=True)
+        manifest = provenance.verify_stage(root, recursive=True)
         if manifest['stage'] != stage:
             raise ValueError(f'{root}: expected stage {stage}, found {manifest["stage"]}')
         parameters = manifest['config']['parameters']
@@ -68,9 +68,9 @@ def verify_sources(i_roots, d_roots, config):
         d_root, d_manifest = dterms[day]
         if d_manifest['config']['parameters'] != i_manifest['config']['parameters']:
             raise ValueError(f'day {day}: I and D stage parameters differ')
-        common.require_declared_outputs(i_root, [i_root / name for name in I_FILES])
-        common.require_declared_outputs(d_root, [d_root / name for name in D_FILES])
-        closure = set(common.source_closure([common.manifest_path(d_root)]))
+        provenance.require_declared_outputs(i_root, [i_root / name for name in I_FILES])
+        provenance.require_declared_outputs(d_root, [d_root / name for name in D_FILES])
+        closure = set(provenance.source_closure([provenance.manifest_path(d_root)]))
         if any((i_root / name).resolve() not in closure for name in I_FILES):
             raise ValueError(f'day {day}: the D stage does not descend from this I stage')
         termination = json.loads((d_root / 'termination.json').read_text())
@@ -101,10 +101,10 @@ def bundle_record(config):
 
 def export(config, i_roots, d_roots, output_root):
     output_root = Path(output_root).absolute()
-    common.reject_directory_symlinks(output_root)
+    provenance.reject_directory_symlinks(output_root)
     if output_root.exists():
         raise FileExistsError(f'new output root required: {output_root}')
-    with common.verification_session():
+    with provenance.verification_session():
         sources, feed = verify_sources(i_roots, d_roots, config)
         record = bundle_record(config)
         output_root.mkdir(parents=True)
@@ -114,8 +114,8 @@ def export(config, i_roots, d_roots, output_root):
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, destination)
             destination.chmod(0o444)
-            digest = common.sha256(destination)
-            if digest != common.sha256(source):
+            digest = provenance.sha256(destination)
+            if digest != provenance.sha256(source):
                 raise ValueError(f'copy differs from its source: {source}')
             record['files'].append(dict(path=relative, sha256=digest, size=destination.stat().st_size,
                                         original_path=str(source)))

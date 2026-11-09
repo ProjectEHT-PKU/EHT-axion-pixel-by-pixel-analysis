@@ -3,7 +3,7 @@ import pytest
 
 from scipy.integrate import quad
 
-from eht_axion.model import evpa_templates, interpolate_fit_parameters, omega
+from eht_axion.analysis.model import evpa_templates, interpolate_fit_parameters
 
 TEMPLATE = dict(phase_count=64, time_conversion=0.112411, exposure_hours=6.0, day_gap_hours=24.0,
                 pair_separation_hours=120.0, n_principal=2, reference_norm=0.1)
@@ -74,13 +74,6 @@ def test_two_cosine_exposure_pair_differences_oracle(timing):
                             - average(midpoint + separation / 2, phi)) / 0.1
                 expected[p, epoch, pixel] = amplitude[alpha][0, pixel] * response
     np.testing.assert_allclose(signal, expected, atol=2e-13, rtol=2e-13)
-
-
-@pytest.mark.parametrize("alpha", [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.44])
-def test_omega_principal_n(alpha):
-    # 211 state: radial overtone 0 + l 1 + 1 = principal N 2.
-    assert omega(alpha, 2) == alpha * (1 - alpha**2 / 8)
-    assert omega(alpha, 4) == alpha * (1 - alpha**2 / 32)
 
 
 @pytest.mark.parametrize("kwargs", [

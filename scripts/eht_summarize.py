@@ -19,11 +19,11 @@ import json
 import numpy as np
 
 from _bootstrap import ROOT
-from eht_axion.pipeline import common
-from eht_axion.research import ensemble as en
-from eht_axion.research.polarimetry import load_stokes_fits
+from eht_axion import provenance
+from eht_axion.eht import ensemble as en
+from eht_axion.eht.ensemble import load_stokes_fits
 
-contained = common.contained_path
+contained = provenance.contained_path
 
 
 def read_json(path):
@@ -40,13 +40,13 @@ def summary_settings(config):
 
 
 def verify_copy(dataset, settings):
-    """Reverify consumed bytes once/session, not old absolute producer closures."""
+    """Verify the copied batch (receipts, identity, certificates, SHA-256 of every consumed file)."""
     dataset = Path(dataset).resolve(strict=True)
     count = settings['draws']
     paths = []
 
     def checked(path, digest=None):
-        actual = common.sha256(path)
+        actual = provenance.sha256(path)
         if digest is not None and actual != digest:
             raise ValueError('SHA mismatch: ' + str(path))
         paths.append(path)
@@ -73,7 +73,7 @@ def verify_copy(dataset, settings):
         raise ValueError('batch/finish identity mismatch')
     draws = checked(results / 'all-draws.json')
     taskpath = results / 'tasks.jsonl'
-    common.sha256(taskpath)
+    provenance.sha256(taskpath)
     paths.append(taskpath)
     tasks = [json.loads(line) for line in taskpath.read_text().splitlines()]
     expected = {f'{d}-{k:04d}' for d in en.DAYS for k in range(count)}
@@ -96,7 +96,7 @@ def verify_copy(dataset, settings):
         for kind, name in [('display19', 'best-display-IQU-additional19uas.fits'),
                            ('certificate', 'certificate.json')]:
             p = contained(directory, name)
-            if common.sha256(p) != receipt['outputs'][name]:
+            if provenance.sha256(p) != receipt['outputs'][name]:
                 raise ValueError('consumed output SHA mismatch: ' + str(p))
             paths.append(p)
             products[kind] = p
@@ -164,17 +164,16 @@ def main(argv=None):
     dataset, destination = args.dataset_root.resolve(), args.output_root.resolve()
     if destination.is_relative_to(dataset) or dataset.is_relative_to(destination):
         p.error('dataset and output roots must be separate and non-nested')
-    with common.verification_session():
+    with provenance.verification_session():
         selected, inputs, copy = verify_copy(dataset, settings)
         inputs += [Path(__file__).resolve(), args.config.resolve(),
-                   ROOT / 'eht_axion/research/ensemble.py',
-                   ROOT / 'eht_axion/research/polarimetry.py']
+                   ROOT / 'eht_axion/eht/ensemble.py', ROOT / 'eht_axion/evpa.py']
         config = dict(copy_identity=copy['identity'], rmax_uas=settings['rmax_uas'],
                       source_kind='verified-copy-custom-batch', draw_count=settings['draws'] * len(en.DAYS))
-        with common.stage_directory(destination, 'research:eht-fixed-D-ensemble', config, inputs) as out:
+        with provenance.stage_directory(destination, 'research:eht-fixed-D-ensemble', config, inputs) as out:
             if out is not None:
                 (out / 'copy-receipt.json').write_text(json.dumps(copy, indent=2) + '\n')
-                records = common.describe_inputs(inputs)
+                records = provenance.describe_inputs(inputs)
                 (out / 'consumed-inputs.json').write_text(json.dumps(records, indent=2) + '\n')
                 run(selected, out, settings)
     return 0

@@ -25,7 +25,7 @@ from unittest.mock import patch
 
 from _bootstrap import ROOT
 from eht_axion import experiment
-from eht_axion.pipeline import common
+from eht_axion import provenance
 from _environment import add_environment_options, resolve_environment
 
 DAYS = (95, 96, 100, 101)
@@ -81,18 +81,18 @@ def adapt_official(text, fov_uas):
 
 def stage_inputs(root, stage, day=None, products=()):
     """Verify the entire source closure AND that each consumed file is declared."""
-    m = common.verify_stage(root, recursive=True)
+    m = provenance.verify_stage(root, recursive=True)
     if m['stage'] != 'research:eht-official:' + stage or (day is not None and m['config']['day'] != day):
         raise ValueError(f'Expected official {stage} stage for day {day}: {root}')
     paths = [root / name for name in products]
-    common.require_declared_outputs(root, paths)
-    return m, [common.manifest_path(root), *paths]
+    provenance.require_declared_outputs(root, paths)
+    return m, [provenance.manifest_path(root), *paths]
 
 
 def build_plan(args):
     config = experiment.read_experiment(args.config)
     c = experiment.eht_imaging_parameters(config, locations(args))
-    from eht_axion.research import eht_official as core
+    from eht_axion.eht import calibration as core
 
     if set(c['fixed_sites']) != set(core._PRECORRECTED):
         raise ValueError(f'fixed_sites must be the HOPS-precorrected stations {core._PRECORRECTED}')
@@ -104,7 +104,7 @@ def build_plan(args):
     receipt = json.loads(Path(c['input_receipt']).read_text())
     matches = [r for r in receipt['files'] if Path(r['path']).name == name]
     if (receipt.get('complete') is not True or len(matches) != 1 or matches[0]['sha256'] != expected
-            or raw.stat().st_size != matches[0]['size'] or common.sha256(raw) != expected):
+            or raw.stat().st_size != matches[0]['size'] or provenance.sha256(raw) != expected):
         raise ValueError('raw HOPS input checksum/receipt mismatch')
     adapt_official(Path(c['official_script']).read_text(), c['fov_uas'])
     inputs = [args.config.resolve(), raw, Path(c['input_receipt']), Path(c['feed_rotation_file']),
@@ -135,14 +135,14 @@ def build_plan(args):
                   if Path(str(f)).name in ('METADATA', 'RECORD', 'direct_url.json'))
     inputs = sorted(set(p.resolve(strict=True) for p in inputs))
     destination = args.output_root.absolute()
-    common.reject_directory_symlinks(destination)
+    provenance.reject_directory_symlinks(destination)
     if destination.exists():
         raise FileExistsError(f'new stage/day output root required: {destination}')
-    for path in common.source_closure(inputs):
+    for path in provenance.source_closure(inputs):
         if path == destination or path.is_relative_to(destination) or destination.is_relative_to(path):
             raise ValueError(f'output/source overlap: {path}')
     return dict(day=args.day, stage=args.stage, parameters=c, raw=str(raw),
-                output_root=str(destination), inputs=common.describe_inputs(inputs),
+                output_root=str(destination), inputs=provenance.describe_inputs(inputs),
                 cli={k: [str(p) for p in v] if isinstance(v, list) else str(v) if isinstance(v, Path) else v
                      for k, v in vars(args).items()},
                 scope='Paper IV/VII method implementation; not bitwise historical; review not inferred',
@@ -357,14 +357,14 @@ def image_statistics(image):
 
 def main(argv=None):
     args = parser().parse_args(argv)
-    with common.verification_session():
+    with provenance.verification_session():
         plan = build_plan(args)
         if args.plan:
             print(json.dumps(plan, indent=2))
             return plan
         import ehtim as eh
         from astropy.utils import iers
-        from eht_axion.research import eht_official as core
+        from eht_axion.eht import calibration as core
 
         iers.conf.auto_download = False
         c = plan['parameters']
@@ -373,7 +373,7 @@ def main(argv=None):
         declared = {r['path'] for r in plan['inputs']}
         if any(str(p.resolve()) not in declared for p in Path(eh.__file__).resolve().parent.rglob('*.py')):
             raise ValueError('loaded ehtim source is outside declared package closure')
-        with common.stage_directory(args.output_root, 'research:eht-official:' + args.stage, plan,
+        with provenance.stage_directory(args.output_root, 'research:eht-official:' + args.stage, plan,
                                     [Path(r['path']) for r in plan['inputs']]) as out:
             if out is None:
                 raise FileExistsError('new stage/day root required')

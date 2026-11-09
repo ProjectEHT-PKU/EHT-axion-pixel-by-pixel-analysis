@@ -5,10 +5,10 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from eht_axion.limits import LimitOptions
-from eht_axion.model import cloud_amplitude_scaling, evpa_templates
-from eht_axion.observations import ObservationData
-from eht_axion.research.observed import calculate_observed
+from eht_axion.analysis.likelihood import LimitOptions
+from eht_axion.analysis.model import cloud_amplitude_scaling, evpa_templates
+from eht_axion.analysis.observations import ObservationData
+from eht_axion.analysis.likelihood import calculate_observed
 
 TEMPLATE = dict(phase_count=7, time_conversion=0.112411, exposure_hours=6.0, day_gap_hours=24.0,
                 pair_separation_hours=120.0, n_principal=2, reference_norm=0.1)

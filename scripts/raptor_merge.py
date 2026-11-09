@@ -6,9 +6,9 @@ import json
 from pathlib import Path
 
 import _bootstrap  # noqa: F401
-from eht_axion.pipeline.common import manifest_path, stage_directory, verification_session
+from eht_axion.provenance import manifest_path, stage_directory, verification_session
 from eht_axion.experiment import validate_ray_tracing
-from eht_axion.producer.delivery import deliver_stokes
+from eht_axion.raptor.delivery import deliver_stokes
 
 
 def main(argv=None):

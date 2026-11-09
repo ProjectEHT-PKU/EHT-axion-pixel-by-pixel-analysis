@@ -17,18 +17,17 @@ from pathlib import Path
 import _bootstrap  # noqa: F401
 import numpy as np
 
+from eht_axion.analysis.likelihood import MODES, LimitOptions, calculate_observed
+from eht_axion.analysis.observations import (
+    DAYS, branch_risk, build_observations, covariance_diagnostics,
+)
+from eht_axion.analysis.templates import load_templates
 from eht_axion.experiment import DEFAULT_PATH, analysis_geometry, physical_scale, read_experiment
-from eht_axion.limits import LimitOptions
-from eht_axion.pipeline.common import (
+from eht_axion.provenance import (
     manifest_path, require_declared_outputs, stage_directory, verification_session, verify_stage,
 )
-from eht_axion.pipeline.layout import BACKGROUND_DIRECTORY_ALPHA, alpha_label
-from eht_axion.pipeline.products import load_templates
-from eht_axion.producer.delivery import input_cadence_hours, validate_processed_source
-from eht_axion.research.ensemble_limits import (
-    DAYS, MODES, branch_risk, build_observations, covariance_diagnostics,
-)
-from eht_axion.research.observed import calculate_observed
+from eht_axion.raptor.delivery import input_cadence_hours, validate_processed_source
+from eht_axion.raptor.layout import BACKGROUND_DIRECTORY_ALPHA, alpha_label
 
 
 # Paper VII Sec. 5.2 centring = zero shift in this reproduction: no registration.
@@ -57,7 +56,7 @@ def options_from_config(config, background_sigma_radians):
 
 
 def validate_templates(root, config, seen):
-    """Strict producer binding including all eight alpha identities and geometry."""
+    """Verify the template stages: delivered-data identity for all alphas and the analysis geometry."""
     geometry = analysis_geometry(config)
     for alpha in config['shared']['alphas']:
         label = alpha_label(alpha)
@@ -180,8 +179,8 @@ def selected_background(out, dimension, selected, config, source):
     masking sparse 2D pixels before integration would define a different datum.
     No sqrt(2) correction: this sigma describes a day-pair difference directly.
     """
-    from eht_axion.angles import circular_difference
-    from eht_axion.pipeline.raptor import _integrate
+    from eht_axion.evpa import circular_difference
+    from eht_axion.analysis.templates import _integrate
 
     maps = np.load(source['stokes'], mmap_mode='r', allow_pickle=False)
     n = config['shared']['image']['shape']
@@ -224,7 +223,7 @@ def selected_background(out, dimension, selected, config, source):
 
 def theory_aperture_operator(config):
     """Exactly the RAPTOR fit/background bilinear CSR quadrature in Rg units."""
-    from eht_axion.pipeline.raptor import _operator
+    from eht_axion.analysis.templates import _operator
 
     settings = analysis_geometry(config)['aperturefit']
     return _operator(config['shared']['image']['shape'], settings['fov'],
@@ -235,10 +234,10 @@ def matched_aperture_samples(native_maps, config, operator):
     """Recompute native EHT draws with exactly the theory aperture observable.
 
     Transpose spatial axes only. RAPTOR's _integrate applies its internal -90
-    bin conversion once; the returned bins are North0/East90. Native producer
+    bin conversion once; the returned bins are North0/East90. Native eht_summarize
     pixel-sector curves are separate diagnostics, never inference samples.
     """
-    from eht_axion.pipeline.raptor import _integrate
+    from eht_axion.analysis.templates import _integrate
 
     curves = np.empty((len(native_maps), 360))
     for k, frame in enumerate(native_maps):
@@ -247,7 +246,7 @@ def matched_aperture_samples(native_maps, config, operator):
 
 
 def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
-    """Bind actual fixed-D producer schema using the independently audited axes.
+    """Read the EHT ensemble (eht_summarize.py) and select the likelihood features.
 
     Native[y,x] -> template[x,y], physical (-E,N). Recompute 1D using theory
     CSR quadrature; native sector apertures are diagnostic only. Read display19 products,

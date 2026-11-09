@@ -1,7 +1,7 @@
 """Build a pinned RAPTOR through its official setup.sh/makefile, never ray-trace."""
 import _bootstrap  # noqa: F401
-from _producer import options, save_request
-from eht_axion.producer.build import build_raptor
+from _raptor_options import options, save_request
+from eht_axion.raptor.build import build_raptor
 
 
 def main(argv=None):

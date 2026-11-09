@@ -68,10 +68,10 @@ def dataset(tmp_path, count=2):
 def test_verify_copy_uses_configured_draw_count(tmp_path):
     root = dataset(tmp_path, count=2)
     settings = dict(draws=2)
-    with s.common.verification_session():
+    with s.provenance.verification_session():
         selected, paths, copy = s.verify_copy(root, settings)
     assert {d: sorted(v) for d, v in selected.items()} == {d: [0, 1] for d in s.en.DAYS}
     assert copy['certified_tasks'] == 8
     with pytest.raises(ValueError, match='copy verification receipt'):
-        with s.common.verification_session():
+        with s.provenance.verification_session():
             s.verify_copy(root, dict(draws=3))

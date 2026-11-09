@@ -11,13 +11,12 @@ from pathlib import Path
 
 import _bootstrap  # noqa: F401
 import numpy as np
-from eht_axion.angles import circular_difference
-from eht_axion.observations import ObservationData
-from eht_axion.pipeline import common
+from eht_axion import provenance
+from eht_axion.analysis.likelihood import MODES, calculate_observed
+from eht_axion.analysis.observations import ObservationData
+from eht_axion.analysis.templates import load_templates
+from eht_axion.evpa import circular_difference
 from eht_axion.experiment import DEFAULT_PATH, read_experiment
-from eht_axion.pipeline.products import load_templates
-from eht_axion.research.ensemble_limits import MODES
-from eht_axion.research.observed import calculate_observed
 from analysis_limits import options_from_config
 
 
@@ -33,30 +32,30 @@ def main(argv=None):
     for name in ('source', 'templates', 'output-root'):
         p.add_argument('--'+name, required=True, type=Path)
     args = p.parse_args(argv)
-    with common.verification_session():
-        common.verify_stage(args.source, recursive=False)
+    with provenance.verification_session():
+        provenance.verify_stage(args.source, recursive=False)
         source_report = json.loads((args.source/'report.json').read_text())
         config = json.loads(json.dumps(read_experiment(args.config)))
         if config != source_report['scientific_profile']:
             raise ValueError('The source limits were produced from a different experiment')
         draws = config['eht_imaging']['uncertainty_draws']
         half = draws // 2
-        inputs = [Path(__file__).resolve(), args.config.resolve(), common.manifest_path(args.source),
+        inputs = [Path(__file__).resolve(), args.config.resolve(), provenance.manifest_path(args.source),
                   args.source/'report.json', Path(__file__).with_name('analysis_limits.py')]
         products = {}
         for dim in ('1d', '2d'):
             root = args.templates/'raptor/templates'/dim
-            common.verify_stage(root, recursive=False)
-            common.require_declared_outputs(root, [root/'templates.npz'])
+            provenance.verify_stage(root, recursive=False)
+            provenance.require_declared_outputs(root, [root/'templates.npz'])
             products[dim] = load_templates(root/'templates.npz', dim)
             path = args.source/f'observations-{dim}.npz'
-            common.require_declared_outputs(args.source, [path])
-            inputs += [common.manifest_path(root), root/'templates.npz', path]
+            provenance.require_declared_outputs(args.source, [path])
+            inputs += [provenance.manifest_path(root), root/'templates.npz', path]
         inputs += sorted((Path(__file__).resolve().parents[1]/'eht_axion').rglob('*.py'))
         identity = dict(source=str(args.source), fixed_observed_centers=True, fixed_selection=True,
                         covariance_halves=[list(range(half)), list(range(half, draws))],
                         covariance_regularization='none', scope='finite MC sensitivity, not new error model')
-        with common.stage_directory(args.output_root, 'research:eht120-covariance-check',
+        with provenance.stage_directory(args.output_root, 'research:eht120-covariance-check',
                                     identity, inputs, verify_lineage=False) as out:
             results, table = {}, []
             for dim in ('1d', '2d'):

@@ -5,12 +5,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from eht_axion.angles import circular_difference
-from eht_axion.limits import LimitOptions
-from eht_axion.research.ensemble_limits import (
+from eht_axion.evpa import circular_difference
+from eht_axion.analysis.likelihood import LimitOptions
+from eht_axion.analysis.observations import (
     branch_risk, build_observations, covariance_diagnostics, moments,
 )
-from eht_axion.research.observed import calculate_observed
+from eht_axion.analysis.likelihood import calculate_observed
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -205,7 +205,7 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     np.testing.assert_array_equal(selected, [20 * 64 + 35])
     np.testing.assert_allclose(daily[0], .002 * 35 + .004 * 20)
     np.testing.assert_allclose(coords, [[-grid[20], grid[35]]])
-    from eht_axion.pipeline.raptor import _integrate
+    from eht_axion.analysis.templates import _integrate
     expected = _integrate(maps.transpose(1, 0, 2), driver.theory_aperture_operator(config))
     indices = prepared['1d'][0]
     np.testing.assert_allclose(prepared['1d'][1][0][0], expected[indices])
@@ -250,7 +250,7 @@ def test_selected_background_exact_feature_domain(tmp_path, monkeypatch, dimensi
     selected = np.array([20 * 64 + 35, 30 * 64 + 40])
     if dimension == '1d':
         selected = np.array([4, 14])
-        import eht_axion.polarization as pol
+        import eht_axion.analysis.templates as pol
         monkeypatch.setattr(driver, 'theory_aperture_operator', lambda config: None)
         def integrated(frame, operator):
             out = np.zeros(360)

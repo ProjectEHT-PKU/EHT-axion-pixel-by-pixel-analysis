@@ -16,13 +16,13 @@ import argparse
 import json
 
 import _bootstrap  # noqa: F401
+from eht_axion.analysis.templates import RunLayout, fit_processed, preprocess_cube, summarize_fits
 from eht_axion.experiment import DEFAULT_PATH, analysis_geometry, read_experiment
-from eht_axion.pipeline.common import (
+from eht_axion.provenance import (
     manifest_path, reject_directory_symlinks, stage_directory, verification_session, verify_stage,
 )
-from eht_axion.pipeline.layout import BACKGROUND_DIRECTORY_ALPHA, RunLayout, input_raptor_files
-from eht_axion.pipeline.raptor import fit_processed, preprocess_cube, summarize_fits
-from eht_axion.producer.delivery import generated_inputs
+from eht_axion.raptor.delivery import generated_inputs
+from eht_axion.raptor.layout import BACKGROUND_DIRECTORY_ALPHA, input_raptor_files
 
 
 def stage_inputs(directory):

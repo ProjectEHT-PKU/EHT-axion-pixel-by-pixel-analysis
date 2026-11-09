@@ -8,7 +8,7 @@ import sys
 import pytest
 
 import _environment
-import _producer
+import _raptor_options
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,7 +30,7 @@ def test_producer_overlay_only_loaded_for_producer(project):
     (project / ".env").write_text("EHT_OUTPUT_ROOT=../shared\nEHT_RUN_ID=shared\n")
     (project / ".env.raptor").write_text("EHT_RUN_ID=producer\nEHT_GRMHD_ROOT=fluid\n")
     assert _environment.resolve_environment(request())["EHT_RUN_ID"] == "shared"
-    prod = _environment.resolve_environment(request(), producer=True)
+    prod = _environment.resolve_environment(request(), raptor=True)
     assert prod["EHT_RUN_ID"] == "producer"
     assert prod["EHT_GRMHD_ROOT"] == str(project / "fluid")
     assert prod["EHT_OUTPUT_ROOT"] == str(project / "../shared")
@@ -57,8 +57,8 @@ def test_custom_file_replaces_defaults_and_can_be_disabled(project):
     (project / ".env.raptor").write_text("EHT_RUN_ID=overlay\n")
     custom = project / "custom.env"
     custom.write_text("EHT_RUN_ID=custom\n")
-    assert _environment.resolve_environment(request(env_file=custom), producer=True)["EHT_RUN_ID"] == "custom"
-    assert "EHT_RUN_ID" not in _environment.resolve_environment(request(no_env_file=True), producer=True)
+    assert _environment.resolve_environment(request(env_file=custom), raptor=True)["EHT_RUN_ID"] == "custom"
+    assert "EHT_RUN_ID" not in _environment.resolve_environment(request(no_env_file=True), raptor=True)
     with pytest.raises(ValueError, match="does not exist"):
         _environment.resolve_environment(request(env_file=project / "missing.env"))
 
@@ -88,8 +88,8 @@ def test_producer_entrypoint_uses_automatic_files(project, monkeypatch):
     core.mkdir()
     (project / ".env").write_text("EHT_OUTPUT_ROOT=outputs\n")
     (project / ".env.raptor").write_text("EHT_RAPTOR_SOURCE_ROOT=core\nEHT_RUN_ID=automatic\n")
-    monkeypatch.setattr(_producer, "ROOT", ROOT)
-    args = _producer.options("build", [])
+    monkeypatch.setattr(_raptor_options, "ROOT", ROOT)
+    args = _raptor_options.options("build", [])
     assert args.run_root == project / "outputs/production/automatic"
     assert args.source_root == core
     assert args.config == ROOT / "experiment.yaml"

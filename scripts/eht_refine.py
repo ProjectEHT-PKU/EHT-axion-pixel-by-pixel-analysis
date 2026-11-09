@@ -18,8 +18,8 @@ import sys
 from _bootstrap import ROOT
 import eht_reconstruct as original
 from eht_axion import experiment
-from eht_axion.pipeline import common
-from eht_axion.research import eht_optimizer as solver
+from eht_axion import provenance
+from eht_axion.eht import convex as solver
 
 
 def parser():
@@ -35,7 +35,7 @@ def parser():
 def build_plan(a):
     config = experiment.read_experiment(a.config)
     refine = config['eht_imaging']['refine']
-    source = common.verify_stage(a.source_root, recursive=True)
+    source = provenance.verify_stage(a.source_root, recursive=True)
     im, files = original.stage_inputs(a.i_root, 'I', a.day, original.I_PRODUCTS)
     if source['stage'] != 'research:eht-official:fiducial' or source['config']['day'] != a.day:
         raise ValueError('source must be the fiducial stage of the same day')
@@ -45,17 +45,17 @@ def build_plan(a):
     locations = {key: c[key] for key in experiment.EHT_LOCATIONS}
     if c != json.loads(json.dumps(experiment.eht_imaging_parameters(config, locations))):
         raise ValueError('source imaging parameters differ from experiment.yaml eht_imaging')
-    # The exact convex solver (eht_optimizer) implements exactly these weights.
+    # The exact convex solver (eht.convex) implements exactly these weights.
     if c['p_data'] != {'pvis': 1, 'm': 1} or c['p_reg'] != {'hw': 100, 'ptv': 1} or c['norm_reg'] is not True:
         raise ValueError('the exact P solver implements only the Paper VII weights')
-    recorded = {Path(r['path']).resolve() for r in common.describe_inputs(
-        common.source_closure([common.manifest_path(a.source_root)]))}
+    recorded = {Path(r['path']).resolve() for r in provenance.describe_inputs(
+        provenance.source_closure([provenance.manifest_path(a.source_root)]))}
     if any((a.i_root/n).resolve() not in recorded for n in original.I_PRODUCTS):
         raise ValueError('source does not descend from this same I stage')
     rawname, dname = 'final-raw-IQU.fits', 'final-dterms.json'
     consumed = [a.source_root/rawname, a.source_root/dname]
-    common.require_declared_outputs(a.source_root, consumed)
-    paths = [*files, common.manifest_path(a.source_root), *consumed, Path(__file__), a.config,
+    provenance.require_declared_outputs(a.source_root, consumed)
+    paths = [*files, provenance.manifest_path(a.source_root), *consumed, Path(__file__), a.config,
              Path(original.__file__), ROOT/'pixi.lock', Path(c['feed_rotation_file']),
              *sorted((ROOT/'eht_axion').rglob('*.py'))]
     # Full Python/package metadata closure, without hashing every native .so.
@@ -70,14 +70,14 @@ def build_plan(a):
         paths.extend(Path(dist.locate_file(name)).rglob('*.py'))
     paths = sorted(set(p.resolve(strict=True) for p in paths))
     destination = a.output_root.absolute()
-    common.reject_directory_symlinks(destination)
+    provenance.reject_directory_symlinks(destination)
     if destination.exists():
         raise FileExistsError(destination)
-    for path in common.source_closure(paths):
+    for path in provenance.source_closure(paths):
         if path == destination or path.is_relative_to(destination) or destination.is_relative_to(path):
             raise ValueError('source/output overlap')
     return dict(day=a.day, parameters=c, refine=refine, rawname=rawname, dname=dname,
-                inputs=common.describe_inputs(paths),
+                inputs=provenance.describe_inputs(paths),
                 cli={k: str(v) if isinstance(v, Path) else v for k, v in vars(a).items()},
                 scope='floating-point fixed-I/D objective certificate; not interval/image uncertainty',
                 D_budget='explicit outer budget; joint D optimality not verified',
@@ -152,11 +152,11 @@ def run(a, plan, core, eh, out):
 
 def main(argv=None):
     a = parser().parse_args(argv)
-    with common.verification_session():
+    with provenance.verification_session():
         plan = build_plan(a)
         import ehtim as eh
         from astropy.utils import iers
-        from eht_axion.research import eht_official as core
+        from eht_axion.eht import calibration as core
         iers.conf.auto_download = False
         declared = {r['path'] for r in plan['inputs']}
         for name in ('ehtim', 'numpy', 'scipy', 'astropy'):
@@ -164,7 +164,7 @@ def main(argv=None):
             package_sources = Path(module.__file__).resolve().parent.rglob('*.py')
             if any(str(p.resolve()) not in declared for p in package_sources):
                 raise ValueError('actual imported package outside declared closure')
-        with common.stage_directory(a.output_root, 'research:eht-convex:fiducial', plan,
+        with provenance.stage_directory(a.output_root, 'research:eht-convex:fiducial', plan,
                                     [Path(r['path']) for r in plan['inputs']]) as out:
             if out is None:
                 raise FileExistsError(a.output_root)

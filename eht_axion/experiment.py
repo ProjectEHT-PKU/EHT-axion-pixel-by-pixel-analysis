@@ -18,8 +18,8 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from .pipeline.constants import PhysicalScale
-from .pipeline.layout import alpha_label
+from .physics import PhysicalScale
+from .raptor.layout import alpha_label
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PATH = ROOT / "experiment.yaml"

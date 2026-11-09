@@ -34,7 +34,7 @@ def plan_args(tmp_path, monkeypatch):
     experiment = w.experiment.read_experiment()
     raw = tmp_path / experiment['eht_imaging']['inputs'][95][0]
     raw.write_bytes(b'synthetic circular UVFITS placeholder')
-    experiment['eht_imaging']['inputs'][95][1] = w.common.sha256(raw)
+    experiment['eht_imaging']['inputs'][95][1] = w.provenance.sha256(raw)
     receipt = tmp_path / 'receipt.json'
     receipt.write_text(json.dumps(dict(complete=True, files=[dict(path=str(raw),
         size=raw.stat().st_size, sha256=experiment['eht_imaging']['inputs'][95][1])])) )
@@ -60,7 +60,7 @@ def test_plan_no_optional_import_no_writes(plan_args, monkeypatch):
     assert not plan_args.output_root.exists()
     paths = {Path(r['path']) for r in plan['inputs']}
     assert ROOT / 'scripts/eht_reconstruct.py' in paths
-    assert ROOT / 'eht_axion/pipeline/common.py' in paths
+    assert ROOT / 'eht_axion/provenance.py' in paths
     assert plan_args.config in paths
     assert all(len(r['sha256']) == 64 for r in plan['inputs'])
     assert plan['parameters']['input_root'] == str(plan_args.input_root)
@@ -352,9 +352,9 @@ def test_fiducial_total_d_solves_against_fresh_base_and_final_p_only(tmp_path, c
 
 def test_source_stage_must_declare_consumed_products(tmp_path, monkeypatch):
     verified = Mock(return_value=dict(stage='research:eht-official:I', config=dict(day=95)))
-    monkeypatch.setattr(w.common, 'verify_stage', verified)
+    monkeypatch.setattr(w.provenance, 'verify_stage', verified)
     declared = Mock(side_effect=ValueError('Consumed product is not a declared stage output'))
-    monkeypatch.setattr(w.common, 'require_declared_outputs', declared)
+    monkeypatch.setattr(w.provenance, 'require_declared_outputs', declared)
     with pytest.raises(ValueError, match='not a declared'):
         w.stage_inputs(tmp_path, 'I', 95, w.I_PRODUCTS)
     verified.assert_called_once_with(tmp_path, recursive=True)

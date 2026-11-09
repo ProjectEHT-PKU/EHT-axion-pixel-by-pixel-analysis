@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from eht_axion.pipeline.common import sha256, verification_session
+from eht_axion.provenance import sha256, verification_session
 
 
 def test_hash_once_per_session_and_again_next_session(tmp_path, monkeypatch):

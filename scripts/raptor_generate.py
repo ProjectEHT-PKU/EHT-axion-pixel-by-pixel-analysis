@@ -3,10 +3,10 @@ import json
 import shutil
 
 import _bootstrap  # noqa: F401
-from _producer import options, save_request
-from eht_axion.producer.delivery import deliver_stokes
-from eht_axion.producer.jobs import run_jobs
-from eht_axion.producer.plan import plan_generation
+from _raptor_options import options, save_request
+from eht_axion.raptor.delivery import deliver_stokes
+from eht_axion.raptor.jobs import run_jobs
+from eht_axion.raptor.plan import plan_generation
 
 
 def main(argv=None):
@@ -39,7 +39,7 @@ def main(argv=None):
         raise ValueError(f"Insufficient free space: require at least {required} bytes "
                          "for conservative headroom")
     if not args.convert_only:
-        from eht_axion.producer.affinity import check_memory
+        from eht_axion.raptor.affinity import check_memory
 
         per_worker = max(int(2.5 * 1024**3),
                          2 * plan["requirements"]["per_process_memory_lower_bound_bytes"])

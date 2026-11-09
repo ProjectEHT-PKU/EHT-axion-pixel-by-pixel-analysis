@@ -7,7 +7,7 @@ import pytest
 
 import eht_refine as w
 from eht_axion.experiment import read_experiment
-from eht_axion.research import eht_official as core
+from eht_axion.eht import calibration as core
 
 
 def test_refine_settings_are_the_recorded_tightd_values():

@@ -167,10 +167,10 @@ def test_library_signatures_have_no_numeric_default_values():
     from pathlib import Path
 
     allowed = {
-        ("producer/jobs.py", "run_jobs", "threads"), ("producer/jobs.py", "run_jobs", "workers"),  # execution
-        ("pipeline/raptor.py", "fit_phase_dft", "phase_axis"),  # array layout
-        ("producer/plan.py", "append_task", "phase"),  # baseline tasks have phase 0 by definition
-        ("research/eht_official.py", "tlist", "t_gather"),  # mirrors the ehtim method signature
+        ("raptor/jobs.py", "run_jobs", "threads"), ("raptor/jobs.py", "run_jobs", "workers"),  # execution
+        ("analysis/templates.py", "fit_phase_dft", "phase_axis"),  # array layout
+        ("raptor/plan.py", "append_task", "phase"),  # baseline tasks have phase 0 by definition
+        ("eht/calibration.py", "tlist", "t_gather"),  # mirrors the ehtim method signature
     }
     found = []
     for path in sorted((Path(experiment.__file__).parent).rglob("*.py")):

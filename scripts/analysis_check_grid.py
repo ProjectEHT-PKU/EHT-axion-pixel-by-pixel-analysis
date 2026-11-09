@@ -14,12 +14,11 @@ from pathlib import Path
 
 import _bootstrap  # noqa: F401
 import numpy as np
-from eht_axion.observations import ObservationData
+from eht_axion import provenance
+from eht_axion.analysis.likelihood import MODES, calculate_observed
+from eht_axion.analysis.observations import ObservationData
+from eht_axion.analysis.templates import load_templates
 from eht_axion.experiment import DEFAULT_PATH, read_experiment
-from eht_axion.pipeline import common
-from eht_axion.pipeline.products import load_templates
-from eht_axion.research.ensemble_limits import MODES
-from eht_axion.research.observed import calculate_observed
 from analysis_limits import options_from_config, plot_results
 
 
@@ -39,10 +38,10 @@ OVERRIDES = ('phase_count', 'coupling_points', 'coupling_max')
 
 
 def run(args):
-    with common.verification_session():
+    with provenance.verification_session():
         # Verify the complete RESULT outputs. This check need not rehash every
         # unchanged raw RT ancestor once more for a numerical-only repeat.
-        record = common.verify_stage(args.source, recursive=False)
+        record = provenance.verify_stage(args.source, recursive=False)
         if record['stage'] != 'research:eht120-observed-limits':
             raise ValueError('Expected completed primary observed analysis')
         source_config = record['config']['scientific_profile']
@@ -59,22 +58,22 @@ def run(args):
             raise ValueError('No grid/prior override differs from the source')
         reportpath = args.source/'report.json'
         obsfiles = [args.source/f'observations-{d}.npz' for d in ('1d', '2d')]
-        common.require_declared_outputs(args.source, [reportpath, *obsfiles])
+        provenance.require_declared_outputs(args.source, [reportpath, *obsfiles])
         source_report = json.loads(reportpath.read_text())
         products, inputs = {}, [Path(__file__).resolve(), args.config.resolve(),
-            common.manifest_path(args.source), reportpath, *obsfiles,
+            provenance.manifest_path(args.source), reportpath, *obsfiles,
             Path(__file__).with_name('analysis_limits.py')]
         for dim in ('1d', '2d'):
             root = args.templates/'raptor/templates'/dim
-            common.verify_stage(root, recursive=False)
-            common.require_declared_outputs(root, [root/'templates.npz'])
+            provenance.verify_stage(root, recursive=False)
+            provenance.require_declared_outputs(root, [root/'templates.npz'])
             products[dim] = load_templates(root/'templates.npz', dim)
-            inputs += [common.manifest_path(root), root/'templates.npz']
+            inputs += [provenance.manifest_path(root), root/'templates.npz']
         inputs += sorted((Path(__file__).resolve().parents[1]/'eht_axion').rglob('*.py'))
         identity = dict(changed=changed, source=str(args.source),
             source_verified='completed result outputs + recorded producer inputs; no raw RT rehash',
             same_selected_observations=True, same_covariance=True, canonical_NULL_modified=False)
-        with common.stage_directory(args.output_root, 'research:eht120-limit-numerics',
+        with provenance.stage_directory(args.output_root, 'research:eht120-limit-numerics',
                                     identity, inputs, verify_lineage=False) as out:
             results, rows = {}, []
             for dim in ('1d', '2d'):

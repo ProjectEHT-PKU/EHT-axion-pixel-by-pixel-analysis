@@ -32,8 +32,8 @@ def add_environment_options(parser):
                        help="Disable dotenv loading; retain explicit CLI and exported environment values")
 
 
-def resolve_environment(args, *, producer=False):
-    """CLI > exported environment > .env.raptor (producer) > .env.
+def resolve_environment(args, *, raptor=False):
+    """CLI > exported environment > .env.raptor (raptor_* scripts) > .env.
 
     Return a local mapping, never contaminate os.environ between script calls.
     File-derived relative paths are anchored to this checkout, not caller cwd.
@@ -46,7 +46,7 @@ def resolve_environment(args, *, producer=False):
                 raise ValueError(f"Dotenv file does not exist: {args.env_file}")
             files = [args.env_file]
         else:
-            files = [ROOT / ".env"] + ([ROOT / ".env.raptor"] if producer else [])
+            files = [ROOT / ".env"] + ([ROOT / ".env.raptor"] if raptor else [])
     values = {}
     for path in files:
         if not path.exists():
