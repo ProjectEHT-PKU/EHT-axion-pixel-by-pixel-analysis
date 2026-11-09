@@ -52,7 +52,7 @@ def summary_settings(config):
 def verify_copy(dataset, settings):
     """Reverify consumed bytes once/session, not old absolute producer closures."""
     dataset = Path(dataset).resolve(strict=True)
-    draws = settings['draws']
+    count = settings['draws']
     paths = []
 
     def checked(path, digest=None):
@@ -66,8 +66,8 @@ def verify_copy(dataset, settings):
     results = contained(dataset, 'results/full4000-v1')
     if (copy.get('schema') != 'eht-copyback-verified-v1' or copy.get('complete') is not True
             or copy.get('copied_root') != str(dataset) or copy.get('results_root') != str(results)
-            or copy.get('certified_tasks') != draws * len(en.DAYS)
-            or copy.get('days') != {d: draws for d in en.DAYS}
+            or copy.get('certified_tasks') != count * len(en.DAYS)
+            or copy.get('days') != {d: count for d in en.DAYS}
             or not all(copy.get(k) is True for k in ('full_attempt_outputs_SHA_verified',
                          'exported_inputs_SHA_verified', 'runtime_code_files_SHA_verified'))):
         raise ValueError('unsupported/incomplete copy verification receipt')
@@ -79,21 +79,21 @@ def verify_copy(dataset, settings):
     encoded = json.dumps(unsigned, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
     if (hashlib.sha256(encoded).hexdigest() != identity or batch['identity'] != identity
             or finish['identity'] != identity or finish['schema'] != 'eht-uncertainty-finish-v1'
-            or finish['numerically_certified'] != draws * len(en.DAYS)):
+            or finish['numerically_certified'] != count * len(en.DAYS)):
         raise ValueError('batch/finish identity mismatch')
     draws = checked(results / 'all-draws.json')
     taskpath = results / 'tasks.jsonl'
     common.sha256(taskpath)
     paths.append(taskpath)
     tasks = [json.loads(line) for line in taskpath.read_text().splitlines()]
-    expected = {f'{d}-{k:04d}' for d in en.DAYS for k in range(draws)}
-    if (len(tasks) != draws * len(en.DAYS) or {t['id'] for t in tasks} != expected
+    expected = {f'{d}-{k:04d}' for d in en.DAYS for k in range(count)}
+    if (len(tasks) != count * len(en.DAYS) or {t['id'] for t in tasks} != expected
             or set(finish['receipts']) != expected):
-        raise ValueError(f'not exactly {draws} unique draws/day')
+        raise ValueError(f'not exactly {count} unique draws/day')
     selected = {d: {} for d in en.DAYS}
     for task in tasks:
         d, k = task['day'], task['draw']
-        if (d not in en.DAYS or not isinstance(k, int) or not 0 <= k < draws
+        if (d not in en.DAYS or not isinstance(k, int) or not 0 <= k < count
                 or task['id'] != f'{d}-{k:04d}' or task['dterms'] != draws[d]['draws'][k]):
             raise ValueError('draw/task mismatch')
         entry = finish['receipts'][task['id']]

@@ -12,7 +12,7 @@ from scipy.stats import multivariate_normal
 from eht_axion.limits import LimitOptions
 from eht_axion.model import cloud_amplitude_scaling, evpa_templates
 from eht_axion.observations import ObservationData
-from eht_axion.research import calculate_observed
+from eht_axion.research.observed import calculate_observed
 from eht_axion.statistics import posterior_upper_limit
 
 

@@ -1,5 +1,1 @@
-"""Opt-in research APIs, separate from the unchanged NULL-limit pipeline."""
-
-from .observed import calculate_observed
-
-__all__ = ["calculate_observed"]
+"""EHT-imaging helpers, EHT ensemble summaries and the observed-data likelihood."""
