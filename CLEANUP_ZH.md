@@ -6,6 +6,9 @@
 重新命名。旧产品的兼容路径全部删除（按用户决定），旧的 RAPTOR 作业通过一个**不属于
 流水线**的一次性迁移脚本转换为新格式，然后用新代码从头到尾重算并与旧结果逐数比较。
 
+**阅读说明**：本文按整理的轮次记录；各轮小节中的文件、阶段与键名是当时的名称。当前的名称与行为
+以“第三轮”一节和英文文档 `docs/en/` 为准。
+
 两个互相独立的输入，以及把二者结合起来的分析（RAPTOR 模拟与 EHT 成像之间没有先后关系，
 可以按任意顺序或同时进行；只有分析同时需要二者的产品）：
 
@@ -237,9 +240,49 @@ pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR 
 | `analysis/likelihood.py` | 似然、`LimitOptions`、c 的上限 | `research/observed.py` + `limits.py` |
 | `analysis/posterior.py` | 网格上的后验 CDF 与上限 | `statistics.py` |
 
-输出中记录的阶段名与 schema 字符串（如 `raptor:fit`、`research:eht-fixed-D-ensemble`、
-`producer:delivery`）保持不变：其中 EHT 成像阶段（`research:eht-official:*`、`research:eht-convex:*`）
-已记录且不再重跑，只改其余部分会造成不一致。
+包重组时输出中记录的阶段名与 schema 字符串未改；第三轮按用户决定统一改名（见下节）。
+
+---
+
+## 第三轮：用户对 17 个问题的决定
+
+提交 a8722df…（本节所列），只跑了单元测试与 ruff，没有任何数据任务。
+
+* **输出根目录规则**：所有产生结果的脚本都拒绝已存在的输出根；例外是可续跑的 RAPTOR 生产
+  （`raptor_build/generate/merge`，签名相同的阶段视为缓存命中）和 `eht_sample.py`（同一 batch 身份续跑）。
+  `stage_directory(verify_lineage=False)` 对缓存命中同样只校验输出。`analysis_check_covariance` 也要求
+  源 `report.json` 是已声明的输出。
+* **阶段名按部分统一**：`raptor:build/job/delivery/merge`，`eht:i/fiducial/refine/ensemble`，
+  `analysis:preprocess/fit/templates/background/limits/check-grid/check-covariance/summary`；记录 schema
+  为 `<部分>-<记录>-v<N>`（`raptor-merge-v2`、`eht-bundle-v2`、`eht-sample-batch/task/finish-v2`、
+  `eht-ensemble-v2`、`analysis-limits-v2`、`analysis-summary-v2`）。任务 id 不变。
+* **背景帧目录**：交付的无轴子帧从 `res-400/alpha-0.30/` 改为 `res-400/background/`
+  （`BACKGROUND_DIRECTORY_ALPHA` 删除）；模板根下不再有 `raptor/` 一层。
+* **术语**：零数据对照（zero-data control）取代 NULL：文件前缀 `zero-data-*`、`limits.csv` 列 `data`；
+  删除 `canonical_*` 键、“RESEARCH”标题和各处过时注释（ImageS、historical、First-scope 等）；
+  `jobs.py` 不再接受 `canonical-run-v1` 容器 manifest。
+* **EHT 单一来源**：P 目标权重（pvis、m、hw、ptv、norm_reg）只来自 `eht_imaging`，凸优化求解器实现一般
+  权重并有单元测试与 ehtim 目标函数对照；共享增益自定标容差 `eht_imaging.gain_tol: [0.02, 0.2]`（与官方
+  脚本相同，四个已记录 I 阶段引用的脚本版本 6dc8b85 用的就是该值）；预改正台站只在 `fixed_sites`
+  （`_PRECORRECTED` 删除）；观测日只在 `experiment.EHT_DAYS`；`flux_jy` 删除（0.6 Jy 致密流量写在不改动的
+  官方脚本里）；流体 spin 移入 `raptor.fluid_spin`。
+* **`eht_summarize` 直接读 `eht_sample` 的输出根**（`--sample-root`），检查 batch 自身身份、科学参数与
+  当前 `experiment.yaml` 一致及每个文件的 SHA-256；不再需要拷回收据和固定子目录。
+* **文件名不含模糊数值**：`*-blurred-IQU.fits`，系综目录 `day-<日>/`，参数名 `blur_fwhm_uas`。
+* **一维扇区**（用户决定）：扇区选择改用与观测量、模板相同的双线性求积算子：扇区强度 ∑W·I 与强度加权
+  偏振亮度 ∑W·I|P|/∑W·I（Paper VII 式 10）的抽样平均；`eht_summarize` 的像素扇区代码与 `aperture.npz`
+  删除。一维选中的扇区与结果可能改变，留待最终验证评估。
+* **整图统计量**：只保留 `eht/ensemble.global_diagnostics`；已对照 Paper VII 第 5.3 节式 12–14
+  （ρ_min = 0、ρ_max 覆盖整个视场、I_ring 为总流量、19 µas 模糊）一致，唯一差别是图像中心（论文用与
+  Paper IV 共识图的互相关定中心，这里是网格中心），已写入文档。
+* **汇总**：拟合表覆盖所有 alpha 与情形（`fit-chi2.csv`，每个 alpha 一张图），`RESULTS.md` 由配置的
+  可信度和实际数字生成，不含固定的结论句。
+
+**需要迁移才能用于最终验证的已有产品**（无兼容代码）：已迁移的 RAPTOR 作业根中各作业与构建的 manifest
+（阶段名 `producer-*` → `raptor:*`，签名随之改变）和冻结的生产计划（缺 `raptor.fluid_spin`）；全部已记录的
+EHT 成像产品（阶段名、参数集中 `flux_jy` → `gain_tol`、`display_blur_uas` → `blur_fwhm_uas`、文件名
+`*-display-IQU-additional19uas.fits` → `*-blurred-IQU.fits`）以及远程 Monte Carlo 数据集（目录结构与
+batch/bundle schema）。
 
 ---
 
@@ -336,6 +379,7 @@ output.json 除 build 路径外相同、源与径向表 sha256 等于旧记录�
 
 第一轮结束时：`pytest`（eht-rebuild 环境）659 通过；默认环境 648 通过 / 11 跳过；ruff 无告警。
 第二轮结束时：606 通过；默认环境 595 通过 / 11 跳过；ruff 无告警。
+第三轮结束时：636 通过（含文档链接测试）；默认环境 623 通过 / 13 跳过；ruff 无告警。
 
 ---
 
@@ -355,7 +399,7 @@ output.json 除 build 路径外相同、源与径向表 sha256 等于旧记录�
 * **未执行的科学计算**：没有运行 RAPTOR 射线追踪，也没有运行 EHT 重建/成像（只做 `--plan` 重放与
   D 项抽样重放）；`eht_refine.py` 与 `eht_export_bundle.py` 只有单元测试，未在真实数据上验证。
 * **第二轮之后尚未重新验证**（按用户规则，代码仍在变动，暂不做端到端重算）：上文的产品比较由第二轮之前的
-  代码完成。第二轮删除了 `raptor:background-unmasked`、改变了 `raptor:fit` 的参数记录（无 `weighting`
+  代码完成；第三轮又改变了阶段名、目录、一维扇区选择与 EHT 参数集（见“第三轮”一节）。第二轮删除了 `raptor:background-unmasked`、改变了 `raptor:fit` 的参数记录（无 `weighting`
   键）、`effective_options`、EHT 系综的输出文件集合（无 raw、pairs、map-summary）和 `eht_sample`
   batch 配置（多了 `initial_p_fraction`、`check_every` 等键），因此最终验证需要从 `analysis_templates`
   和 `eht_summarize` 起重算，并单独核对 `eht_export_bundle.py` 与记录 bundle 的等价性。另外，已记录的

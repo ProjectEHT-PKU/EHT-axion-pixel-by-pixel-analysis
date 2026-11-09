@@ -174,9 +174,9 @@ one feed table. It copies, read-only:
 
 `bundle.json` lists every file with SHA-256 and size and records the science contract:
 `fsys`, `covariance_ddof`, `residual_component_sigma` (`residual_d_sigma`), the sky grid and
-the P objective weights, under the schema `eht-bundle-v2`. The equivalence
-of this script's output with the bundle recorded for the existing Monte Carlo run has not
-yet been checked.
+the P objective weights, under the schema `eht-bundle-v2`. This format differs from the
+bundle recorded for the existing Monte Carlo run (schema and key names); comparing the
+two requires the planned migration of the existing EHT imaging products.
 
 ### D-term Monte Carlo
 

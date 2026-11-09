@@ -285,5 +285,6 @@ def solve_problem(problem, initialP, *, gap_atol, maxiter, check_every, time_lim
                   iterations=k, seconds=time.monotonic()-started, theta=THETA,
                   gap_atol=gap_atol, gap_rtol=0., numerically_certified=certified,
                   termination='gap' if certified else ('maxiter' if k == maxiter else 'time_limit'),
-                  certificate='floating-point best primal minus best dual lower bound; not interval')
+                  certificate='floating-point best primal minus best dual lower bound; '
+                              'not interval arithmetic')
     return s.I*bestx, report, trace
