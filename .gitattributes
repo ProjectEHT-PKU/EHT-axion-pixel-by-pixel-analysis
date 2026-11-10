@@ -1,5 +1,2 @@
 # SCM syntax highlighting & preventing 3-way merges
 pixi.lock merge=binary linguist-language=YAML linguist-generated=true
-
-# Scientific data archives remain in the original EHT_ZC worktree.
-# This cleaned code tree tracks no binary scientific arrays.

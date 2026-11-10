@@ -9,10 +9,7 @@ __pycache__/
 build/
 dist/
 
-# Local input views, generated scientific products and figures
-data/
-outputs/
-runs/
+# Scientific arrays and figures belong in the data root, never in the repository
 *.npy
 *.npz
 *.h5
@@ -32,5 +29,3 @@ runs/
 
 # Local notes, not part of the repository.
 reports/
-
-# Pixi manifests remain tracked.
