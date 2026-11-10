@@ -1,6 +1,11 @@
 """Build a pinned RAPTOR through its official setup.sh/makefile, never ray-trace."""
-import _bootstrap  # noqa: F401
-from _raptor_options import options, save_request
+
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
+from eht_axion.raptor.options import options, save_request
 from eht_axion.raptor.build import build_raptor
 
 

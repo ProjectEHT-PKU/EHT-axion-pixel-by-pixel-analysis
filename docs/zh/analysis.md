@@ -10,7 +10,7 @@
 
 - 交付的 RAPTOR 数据根目录（一次交付或合并的 `data/`），含 `raptor/res-100/alpha-<α>/` 和
   `raptor/res-400/background/`（[RAPTOR 模拟](raptor-simulation.md)）。
-- `eht_summarize.py` 的 EHT 系综阶段（[EHT 成像](eht-imaging.md)）。
+- `scripts/eht/summarize.py` 的 EHT 系综阶段（[EHT 成像](eht-imaging.md)）。
 - `configs/experiment.yaml`：`shared`、`analysis`，以及来自其他节的 `raptor.camera_fov_rg`、
   `raptor.snapshots`、`raptor.response`、`raptor.background` 和 `eht_imaging.uncertainty_draws`
   （[实验配置](experiment-config.md)）。
@@ -45,13 +45,13 @@ pixi run analysis-paper --limits LIMITS --gridcheck GRID --priorcheck PRIOR --co
 ```
 
 上面的覆盖值只是示例；检验脚本接受任何与 `analysis.inference` 不同的取值。对
-`analysis_summarize.py` 而言，`--covcheck` 是可选的。
+`scripts/analysis/summarize.py` 而言，`--covcheck` 是可选的。
 
 ## 细节
 
 ### 图像预处理
 
-`analysis_templates.py` 按当前实验校验每个交付的数据立方（`generated_inputs`：身份记录、形状、
+`scripts/analysis/templates.py` 按当前实验校验每个交付的数据立方（`generated_inputs`：身份记录、形状、
 标签等于 `raptor.snapshots`），并逐帧运行 `preprocess_cube`（`eht_axion/analysis/templates.py`）。
 对每个 Stokes 通道，`preprocess_frame`：
 
@@ -139,7 +139,7 @@ $$
 
 ### 特征选择
 
-`analysis_limits.py` 读取每天的模糊图像系综，在不看日差大小的前提下选取特征。EHT 图 $[y, x]$ 被
+`scripts/analysis/limits.py` 读取每天的模糊图像系综，在不看日差大小的前提下选取特征。EHT 图 $[y, x]$ 被
 转置为模板顺序 $[x, y]$；天空坐标轴必须等于公共网格。
 
 2D 特征是同时满足下列全部条件的模板像素：
@@ -235,17 +235,17 @@ $c$ 的网格有 `coupling_points`（120）个对数间隔的取值，从 `coupl
 
 ### 检验
 
-- `analysis_check_grid.py` 用覆盖后的 `phase_count`、`coupling_points` 和/或 `coupling_max` 对一个
+- `scripts/analysis/check_grid.py` 用覆盖后的 `phase_count`、`coupling_points` 和/或 `coupling_max` 对一个
   上限根目录中保存的观测量重新计算；其余一切必须等于产生源目录的那次实验。它报告相对于源目录的
   $\Delta\log_{10}c_{95}$。用更密的网格运行一次（“网格检验”），用更宽的 $c$ 范围再运行一次（“先验
   检验”）。
-- `analysis_check_covariance.py` 把每天的抽样分成前一半和后一半（各 500 次），围绕固定的全系综均值
+- `scripts/analysis/check_covariance.py` 把每天的抽样分成前一半和后一半（各 500 次），围绕固定的全系综均值
   重新计算 $C_d$，并对全部六种情形重复观测上限的计算；它报告相对于主结果的
   $\Delta\log_{10}c_{95}$。特征和数据保持不变。
 
 ### 汇总
 
-`analysis_summarize.py` 读取已完成的上限、网格检验、先验检验阶段以及可选的协方差检验阶段，并写出：
+`scripts/analysis/summarize.py` 读取已完成的上限、网格检验、先验检验阶段以及可选的协方差检验阶段，并写出：
 `limits.csv`；网格检验与主结果、先验检验与网格检验的比较（二者都必须保持相同的特征数）；每种观测
 情形、每个 $\alpha$ 保存下来的联合网格最佳拟合，以及 $c = 0$ 和最佳网格点处的 $\chi^2$
 （`fit-chi2.csv`，每个 $\alpha$ 一幅图 `fits-alpha-<α>.png`）；一幅上限图；`report.json`；以及
@@ -254,7 +254,7 @@ $\sigma_\mathrm{bg}$、各检验中的最大变化、拟合表）生成；其中
 
 ### 论文输出
 
-`analysis_paper.py`（阶段 `analysis:paper`）把论文从流水线取用的全部内容收集到一个目录中。它读取
+`scripts/analysis/paper.py`（阶段 `analysis:paper`）把论文从流水线取用的全部内容收集到一个目录中。它读取
 上限、三个检验阶段、模板（论文所用 $\alpha$ 的预处理数据立方、响应拟合和模板，以及预处理后的无轴子
 背景）、EHT 系综、交付的 400 像素无轴子数据立方、RAPTOR 计划以及编译目录中的 `axion.c` 副本。径向表
 是计划中记录的文件（`--radial-low`、`--radial-high` 或 `EHT_RADIAL_LOW`、`EHT_RADIAL_HIGH` 可覆盖其

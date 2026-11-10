@@ -1,9 +1,14 @@
 """Plan/run/resume RAPTOR jobs or deliver verified HDF; never implicitly build."""
+
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import json
 import shutil
 
-import _bootstrap  # noqa: F401
-from _raptor_options import options, save_request
+from eht_axion.raptor.options import options, save_request
 from eht_axion.raptor.delivery import deliver_stokes
 from eht_axion.raptor.jobs import run_jobs
 from eht_axion.raptor.plan import plan_generation

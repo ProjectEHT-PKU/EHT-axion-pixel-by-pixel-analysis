@@ -1,4 +1,4 @@
-"""EHT Paper VII/Appendix H calibration primitives (used by the eht_* scripts).
+"""EHT Paper VII/Appendix H calibration primitives (used by the scripts in scripts/eht/).
 
 Native circular data loading, systematic noise (fsys), fixed D-term (leakage)
 correction, the zero-prior forward D fit and the four-day D-term distribution

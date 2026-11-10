@@ -1,11 +1,11 @@
-"""eht_refine: settings from experiment.yaml and the scoped D-optimizer options (synthetic)."""
+"""scripts/eht/refine.py: settings from experiment.yaml and the scoped D-optimizer options (synthetic)."""
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import numpy as np
 import pytest
 
-import eht_refine as w
+from scripts.eht import refine as w
 from eht_axion.experiment import read_experiment
 from eht_axion.eht import calibration as core
 

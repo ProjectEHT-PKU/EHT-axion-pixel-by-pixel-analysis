@@ -77,16 +77,16 @@ SHA-256 存在于目录之内。`recursive=True` 时，它还重新计算每个�
 哈希的文件发生变化（设备、inode、大小、修改时间和状态改变时间）。
 
 默认情况下，`stage_directory` 在开始之前校验每个输入阶段的完整来源链。小型结果步骤
-`analysis_check_grid.py`、`analysis_check_covariance.py`、`analysis_summarize.py` 和 `analysis_paper.py` 传入
+`scripts/analysis/check_grid.py`、`scripts/analysis/check_covariance.py`、`scripts/analysis/summarize.py` 和 `scripts/analysis/paper.py` 传入
 `verify_lineage=False`：它们校验所读取阶段的输出，并把这些清单作为已计算哈希的输入记录下来，但不再
 重新计算整条原始来源链的哈希。
 
 ### 输出根目录
 
 所有脚本适用同一条规则：产生结果的脚本拒绝已经存在的输出根目录。例外是流水线中可续跑的部分：
-`raptor_build.py`、`raptor_generate.py` 和 `raptor_merge.py` 复用其运行根目录中已完成的阶段（阶段名、
-配置和输入数据都相同的阶段被复用；同一位置上不同的阶段报错），`eht_sample.py` 在批次身份不变时于同一输出根目录中续跑
-批次。`analysis_templates.py` 在一个新的根目录下写出多个阶段。
+`scripts/raptor/build.py`、`scripts/raptor/generate.py` 和 `scripts/raptor/merge.py` 复用其运行根目录中已完成的阶段（阶段名、
+配置和输入数据都相同的阶段被复用；同一位置上不同的阶段报错），`scripts/eht/sample.py` 在批次身份不变时于同一输出根目录中续跑
+批次。`scripts/analysis/templates.py` 在一个新的根目录下写出多个阶段。
 
 `stage_directory` 遇到已存在的目标时，用与新阶段相同的来源链设置校验它：默认递归校验，
 `verify_lineage=False` 时只校验输出。
@@ -101,29 +101,29 @@ SHA-256 存在于目录之内。`recursive=True` 时，它还重新计算每个�
 
 | 阶段 | 写出者 |
 |---|---|
-| `raptor:build` | `raptor_build.py` |
-| `raptor:job` | `raptor_generate.py`（每个任务一个） |
-| `raptor:delivery` | `raptor_generate.py`、`raptor_merge.py`（每个产品一个） |
-| `raptor:merge` | `raptor_merge.py` |
-| `eht:i`、`eht:fiducial` | `eht_reconstruct.py` |
-| `eht:refine` | `eht_refine.py` |
-| `eht:ensemble` | `eht_summarize.py` |
-| `analysis:preprocess`、`analysis:fit`、`analysis:templates`、`analysis:background` | `analysis_templates.py` |
-| `analysis:limits` | `analysis_limits.py` |
-| `analysis:check-grid` | `analysis_check_grid.py` |
-| `analysis:check-covariance` | `analysis_check_covariance.py` |
-| `analysis:summary` | `analysis_summarize.py` |
-| `analysis:paper` | `analysis_paper.py` |
+| `raptor:build` | `scripts/raptor/build.py` |
+| `raptor:job` | `scripts/raptor/generate.py`（每个任务一个） |
+| `raptor:delivery` | `scripts/raptor/generate.py`、`scripts/raptor/merge.py`（每个产品一个） |
+| `raptor:merge` | `scripts/raptor/merge.py` |
+| `eht:i`、`eht:fiducial` | `scripts/eht/reconstruct.py` |
+| `eht:refine` | `scripts/eht/refine.py` |
+| `eht:ensemble` | `scripts/eht/summarize.py` |
+| `analysis:preprocess`、`analysis:fit`、`analysis:templates`、`analysis:background` | `scripts/analysis/templates.py` |
+| `analysis:limits` | `scripts/analysis/limits.py` |
+| `analysis:check-grid` | `scripts/analysis/check_grid.py` |
+| `analysis:check-covariance` | `scripts/analysis/check_covariance.py` |
+| `analysis:summary` | `scripts/analysis/summarize.py` |
+| `analysis:paper` | `scripts/analysis/paper.py` |
 
 ### 阶段目录之外的回执
 
-- `eht_export_bundle.py` 写出 `bundle.json` 而不是清单：列出每个复制文件的 SHA-256、大小和原始
+- `scripts/eht/export_bundle.py` 写出 `bundle.json` 而不是清单：列出每个复制文件的 SHA-256、大小和原始
   路径、科学约定以及 git 提交（`code`）。复制之前校验源阶段（完整来源链），复制得到的文件设为只读。
-- `eht_sample.py` 写出 `batch.json`，其 `identity` 是批次计划的 SHA-256（打包快照的哈希、科学取值、
+- `scripts/eht/sample.py` 写出 `batch.json`，其 `identity` 是批次计划的 SHA-256（打包快照的哈希、科学取值、
   git 提交以及 ehtim、numpy、scipy、astropy 和 threadpoolctl 的版本，以及线程数）。每次尝试写出一份
   带有其输出哈希的 `taskreceipt.json`；`finish.json` 列出每次抽样获证书尝试的回执。
-  `eht_summarize.py` 在构建系综阶段之前重新检查这些回执。
-- `raptor_generate.py` 和 `raptor_build.py` 在运行根目录的 `requests/<uuid>.json` 中追加一条请求
+  `scripts/eht/summarize.py` 在构建系综阶段之前重新检查这些回执。
+- `scripts/raptor/generate.py` 和 `scripts/raptor/build.py` 在运行根目录的 `requests/<uuid>.json` 中追加一条请求
   记录，并把实验文件的副本保存为 `config.yaml`。
 
 ## 相关页面

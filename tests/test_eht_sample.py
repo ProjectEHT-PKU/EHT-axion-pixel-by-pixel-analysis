@@ -1,15 +1,13 @@
 """Synthetic snapshots and tiny exact PDHG only; no real observations/MC launch."""
-import importlib.util
 import json
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[1] / 'scripts' / 'eht_sample.py'
-spec = importlib.util.spec_from_file_location('uncertainty_batch', SCRIPT)
-batch = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(batch)
+from scripts.eht import sample as batch
+
+SCRIPT = Path(batch.__file__)
 
 
 def snapshot(tmp_path):
@@ -43,7 +41,7 @@ def snapshot(tmp_path):
 
 def test_bundle_bytes_seeds_and_4000_unique_tasks(tmp_path):
     root, b = snapshot(tmp_path)
-    science = batch.science_settings(SCRIPT.parents[1] / 'configs' / 'experiment.yaml')
+    science = batch.science_settings(SCRIPT.parents[2] / 'configs' / 'experiment.yaml')
     assert science['sites'] == ['AA', 'AP', 'AZ', 'JC', 'LM', 'PV', 'SM']
     assert (science['draws_per_day'], science['seed'], science['fsys']) == (1000, 20210405, .005)
     assert science['monte_carlo'] == dict(initial_p_fraction=.05, gap_atol=1e-6, maxiter=50000,

@@ -86,7 +86,7 @@ def test_eht_imaging_parameters_flat_set_with_shared_grid(config):
     imaging = {k: v for k, v in config["eht_imaging"].items() if k not in ("refine", "monte_carlo")}
     for key, value in imaging.items():
         assert parameters[key] == value
-    # The solver settings of eht_refine/eht_sample are not part of the imaging parameter set.
+    # The solver settings of scripts/eht/refine.py and sample.py are not part of the imaging parameter set.
     assert len(parameters) == len(imaging) + 3 + len(LOCATIONS)
     assert "refine" not in parameters and "monte_carlo" not in parameters
     with pytest.raises(ValueError, match="locations"):

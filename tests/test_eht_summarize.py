@@ -1,15 +1,13 @@
-"""eht_summarize: experiment-derived settings and verification of an eht_sample output root (synthetic)."""
+"""scripts/eht/summarize.py: experiment-derived settings, verification of a Monte Carlo root (synthetic)."""
 import hashlib
-import importlib.util
 import json
 from pathlib import Path
 
 import pytest
 
+from scripts.eht import summarize as s
+
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location('eht_summarize_test', ROOT / 'scripts/eht_summarize.py')
-s = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(s)
 
 
 def sha(path):
@@ -67,7 +65,7 @@ def test_verify_batch_reads_the_sample_root_directly(tmp_path):
     assert {d: sorted(v) for d, v in selected.items()} == {d: [0, 1] for d in s.en.DAYS}
     assert identity == json.loads((root / 'batch.json').read_text())['identity']
     assert root / 'batch.json' in paths and root / 'finish.json' in paths
-    with pytest.raises(ValueError, match='inconsistent eht_sample batch'):
+    with pytest.raises(ValueError, match='inconsistent Monte Carlo batch'):
         with s.provenance.verification_session():
             s.verify_batch(root, dict(draws=3), SCIENCE)
     with pytest.raises(ValueError, match='different experiment values'):
@@ -75,6 +73,6 @@ def test_verify_batch_reads_the_sample_root_directly(tmp_path):
             s.verify_batch(root, dict(draws=2), dict(SCIENCE, seed=2))
     batch = json.loads((root / 'batch.json').read_text())
     (root / 'batch.json').write_text(json.dumps(dict(batch, science=dict(SCIENCE, seed=2))))
-    with pytest.raises(ValueError, match='inconsistent eht_sample batch'):  # identity no longer matches
+    with pytest.raises(ValueError, match='inconsistent Monte Carlo batch'):  # identity no longer matches
         with s.provenance.verification_session():
             s.verify_batch(root, dict(draws=2), dict(SCIENCE, seed=2))

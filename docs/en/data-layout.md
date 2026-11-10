@@ -21,7 +21,7 @@ The products below are read by the next scripts as described on
 ```text
 RUN_ROOT/
   config.yaml                    copy of the experiment file of this run
-  requests/<uuid>.json           one record per raptor_build / raptor_generate call
+  requests/<uuid>.json           one record per raptor/build.py / generate.py call
   build/                         stage raptor:build
     RAPTOR                       executable
     source/                      tracked RAPTOR source bytes at raptor.source.commit
@@ -42,7 +42,7 @@ RUN_ROOT/
       generated.json, sources.json, convert.json
 ```
 
-`raptor_merge.py` writes `OUTPUT/data/raptor/...` as above and
+`scripts/raptor/merge.py` writes `OUTPUT/data/raptor/...` as above and
 `OUTPUT/inventory/index.json` (stage `raptor:merge`).
 
 Delivered cubes: axes (time, state, x, y, Stokes); Stokes order I, Q, U, V in Jy/sr; x and
@@ -71,7 +71,7 @@ D<day>/                          stage eht:refine
   final-raw-IQU.fits, final-blurred-IQU.fits, final-dterms.json
   best-P.npz, steps.json, D-optimizer-records.json, termination.json
 BUNDLE/                          no manifest; bundle.json instead
-  bundle.json, feed-rotation.json, eht_export_bundle.py
+  bundle.json, feed-rotation.json, scripts/eht/export_bundle.py
   <day>/fixedI.fits, <day>/gaincal-pol.uvfits, <day>/fiducial-dterms.json
   lineage/<day>/I-manifest.json, D-manifest.json, D-plan.json, D-termination.json, D-steps.json
 MC/                              no manifest; batch receipts instead
@@ -94,7 +94,7 @@ percent). FITS images have four HDUs I, Q, U, V on native `RA---SIN`/`DEC--SIN` 
 east offset decreases with the x index and the north offset increases with the y index.
 `<day>-<draw>` uses a four-digit draw index, for example `95-0042`.
 
-`eht_summarize.py` reads the `MC/` root above directly.
+`scripts/eht/summarize.py` reads the `MC/` root above directly.
 
 ### Analysis
 
@@ -170,38 +170,38 @@ per part:
 ```text
 <data root>/
   raptor/
-    plan.json                    frozen task plan (raptor_generate.py --plan --plan-output)
-    runs/<name>/                 run roots of raptor_generate.py (build/, jobs/, attempts/,
+    plan.json                    frozen task plan (scripts/raptor/generate.py --plan --plan-output)
+    runs/<name>/                 run roots of scripts/raptor/generate.py (build/, jobs/, attempts/,
                                  config.yaml, requests/); one per host or build; default runs/main
-    delivered/                   raptor_merge.py output root: data/raptor/res-*/..., inventory/
+    delivered/                   scripts/raptor/merge.py output root: data/raptor/res-*/..., inventory/
   eht/
-    intensity/day-<day>/         eht_reconstruct.py --stage I
-    fiducial/day-<day>/          eht_reconstruct.py --stage fiducial
-    refine/day-<day>/            eht_refine.py
-    bundle/                      eht_export_bundle.py
-    sample/                      eht_sample.py
-    ensemble/                    eht_summarize.py
+    intensity/day-<day>/         scripts/eht/reconstruct.py --stage I
+    fiducial/day-<day>/          scripts/eht/reconstruct.py --stage fiducial
+    refine/day-<day>/            scripts/eht/refine.py
+    bundle/                      scripts/eht/export_bundle.py
+    sample/                      scripts/eht/sample.py
+    ensemble/                    scripts/eht/summarize.py
   analysis/
-    templates/                   analysis_templates.py (--raptor-input-root raptor/delivered/data)
-    limits/                      analysis_limits.py
-    check-grid/                  analysis_check_grid.py with a denser phase and coupling grid
-    check-prior/                 analysis_check_grid.py with a wider coupling range
-    check-covariance/            analysis_check_covariance.py
-    summary/                     analysis_summarize.py
-    paper/                       analysis_paper.py
+    templates/                   scripts/analysis/templates.py (--raptor-input-root raptor/delivered/data)
+    limits/                      scripts/analysis/limits.py
+    check-grid/                  scripts/analysis/check_grid.py with a denser phase and coupling grid
+    check-prior/                 scripts/analysis/check_grid.py with a wider coupling range
+    check-covariance/            scripts/analysis/check_covariance.py
+    summary/                     scripts/analysis/summarize.py
+    paper/                       scripts/analysis/paper.py
 ```
 
 `M87_AXION_DATA_ROOT` (exported, or in `.env`) or `--data-root` names the data root; every
 script then takes its default input and output roots from this layout, and an explicit
 `--...-root` option overrides a default. The default RAPTOR run root is `raptor/runs/main`
-(`--run-root` or `EHT_RAPTOR_RUN_ROOT` override it); `raptor_merge.py` merges every directory
-in `raptor/runs/` by default; `analysis_check_grid.py` needs `--check grid` or
+(`--run-root` or `EHT_RAPTOR_RUN_ROOT` override it); `scripts/raptor/merge.py` merges every directory
+in `raptor/runs/` by default; `scripts/analysis/check_grid.py` needs `--check grid` or
 `--check prior` to choose its default output root. Result scripts still refuse an existing
 output root, so a default output root can be written once.
 
 With this layout the RAPTOR run used for the results has two run roots, `runs/main`
 (18 234 jobs) and `runs/background` (96 axion-off 400-pixel jobs, labels 2050–3000, made
-with a second build); `raptor_merge.py` delivers both into `delivered/`.
+with a second build); `scripts/raptor/merge.py` delivers both into `delivered/`.
 
 ## Related pages
 

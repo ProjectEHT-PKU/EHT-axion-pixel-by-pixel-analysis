@@ -1,6 +1,5 @@
 """Entry-point contracts with synthetic data only; never execute science imaging."""
 from copy import deepcopy
-import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -11,11 +10,9 @@ import numpy as np
 import pytest
 import yaml
 
+from scripts.eht import reconstruct as w
+
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location('eht_reconstruct_test',
-                                               ROOT / 'scripts/eht_reconstruct.py')
-w = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(w)
 
 
 LOCATIONS = dict(input_root='/data/uvfits', input_receipt='/data/receipt.json',

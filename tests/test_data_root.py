@@ -6,8 +6,7 @@ import re
 
 import pytest
 
-import _data_root
-import _environment
+from eht_axion import environment as env
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -15,9 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 @pytest.fixture
 def project(tmp_path, monkeypatch):
     """An isolated project root for dotenv files, without exported settings."""
-    monkeypatch.setattr(_environment, "ROOT", tmp_path)
+    monkeypatch.setattr(env, "ROOT", tmp_path)
     for name in list(os.environ):
-        if name.startswith("EHT_") or name == _data_root.DATA_ROOT_KEY:
+        if name.startswith("EHT_") or name == env.DATA_ROOT_KEY:
             monkeypatch.delenv(name)
     return tmp_path
 
@@ -39,9 +38,9 @@ def documented_layout(path):
 @pytest.mark.parametrize("language", ["en", "zh"])
 def test_layout_is_the_documented_default_layout(language):
     documented = documented_layout(ROOT / "docs" / language / "data-layout.md")
-    for key, relative in _data_root.LAYOUT.items():
+    for key, relative in env.LAYOUT.items():
         expected = relative.format(day="<day>").replace("runs/main", "runs/<name>")
-        if key == "raptor_data":
+        if key == "raptor.data":
             expected = "raptor/delivered"
         assert expected in documented, key
 
@@ -49,14 +48,14 @@ def test_layout_is_the_documented_default_layout(language):
 def parse(argv, defaults, environment=None):
     parser = ArgumentParser()
     parser.add_argument("--limits", type=Path)
-    _data_root.add_data_root_option(parser)
+    env.add_data_root_option(parser)
     args = parser.parse_args(argv)
-    _data_root.fill_defaults(parser, args, defaults, environment)
+    env.fill_defaults(parser, args, defaults, environment)
     return args
 
 
 def test_precedence_cli_root_then_data_root_from_cli_env_dotenv(project, monkeypatch):
-    defaults = {"limits": ("analysis_limits", {})}
+    defaults = {"limits": ("analysis.limits", {})}
     assert parse(["--limits", "x", "--data-root", "/d"], defaults).limits == Path("x")
     assert parse(["--data-root", "/d"], defaults).limits == Path("/d/analysis/limits")
     (project / ".env").write_text("M87_AXION_DATA_ROOT=data\n")
@@ -69,7 +68,7 @@ def test_precedence_cli_root_then_data_root_from_cli_env_dotenv(project, monkeyp
 
 def test_missing_root_is_an_error(project):
     with pytest.raises(SystemExit):
-        parse([], {"limits": ("analysis_limits", {})})
+        parse([], {"limits": ("analysis.limits", {})})
 
 
 def capture(monkeypatch, module, name="run"):
@@ -79,101 +78,94 @@ def capture(monkeypatch, module, name="run"):
 
 
 def test_analysis_scripts_default_roots(project, monkeypatch):
-    import analysis_check_covariance
-    import analysis_check_grid
-    import analysis_limits
-    import analysis_summarize
-    import analysis_templates
+    from scripts.analysis import check_covariance, check_grid, limits, summarize, templates
 
-    calls = capture(monkeypatch, analysis_templates)
-    analysis_templates.main(["--data-root", "/d"])
+    calls = capture(monkeypatch, templates)
+    templates.main(["--data-root", "/d"])
     assert calls[0][0][1:] == (Path("/d/raptor/delivered/data"), Path("/d/analysis/templates"))
 
-    calls = capture(monkeypatch, analysis_limits)
-    analysis_limits.main(["--data-root", "/d", "--output-root", "/new"])
+    calls = capture(monkeypatch, limits)
+    limits.main(["--data-root", "/d", "--output-root", "/new"])
     args = calls[0][0][0]
     assert (args.ensemble, args.templates, args.output_root) == (
         Path("/d/eht/ensemble"), Path("/d/analysis/templates"), Path("/new"))
 
-    calls = capture(monkeypatch, analysis_check_grid)
-    analysis_check_grid.main(["--data-root", "/d", "--check", "prior", "--coupling-max", "1e4"])
+    calls = capture(monkeypatch, check_grid)
+    check_grid.main(["--data-root", "/d", "--check", "prior", "--coupling-max", "1e4"])
     args = calls[0][0][0]
     assert (args.source, args.output_root) == (Path("/d/analysis/limits"), Path("/d/analysis/check-prior"))
     with pytest.raises(SystemExit):
-        analysis_check_grid.main(["--data-root", "/d"])
+        check_grid.main(["--data-root", "/d"])
 
-    monkeypatch.setattr(analysis_check_covariance.provenance, "verification_session",
+    monkeypatch.setattr(check_covariance.provenance, "verification_session",
                         lambda: (_ for _ in ()).throw(RuntimeError("roots filled in")))
     with pytest.raises(RuntimeError, match="roots filled in"):
-        analysis_check_covariance.main(["--data-root", str(project / "d")])
+        check_covariance.main(["--data-root", str(project / "d")])
     (project / "d" / "analysis" / "check-covariance").mkdir(parents=True)
     with pytest.raises(FileExistsError):
-        analysis_check_covariance.main(["--data-root", str(project / "d")])
+        check_covariance.main(["--data-root", str(project / "d")])
 
-    calls = capture(monkeypatch, analysis_summarize)
-    analysis_summarize.main(["--data-root", "/d"])
+    calls = capture(monkeypatch, summarize)
+    summarize.main(["--data-root", "/d"])
     args = calls[0][0][0]
     assert (args.limits, args.gridcheck, args.priorcheck, args.covcheck, args.output_root) == (
         Path("/d/analysis/limits"), Path("/d/analysis/check-grid"), Path("/d/analysis/check-prior"),
         Path("/d/analysis/check-covariance"), Path("/d/analysis/summary"))
-    analysis_summarize.main(["--limits", "a", "--gridcheck", "b", "--priorcheck", "c", "--output-root", "e"])
+    summarize.main(["--limits", "a", "--gridcheck", "b", "--priorcheck", "c", "--output-root", "e"])
     assert calls[1][0][0].covcheck is None
 
 
 def test_eht_scripts_default_roots(project, monkeypatch):
-    import eht_export_bundle
-    import eht_reconstruct
-    import eht_refine
+    from scripts.eht import export_bundle, reconstruct, refine
 
-    args = eht_reconstruct.parse(["--stage", "fiducial", "--day", "96", "--data-root", "/d"])
+    args = reconstruct.parse(["--stage", "fiducial", "--day", "96", "--data-root", "/d"])
     assert (args.i_root, args.output_root) == (Path("/d/eht/intensity/day-96"),
                                                Path("/d/eht/fiducial/day-96"))
-    args = eht_reconstruct.parse(["--stage", "I", "--day", "95", "--data-root", "/d"])
+    args = reconstruct.parse(["--stage", "I", "--day", "95", "--data-root", "/d"])
     assert (args.i_root, args.output_root) == (None, Path("/d/eht/intensity/day-95"))
-    args = eht_refine.parse(["--day", "100", "--data-root", "/d"])
+    args = refine.parse(["--day", "100", "--data-root", "/d"])
     assert (args.source_root, args.i_root, args.output_root) == (
         Path("/d/eht/fiducial/day-100"), Path("/d/eht/intensity/day-100"), Path("/d/eht/refine/day-100"))
 
     seen = {}
-    monkeypatch.setattr(eht_export_bundle, "export",
+    monkeypatch.setattr(export_bundle, "export",
                         lambda config, i, d, out: seen.update(i=i, d=d, out=out) or {"files": []})
-    eht_export_bundle.main(["--data-root", "/d"])
+    export_bundle.main(["--data-root", "/d"])
     assert seen["i"] == [Path(f"/d/eht/intensity/day-{day}") for day in (95, 96, 100, 101)]
     assert seen["d"] == [Path(f"/d/eht/refine/day-{day}") for day in (95, 96, 100, 101)]
     assert seen["out"] == Path("/d/eht/bundle")
 
 
 def test_eht_sample_and_summary_default_roots(project, monkeypatch, tmp_path):
-    import eht_sample
-    import eht_summarize
+    from scripts.eht import sample, summarize
 
     data = tmp_path / "d"
     with pytest.raises(SystemExit):  # stops at the worker check, after the roots are filled in
-        eht_sample.main(["--data-root", str(data), "--workers", "0"])
+        sample.main(["--data-root", str(data), "--workers", "0"])
     (data / "eht" / "sample").mkdir(parents=True)
     (data / "eht" / "ensemble").mkdir(parents=True)
     with pytest.raises(SystemExit):  # the default output root exists: refused
-        eht_summarize.main(["--data-root", str(data)])
+        summarize.main(["--data-root", str(data)])
 
 
 def test_raptor_scripts_default_roots(project, monkeypatch, tmp_path):
-    import _raptor_options
-    import raptor_merge
+    from eht_axion.raptor import options as raptor_options
+    from scripts.raptor import merge
 
     core = project / "core"
     core.mkdir()
-    monkeypatch.setattr(_raptor_options, "ROOT", ROOT)
-    args = _raptor_options.options("build", ["--source-root", str(core), "--data-root", str(tmp_path / "d")])
+    monkeypatch.setattr(raptor_options, "ROOT", ROOT)
+    args = raptor_options.options("build", ["--source-root", str(core), "--data-root", str(tmp_path / "d")])
     assert args.run_root == (tmp_path / "d" / "raptor" / "runs" / "main").resolve()
     (project / ".env.raptor").write_text(f"EHT_RAPTOR_RUN_ROOT={tmp_path / 'explicit'}\n")
-    args = _raptor_options.options("build", ["--source-root", str(core), "--data-root", str(tmp_path / "d")])
+    args = raptor_options.options("build", ["--source-root", str(core), "--data-root", str(tmp_path / "d")])
     assert args.run_root == (tmp_path / "explicit").resolve()
 
     data = tmp_path / "m"
     for name in ("main", "background"):
         (data / "raptor" / "runs" / name).mkdir(parents=True)
     (data / "raptor" / "plan.json").write_text('{"config": {}}')
-    monkeypatch.setattr(raptor_merge, "validate_ray_tracing",
+    monkeypatch.setattr(merge, "validate_ray_tracing",
                         lambda config: (_ for _ in ()).throw(RuntimeError("stop")))
     parser_args = {}
     real_parse = ArgumentParser.parse_args
@@ -184,7 +176,7 @@ def test_raptor_scripts_default_roots(project, monkeypatch, tmp_path):
         return result
     monkeypatch.setattr(ArgumentParser, "parse_args", spy)
     with pytest.raises(RuntimeError, match="stop"):
-        raptor_merge.main(["--data-root", str(data)])
+        merge.main(["--data-root", str(data)])
     args = parser_args["args"]
     assert args.job_root == [data / "raptor/runs/background", data / "raptor/runs/main"]
     assert (args.plan, args.output_root) == (data / "raptor/plan.json", data / "raptor/delivered")

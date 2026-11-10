@@ -1,7 +1,4 @@
 """Independent-day working covariance semantics; no large source files."""
-import importlib.util
-from pathlib import Path
-
 import numpy as np
 import pytest
 
@@ -11,13 +8,7 @@ from eht_axion.analysis.observations import (
     branch_risk, build_observations, covariance_diagnostics, moments,
 )
 from eht_axion.analysis.likelihood import calculate_observed
-
-
-ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location(
-    'eht_ensemble_limits_driver', ROOT / 'scripts/analysis_limits.py')
-driver = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(driver)
+from scripts.analysis import limits as driver
 
 
 def samples():

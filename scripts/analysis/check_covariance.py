@@ -4,12 +4,16 @@
 Each half estimates covariance, not covariance of the mean. The selected features
 and real day differences stay fixed; no mask selection or covariance ridge.
 """
+
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import argparse
 import csv
 import json
-from pathlib import Path
 
-import _bootstrap  # noqa: F401
 import numpy as np
 from eht_axion import provenance
 from eht_axion.analysis.likelihood import MODES, calculate_observed
@@ -17,8 +21,8 @@ from eht_axion.analysis.observations import ObservationData
 from eht_axion.analysis.templates import load_templates
 from eht_axion.evpa import circular_difference
 from eht_axion.experiment import DEFAULT_PATH, read_experiment
-from analysis_limits import options_from_config
-from _data_root import add_data_root_option, fill_defaults
+from scripts.analysis.limits import options_from_config
+from eht_axion.environment import add_data_root_option, fill_defaults
 
 
 def covariance(samples, center):
@@ -30,13 +34,13 @@ def covariance(samples, center):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: configs/experiment.yaml')
-    p.add_argument('--source', type=Path, help='analysis_limits.py stage (default: analysis/limits)')
-    p.add_argument('--templates', type=Path, help='analysis_templates.py root (default: analysis/templates)')
+    p.add_argument('--source', type=Path, help='scripts/analysis/limits.py stage (default: analysis/limits)')
+    p.add_argument('--templates', type=Path, help='templates root (default: analysis/templates)')
     p.add_argument('--output-root', type=Path, help='new directory (default: analysis/check-covariance)')
     add_data_root_option(p)
     args = p.parse_args(argv)
-    fill_defaults(p, args, {'source': ('analysis_limits', {}), 'templates': ('analysis_templates', {}),
-                            'output_root': ('analysis_check_covariance', {})})
+    fill_defaults(p, args, {'source': ('analysis.limits', {}), 'templates': ('analysis.templates', {}),
+                            'output_root': ('analysis.check_covariance', {})})
     if args.output_root.exists():
         raise FileExistsError(f'New output root required: {args.output_root}')
     with provenance.verification_session():

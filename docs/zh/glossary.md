@@ -44,8 +44,8 @@
 | 求解台站、固定台站（solve sites、fixed sites） | AZ、LM、PV（此处求解其 D 项）和 AA、AP、SM、JC（在 HOPS 数据中已预先改正） |
 | fsys | 加到 RL 和 LR 误差上的相对系统误差（`eht_imaging.fsys`） |
 | 固定 I（fixed I） | I 阶段的总强度图像；之后的所有步骤只求解 $P$ |
-| 基准（fiducial） | `eht_reconstruct.py --stage fiducial` 的 P/D 交替结果 |
-| 精化 D 项 | `eht_refine.py` 处理后的基准 D 项（精化阶段的 `final-dterms.json`） |
+| 基准（fiducial） | `scripts/eht/reconstruct.py --stage fiducial` 的 P/D 交替结果 |
+| 精化 D 项 | `scripts/eht/refine.py` 处理后的基准 D 项（精化阶段的 `final-dterms.json`） |
 | 模糊图像 | 与 FWHM 为 `shared.image.blur_fwhm_uas`（19 µas）的圆高斯核卷积后的图像；文件名为 `*-blurred-IQU.fits` |
 | 抽样（draw） | 一组 D 项样本及其获证书的 P 图像；每天 1000 次 |
 | 间隙证书（gap certificate） | 精确 P 求解器的最佳原始目标值减去最佳对偶下界，不超过 `gap_atol` |

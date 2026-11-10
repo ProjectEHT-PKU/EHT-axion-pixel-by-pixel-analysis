@@ -1,12 +1,15 @@
 """Deliver Stokes cubes from the completed job roots of several hosts into a new root; runs no RAPTOR."""
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import argparse
 import json
-from pathlib import Path
 
-import _bootstrap  # noqa: F401
-from _data_root import DATA_ROOT_KEY, add_data_root_option, data_root, fill_defaults, layout_path
+from eht_axion.environment import DATA_ROOT_KEY, add_data_root_option, data_root, fill_defaults, layout_path
 from eht_axion.provenance import manifest_path, stage_directory, verification_session
 from eht_axion.experiment import validate_ray_tracing
 from eht_axion.raptor.delivery import deliver_stokes
@@ -23,14 +26,14 @@ def main(argv=None):
                              "(default: raptor/delivered)")
     add_data_root_option(parser)
     args = parser.parse_args(argv)
-    fill_defaults(parser, args, {"plan": ("raptor_plan", {}), "output_root": ("raptor_delivered", {})})
+    fill_defaults(parser, args, {"plan": ("raptor.plan", {}), "output_root": ("raptor.delivered", {})})
     if args.job_root is None:
         root = data_root(args)
         if root is None:
             parser.error(f"Provide --job-root, or --data-root / ${DATA_ROOT_KEY}")
-        args.job_root = sorted(p for p in layout_path(root, "raptor_runs").iterdir() if p.is_dir())
+        args.job_root = sorted(p for p in layout_path(root, "raptor.runs").iterdir() if p.is_dir())
         if not args.job_root:
-            parser.error(f"No run roots in {layout_path(root, 'raptor_runs')}")
+            parser.error(f"No run roots in {layout_path(root, 'raptor.runs')}")
     plan = json.loads(args.plan.read_text())
     validate_ray_tracing(plan["config"])
     with verification_session():

@@ -1,7 +1,7 @@
 """Gaussian likelihood of the observed EHT day-pair EVPA differences and the limit on c.
 
 LimitOptions holds every inference value (from experiment.yaml via
-scripts/analysis_limits.options_from_config). calculate_observed multiplies the two
+options_from_config of scripts/analysis/limits.py). calculate_observed multiplies the two
 day-pair Gaussian likelihoods at a shared axion phase, averages over a uniform
 phase grid and returns the posterior upper limit on the coupling c per alpha.
 
@@ -34,7 +34,7 @@ MODES = ("std", "cor", "cor_fixed_background")
 @dataclass(frozen=True, kw_only=True)
 class LimitOptions:
     """Inference options. Every value is supplied by the caller
-    (scripts/analysis_limits.options_from_config reads experiment.yaml); there
+    (options_from_config of scripts/analysis/limits.py reads the experiment file); there
     are no defaults and no alternative methods. Field order is the
     recorded JSON order.
     """

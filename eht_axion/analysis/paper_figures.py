@@ -1,6 +1,6 @@
 """Figures of the paper (vector PDF): style and one function per figure.
 
-Every function receives arrays that analysis_paper.py has already read and checked,
+Every function receives arrays that scripts/analysis/paper.py has already read and checked,
 writes one PDF and returns the numbers it derived for the figure. Sky maps are stored
 as template arrays [x, y] with x = -East and y = North; they are shown transposed with
 East to the left and North up, without any further rotation.
@@ -56,7 +56,8 @@ def save(fig, out, name):
     """Deterministic vector PDF (no creation dates)."""
     fig.savefig(
         Path(out) / f"{name}.pdf",
-        metadata={"Creator": "analysis_paper.py", "Producer": None, "CreationDate": None, "ModDate": None},
+        metadata={"Creator": "scripts/analysis/paper.py", "Producer": None, "CreationDate": None,
+                  "ModDate": None},
     )
     plt.close(fig)
 

@@ -17,18 +17,21 @@ shown, where radial profiles are sampled); they are recorded in the manifest.
 
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import argparse
 import csv
 import json
 import os
-from pathlib import Path
 import re
 
-import _bootstrap  # noqa: F401
 import numpy as np
 
-from _data_root import add_data_root_option, fill_defaults
-from _environment import resolve_environment
+from eht_axion.environment import add_data_root_option, fill_defaults
+from eht_axion.environment import resolve_environment
 from eht_axion import provenance
 from eht_axion.analysis.likelihood import MODES
 from eht_axion.analysis.model import cloud_amplitude_scaling
@@ -155,7 +158,7 @@ class Numbers:
 
     def tex(self):
         lines = [
-            "% Numbers quoted in the paper, written by scripts/analysis_paper.py.",
+            "% Numbers quoted in the paper, written by scripts/analysis/paper.py.",
             "% Each macro: description; source (file in the data root and field).",
             "% Values containing \\times or ^ are for math mode.",
             "",
@@ -360,14 +363,14 @@ def add_scales(numbers, config, times_tg, lag_hours, pairs):
         "NumPaperAlpha",
         f"{PAPER_ALPHA:.2f}",
         PAPER_ALPHA,
-        "analysis_paper.py PAPER_ALPHA",
+        "scripts/analysis/paper.py PAPER_ALPHA",
         "alpha of the response maps, chi^2 table and fit figure",
     )
     numbers.add(
         "NumPaperSnapshot",
         str(PAPER_SNAPSHOT_LABEL),
         PAPER_SNAPSHOT_LABEL,
-        "analysis_paper.py PAPER_SNAPSHOT_LABEL",
+        "scripts/analysis/paper.py PAPER_SNAPSHOT_LABEL",
         "GRMHD label of the response maps",
     )
 
@@ -849,7 +852,7 @@ def add_two_emitter(numbers, figures):
         "NumTwoEmitterCheckAmplitude",
         order(p["check_amplitude"]),
         p["check_amplitude"],
-        "analysis_paper.py TWO_EMITTER",
+        "scripts/analysis/paper.py TWO_EMITTER",
         "amplitude of the direct two-emitter check (math mode)",
     )
     numbers.add(
@@ -915,8 +918,8 @@ def background_evpa(frames, dimension, operator):
 
 
 def run(args):
-    import _paper_figures as figures
-    from analysis_limits import theory_aperture_operator
+    from eht_axion.analysis import paper_figures as figures
+    from scripts.analysis.limits import theory_aperture_operator
     from eht_axion.evpa import circular_difference
 
     destination = args.output_root.resolve()
@@ -1204,16 +1207,16 @@ def main(argv=None):
         p,
         args,
         {
-            "limits": ("analysis_limits", {}),
-            "gridcheck": ("analysis_check_grid", {}),
-            "priorcheck": ("analysis_check_prior", {}),
-            "covcheck": ("analysis_check_covariance", {}),
-            "templates": ("analysis_templates", {}),
-            "ensemble": ("eht_ensemble", {}),
-            "raptor_input_root": ("raptor_data", {}),
-            "raptor_plan": ("raptor_plan", {}),
-            "raptor_run_root": ("raptor_run", {}),
-            "output_root": ("analysis_paper", {}),
+            "limits": ("analysis.limits", {}),
+            "gridcheck": ("analysis.check_grid", {}),
+            "priorcheck": ("analysis.check_prior", {}),
+            "covcheck": ("analysis.check_covariance", {}),
+            "templates": ("analysis.templates", {}),
+            "ensemble": ("eht.ensemble", {}),
+            "raptor_input_root": ("raptor.data", {}),
+            "raptor_plan": ("raptor.plan", {}),
+            "raptor_run_root": ("raptor.run", {}),
+            "output_root": ("analysis.paper", {}),
         },
     )
     os.environ.setdefault("MPLBACKEND", "Agg")

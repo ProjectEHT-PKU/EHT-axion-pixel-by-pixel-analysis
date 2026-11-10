@@ -4,10 +4,13 @@ All checks run in one verification session: every file is hashed once, however m
 stages declare it as an input, and must be unchanged when the check ends.
 """
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import argparse
 import json
-from pathlib import Path
-import _bootstrap  # noqa: F401
 from eht_axion.provenance import verification_session, verify_stage
 
 

@@ -1,4 +1,11 @@
-"""Read explicit project dotenv data, never execute shell or search caller cwd."""
+"""Machine-local settings of the scripts: dotenv files, the data root and its default layout.
+
+Dotenv data are read explicitly (never executed, never searched in the caller's cwd).
+The data root is ``--data-root`` or ``M87_AXION_DATA_ROOT`` (exported, or in ``.env``;
+CLI > exported environment > dotenv) and gives every script its default input and output
+roots (docs/en/data-layout.md#default-layout). An explicit ``--...-root`` option always
+wins over the default derived from the data root. Without either, the option is an error.
+"""
 from __future__ import annotations
 
 from io import StringIO
@@ -9,7 +16,7 @@ from dotenv import dotenv_values
 from dotenv.parser import parse_stream
 
 ROOT = Path(__file__).resolve().parents[1]
-# Machine-local locations only; scientific values live in experiment.yaml.
+# Machine-local locations only; scientific values live in configs/experiment.yaml.
 PATH_KEYS = {
     # Data root of the default layout (docs/en/data-layout.md), read by every script
     "M87_AXION_DATA_ROOT",
@@ -35,7 +42,7 @@ def add_environment_options(parser):
 
 
 def resolve_environment(args, *, raptor=False):
-    """CLI > exported environment > .env.raptor (raptor_* scripts) > .env.
+    """CLI > exported environment > .env.raptor (RAPTOR scripts) > .env.
 
     Return a local mapping, never contaminate os.environ between script calls.
     File-derived relative paths are anchored to this checkout, not caller cwd.
@@ -80,3 +87,71 @@ def resolve_environment(args, *, raptor=False):
             values[key] = value
     values.update(os.environ)
     return values
+
+
+DATA_ROOT_KEY = "M87_AXION_DATA_ROOT"
+
+# Relative locations of the default layout; "{day}" is an EHT observing day.
+LAYOUT = {
+    "raptor.plan": "raptor/plan.json",
+    "raptor.runs": "raptor/runs",
+    "raptor.run": "raptor/runs/main",
+    "raptor.delivered": "raptor/delivered",
+    "raptor.data": "raptor/delivered/data",
+    "eht.intensity": "eht/intensity/day-{day}",
+    "eht.fiducial": "eht/fiducial/day-{day}",
+    "eht.refine": "eht/refine/day-{day}",
+    "eht.bundle": "eht/bundle",
+    "eht.sample": "eht/sample",
+    "eht.ensemble": "eht/ensemble",
+    "analysis.templates": "analysis/templates",
+    "analysis.limits": "analysis/limits",
+    "analysis.check_grid": "analysis/check-grid",
+    "analysis.check_prior": "analysis/check-prior",
+    "analysis.check_covariance": "analysis/check-covariance",
+    "analysis.summary": "analysis/summary",
+    "analysis.paper": "analysis/paper",
+}
+
+
+def add_data_root_option(parser, *, environment_options=True):
+    parser.add_argument("--data-root", type=Path,
+                        help=f"Data root of the default layout; overrides ${DATA_ROOT_KEY}")
+    if environment_options:
+        add_environment_options(parser)
+
+
+def data_root(args, environment=None):
+    """--data-root, else M87_AXION_DATA_ROOT from the resolved environment, else None."""
+    if args.data_root is not None:
+        return args.data_root
+    if environment is None:
+        environment = resolve_environment(args)
+    value = environment.get(DATA_ROOT_KEY)
+    return Path(value) if value else None
+
+
+def layout_path(root, key, **fields):
+    return Path(root) / LAYOUT[key].format(**fields)
+
+
+def fill_defaults(parser, args, defaults, environment=None):
+    """Set each unset option ``attribute`` to ``layout_path(data root, key, **fields)``.
+
+    ``defaults`` maps an argparse attribute to ``(layout key, fields)``. An option
+    given on the command line is kept. Returns the data root (or None).
+    """
+    missing = [name for name in defaults if getattr(args, name) is None]
+    if not missing:
+        return None
+    try:
+        root = data_root(args, environment)
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
+    if root is None:
+        options = ", ".join("--" + name.replace("_", "-") for name in missing)
+        parser.error(f"Provide {options}, or --data-root / ${DATA_ROOT_KEY}")
+    for name in missing:
+        key, fields = defaults[name]
+        setattr(args, name, layout_path(root, key, **fields))
+    return root

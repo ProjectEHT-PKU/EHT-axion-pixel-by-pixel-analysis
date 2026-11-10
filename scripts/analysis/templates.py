@@ -1,6 +1,6 @@
 """Analysis: response templates and the GRMHD background from delivered RAPTOR data.
 
-Reads the delivered Stokes cubes (scripts/raptor_merge.py or raptor_generate.py)
+Reads the delivered Stokes cubes (scripts/raptor/merge.py or scripts/raptor/generate.py)
 and writes, into a NEW output root, one verified stage per step:
 
   processed/alpha-*      analysis:preprocess   blur, rotate, resample to the sky grid
@@ -8,15 +8,19 @@ and writes, into a NEW output root, one verified stage per step:
   templates/{1d,2d}      analysis:templates    template mean/std over the snapshots
   background             analysis:background   axion-off frames on the sky grid
 
-The GRMHD background sigma is computed by analysis_limits.py on exactly the
+The GRMHD background sigma is computed by scripts/analysis/limits.py on exactly the
 features used in the likelihood, from background/. No ray tracing, no EHT data.
 """
+
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import argparse
 import json
 
-import _bootstrap  # noqa: F401
-from _data_root import add_data_root_option, fill_defaults
+from eht_axion.environment import add_data_root_option, fill_defaults
 from eht_axion.analysis.templates import RunLayout, fit_processed, preprocess_cube, summarize_fits
 from eht_axion.experiment import DEFAULT_PATH, analysis_geometry, read_experiment
 from eht_axion.provenance import (
@@ -92,8 +96,8 @@ def main(argv=None):
     parser.add_argument("--output-root", type=Path, help="new directory (default: analysis/templates)")
     add_data_root_option(parser)
     args = parser.parse_args(argv)
-    fill_defaults(parser, args, {"raptor_input_root": ("raptor_data", {}),
-                                 "output_root": ("analysis_templates", {})})
+    fill_defaults(parser, args, {"raptor_input_root": ("raptor.data", {}),
+                                 "output_root": ("analysis.templates", {})})
     run(args.config, args.raptor_input_root, args.output_root)
 
 

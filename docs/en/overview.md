@@ -36,10 +36,10 @@ and [Analysis](analysis.md); environments are listed in [Development](developmen
 
 | Part | Scripts | Pixi environment |
 |---|---|---|
-| RAPTOR simulation | `raptor_build.py`, `raptor_generate.py`, `raptor_merge.py` | `raptor-build` |
-| EHT imaging | `eht_reconstruct.py`, `eht_refine.py`, `eht_export_bundle.py`, `eht_sample.py` | `eht-imaging` |
-| EHT imaging summary | `eht_summarize.py` | `eht-summary` |
-| Analysis | `analysis_templates.py`, `analysis_limits.py`, `analysis_check_grid.py`, `analysis_check_covariance.py`, `analysis_summarize.py`, `analysis_paper.py` | `default` |
+| RAPTOR simulation | `scripts/raptor/build.py`, `scripts/raptor/generate.py`, `scripts/raptor/merge.py` | `raptor-build` |
+| EHT imaging | `scripts/eht/reconstruct.py`, `scripts/eht/refine.py`, `scripts/eht/export_bundle.py`, `scripts/eht/sample.py` | `eht-imaging` |
+| EHT imaging summary | `scripts/eht/summarize.py` | `eht-summary` |
+| Analysis | `scripts/analysis/templates.py`, `scripts/analysis/limits.py`, `scripts/analysis/check_grid.py`, `scripts/analysis/check_covariance.py`, `scripts/analysis/summarize.py`, `scripts/analysis/paper.py` | `default` |
 
 Every script writes into a new output root and refuses to overwrite existing results.
 
@@ -50,26 +50,26 @@ Every script writes into a new output root and refuses to overwrite existing res
 ```mermaid
 flowchart LR
   subgraph RAPTOR["RAPTOR simulation"]
-    RB[raptor_build] --> RG[raptor_generate]
-    RG --> RM[raptor_merge]
+    RB["raptor/build.py"] --> RG["raptor/generate.py"]
+    RG --> RM["raptor/merge.py"]
   end
   subgraph EHT["EHT imaging"]
-    EI[eht_reconstruct --stage I] --> EF[eht_reconstruct --stage fiducial]
-    EF --> ER[eht_refine]
+    EI["eht/reconstruct.py --stage I"] --> EF["eht/reconstruct.py --stage fiducial"]
+    EF --> ER["eht/refine.py"]
     EI --> ER
-    ER --> EB[eht_export_bundle]
+    ER --> EB["eht/export_bundle.py"]
     EI --> EB
-    EB --> ES[eht_sample]
-    ES --> EM[eht_summarize]
+    EB --> ES["eht/sample.py"]
+    ES --> EM["eht/summarize.py"]
   end
   subgraph AN["Analysis"]
-    AT[analysis_templates] --> AL[analysis_limits]
-    AL --> AG[analysis_check_grid]
-    AL --> AC[analysis_check_covariance]
-    AL --> AS[analysis_summarize]
+    AT["analysis/templates.py"] --> AL["analysis/limits.py"]
+    AL --> AG["analysis/check_grid.py"]
+    AL --> AC["analysis/check_covariance.py"]
+    AL --> AS["analysis/summarize.py"]
     AG --> AS
     AC --> AS
-    AT --> AP[analysis_paper]
+    AT --> AP["analysis/paper.py"]
     AL --> AP
     AG --> AP
     AC --> AP
@@ -80,8 +80,8 @@ flowchart LR
   EM -- "EHT ensemble" --> AP
 ```
 
-Arrows mean "reads the product of". `raptor_generate` can deliver cubes itself when all
-jobs ran in one run root; `raptor_merge` delivers cubes from job roots of several hosts.
+Arrows mean "reads the product of". `scripts/raptor/generate.py` can deliver cubes itself when all
+jobs ran in one run root; `scripts/raptor/merge.py` delivers cubes from job roots of several hosts.
 
 ### The three parts
 

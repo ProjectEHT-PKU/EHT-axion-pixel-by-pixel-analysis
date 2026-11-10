@@ -1,11 +1,11 @@
-"""eht_export_bundle: synthetic I and refine stages -> bundle accepted by eht_sample (no imaging)."""
+"""scripts/eht/export_bundle.py: synthetic I and refine stages -> bundle accepted by sample.py."""
 import json
 from pathlib import Path
 
 import pytest
 
-import eht_export_bundle as w
-import eht_sample
+from scripts.eht import export_bundle as w
+from scripts.eht import sample
 from eht_axion import experiment
 from eht_axion import provenance
 
@@ -64,8 +64,8 @@ def test_bundle_contract_files_and_eht_sample_acceptance(tmp_path):
     assert (bundle / '100/fixedI.fits').read_bytes() == b'I 100'
     assert not (bundle / '100/fixedI.fits').stat().st_mode & 0o222
     assert {p: p.read_bytes() for p in before} == before  # sources untouched
-    science = eht_sample.science_settings(ROOT / 'configs' / 'experiment.yaml')
-    verified, lineage = eht_sample.verify_bundle(bundle, science)
+    science = sample.science_settings(ROOT / 'configs' / 'experiment.yaml')
+    verified, lineage = sample.verify_bundle(bundle, science)
     assert verified == record and all(f['readonly_mode'] for f in lineage['files'].values())
     with pytest.raises(FileExistsError):
         w.export(config, i_roots, d_roots, bundle)

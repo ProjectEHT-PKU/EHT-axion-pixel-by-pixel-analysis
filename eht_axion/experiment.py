@@ -67,7 +67,7 @@ EHT_DAYS = (95, 96, 100, 101)
 # The 1D observable uses one-degree aperture bins (an angle grid, not a parameter);
 # aperture EVPAs are always intensity weighted (EHT VII).
 ANGULAR_BINS = 360
-# Solver settings of eht_refine.py / eht_sample.py: recorded in their own plans,
+# Solver settings of scripts/eht/refine.py / scripts/eht/sample.py: recorded in their own plans,
 # not in the flat parameter set of the imaging stages.
 EHT_SOLVER_SECTIONS = ("refine", "monte_carlo")
 # Machine-local eht-imaging locations; recorded in the imaging plan, never in YAML.

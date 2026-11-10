@@ -64,10 +64,10 @@ and [Analysis](docs/en/analysis.md). Each step writes stage directories with a
 ## Layout
 
 ```text
-configs/         experiment.yaml, the parameter file
-eht_axion/        library: experiment, provenance, physics, evpa; raptor/, eht/, analysis/
-scripts/          raptor_*, eht_*, analysis_* entry points, verify_products
-tests/            synthetic unit and integration tests
+configs/            experiment.yaml, the parameter file
+eht_axion/          library: experiment, environment, provenance, physics, evpa; raptor/, eht/, analysis/
+scripts/            entry points in raptor/, eht/, analysis/; verify_products.py
+tests/              synthetic unit and integration tests
 docs/en/, docs/zh/  documentation (English, Chinese)
 ```
 

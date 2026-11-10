@@ -7,20 +7,24 @@ reselection, covariance refit or raw RAPTOR read: the source result's outputs ar
 verified here; its raw lineage is verified when that stage is made, so the
 source manifests are recorded as inputs without re-hashing their whole lineage.
 """
+
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import argparse
 import csv
 import json
-from pathlib import Path
 
-import _bootstrap  # noqa: F401
 import numpy as np
 from eht_axion import provenance
 from eht_axion.analysis.likelihood import MODES, calculate_observed
 from eht_axion.analysis.observations import ObservationData
 from eht_axion.analysis.templates import load_templates
 from eht_axion.experiment import DEFAULT_PATH, read_experiment
-from analysis_limits import options_from_config, plot_results
-from _data_root import add_data_root_option, fill_defaults
+from scripts.analysis.limits import options_from_config, plot_results
+from eht_axion.environment import add_data_root_option, fill_defaults
 
 
 def load_observation(path):
@@ -111,8 +115,8 @@ def run(args):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: configs/experiment.yaml')
-    p.add_argument('--source', type=Path, help='analysis_limits.py stage (default: analysis/limits)')
-    p.add_argument('--templates', type=Path, help='analysis_templates.py root (default: analysis/templates)')
+    p.add_argument('--source', type=Path, help='scripts/analysis/limits.py stage (default: analysis/limits)')
+    p.add_argument('--templates', type=Path, help='templates root (default: analysis/templates)')
     p.add_argument('--output-root', type=Path,
                    help='new directory (default: analysis/check-grid or analysis/check-prior, see --check)')
     p.add_argument('--check', choices=('grid', 'prior'),
@@ -124,9 +128,9 @@ def main(argv=None):
     args = p.parse_args(argv)
     if args.output_root is None and args.check is None:
         p.error('Provide --output-root, or --check grid|prior with a data root')
-    defaults = {'source': ('analysis_limits', {}), 'templates': ('analysis_templates', {})}
+    defaults = {'source': ('analysis.limits', {}), 'templates': ('analysis.templates', {})}
     if args.output_root is None:
-        defaults['output_root'] = (f'analysis_check_{args.check}', {})
+        defaults['output_root'] = (f'analysis.check_{args.check}', {})
     fill_defaults(p, args, defaults)
     run(args)
 

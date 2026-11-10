@@ -18,7 +18,7 @@
 ```text
 RUN_ROOT/
   config.yaml                    copy of the experiment file of this run
-  requests/<uuid>.json           one record per raptor_build / raptor_generate call
+  requests/<uuid>.json           one record per raptor/build.py / generate.py call
   build/                         stage raptor:build
     RAPTOR                       executable
     source/                      tracked RAPTOR source bytes at raptor.source.commit
@@ -39,7 +39,7 @@ RUN_ROOT/
       generated.json, sources.json, convert.json
 ```
 
-`raptor_merge.py` 写出与上面相同的 `OUTPUT/data/raptor/...`，以及 `OUTPUT/inventory/index.json`
+`scripts/raptor/merge.py` 写出与上面相同的 `OUTPUT/data/raptor/...`，以及 `OUTPUT/inventory/index.json`
 （阶段 `raptor:merge`）。
 
 交付的数据立方：轴依次为（时间、状态、x、y、Stokes）；Stokes 顺序为 I、Q、U、V，单位 Jy/sr；x 和 y
@@ -67,7 +67,7 @@ D<day>/                          stage eht:refine
   final-raw-IQU.fits, final-blurred-IQU.fits, final-dterms.json
   best-P.npz, steps.json, D-optimizer-records.json, termination.json
 BUNDLE/                          no manifest; bundle.json instead
-  bundle.json, feed-rotation.json, eht_export_bundle.py
+  bundle.json, feed-rotation.json, scripts/eht/export_bundle.py
   <day>/fixedI.fits, <day>/gaincal-pol.uvfits, <day>/fiducial-dterms.json
   lineage/<day>/I-manifest.json, D-manifest.json, D-plan.json, D-termination.json, D-steps.json
 MC/                              no manifest; batch receipts instead
@@ -89,7 +89,7 @@ D 项 JSON 文件把台站映射到 `[[Re D_R, Im D_R], [Re D_L, Im D_L]]`（小
 四个 HDU：I、Q、U、V，采用原生 `RA---SIN`/`DEC--SIN` 坐标轴；东向偏移随 x 下标减小，北向偏移随 y
 下标增大。`<day>-<draw>` 使用四位抽样序号，例如 `95-0042`。
 
-`eht_summarize.py` 直接读取上面的 `MC/` 根目录。
+`scripts/eht/summarize.py` 直接读取上面的 `MC/` 根目录。
 
 ### 分析
 
@@ -162,35 +162,35 @@ PAPER/                           stage analysis:paper
 ```text
 <data root>/
   raptor/
-    plan.json                    frozen task plan (raptor_generate.py --plan --plan-output)
-    runs/<name>/                 run roots of raptor_generate.py (build/, jobs/, attempts/,
+    plan.json                    frozen task plan (scripts/raptor/generate.py --plan --plan-output)
+    runs/<name>/                 run roots of scripts/raptor/generate.py (build/, jobs/, attempts/,
                                  config.yaml, requests/); one per host or build; default runs/main
-    delivered/                   raptor_merge.py output root: data/raptor/res-*/..., inventory/
+    delivered/                   scripts/raptor/merge.py output root: data/raptor/res-*/..., inventory/
   eht/
-    intensity/day-<day>/         eht_reconstruct.py --stage I
-    fiducial/day-<day>/          eht_reconstruct.py --stage fiducial
-    refine/day-<day>/            eht_refine.py
-    bundle/                      eht_export_bundle.py
-    sample/                      eht_sample.py
-    ensemble/                    eht_summarize.py
+    intensity/day-<day>/         scripts/eht/reconstruct.py --stage I
+    fiducial/day-<day>/          scripts/eht/reconstruct.py --stage fiducial
+    refine/day-<day>/            scripts/eht/refine.py
+    bundle/                      scripts/eht/export_bundle.py
+    sample/                      scripts/eht/sample.py
+    ensemble/                    scripts/eht/summarize.py
   analysis/
-    templates/                   analysis_templates.py (--raptor-input-root raptor/delivered/data)
-    limits/                      analysis_limits.py
-    check-grid/                  analysis_check_grid.py with a denser phase and coupling grid
-    check-prior/                 analysis_check_grid.py with a wider coupling range
-    check-covariance/            analysis_check_covariance.py
-    summary/                     analysis_summarize.py
-    paper/                       analysis_paper.py
+    templates/                   scripts/analysis/templates.py (--raptor-input-root raptor/delivered/data)
+    limits/                      scripts/analysis/limits.py
+    check-grid/                  scripts/analysis/check_grid.py with a denser phase and coupling grid
+    check-prior/                 scripts/analysis/check_grid.py with a wider coupling range
+    check-covariance/            scripts/analysis/check_covariance.py
+    summary/                     scripts/analysis/summarize.py
+    paper/                       scripts/analysis/paper.py
 ```
 
 `M87_AXION_DATA_ROOT`（已导出的环境变量或写在 `.env` 中）或 `--data-root` 指定数据根目录；此后每个
 脚本都按这一布局取得默认的输入和输出根目录，显式给出的 `--...-root` 选项覆盖默认值。默认的 RAPTOR
-运行根目录是 `raptor/runs/main`（可由 `--run-root` 或 `EHT_RAPTOR_RUN_ROOT` 覆盖）；`raptor_merge.py`
-默认合并 `raptor/runs/` 中的每个目录；`analysis_check_grid.py` 需要 `--check grid` 或 `--check prior`
+运行根目录是 `raptor/runs/main`（可由 `--run-root` 或 `EHT_RAPTOR_RUN_ROOT` 覆盖）；`scripts/raptor/merge.py`
+默认合并 `raptor/runs/` 中的每个目录；`scripts/analysis/check_grid.py` 需要 `--check grid` 或 `--check prior`
 来选择默认输出根目录。产生结果的脚本仍然拒绝已有的输出根目录，因此一个默认输出根目录只能写入一次。
 
 按这一布局，用于得出结果的 RAPTOR 运行有两个运行根目录：`runs/main`（18 234 个作业）和
-`runs/background`（96 个无轴子 400 像素作业，标签 2050–3000，用第二次编译生成）；`raptor_merge.py`
+`runs/background`（96 个无轴子 400 像素作业，标签 2050–3000，用第二次编译生成）；`scripts/raptor/merge.py`
 把二者一起交付到 `delivered/`。
 
 ## 相关页面

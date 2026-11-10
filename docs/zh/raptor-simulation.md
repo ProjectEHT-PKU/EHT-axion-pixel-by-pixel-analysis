@@ -29,7 +29,7 @@
   （阶段 `raptor:delivery`）。
 - `config.yaml`（实验文件的副本）和 `requests/<uuid>.json`（每次调用一条记录）。
 
-`raptor_merge.py` 把同样的 `data/raptor/...` 目录树写入一个新的输出根目录，另外写出
+`scripts/raptor/merge.py` 把同样的 `data/raptor/...` 目录树写入一个新的输出根目录，另外写出
 `inventory/`（阶段 `raptor:merge`）。文件细节见[数据布局](data-layout.md)。
 
 ## 运行方法
@@ -47,7 +47,7 @@ pixi run -e raptor-build raptor-merge --plan plan.json \
     --job-root RUN_A --job-root RUN_B --output-root MERGED  # merge runs of several hosts
 ```
 
-`raptor_generate.py` 的选项：`--max-jobs N`（只运行前 N 个任务；交付要等其余任务完成）、
+`scripts/raptor/generate.py` 的选项：`--max-jobs N`（只运行前 N 个任务；交付要等其余任务完成）、
 `--threads`（每个 RAPTOR 进程的 OpenMP 线程数）、`--workers`（并发进程数）、
 `--cpu-affinity none|physical|logical`、`--cpu-list`、`--timeout-seconds`。编译和生成都接受
 `--config`、`--source-root`、`--run-root`、`--env-file` 和 `--no-env-file`。
@@ -104,7 +104,7 @@ HEAD 恰好是 `raptor.source.commit`，并且至少有一个 git 远程仓库�
 
 ### 作业
 
-`run_jobs`（`eht_axion/raptor/jobs.py`）用固定数目的工作槽位运行任务。启动之前，它校验编译阶段，检查编译的仓库和提交等于计划中的 `raptor_source`（由 `raptor_generate.py`
+`run_jobs`（`eht_axion/raptor/jobs.py`）用固定数目的工作槽位运行任务。启动之前，它校验编译阶段，检查编译的仓库和提交等于计划中的 `raptor_source`（由 `scripts/raptor/generate.py`
 从 `raptor.source` 复制而来），
 （包括其来源链），重新读取每个快照尾部和径向表并与计划比对（径向表哈希总是比对；计划中含有快照
 哈希时也比对快照哈希），把编译目录的网格文件和宏与计划比对，并检查内存余量。每个快照和每张表的
@@ -152,7 +152,7 @@ $t_g$ 为单位的尾部时间、状态数、$\Omega$、轴顺序和单位。只
 会交付的内容（`generated_inputs`）时，分析部分才接受该产品；帧间隔取自记录的尾部时间
 （`input_cadence_hours`）。
 
-`raptor_merge.py` 用多个 `--job-root` 参数和一个新的 `--output-root` 调用同一个交付函数，校验冻结
+`scripts/raptor/merge.py` 用多个 `--job-root` 参数和一个新的 `--output-root` 调用同一个交付函数，校验冻结
 计划的光线追踪配置，并写出一个列出各产品的清单（inventory）阶段。原有的作业目录不会被修改。
 
 ### CPU 亲和性
@@ -161,12 +161,12 @@ $t_g$ 为单位的尾部时间、状态数、$\Omega$、轴顺序和单位。只
 `threads` 个 CPU。`physical` 每个物理核只用一个逻辑 CPU（依据
 `/sys/devices/system/cpu/*/topology`），`logical` 使用任何允许的 CPU，`none` 不做绑定。绑定使用
 `taskset`；`--cpu-list` 限制允许使用的 CPU。启用绑定时，CPU 集合和 OpenMP 绑定方式属于作业身份的
-一部分。`check_memory` 要求每个工作进程有足够的内存余量（至少 2.5 GiB，在 `raptor_generate.py`
+一部分。`check_memory` 要求每个工作进程有足够的内存余量（至少 2.5 GiB，在 `scripts/raptor/generate.py`
 中还要求至少为计划给出的每进程下限的两倍），并考虑 cgroup-v2 限制。
 
 ### .env.raptor
 
-`raptor_build.py` 和 `raptor_generate.py` 读取 `.env.raptor` 和 `.env`（由 `.env.raptor.example`
+`scripts/raptor/build.py` 和 `scripts/raptor/generate.py` 读取 `.env.raptor` 和 `.env`（由 `.env.raptor.example`
 复制而来）。键：`EHT_RAPTOR_SOURCE_ROOT`、`EHT_GRMHD_ROOT`、`EHT_RADIAL_LOW`、`EHT_RADIAL_HIGH`、
 `EHT_RAPTOR_RUN_ROOT`、`EHT_RAPTOR_THREADS`（默认 2）、`EHT_RAPTOR_WORKERS`（默认 1）、
 `EHT_RAPTOR_CPU_AFFINITY`（默认 `none`）、`EHT_RAPTOR_CPU_LIST`、`EHT_RAPTOR_TIMEOUT_SECONDS`。

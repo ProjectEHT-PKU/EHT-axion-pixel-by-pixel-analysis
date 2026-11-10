@@ -185,7 +185,7 @@ def test_merged_sources_and_recursive_ancestry_preserve_both_actual_builds(merge
 
 
 def test_merged_background_reaches_real_downstream_path(merged, tmp_path):
-    from analysis_templates import run as run_templates
+    from scripts.analysis.templates import run as run_templates
 
     profile = deepcopy(merged.config)
     profile["shared"]["image"]["shape"] = 8

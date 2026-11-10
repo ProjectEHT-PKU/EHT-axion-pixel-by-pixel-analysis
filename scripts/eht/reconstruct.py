@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """EHT imaging: Paper IV/VII polarimetric imaging (stages I and fiducial), one day per root.
 
-The D-term Monte Carlo ensemble is made by eht_sample.py from the exported
-bundle (eht_export_bundle.py); the fiducial D terms are refined by eht_refine.py.
+The D-term Monte Carlo ensemble is made by scripts/eht/sample.py from the exported
+bundle (scripts/eht/export_bundle.py); the fiducial D terms are refined by scripts/eht/refine.py.
 
 Scientific parameters: experiment.yaml (eht_imaging + shared.image). Machine-local
 locations (uvfits directory, input receipt, feed-rotation table, official script)
@@ -15,19 +15,21 @@ Each invocation publishes exactly one transactional stage/day to a new root.
 """
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import argparse
 from importlib import metadata
 import json
-from pathlib import Path
 import runpy
-import sys
 from unittest.mock import patch
 
-import _bootstrap  # noqa: F401
 from eht_axion import experiment
 from eht_axion import provenance
-from _environment import resolve_environment
-from _data_root import add_data_root_option, fill_defaults
+from eht_axion.environment import resolve_environment
+from eht_axion.environment import add_data_root_option, fill_defaults
 
 I_PRODUCTS = ('final-fixedI.fits', 'clean-gaincal-pol.uvfits')
 EHT_STAGES = {'I': 'eht:i', 'fiducial': 'eht:fiducial'}  # --stage -> recorded stage name
@@ -61,9 +63,9 @@ def parse(argv=None):
     p = parser()
     args = p.parse_args(argv)
     day = dict(day=args.day)
-    defaults = {'output_root': ('eht_intensity' if args.stage == 'I' else 'eht_fiducial', day)}
+    defaults = {'output_root': ('eht.intensity' if args.stage == 'I' else 'eht.fiducial', day)}
     if args.stage == 'fiducial':
-        defaults['i_root'] = ('eht_intensity', day)
+        defaults['i_root'] = ('eht.intensity', day)
     fill_defaults(p, args, defaults)
     return args
 

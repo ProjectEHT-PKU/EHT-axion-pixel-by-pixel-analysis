@@ -92,8 +92,8 @@ file.
 that no hashed file changed (device, inode, size, modification and change times).
 
 By default `stage_directory` verifies the full lineage of every input stage before it
-starts. The small result steps `analysis_check_grid.py`, `analysis_check_covariance.py`,
-`analysis_summarize.py` and `analysis_paper.py` pass `verify_lineage=False`: they verify the outputs of the
+starts. The small result steps `scripts/analysis/check_grid.py`, `scripts/analysis/check_covariance.py`,
+`scripts/analysis/summarize.py` and `scripts/analysis/paper.py` pass `verify_lineage=False`: they verify the outputs of the
 stages they read, and record those manifests as hashed inputs, but do not re-hash the
 whole raw lineage again.
 
@@ -101,10 +101,10 @@ whole raw lineage again.
 
 One rule applies to every script: a script that produces a result refuses an output root
 that already exists. The exceptions are the resumable parts of the pipeline:
-`raptor_build.py`, `raptor_generate.py` and `raptor_merge.py` reuse completed stages in
+`scripts/raptor/build.py`, `scripts/raptor/generate.py` and `scripts/raptor/merge.py` reuse completed stages in
 their run root (a stage with the same stage name, config and input data is reused; a
-different stage at the same place is an error), and `eht_sample.py` resumes a batch in the same output root if the
-batch identity is unchanged. `analysis_templates.py` writes several stages below one new
+different stage at the same place is an error), and `scripts/eht/sample.py` resumes a batch in the same output root if the
+batch identity is unchanged. `scripts/analysis/templates.py` writes several stages below one new
 root.
 
 When `stage_directory` finds an existing destination it verifies it with the same lineage
@@ -122,32 +122,32 @@ outside manifests carry schema strings of the form `<part>-<record>-v<N>`
 
 | Stage | Written by |
 |---|---|
-| `raptor:build` | `raptor_build.py` |
-| `raptor:job` | `raptor_generate.py` (one per task) |
-| `raptor:delivery` | `raptor_generate.py`, `raptor_merge.py` (one per product) |
-| `raptor:merge` | `raptor_merge.py` |
-| `eht:i`, `eht:fiducial` | `eht_reconstruct.py` |
-| `eht:refine` | `eht_refine.py` |
-| `eht:ensemble` | `eht_summarize.py` |
-| `analysis:preprocess`, `analysis:fit`, `analysis:templates`, `analysis:background` | `analysis_templates.py` |
-| `analysis:limits` | `analysis_limits.py` |
-| `analysis:check-grid` | `analysis_check_grid.py` |
-| `analysis:check-covariance` | `analysis_check_covariance.py` |
-| `analysis:summary` | `analysis_summarize.py` |
-| `analysis:paper` | `analysis_paper.py` |
+| `raptor:build` | `scripts/raptor/build.py` |
+| `raptor:job` | `scripts/raptor/generate.py` (one per task) |
+| `raptor:delivery` | `scripts/raptor/generate.py`, `scripts/raptor/merge.py` (one per product) |
+| `raptor:merge` | `scripts/raptor/merge.py` |
+| `eht:i`, `eht:fiducial` | `scripts/eht/reconstruct.py` |
+| `eht:refine` | `scripts/eht/refine.py` |
+| `eht:ensemble` | `scripts/eht/summarize.py` |
+| `analysis:preprocess`, `analysis:fit`, `analysis:templates`, `analysis:background` | `scripts/analysis/templates.py` |
+| `analysis:limits` | `scripts/analysis/limits.py` |
+| `analysis:check-grid` | `scripts/analysis/check_grid.py` |
+| `analysis:check-covariance` | `scripts/analysis/check_covariance.py` |
+| `analysis:summary` | `scripts/analysis/summarize.py` |
+| `analysis:paper` | `scripts/analysis/paper.py` |
 
 ### Receipts outside stage directories
 
-- `eht_export_bundle.py` writes `bundle.json` instead of a manifest: every copied file with
+- `scripts/eht/export_bundle.py` writes `bundle.json` instead of a manifest: every copied file with
   SHA-256, size and original path, the science contract and the git commit (`code`). The source stages are
   verified (full lineage) before copying, and copies are made read-only.
-- `eht_sample.py` writes `batch.json` whose `identity` is the SHA-256 of the batch plan
+- `scripts/eht/sample.py` writes `batch.json` whose `identity` is the SHA-256 of the batch plan
   (bundle snapshot hashes, science values, the git commit with the versions of ehtim,
   numpy, scipy, astropy and threadpoolctl, thread count). Every attempt writes a `taskreceipt.json`
   with the hashes of its outputs; `finish.json` lists the receipt of the certified attempt
-  of every draw. `eht_summarize.py` re-checks these receipts before it builds the ensemble
+  of every draw. `scripts/eht/summarize.py` re-checks these receipts before it builds the ensemble
   stage.
-- `raptor_generate.py` and `raptor_build.py` append a request record to
+- `scripts/raptor/generate.py` and `scripts/raptor/build.py` append a request record to
   `requests/<uuid>.json` in the run root and keep a copy of the experiment file as
   `config.yaml`.
 

@@ -33,7 +33,7 @@ layout uses `raptor/runs/<name>/`, see [Data layout](data-layout.md#default-layo
 - `config.yaml` (a copy of the experiment file) and `requests/<uuid>.json` (one record per
   invocation).
 
-`raptor_merge.py` writes the same `data/raptor/...` tree into a new output root, plus
+`scripts/raptor/merge.py` writes the same `data/raptor/...` tree into a new output root, plus
 `inventory/` (stage `raptor:merge`). File details are on
 [Data layout](data-layout.md).
 
@@ -53,7 +53,7 @@ pixi run -e raptor-build raptor-merge --plan plan.json \
     --job-root RUN_A --job-root RUN_B --output-root MERGED  # merge runs of several hosts
 ```
 
-Options of `raptor_generate.py`: `--max-jobs N` (run only the first N tasks; delivery waits
+Options of `scripts/raptor/generate.py`: `--max-jobs N` (run only the first N tasks; delivery waits
 for the rest), `--threads` (OpenMP threads per RAPTOR process), `--workers` (concurrent
 processes), `--cpu-affinity none|physical|logical`, `--cpu-list`, `--timeout-seconds`. Both
 build and generate accept `--config`, `--source-root`, `--run-root`, `--env-file` and
@@ -122,7 +122,7 @@ them never invalidates ray tracing.
 
 `run_jobs` (`eht_axion/raptor/jobs.py`) runs the tasks with a fixed number of worker slots.
 Before launching it verifies the build stage (including its lineage), checks that the
-build's repository and commit equal the plan's `raptor_source` (which `raptor_generate.py`
+build's repository and commit equal the plan's `raptor_source` (which `scripts/raptor/generate.py`
 copies from `raptor.source`), re-reads every
 snapshot footer and radial table and compares them with the plan (radial-table hashes
 always; snapshot hashes when the plan contains them), compares the build grid file and
@@ -181,7 +181,7 @@ $\Omega$, axis order and units. The analysis accepts a product only if this reco
 what the current `configs/experiment.yaml` would deliver (`generated_inputs`), and it takes the
 frame cadence from the recorded footer times (`input_cadence_hours`).
 
-`raptor_merge.py` calls the same delivery with several `--job-root` arguments and a new
+`scripts/raptor/merge.py` calls the same delivery with several `--job-root` arguments and a new
 `--output-root`, verifies the frozen plan's ray-tracing configuration, and writes an
 inventory stage listing the products. Original job directories are not modified.
 
@@ -192,12 +192,12 @@ inventory stage listing the products. Original job directories are not modified.
 `/sys/devices/system/cpu/*/topology`), `logical` uses any allowed CPU, `none` does not pin.
 Pinning uses `taskset`; `--cpu-list` restricts the allowed CPUs. With pinning, the CPU set
 and OpenMP binding are part of the job identity. `check_memory` requires memory headroom
-per worker (at least 2.5 GiB, and in `raptor_generate.py` twice the plan's per-process
+per worker (at least 2.5 GiB, and in `scripts/raptor/generate.py` twice the plan's per-process
 lower bound), including cgroup-v2 limits.
 
 ### .env.raptor
 
-`raptor_build.py` and `raptor_generate.py` read `.env.raptor` and `.env` (copy
+`scripts/raptor/build.py` and `scripts/raptor/generate.py` read `.env.raptor` and `.env` (copy
 `.env.raptor.example`). Keys: `EHT_RAPTOR_SOURCE_ROOT`, `EHT_GRMHD_ROOT`, `EHT_RADIAL_LOW`,
 `EHT_RADIAL_HIGH`, `EHT_RAPTOR_RUN_ROOT`, `EHT_RAPTOR_THREADS` (default 2), `EHT_RAPTOR_WORKERS` (default 1),
 `EHT_RAPTOR_CPU_AFFINITY` (default `none`), `EHT_RAPTOR_CPU_LIST`,

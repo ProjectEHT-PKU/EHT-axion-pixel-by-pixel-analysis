@@ -45,8 +45,8 @@ use them without repeating definitions.
 | solve sites, fixed sites | AZ, LM, PV (D terms solved here) and AA, AP, SM, JC (pre-corrected in the HOPS data) |
 | fsys | fractional systematic error added to RL and LR errors (`eht_imaging.fsys`) |
 | fixed I | the total-intensity image of the I stage; all later steps solve only for $P$ |
-| fiducial | the P/D alternation result of `eht_reconstruct.py --stage fiducial` |
-| refined D terms | the fiducial D terms after `eht_refine.py` (`final-dterms.json` of the refine stage) |
+| fiducial | the P/D alternation result of `scripts/eht/reconstruct.py --stage fiducial` |
+| refined D terms | the fiducial D terms after `scripts/eht/refine.py` (`final-dterms.json` of the refine stage) |
 | blurred image | image convolved with the circular Gaussian of FWHM `shared.image.blur_fwhm_uas` (19 µas); file names `*-blurred-IQU.fits` |
 | draw | one D-term sample and its certified P image; 1000 per day |
 | gap certificate | best primal objective minus best dual lower bound of the exact P solver, at most `gap_atol` |

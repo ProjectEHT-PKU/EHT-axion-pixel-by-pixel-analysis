@@ -9,14 +9,18 @@ tolerance, D optimizer options) come from experiment.yaml eht_imaging.refine; th
 command line only names the input and output roots. No blur restart, sampling or
 science-acceptance threshold.
 """
+
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import argparse
 from importlib import metadata
 import json
-from pathlib import Path
 
-import _bootstrap  # noqa: F401
-import eht_reconstruct as original
-from _data_root import add_data_root_option, fill_defaults
+from scripts.eht import reconstruct as original
+from eht_axion.environment import add_data_root_option, fill_defaults
 from eht_axion import experiment
 from eht_axion import provenance
 from eht_axion.eht import convex as solver
@@ -40,8 +44,8 @@ def parse(argv=None):
     p = parser()
     args = p.parse_args(argv)
     day = dict(day=args.day)
-    fill_defaults(p, args, {'source_root': ('eht_fiducial', day), 'i_root': ('eht_intensity', day),
-                            'output_root': ('eht_refine', day)})
+    fill_defaults(p, args, {'source_root': ('eht.fiducial', day), 'i_root': ('eht.intensity', day),
+                            'output_root': ('eht.refine', day)})
     return args
 
 

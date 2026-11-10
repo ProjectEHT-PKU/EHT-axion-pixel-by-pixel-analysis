@@ -13,7 +13,7 @@ $c$, together with a zero-data control and numerical checks.
 - The delivered RAPTOR data root (`data/` of a delivery or merge), containing
   `raptor/res-100/alpha-<α>/` and `raptor/res-400/background/`
   ([RAPTOR simulation](raptor-simulation.md)).
-- The EHT ensemble stage of `eht_summarize.py` ([EHT imaging](eht-imaging.md)).
+- The EHT ensemble stage of `scripts/eht/summarize.py` ([EHT imaging](eht-imaging.md)).
 - `configs/experiment.yaml`: `shared`, `analysis`, and from the other sections
   `raptor.camera_fov_rg`, `raptor.snapshots`, `raptor.response`, `raptor.background` and
   `eht_imaging.uncertainty_draws` ([Experiment configuration](experiment-config.md)).
@@ -51,13 +51,13 @@ pixi run analysis-paper --limits LIMITS --gridcheck GRID --priorcheck PRIOR --co
 ```
 
 The override values above are examples; the check scripts accept any values that differ
-from `analysis.inference`. `--covcheck` is optional for `analysis_summarize.py`.
+from `analysis.inference`. `--covcheck` is optional for `scripts/analysis/summarize.py`.
 
 ## Details
 
 ### Image preprocessing
 
-`analysis_templates.py` verifies each delivered cube against the current experiment
+`scripts/analysis/templates.py` verifies each delivered cube against the current experiment
 (`generated_inputs`: identity record, shape, labels equal to `raptor.snapshots`) and runs
 `preprocess_cube` (`eht_axion/analysis/templates.py`) frame by frame. For each Stokes
 channel, `preprocess_frame`:
@@ -160,7 +160,7 @@ This is `evpa_templates` and `cloud_amplitude_scaling` in `eht_axion/analysis/mo
 
 ### Feature selection
 
-`analysis_limits.py` reads the blurred-image ensemble of each day and selects features without
+`scripts/analysis/limits.py` reads the blurred-image ensemble of each day and selects features without
 looking at the size of the day differences. The EHT map $[y, x]$ is transposed to the
 template order $[x, y]$; the sky axes must equal the shared grid.
 
@@ -275,19 +275,19 @@ covariance and templates alone would give, for comparison with the observed limi
 
 ### Checks
 
-- `analysis_check_grid.py` re-evaluates the saved observations of a limits root with
+- `scripts/analysis/check_grid.py` re-evaluates the saved observations of a limits root with
   overridden `phase_count`, `coupling_points` and/or `coupling_max`; everything else must
   equal the experiment that produced the source. It reports $\Delta\log_{10}c_{95}$
   against the source. Run once with a denser grid ("grid check") and once with a wider
   range of $c$ ("prior check").
-- `analysis_check_covariance.py` splits the draws of each day into the first and the last
+- `scripts/analysis/check_covariance.py` splits the draws of each day into the first and the last
   half (500 each), recomputes $C_d$ about the fixed full-ensemble means, and repeats the
   observed limits for all six cases; it reports $\Delta\log_{10}c_{95}$ against the
   primary result. Features and data stay fixed.
 
 ### Summary
 
-`analysis_summarize.py` reads the completed limits, grid-check, prior-check and optional
+`scripts/analysis/summarize.py` reads the completed limits, grid-check, prior-check and optional
 covariance-check stages and writes: `limits.csv`; comparisons grid check vs. primary and
 prior check vs. grid check (both must keep the same feature counts); the saved joint-grid
 best fit of every observed case and every $\alpha$, with $\chi^2$ at $c = 0$ and at the best
@@ -298,7 +298,7 @@ largest changes in the checks, fit table); it contains no fixed conclusions.
 
 ### Paper output
 
-`analysis_paper.py` (stage `analysis:paper`) collects everything the paper takes from the
+`scripts/analysis/paper.py` (stage `analysis:paper`) collects everything the paper takes from the
 pipeline in one directory. It reads the limits, the three check stages, the templates (the
 processed cube, response fit and templates at the paper's $\alpha$, and the processed
 axion-off background), the EHT ensemble, the delivered axion-off 400-pixel cubes, the RAPTOR

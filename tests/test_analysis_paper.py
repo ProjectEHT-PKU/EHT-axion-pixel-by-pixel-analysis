@@ -1,4 +1,4 @@
-"""analysis_paper: number formatting, tables, figures and one end-to-end run on a synthetic data root."""
+"""scripts/analysis/paper.py: number formatting, tables, figures, one end-to-end run on synthetic data."""
 
 import csv
 import json
@@ -8,8 +8,8 @@ import re
 import numpy as np
 import pytest
 
-import analysis_paper as paper
-import _paper_figures as figures
+from eht_axion.analysis import paper_figures as figures
+from scripts.analysis import paper
 from eht_axion import provenance
 from eht_axion.experiment import read_experiment
 

@@ -45,11 +45,11 @@ All environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_NUM_THREAD
 
 | Task | Command |
 |---|---|
-| `raptor-build`, `raptor-generate`, `raptor-merge` | `scripts/raptor_*.py` |
-| `eht-reconstruct`, `eht-refine`, `eht-export-bundle`, `eht-sample`, `eht-summarize` | `scripts/eht_*.py` |
-| `analysis-templates`, `analysis-limits`, `analysis-check-grid`, `analysis-check-covariance`, `analysis-summarize`, `analysis-paper` | `scripts/analysis_*.py` |
+| `raptor-build`, `raptor-generate`, `raptor-merge` | `scripts/raptor/*.py` |
+| `eht-reconstruct`, `eht-refine`, `eht-export-bundle`, `eht-sample`, `eht-summarize` | `scripts/eht/*.py` |
+| `analysis-templates`, `analysis-limits`, `analysis-check-grid`, `analysis-check-covariance`, `analysis-summarize`, `analysis-paper` | `scripts/analysis/*.py` |
 | `verify` | `scripts/verify_products.py` |
-| `test` | `pytest -q -ra` with `testpaths=tests` and `pythonpath=. scripts` |
+| `test` | `pytest -q -ra` with `testpaths=tests` and `pythonpath=.` |
 | `lint` | `ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts` |
 | `check` | `test` and `lint` |
 
@@ -70,24 +70,24 @@ checks of repository rules:
 
 ### .env files
 
-`scripts/_environment.py` reads dotenv files as data: no shell expansion, no variable
+`eht_axion/environment.py` reads dotenv files as data: no shell expansion, no variable
 interpolation, no search in the caller's working directory. Relative paths are taken
 relative to the repository root. Unknown keys and duplicate keys are errors. The order of
 precedence is: command-line option, exported environment variable, `.env.raptor` (only for
-`raptor_build.py` and `raptor_generate.py`), `.env`. `--env-file PATH` replaces the default
+`scripts/raptor/build.py` and `scripts/raptor/generate.py`), `.env`. `--env-file PATH` replaces the default
 files and `--no-env-file` disables them.
 
 | Key | Read by | Meaning |
 |---|---|---|
 | `M87_AXION_DATA_ROOT` | every script | data root of the default layout ([Data layout](data-layout.md#default-layout)); overridden by `--data-root` |
-| `EHT_IMAGING_INPUT_ROOT` | `eht_reconstruct.py` | directory of the HOPS uvfits files |
-| `EHT_IMAGING_INPUT_RECEIPT` | `eht_reconstruct.py` | input receipt JSON |
-| `EHT_IMAGING_FEED_ROTATION` | `eht_reconstruct.py` | feed-rotation table JSON |
-| `EHT_IMAGING_OFFICIAL_SCRIPT` | `eht_reconstruct.py` | official EHT imaging script |
+| `EHT_IMAGING_INPUT_ROOT` | `scripts/eht/reconstruct.py` | directory of the HOPS uvfits files |
+| `EHT_IMAGING_INPUT_RECEIPT` | `scripts/eht/reconstruct.py` | input receipt JSON |
+| `EHT_IMAGING_FEED_ROTATION` | `scripts/eht/reconstruct.py` | feed-rotation table JSON |
+| `EHT_IMAGING_OFFICIAL_SCRIPT` | `scripts/eht/reconstruct.py` | official EHT imaging script |
 | `EHT_RAPTOR_SOURCE_ROOT`, `EHT_GRMHD_ROOT`, `EHT_RADIAL_LOW`, `EHT_RADIAL_HIGH`, `EHT_RAPTOR_RUN_ROOT`, `EHT_RAPTOR_THREADS`, `EHT_RAPTOR_WORKERS`, `EHT_RAPTOR_CPU_AFFINITY`, `EHT_RAPTOR_CPU_LIST`, `EHT_RAPTOR_TIMEOUT_SECONDS` | RAPTOR scripts | see [RAPTOR simulation](raptor-simulation.md) |
 
-The analysis scripts, `eht_refine.py`, `eht_export_bundle.py`, `eht_sample.py` and
-`eht_summarize.py` read only `M87_AXION_DATA_ROOT` from `.env`; their other paths are
+The analysis scripts, `scripts/eht/refine.py`, `scripts/eht/export_bundle.py`, `scripts/eht/sample.py` and
+`scripts/eht/summarize.py` read only `M87_AXION_DATA_ROOT` from `.env`; their other paths are
 command-line options or defaults below the data root.
 
 ### Rules for code changes

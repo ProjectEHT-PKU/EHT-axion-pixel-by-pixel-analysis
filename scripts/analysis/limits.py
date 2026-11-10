@@ -1,7 +1,7 @@
 """Analysis: limits on c from the EHT ensembles, with the zero-data control.
 
-Inputs: the templates root of analysis_templates.py and the fixed-D EHT ensemble
-summary of eht_summarize.py. Feature selection, cloud model, background and the
+Inputs: the templates root of scripts/analysis/templates.py and the fixed-D EHT ensemble
+summary of scripts/eht/summarize.py. Feature selection, cloud model, background and the
 inference grid/prior come from experiment.yaml (section analysis). The EHT images
 are used as reconstructed (the Paper VII Sec. 5.2 alignment is a zero shift here).
 D-draw image scatter is a working covariance, not calibrated noise. Both day
@@ -9,13 +9,16 @@ pairs share one phase nuisance parameter, marginalized after multiplying likelih
 """
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import argparse
 import csv
 import json
-from pathlib import Path
 
-import _bootstrap  # noqa: F401
-from _data_root import add_data_root_option, fill_defaults
+from eht_axion.environment import add_data_root_option, fill_defaults
 import numpy as np
 
 from eht_axion.analysis.likelihood import MODES, LimitOptions, calculate_observed
@@ -253,7 +256,7 @@ def matched_aperture_samples(native_maps, operator):
 
 
 def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
-    """Read the EHT ensemble (eht_summarize.py) and select the likelihood features.
+    """Read the EHT ensemble (scripts/eht/summarize.py) and select the likelihood features.
 
     Native[y,x] -> template[x,y], physical (-E,N). Sector EVPAs and sector selection
     statistics use the same quadrature operator as the templates. The ensemble holds the
@@ -415,13 +418,13 @@ def run(args):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: configs/experiment.yaml')
-    p.add_argument('--ensemble', type=Path, help='eht_summarize.py stage (default: eht/ensemble)')
-    p.add_argument('--templates', type=Path, help='analysis_templates.py root (default: analysis/templates)')
+    p.add_argument('--ensemble', type=Path, help='scripts/eht/summarize.py stage (default: eht/ensemble)')
+    p.add_argument('--templates', type=Path, help='templates root (default: analysis/templates)')
     p.add_argument('--output-root', type=Path, help='new directory (default: analysis/limits)')
     add_data_root_option(p)
     args = p.parse_args(argv)
-    fill_defaults(p, args, {'ensemble': ('eht_ensemble', {}), 'templates': ('analysis_templates', {}),
-                            'output_root': ('analysis_limits', {})})
+    fill_defaults(p, args, {'ensemble': ('eht.ensemble', {}), 'templates': ('analysis.templates', {}),
+                            'output_root': ('analysis.limits', {})})
     run(args)
 
 

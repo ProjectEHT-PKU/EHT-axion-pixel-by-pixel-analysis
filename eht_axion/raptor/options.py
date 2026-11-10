@@ -1,17 +1,14 @@
-"""Command-line options of the raptor_* scripts: CLI > exports > project .env.raptor > project .env."""
+"""Command-line options of the RAPTOR scripts: CLI > exports > project .env.raptor > project .env."""
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
 
-import _bootstrap  # noqa: F401
-from eht_axion.experiment import DEFAULT_PATH, read_experiment
-from eht_axion.provenance import reject_directory_symlinks
-from _environment import resolve_environment
-from _data_root import DATA_ROOT_KEY, add_data_root_option, data_root, layout_path
-
-ROOT = Path(__file__).resolve().parents[1]
+from ..environment import (DATA_ROOT_KEY, ROOT, add_data_root_option, data_root, layout_path,
+                           resolve_environment)
+from ..experiment import DEFAULT_PATH, read_experiment
+from ..provenance import reject_directory_symlinks
 
 
 def options(kind, argv=None):
@@ -28,7 +25,8 @@ def options(kind, argv=None):
     if kind == "generate":
         parser.add_argument("--plan", action="store_true", help="Validate and list tasks; never launch C")
         parser.add_argument("--plan-output", type=Path,
-                            help="With --plan: also write the frozen plan JSON (input of raptor_merge.py)")
+                            help="With --plan: also write the frozen plan JSON "
+                                 "(input of scripts/raptor/merge.py)")
         parser.add_argument("--convert-only", action="store_true",
                             help="Deliver already complete jobs; no launch")
         parser.add_argument("--max-jobs", type=int,
@@ -51,7 +49,7 @@ def options(kind, argv=None):
     if args.run_root is None:
         root = data_root(args, environment)
         if root is not None:
-            args.run_root = layout_path(root, "raptor_run")
+            args.run_root = layout_path(root, "raptor.run")
     if args.source_root is None:
         parser.error(f"Provide --source-root or ${paths['source_root']}")
     if args.run_root is None:

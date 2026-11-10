@@ -4,7 +4,7 @@ preprocess_cube blurs, rotates and resamples the delivered RAPTOR Stokes cubes
 onto the shared sky grid; fit_processed fits the first-harmonic EVPA response
 over the 16 axion phases per pixel (2D) and per aperture sector (1D);
 summarize_fits forms the template mean/std over the snapshots; load_templates
-reads them back. RunLayout names the stage directories of analysis_templates.py.
+reads them back. RunLayout names the stage directories of scripts/analysis/templates.py.
 
 Stage functions write only to output_dir, return a mapping of product names to
 Paths and leave transactions/caching to their caller (provenance.stage_directory).
@@ -381,7 +381,7 @@ def load_templates(path, dimension):
 
 @dataclass(frozen=True)
 class RunLayout:
-    """Stage directories written by scripts/analysis_templates.py (template root)."""
+    """Stage directories written by scripts/analysis/templates.py (template root)."""
 
     root: Path
 

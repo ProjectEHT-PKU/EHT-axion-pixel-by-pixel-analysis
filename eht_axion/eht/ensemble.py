@@ -4,7 +4,7 @@ I,Q,U,V are never flipped or sign-converted; EVPA is east of north (radians,
 modulo pi). No RAPTOR mapping, beam deconvolution or re-centring (the Paper VII
 Sec. 5.2 alignment is a zero shift here).
 
-Per day the stage writes the per-draw Stokes maps (by eht_summarize.py), the per-draw
+Per day the stage writes the per-draw Stokes maps (by scripts/eht/summarize.py), the per-draw
 EVPA maps and the whole-field image-averaged quantities of Paper VII Sec. 5.3 (m_net,
 <|m|>, EVPA, beta_2) for comparison with the paper. Sector apertures, means,
 covariances and day differences are computed by the analysis.

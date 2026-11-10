@@ -44,11 +44,11 @@ pixi run verify PATH/TO/STAGE --recursive
 
 | 任务 | 命令 |
 |---|---|
-| `raptor-build`、`raptor-generate`、`raptor-merge` | `scripts/raptor_*.py` |
-| `eht-reconstruct`、`eht-refine`、`eht-export-bundle`、`eht-sample`、`eht-summarize` | `scripts/eht_*.py` |
-| `analysis-templates`、`analysis-limits`、`analysis-check-grid`、`analysis-check-covariance`、`analysis-summarize`、`analysis-paper` | `scripts/analysis_*.py` |
+| `raptor-build`、`raptor-generate`、`raptor-merge` | `scripts/raptor/*.py` |
+| `eht-reconstruct`、`eht-refine`、`eht-export-bundle`、`eht-sample`、`eht-summarize` | `scripts/eht/*.py` |
+| `analysis-templates`、`analysis-limits`、`analysis-check-grid`、`analysis-check-covariance`、`analysis-summarize`、`analysis-paper` | `scripts/analysis/*.py` |
 | `verify` | `scripts/verify_products.py` |
-| `test` | `pytest -q -ra`，带 `testpaths=tests` 和 `pythonpath=. scripts` |
+| `test` | `pytest -q -ra`，带 `testpaths=tests` 和 `pythonpath=.` |
 | `lint` | `ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts` |
 | `check` | `test` 和 `lint` |
 
@@ -65,21 +65,21 @@ pixi run verify PATH/TO/STAGE --recursive
 
 ### .env 文件
 
-`scripts/_environment.py` 以数据方式读取 dotenv 文件：不做 shell 展开，不做变量插值，不在调用者的
+`eht_axion/environment.py` 以数据方式读取 dotenv 文件：不做 shell 展开，不做变量插值，不在调用者的
 工作目录中查找。相对路径相对于仓库根目录。未知的键和重复的键都是错误。优先级依次为：命令行选项、
-已导出的环境变量、`.env.raptor`（仅对 `raptor_build.py` 和 `raptor_generate.py`）、`.env`。
+已导出的环境变量、`.env.raptor`（仅对 `scripts/raptor/build.py` 和 `scripts/raptor/generate.py`）、`.env`。
 `--env-file PATH` 替换默认文件，`--no-env-file` 禁用它们。
 
 | 键 | 读取者 | 含义 |
 |---|---|---|
 | `M87_AXION_DATA_ROOT` | 所有脚本 | 默认布局的数据根目录（[数据布局](data-layout.md#默认布局)）；可被 `--data-root` 覆盖 |
-| `EHT_IMAGING_INPUT_ROOT` | `eht_reconstruct.py` | HOPS uvfits 文件所在目录 |
-| `EHT_IMAGING_INPUT_RECEIPT` | `eht_reconstruct.py` | 输入回执 JSON |
-| `EHT_IMAGING_FEED_ROTATION` | `eht_reconstruct.py` | 馈源旋转表 JSON |
-| `EHT_IMAGING_OFFICIAL_SCRIPT` | `eht_reconstruct.py` | 官方 EHT 成像脚本 |
+| `EHT_IMAGING_INPUT_ROOT` | `scripts/eht/reconstruct.py` | HOPS uvfits 文件所在目录 |
+| `EHT_IMAGING_INPUT_RECEIPT` | `scripts/eht/reconstruct.py` | 输入回执 JSON |
+| `EHT_IMAGING_FEED_ROTATION` | `scripts/eht/reconstruct.py` | 馈源旋转表 JSON |
+| `EHT_IMAGING_OFFICIAL_SCRIPT` | `scripts/eht/reconstruct.py` | 官方 EHT 成像脚本 |
 | `EHT_RAPTOR_SOURCE_ROOT`、`EHT_GRMHD_ROOT`、`EHT_RADIAL_LOW`、`EHT_RADIAL_HIGH`、`EHT_RAPTOR_RUN_ROOT`、`EHT_RAPTOR_THREADS`、`EHT_RAPTOR_WORKERS`、`EHT_RAPTOR_CPU_AFFINITY`、`EHT_RAPTOR_CPU_LIST`、`EHT_RAPTOR_TIMEOUT_SECONDS` | RAPTOR 脚本 | 见 [RAPTOR 模拟](raptor-simulation.md) |
 
-分析脚本、`eht_refine.py`、`eht_export_bundle.py`、`eht_sample.py` 和 `eht_summarize.py` 只从 `.env`
+分析脚本、`scripts/eht/refine.py`、`scripts/eht/export_bundle.py`、`scripts/eht/sample.py` 和 `scripts/eht/summarize.py` 只从 `.env`
 读取 `M87_AXION_DATA_ROOT`；它们的其他路径是命令行选项或数据根目录之下的默认值。
 
 ### 代码修改规则

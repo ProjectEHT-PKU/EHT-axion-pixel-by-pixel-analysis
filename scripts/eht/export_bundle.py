@@ -2,10 +2,10 @@
 """EHT imaging: export the verified fiducial inputs of the D-term Monte Carlo into one bundle.
 
 For each of the four days, copy the fixed I image and gain-calibrated data of the
-I stage (eht_reconstruct.py --stage I) and the refined fiducial D terms of the
-refine stage (eht_refine.py), plus their manifests/plans as lineage, and the
+I stage (scripts/eht/reconstruct.py --stage I) and the refined fiducial D terms of the
+refine stage (scripts/eht/refine.py), plus their manifests/plans as lineage, and the
 feed-rotation table recorded by the I stages. bundle.json lists every file with
-its SHA-256 and the science contract checked by eht_sample.py (fsys, D-term
+its SHA-256 and the science contract checked by scripts/eht/sample.py (fsys, D-term
 statistics convention, sky grid, imaging weights) taken from experiment.yaml, and the
 git commit of the code that wrote it.
 
@@ -17,14 +17,17 @@ refine stage must be numerically certified. Source stages are only read.
 """
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import argparse
 import datetime
 import json
-from pathlib import Path
 import shutil
 
-from _bootstrap import ROOT  # noqa: F401
-from _data_root import DATA_ROOT_KEY, add_data_root_option, data_root, fill_defaults, layout_path
+from eht_axion.environment import DATA_ROOT_KEY, add_data_root_option, data_root, fill_defaults, layout_path
 from eht_axion import experiment
 from eht_axion import provenance
 
@@ -87,7 +90,7 @@ def verify_sources(i_roots, d_roots, config):
 
 
 def bundle_record(config):
-    """The science contract of the bundle (checked by eht_sample.verify_bundle)."""
+    """The science contract of the bundle (checked by verify_bundle of scripts/eht/sample.py)."""
     c, image = config['eht_imaging'], config['shared']['image']
     return dict(schema=SCHEMA, created_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 days={}, files=[], feed_file='feed-rotation.json',
@@ -145,12 +148,12 @@ def main(argv=None):
     p.add_argument('--i-root', type=Path, action='append',
                    help='completed I stage; give all four days (default: eht/intensity/day-<day>)')
     p.add_argument('--d-root', type=Path, action='append',
-                   help='completed eht_refine stage; give all four days (default: eht/refine/day-<day>)')
+                   help='completed refine stage; give all four days (default: eht/refine/day-<day>)')
     p.add_argument('--output-root', type=Path, help='new bundle directory (default: eht/bundle)')
     add_data_root_option(p)
     args = p.parse_args(argv)
-    fill_defaults(p, args, {'output_root': ('eht_bundle', {})})
-    for name, key in (('i_root', 'eht_intensity'), ('d_root', 'eht_refine')):
+    fill_defaults(p, args, {'output_root': ('eht.bundle', {})})
+    for name, key in (('i_root', 'eht.intensity'), ('d_root', 'eht.refine')):
         if getattr(args, name) is None:
             root = data_root(args)
             if root is None:

@@ -102,7 +102,7 @@ eht_imaging:  # observation input: Paper IV/VII method (fixed I, D-term solution
   seed: 20210405
   covariance_ddof: 1
   residual_d_sigma: 0.01         # ehtim cerror convention: 1% SD per real/imag component
-  refine:                        # eht_refine.py: exact convex P solve + D refits of the fiducial stage
+  refine:                        # scripts/eht/refine.py: exact convex P solve + D refits of the fiducial stage
     outer_rounds: 100            # P solve / D refit alternations before the final P solve
     gap_atol: 1.0e-06            # P duality-gap certificate tolerance
     maxiter: 20000               # P solver iterations per call
@@ -115,7 +115,7 @@ eht_imaging:  # observation input: Paper IV/VII method (fixed I, D-term solution
       maxcor: 50
       maxls: 50
       maxfun: 100000
-  monte_carlo:                   # eht_sample.py: one exact P solve per D draw
+  monte_carlo:                   # scripts/eht/sample.py: one exact P solve per D draw
     initial_p_fraction: 0.05     # initial P = this fraction x fixed I (real), no warm start
     gap_atol: 1.0e-06
     maxiter: 50000

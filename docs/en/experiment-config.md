@@ -18,9 +18,9 @@ and describes validation and the derived settings.
 Nothing is written by the loader. The validated dictionary, or the parts of it that a stage
 used, is recorded in stage manifests and plans ([Provenance](provenance.md)):
 
-- `raptor_generate.py` and delivery record the ray-tracing subset (`ray_tracing_config`).
+- `scripts/raptor/generate.py` and delivery record the ray-tracing subset (`ray_tracing_config`).
 - The EHT imaging stages record the flat parameter set (`eht_imaging_parameters`).
-- `analysis_limits.py` records the whole file as `scientific_profile`.
+- `scripts/analysis/limits.py` records the whole file as `scientific_profile`.
 
 ## How to run
 
@@ -60,8 +60,8 @@ converted to $r_g$) must fit inside `raptor.camera_fov_rg`, and
 |---|---|---|
 | `physical_scale` | `PhysicalScale`: $t_g = GM/c^3$ (8.893 h for the values below), angular size of $r_g$ (3.819 µas), conversions | analysis scripts, delivery cadence |
 | `ray_tracing_config` | `shared` physics keys (`mass_solar`, `distance_mpc`, `label_step_tg`, `alphas`, `principal_n`) plus the `raptor` section without `raptor.source` | RAPTOR plan, delivery identity (`generated.json`) |
-| `analysis_geometry` | preprocessing arguments (`sigma`, `init_fov`, `final_fov`, `final_shape`, `rotation_angle`, in $r_g$ and radians) and aperture arguments (`fov`, `radial_max`, `window_degrees`, `angular_bins`) | `analysis_templates.py`, `analysis_limits.py` |
-| `eht_imaging_parameters` | flat dictionary of the `eht_imaging` values (without `refine` and `monte_carlo`), the sky grid (`npix`, `fov_uas`, `blur_fwhm_uas`) and four machine locations | EHT imaging stages, `eht_refine.py`, `eht_export_bundle.py` |
+| `analysis_geometry` | preprocessing arguments (`sigma`, `init_fov`, `final_fov`, `final_shape`, `rotation_angle`, in $r_g$ and radians) and aperture arguments (`fov`, `radial_max`, `window_degrees`, `angular_bins`) | `scripts/analysis/templates.py`, `scripts/analysis/limits.py` |
+| `eht_imaging_parameters` | flat dictionary of the `eht_imaging` values (without `refine` and `monte_carlo`), the sky grid (`npix`, `fov_uas`, `blur_fwhm_uas`) and four machine locations | EHT imaging stages, `scripts/eht/refine.py`, `scripts/eht/export_bundle.py` |
 
 `ANGULAR_BINS = 360` (one-degree aperture bins) and `EHT_DAYS = (95, 96, 100, 101)` are
 code constants in the same module, not YAML values. `EHT_DAYS` is the only list of the
@@ -85,8 +85,8 @@ analysis import it); validation requires `eht_imaging.inputs` to have exactly th
 
 | Key | Value | Unit | Meaning | Read by |
 |---|---|---|---|---|
-| `source.repository` | `github.com/projecteht-pku/raptor` | – | RAPTOR repository as host/owner/name (lower case); a git remote of the local checkout must point here | `raptor_build.py` (remote check); build record; plan `raptor_source` |
-| `source.commit` | `2005600…` (40 hex digits) | – | RAPTOR commit; the local checkout must be clean at exactly this commit | `raptor_build.py`; build record; plan `raptor_source`, checked against every build by `run_jobs` and delivery |
+| `source.repository` | `github.com/projecteht-pku/raptor` | – | RAPTOR repository as host/owner/name (lower case); a git remote of the local checkout must point here | `scripts/raptor/build.py` (remote check); build record; plan `raptor_source` |
+| `source.commit` | `2005600…` (40 hex digits) | – | RAPTOR commit; the local checkout must be clean at exactly this commit | `scripts/raptor/build.py`; build record; plan `raptor_source`, checked against every build by `run_jobs` and delivery |
 | `camera_fov_rg` | 46.2261 | $r_g$ | camera width (176.5 µas) | RAPTOR `CAM_SIZE_X/Y`; preprocessing `init_fov` |
 | `fluid_spin` | 0.9375 | – | black-hole spin of the BHAC flow; every snapshot footer must report it | `read_snapshot_footer` (plan, job runner) |
 | `build.model` | `bhac` | – | `setup.sh --code` | `raptor/build.py` |
@@ -107,9 +107,9 @@ analysis import it); validation requires `eht_imaging.inputs` to have exactly th
 | `plasma.frequency_hz` | 2.3e11 | Hz | observing frequency (one frequency) | RAPTOR `model.in`; delivery dataset names |
 | `plasma.step_size` | 0.005 | – | geodesic integration step, `STEPSIZE` | RAPTOR `model.in` |
 | `snapshots.start`, `stop`, `step` | 1600, 3000, 10 | label | inclusive snapshot labels, 141 snapshots | plan, delivery, label checks in the analysis |
-| `response.resolution` | 100 | pixels | side of axion-on images and their axion-off baseline | plan, delivery, `analysis_templates.py` |
+| `response.resolution` | 100 | pixels | side of axion-on images and their axion-off baseline | plan, delivery, `scripts/analysis/templates.py` |
 | `response.reference_norm` | 0.1 | – | axion field normalization `AXION_NORM`; templates are per this norm | RAPTOR `model.in`; signal model |
-| `background.resolution` | 400 | pixels | side of the axion-off images for the GRMHD background | plan, delivery, `analysis_templates.py` |
+| `background.resolution` | 400 | pixels | side of the axion-off images for the GRMHD background | plan, delivery, `scripts/analysis/templates.py` |
 | `radial_tables.low.spin` | 0.9375 | – | declared spin of the low radial table | plan, task identity |
 | `radial_tables.high.spin` | 0.99 | – | declared spin of the high table (intentionally differs from `fluid_spin`) | plan, task identity |
 | `alpha_table` | 0.10–0.30 `low`, 0.35–0.44 `high` | – | radial table used for each $\alpha$ | plan |
@@ -119,48 +119,48 @@ analysis import it); validation requires `eht_imaging.inputs` to have exactly th
 
 | Key | Value | Unit | Meaning | Read by |
 |---|---|---|---|---|
-| `inputs` | four `[file name, sha256]` | – | identity of the HOPS uvfits per day | `eht_reconstruct.py` (checked against the input receipt and the file bytes) |
-| `gain_tol` | [0.02, 0.2] | – | lower and upper fractional gain tolerance of the shared-gain self-calibration (the value of the official script) | `eht_reconstruct.py` |
+| `inputs` | four `[file name, sha256]` | – | identity of the HOPS uvfits per day | `scripts/eht/reconstruct.py` (checked against the input receipt and the file bytes) |
+| `gain_tol` | [0.02, 0.2] | – | lower and upper fractional gain tolerance of the shared-gain self-calibration (the value of the official script) | `scripts/eht/reconstruct.py` |
 | `fsys` | 0.005 | – | fractional systematic noise added in quadrature to RL/LR errors: $\sigma^2 \to \sigma^2 + (f_\mathrm{sys}\,\lvert(RR+LL)/2\rvert)^2$ | `add_fsys` in fiducial, refine and Monte Carlo; bundle contract |
 | `solve_sites` | AZ, LM, PV | – | stations whose D terms are solved | fiducial, refine, Monte Carlo D distribution |
 | `fixed_sites` | AA, AP, SM, JC | – | stations already leakage-corrected in the HOPS products (the only list of them in the code) | `load_native` metadata; `sample_dterms` zero-mean residual draws |
-| `p_data` | pvis 1.0, m 1.0 | – | ehtim data-term weights of P imaging | fiducial `Imager`; exact P solver of `eht_refine.py` and `eht_sample.py`; bundle contract |
+| `p_data` | pvis 1.0, m 1.0 | – | ehtim data-term weights of P imaging | fiducial `Imager`; exact P solver of `scripts/eht/refine.py` and `scripts/eht/sample.py`; bundle contract |
 | `p_reg` | hw 100.0, ptv 1.0 | – | ehtim regularizer weights (entropy, total variation) | as `p_data` |
 | `norm_reg` | true | – | ehtim regularizer normalization | as `p_data` |
-| `initial_m` | 0.1 | – | initial fractional polarization of the fiducial P image | `eht_reconstruct.py` |
-| `initial_evpa_deg` | 0.0 | degree | initial EVPA of the fiducial P image | `eht_reconstruct.py` |
-| `rounds` | 50 | – | fiducial P/D alternation rounds | `eht_reconstruct.py` |
-| `restart_rounds` | 2, 12, 22, 32, 42 | – | rounds that restart P from a blurred fractional polarization (numerical, not from the paper) | `eht_reconstruct.py` |
-| `restart_blur_uas` | 20.0 | µas | FWHM of that restart blur | `eht_reconstruct.py` |
-| `restart_domain_epsilon` | 1e-8 | – | restart P is scaled by $1-\epsilon$ so that $\lvert P/I\rvert<1$ | `eht_reconstruct.py` |
-| `maxit` | 500 | – | ehtim optimizer iteration cap per call (numerical) | `eht_reconstruct.py` |
-| `stop` | 1e-8 | – | ehtim convergence tolerance | `eht_reconstruct.py` |
-| `shift_objective_constant` | true | – | add $\sum$`p_data` $+\,h_w\ln 2$ to the ehtim objective (constant; minimizer unchanged) | `eht_reconstruct.py` |
+| `initial_m` | 0.1 | – | initial fractional polarization of the fiducial P image | `scripts/eht/reconstruct.py` |
+| `initial_evpa_deg` | 0.0 | degree | initial EVPA of the fiducial P image | `scripts/eht/reconstruct.py` |
+| `rounds` | 50 | – | fiducial P/D alternation rounds | `scripts/eht/reconstruct.py` |
+| `restart_rounds` | 2, 12, 22, 32, 42 | – | rounds that restart P from a blurred fractional polarization (numerical, not from the paper) | `scripts/eht/reconstruct.py` |
+| `restart_blur_uas` | 20.0 | µas | FWHM of that restart blur | `scripts/eht/reconstruct.py` |
+| `restart_domain_epsilon` | 1e-8 | – | restart P is scaled by $1-\epsilon$ so that $\lvert P/I\rvert<1$ | `scripts/eht/reconstruct.py` |
+| `maxit` | 500 | – | ehtim optimizer iteration cap per call (numerical) | `scripts/eht/reconstruct.py` |
+| `stop` | 1e-8 | – | ehtim convergence tolerance | `scripts/eht/reconstruct.py` |
+| `shift_objective_constant` | true | – | add $\sum$`p_data` $+\,h_w\ln 2$ to the ehtim objective (constant; minimizer unchanged) | `scripts/eht/reconstruct.py` |
 | `uv_min` | 1.0e8 | wavelengths | baselines shorter than 100 Mλ (intra-site "zero" baselines) are removed before the shared gain solve and in all P imaging | I stage, fiducial, refine, Monte Carlo |
-| `uncertainty_draws` | 1000 | – | D-term draws per day | `eht_sample.py`, `eht_summarize.py`, `analysis_limits.py`, `analysis_check_covariance.py` |
-| `seed` | 20210405 | – | Monte Carlo seed; per day `SeedSequence([seed, day])` | `eht_sample.py` |
-| `covariance_ddof` | 1 | – | delta degrees of freedom of the four-day D covariance | `eht_sample.py`; bundle contract |
-| `residual_d_sigma` | 0.01 | – | per real/imaginary component SD of zero-mean D draws for `fixed_sites` | `eht_sample.py`; bundle contract |
-| `refine.outer_rounds` | 100 | – | P solve / D refit alternations before the final P solve | `eht_refine.py` |
-| `refine.gap_atol` | 1e-6 | objective units | absolute duality-gap tolerance of each exact P solve | `eht_refine.py` |
-| `refine.maxiter` | 20000 | – | P solver iterations per call | `eht_refine.py` |
-| `refine.check_every` | 500 | – | iterations between gap certificates | `eht_refine.py` |
-| `refine.time_limit` | 300.0 | s | P solver time per call | `eht_refine.py` |
-| `refine.d_optimizer` | ftol 1e-13, gtol 1e-9, maxiter 10000, maxcor 50, maxls 50, maxfun 100000 | – | scipy L-BFGS-B options of every D refit | `eht_refine.py` → `fit_forward_d` |
-| `monte_carlo.initial_p_fraction` | 0.05 | – | initial P $=0.05\,I$ (real, EVPA 0), no warm start | `eht_sample.py` |
-| `monte_carlo.gap_atol` | 1e-6 | objective units | gap tolerance per draw | `eht_sample.py` |
-| `monte_carlo.maxiter` | 50000 | – | P solver iterations, first attempt | `eht_sample.py` |
-| `monte_carlo.check_every` | 500 | – | iterations between certificates | `eht_sample.py` |
-| `monte_carlo.time_limit` | 600.0 | s | time, first attempt | `eht_sample.py` |
-| `monte_carlo.retry_maxiter` | 200000 | – | iterations of the second attempt of an uncertified draw | `eht_sample.py` |
-| `monte_carlo.retry_time_limit` | 1800.0 | s | time of the second attempt | `eht_sample.py` |
+| `uncertainty_draws` | 1000 | – | D-term draws per day | `scripts/eht/sample.py`, `scripts/eht/summarize.py`, `scripts/analysis/limits.py`, `scripts/analysis/check_covariance.py` |
+| `seed` | 20210405 | – | Monte Carlo seed; per day `SeedSequence([seed, day])` | `scripts/eht/sample.py` |
+| `covariance_ddof` | 1 | – | delta degrees of freedom of the four-day D covariance | `scripts/eht/sample.py`; bundle contract |
+| `residual_d_sigma` | 0.01 | – | per real/imaginary component SD of zero-mean D draws for `fixed_sites` | `scripts/eht/sample.py`; bundle contract |
+| `refine.outer_rounds` | 100 | – | P solve / D refit alternations before the final P solve | `scripts/eht/refine.py` |
+| `refine.gap_atol` | 1e-6 | objective units | absolute duality-gap tolerance of each exact P solve | `scripts/eht/refine.py` |
+| `refine.maxiter` | 20000 | – | P solver iterations per call | `scripts/eht/refine.py` |
+| `refine.check_every` | 500 | – | iterations between gap certificates | `scripts/eht/refine.py` |
+| `refine.time_limit` | 300.0 | s | P solver time per call | `scripts/eht/refine.py` |
+| `refine.d_optimizer` | ftol 1e-13, gtol 1e-9, maxiter 10000, maxcor 50, maxls 50, maxfun 100000 | – | scipy L-BFGS-B options of every D refit | `scripts/eht/refine.py` → `fit_forward_d` |
+| `monte_carlo.initial_p_fraction` | 0.05 | – | initial P $=0.05\,I$ (real, EVPA 0), no warm start | `scripts/eht/sample.py` |
+| `monte_carlo.gap_atol` | 1e-6 | objective units | gap tolerance per draw | `scripts/eht/sample.py` |
+| `monte_carlo.maxiter` | 50000 | – | P solver iterations, first attempt | `scripts/eht/sample.py` |
+| `monte_carlo.check_every` | 500 | – | iterations between certificates | `scripts/eht/sample.py` |
+| `monte_carlo.time_limit` | 600.0 | s | time, first attempt | `scripts/eht/sample.py` |
+| `monte_carlo.retry_maxiter` | 200000 | – | iterations of the second attempt of an uncertified draw | `scripts/eht/sample.py` |
+| `monte_carlo.retry_time_limit` | 1800.0 | s | time of the second attempt | `scripts/eht/sample.py` |
 
 The compact flux density of the official I workflow (0.6 Jy, `zbl = 0.60`) is fixed inside
 the official EHT script, which runs unchanged apart from two substitutions
 ([EHT imaging](eht-imaging.md#i-stage)); P imaging uses the total flux of the fixed I image.
 
-`refine` and `monte_carlo` are recorded in the plans of `eht_refine.py` and
-`eht_sample.py`, not in the flat parameter set of the imaging stages.
+`refine` and `monte_carlo` are recorded in the plans of `scripts/eht/refine.py` and
+`scripts/eht/sample.py`, not in the flat parameter set of the imaging stages.
 
 ### Section analysis
 
@@ -169,12 +169,12 @@ the official EHT script, which runs unchanged apart from two substitutions
 | `rotation_degrees` | 108.0 | degree | rotation of the simulated images onto the sky (image and $Q+iU$) | `analysis_geometry` |
 | `aperture.window_degrees` | 10 | degree | full width of each aperture sector | `analysis_geometry` → aperture operator (templates, sector EVPA and sector selection) |
 | `aperture.radial_max_fraction` | 1.0 | – | aperture radius as a fraction of the half field (60 µas) | as above |
-| `features.intensity_fraction` | 0.1 | – | keep where mean $I \ge 0.1 \times$ daily maximum | `analysis_limits.py` |
-| `features.polarization_fraction` | 0.2 | – | and mean $\lvert P\rvert \ge 0.2 \times$ daily maximum (0 selects by brightness only) | `analysis_limits.py` |
-| `features.min_radius_rg` | 2.0 | $r_g$ | minimum distance of a 2D pixel from the image centre (7.6 µas) | `analysis_limits.py` |
-| `features.pixel_stride` | 5 | pixels | 2D: every 5th pixel in both axes | `analysis_limits.py` |
-| `features.sector_spacing_degrees` | 10 | degree | 1D: one sector every 10° | `analysis_limits.py` |
-| `features.sector_offset_degrees` | 4 | degree | 1D: starting at 4° east of north | `analysis_limits.py` |
+| `features.intensity_fraction` | 0.1 | – | keep where mean $I \ge 0.1 \times$ daily maximum | `scripts/analysis/limits.py` |
+| `features.polarization_fraction` | 0.2 | – | and mean $\lvert P\rvert \ge 0.2 \times$ daily maximum (0 selects by brightness only) | `scripts/analysis/limits.py` |
+| `features.min_radius_rg` | 2.0 | $r_g$ | minimum distance of a 2D pixel from the image centre (7.6 µas) | `scripts/analysis/limits.py` |
+| `features.pixel_stride` | 5 | pixels | 2D: every 5th pixel in both axes | `scripts/analysis/limits.py` |
+| `features.sector_spacing_degrees` | 10 | degree | 1D: one sector every 10° | `scripts/analysis/limits.py` |
+| `features.sector_offset_degrees` | 4 | degree | 1D: starting at 4° east of north | `scripts/analysis/limits.py` |
 | `features.resultant_min` | 0.7 | – | minimum circular resultant length on every day | `build_observations` |
 | `cloud.coefficient` | 0.03 | – | $b(\alpha)=0.03\,(\alpha/0.05)^{1.75}$ | `cloud_amplitude_scaling` |
 | `cloud.pivot_alpha` | 0.05 | – | pivot of $b(\alpha)$ | as above |

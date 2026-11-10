@@ -140,7 +140,7 @@ def test_analysis_ignores_sky_grid_but_not_ray_tracing_changes(delivered):
 
 def test_generated_data_reaches_templates_and_background(delivered, tmp_path):
     import yaml
-    from analysis_templates import run as run_templates
+    from scripts.analysis.templates import run as run_templates
     from eht_axion.raptor.delivery import validate_processed_source
 
     config, run, _ = delivered

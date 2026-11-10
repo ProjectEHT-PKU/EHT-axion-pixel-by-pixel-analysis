@@ -1,7 +1,7 @@
 """Finite-MC sensitivity estimates scatter, not uncertainty of a sample mean."""
 import numpy as np
 
-from analysis_check_covariance import covariance
+from scripts.analysis.check_covariance import covariance
 
 
 def test_centering_wrap_and_no_extra_sample_count_factor():

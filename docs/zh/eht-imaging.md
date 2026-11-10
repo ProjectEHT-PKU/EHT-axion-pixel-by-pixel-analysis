@@ -34,7 +34,7 @@
 
 ## 运行方法
 
-使用 `eht-imaging` 环境（ehtim 1.3.2、astropy）；`eht_summarize.py` 只需要 `eht-summary`
+使用 `eht-imaging` 环境（ehtim 1.3.2、astropy）；`scripts/eht/summarize.py` 只需要 `eht-summary`
 （astropy）。每条命令写出一个新的根目录。设置了数据根目录（`M87_AXION_DATA_ROOT` 或 `--data-root`）时，下面每个根目录选项都有取自
 [默认布局](data-layout.md#默认布局)的默认值；这里的命令显式给出了这些根目录。
 
@@ -53,14 +53,14 @@ pixi run -e eht-imaging eht-sample --bundle-root BUNDLE --output-root MC --worke
 pixi run -e eht-summary eht-summarize --sample-root MC --output-root ENSEMBLE
 ```
 
-`eht_reconstruct.py --plan` 只校验输入、计算哈希并打印计划。实际执行需要 `--review-file`，即一个
+`scripts/eht/reconstruct.py --plan` 只校验输入、计算哈希并打印计划。实际执行需要 `--review-file`，即一个
 记录外部审查决定的非空文件；它的字节成为阶段输入，而它的存在并不等于自动批准。
 
-`eht_sample.py` 的选项：`--workers`（默认 64）、每个工作进程的 `--threads`（默认 2）、
+`scripts/eht/sample.py` 的选项：`--workers`（默认 64）、每个工作进程的 `--threads`（默认 2）、
 `--max-active-memory-gib`（默认 100）、`--resource-wait`（默认 300 s）、`--task-limit`、
 `--resume`。使用同一输出根目录的运行会续跑；它要求批次身份（打包、科学取值和代码）完全相同。
 
-`eht_summarize.py` 直接读取 `eht_sample.py` 的输出根目录（见[系综汇总](#系综汇总)）。在另一台主机
+`scripts/eht/summarize.py` 直接读取 `scripts/eht/sample.py` 的输出根目录（见[系综汇总](#系综汇总)）。在另一台主机
 上运行蒙特卡罗并把其输出根目录复制回来，属于流水线之外的操作事项。
 
 ## 细节
@@ -74,7 +74,7 @@ JC 在 HOPS 产品中已做过泄漏改正，AZ、LM、PV 则没有。数据做�
 
 ### I 阶段
 
-`eht_reconstruct.py --stage I`：
+`scripts/eht/reconstruct.py --stage I`：
 
 - 在原始文件上运行官方 EHT 成像脚本，源码中恰好做两处替换：傅里叶变换类型 `nfft` 改为 `direct`，
   视场 128 µas 改为 `shared.image.fov_uas`（120 µas）。脚本的最终图像 `im_out`（经其自身的恢复
@@ -91,7 +91,7 @@ JC 在 HOPS 产品中已做过泄漏改正，AZ、LM、PV 则没有。数据做�
 
 ### 基准 P/D 交替
 
-`eht_reconstruct.py --stage fiducial` 读取同一天的 I 阶段。基础数据是施加了 `uv_min` 的增益校准
+`scripts/eht/reconstruct.py --stage fiducial` 读取同一天的 I 阶段。基础数据是施加了 `uv_min` 的增益校准
 数据。从 $P = m_0\, I\, e^{2i\chi_0}$（`initial_m`、`initial_evpa_deg`）开始，`rounds`（50）轮中的
 每一轮：
 
@@ -110,7 +110,7 @@ JC 在 HOPS 产品中已做过泄漏改正，AZ、LM、PV 则没有。数据做�
 
 ### 基准 D 项的精化
 
-`eht_refine.py` 用精确的凸 P 求解器（`eht_axion/eht/convex.py`）精化某一天的基准 D 项（精化阶段）。
+`scripts/eht/refine.py` 用精确的凸 P 求解器（`eht_axion/eht/convex.py`）精化某一天的基准 D 项（精化阶段）。
 在 I 和 D 固定时，正则项归一化的 ehtim P 目标函数（`norm_reg` 为 true；求解器只实现这种情形）是
 $P$ 的凸函数：
 
@@ -136,7 +136,7 @@ $w_\mathrm{pvis} + w_m + h_w\ln 2$（有单元测试针对多组权重与 ehtim 
 
 ### 打包导出
 
-`eht_export_bundle.py` 读取四个 I 根目录和四个精化根目录，逐一校验（完整来源链），并检查：它们的
+`scripts/eht/export_bundle.py` 读取四个 I 根目录和四个精化根目录，逐一校验（完整来源链），并检查：它们的
 成像参数等于当前 `configs/experiment.yaml` 的 `eht_imaging_parameters`，每个精化阶段都源自同一天的 I 阶段，
 每个精化阶段的每次 P 求解都获得证书，四个 I 阶段使用的是同一张馈源表。它以只读方式复制：
 
@@ -150,7 +150,7 @@ $w_\mathrm{pvis} + w_m + h_w\ln 2$（有单元测试针对多组权重与 ehtim 
 
 ### D 项蒙特卡罗
 
-`eht_sample.py` 校验打包（每个文件的哈希；`fsys`、`covariance_ddof`、`residual_component_sigma`
+`scripts/eht/sample.py` 校验打包（每个文件的哈希；`fsys`、`covariance_ddof`、`residual_component_sigma`
 以及 P 目标函数权重与 `configs/experiment.yaml` 比对），然后：
 
 - 构造 D 项分布（`d_distribution`）：对 `solve_sites` 中的每个台站和每种旋向 R、L，在四天的精化
@@ -171,8 +171,8 @@ $w_\mathrm{pvis} + w_m + h_w\ln 2$（有单元测试针对多组权重与 ehtim 
 
 ### 系综汇总
 
-`eht_summarize.py` 读取一个已完成的 `eht_sample.py` 输出根目录（`--sample-root`）。它要求
-`batch.json` 带有自身的身份（批次计划的 SHA-256），其记录的科学取值等于 `eht_sample.py` 从当前
+`scripts/eht/summarize.py` 读取一个已完成的 `scripts/eht/sample.py` 输出根目录（`--sample-root`）。它要求
+`batch.json` 带有自身的身份（批次计划的 SHA-256），其记录的科学取值等于 `scripts/eht/sample.py` 从当前
 `configs/experiment.yaml` 派生的取值，并且 `finish.json` 具有相同的身份、对每次抽样列出一份获证书的回执。
 它检查这些回执、证书以及每个被读取文件的 SHA-256，然后读取每天 1000 幅模糊图像（不再额外模糊），
 并在 `day-<day>/` 下按天写出：

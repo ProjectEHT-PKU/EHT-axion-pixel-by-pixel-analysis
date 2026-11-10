@@ -81,7 +81,7 @@ def test_mutation_after_last_hash_caught_at_exit(tmp_path):
 
 
 def test_verify_products_hashes_a_shared_input_once(tmp_path, monkeypatch, capsys):
-    import verify_products
+    from scripts import verify_products
     from eht_axion import provenance
 
     raw = tmp_path / "raw.bin"

@@ -29,10 +29,10 @@
 
 | 部分 | 脚本 | Pixi 环境 |
 |---|---|---|
-| RAPTOR 模拟 | `raptor_build.py`、`raptor_generate.py`、`raptor_merge.py` | `raptor-build` |
-| EHT 成像 | `eht_reconstruct.py`、`eht_refine.py`、`eht_export_bundle.py`、`eht_sample.py` | `eht-imaging` |
-| EHT 成像汇总 | `eht_summarize.py` | `eht-summary` |
-| 分析 | `analysis_templates.py`、`analysis_limits.py`、`analysis_check_grid.py`、`analysis_check_covariance.py`、`analysis_summarize.py`、`analysis_paper.py` | `default` |
+| RAPTOR 模拟 | `scripts/raptor/build.py`、`scripts/raptor/generate.py`、`scripts/raptor/merge.py` | `raptor-build` |
+| EHT 成像 | `scripts/eht/reconstruct.py`、`scripts/eht/refine.py`、`scripts/eht/export_bundle.py`、`scripts/eht/sample.py` | `eht-imaging` |
+| EHT 成像汇总 | `scripts/eht/summarize.py` | `eht-summary` |
+| 分析 | `scripts/analysis/templates.py`、`scripts/analysis/limits.py`、`scripts/analysis/check_grid.py`、`scripts/analysis/check_covariance.py`、`scripts/analysis/summarize.py`、`scripts/analysis/paper.py` | `default` |
 
 每个脚本都写入一个新的输出根目录，并拒绝覆盖已有结果。
 
@@ -43,26 +43,26 @@
 ```mermaid
 flowchart LR
   subgraph RAPTOR["RAPTOR simulation"]
-    RB[raptor_build] --> RG[raptor_generate]
-    RG --> RM[raptor_merge]
+    RB["raptor/build.py"] --> RG["raptor/generate.py"]
+    RG --> RM["raptor/merge.py"]
   end
   subgraph EHT["EHT imaging"]
-    EI[eht_reconstruct --stage I] --> EF[eht_reconstruct --stage fiducial]
-    EF --> ER[eht_refine]
+    EI["eht/reconstruct.py --stage I"] --> EF["eht/reconstruct.py --stage fiducial"]
+    EF --> ER["eht/refine.py"]
     EI --> ER
-    ER --> EB[eht_export_bundle]
+    ER --> EB["eht/export_bundle.py"]
     EI --> EB
-    EB --> ES[eht_sample]
-    ES --> EM[eht_summarize]
+    EB --> ES["eht/sample.py"]
+    ES --> EM["eht/summarize.py"]
   end
   subgraph AN["Analysis"]
-    AT[analysis_templates] --> AL[analysis_limits]
-    AL --> AG[analysis_check_grid]
-    AL --> AC[analysis_check_covariance]
-    AL --> AS[analysis_summarize]
+    AT["analysis/templates.py"] --> AL["analysis/limits.py"]
+    AL --> AG["analysis/check_grid.py"]
+    AL --> AC["analysis/check_covariance.py"]
+    AL --> AS["analysis/summarize.py"]
     AG --> AS
     AC --> AS
-    AT --> AP[analysis_paper]
+    AT --> AP["analysis/paper.py"]
     AL --> AP
     AG --> AP
     AC --> AP
@@ -73,8 +73,8 @@ flowchart LR
   EM -- "EHT ensemble" --> AP
 ```
 
-箭头表示“读取……的产品”。当所有作业都在同一个运行根目录中运行时，`raptor_generate` 可以自己交付
-数据立方；`raptor_merge` 则从多台主机的作业根目录交付数据立方。
+箭头表示“读取……的产品”。当所有作业都在同一个运行根目录中运行时，`scripts/raptor/generate.py` 可以自己交付
+数据立方；`scripts/raptor/merge.py` 则从多台主机的作业根目录交付数据立方。
 
 ### 三个部分
 

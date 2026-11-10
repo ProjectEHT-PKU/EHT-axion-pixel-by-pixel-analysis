@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """Analysis: summary tables/figures of the limits and their checks.
 
-Inputs are completed small stages only (limits of analysis_limits.py, the grid and
-prior checks of analysis_check_grid.py, optionally the covariance check); raw
+Inputs are completed small stages only (limits of scripts/analysis/limits.py, the grid and
+prior checks of scripts/analysis/check_grid.py, optionally the covariance check); raw
 inputs are never reopened and their provenance is inherited, not re-certified.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import argparse
 import csv
 import json
-from pathlib import Path
 
-import _bootstrap  # noqa: F401
-from _data_root import add_data_root_option, data_root, fill_defaults, layout_path
+from eht_axion.environment import add_data_root_option, data_root, fill_defaults, layout_path
 import numpy as np
 
 from eht_axion import provenance
@@ -315,7 +318,7 @@ def run(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limits", type=Path,
-                        help="analysis_limits.py output root (default: analysis/limits)")
+                        help="scripts/analysis/limits.py output root (default: analysis/limits)")
     parser.add_argument("--gridcheck", type=Path, help="default: analysis/check-grid")
     parser.add_argument("--priorcheck", type=Path, help="default: analysis/check-prior")
     parser.add_argument("--output-root", type=Path, help="new directory (default: analysis/summary)")
@@ -327,11 +330,11 @@ def main(argv=None):
     )
     add_data_root_option(parser)
     args = parser.parse_args(argv)
-    defaults = {"limits": ("analysis_limits", {}), "gridcheck": ("analysis_check_grid", {}),
-                "priorcheck": ("analysis_check_prior", {}), "output_root": ("analysis_summary", {})}
+    defaults = {"limits": ("analysis.limits", {}), "gridcheck": ("analysis.check_grid", {}),
+                "priorcheck": ("analysis.check_prior", {}), "output_root": ("analysis.summary", {})}
     root = data_root(args)
     if args.covcheck is None and root is not None:
-        args.covcheck = layout_path(root, "analysis_check_covariance")
+        args.covcheck = layout_path(root, "analysis.check_covariance")
     fill_defaults(parser, args, defaults)
     run(args)
 

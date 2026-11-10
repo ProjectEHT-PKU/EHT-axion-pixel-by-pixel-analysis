@@ -41,7 +41,7 @@ File details are on [Data layout](data-layout.md).
 
 ## How to run
 
-Environment `eht-imaging` (ehtim 1.3.2, astropy); `eht_summarize.py` needs only
+Environment `eht-imaging` (ehtim 1.3.2, astropy); `scripts/eht/summarize.py` needs only
 `eht-summary` (astropy). Every command writes one new root. With a data root (`M87_AXION_DATA_ROOT` or `--data-root`), every root option below has a
 default from the [default layout](data-layout.md#default-layout); the commands give the roots
 explicitly.
@@ -61,16 +61,16 @@ pixi run -e eht-imaging eht-sample --bundle-root BUNDLE --output-root MC --worke
 pixi run -e eht-summary eht-summarize --sample-root MC --output-root ENSEMBLE
 ```
 
-`eht_reconstruct.py --plan` only verifies and hashes the inputs and prints the plan.
+`scripts/eht/reconstruct.py --plan` only verifies and hashes the inputs and prints the plan.
 Execution requires `--review-file`, a nonempty file recording an external review decision;
 its bytes become a stage input, and its presence is not an automatic approval.
 
-`eht_sample.py` options: `--workers` (default 64), `--threads` per worker (default 2),
+`scripts/eht/sample.py` options: `--workers` (default 64), `--threads` per worker (default 2),
 `--max-active-memory-gib` (default 100), `--resource-wait` (default 300 s), `--task-limit`,
 `--resume`. A run with the same output root resumes; it requires an identical batch
 identity (bundle, science values and code).
 
-`eht_summarize.py` reads the output root of `eht_sample.py` directly (see
+`scripts/eht/summarize.py` reads the output root of `scripts/eht/sample.py` directly (see
 [Ensemble summary](#ensemble-summary)). Running the Monte Carlo on another host and copying
 its output root back is an operational matter outside the pipeline.
 
@@ -88,7 +88,7 @@ Data are scan-averaged coherently once.
 
 ### I stage
 
-`eht_reconstruct.py --stage I`:
+`scripts/eht/reconstruct.py --stage I`:
 
 - runs the official EHT imaging script on the raw file with exactly two source
   substitutions: the Fourier transform type `nfft` becomes `direct`, and the field of view
@@ -109,7 +109,7 @@ polarization $P = Q + iU$ (with $V = 0$).
 
 ### Fiducial P/D alternation
 
-`eht_reconstruct.py --stage fiducial` reads the I stage of the same day. The base data are
+`scripts/eht/reconstruct.py --stage fiducial` reads the I stage of the same day. The base data are
 the gain-calibrated data with `uv_min` applied. Starting from $P = m_0\, I\, e^{2i\chi_0}$
 (`initial_m`, `initial_evpa_deg`), each of `rounds` (50) rounds:
 
@@ -133,7 +133,7 @@ the fixed round budget.
 
 ### Refinement of the fiducial D terms
 
-`eht_refine.py` refines the fiducial D terms of one day (the refine stage) with an exact
+`scripts/eht/refine.py` refines the fiducial D terms of one day (the refine stage) with an exact
 convex P solver (`eht_axion/eht/convex.py`). For fixed I and fixed D, the ehtim P objective
 with normalized regularizers (`norm_reg` true; the solver implements only this case) is
 convex in $P$:
@@ -163,7 +163,7 @@ P to the gap tolerance (`gap_atol`, `maxiter`, `check_every`, `time_limit` of
 
 ### Bundle export
 
-`eht_export_bundle.py` takes the four I roots and the four refined roots, verifies each
+`scripts/eht/export_bundle.py` takes the four I roots and the four refined roots, verifies each
 (full lineage), checks that their imaging parameters equal `eht_imaging_parameters` of the
 current `configs/experiment.yaml`, that each refined stage descends from the I stage of the same
 day, that every P solve of each refined stage is certified, and that all four I stages used
@@ -180,7 +180,7 @@ the P objective weights, under the schema `eht-bundle-v2`.
 
 ### D-term Monte Carlo
 
-`eht_sample.py` verifies the bundle (every file hash; `fsys`, `covariance_ddof`,
+`scripts/eht/sample.py` verifies the bundle (every file hash; `fsys`, `covariance_ddof`,
 `residual_component_sigma` and the P objective weights against `configs/experiment.yaml`) and then:
 
 - forms the D-term distribution (`d_distribution`): for each station in `solve_sites` and
@@ -205,9 +205,9 @@ are certified.
 
 ### Ensemble summary
 
-`eht_summarize.py` reads a finished `eht_sample.py` output root (`--sample-root`). It
+`scripts/eht/summarize.py` reads a finished `scripts/eht/sample.py` output root (`--sample-root`). It
 requires that `batch.json` carries its own identity (the SHA-256 of the batch plan), that
-its recorded science values equal those `eht_sample.py` derives from the current
+its recorded science values equal those `scripts/eht/sample.py` derives from the current
 `configs/experiment.yaml`, and that `finish.json` has the same identity and lists one certified
 receipt per draw. It checks the receipts, certificates and the SHA-256 of every consumed
 file, then reads the 1000

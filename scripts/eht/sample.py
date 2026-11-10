@@ -3,15 +3,18 @@
 
 Science values (draw count, seed, fsys, uv cut, D-term statistics, sky grid,
 blur and the P solver settings eht_imaging.monte_carlo) come from
-experiment.yaml; the input bundle (eht_export_bundle.py) holds the four verified
+experiment.yaml; the input bundle (scripts/eht/export_bundle.py) holds the four verified
 fiducial I/obs/D products. Execution options (workers, threads, memory) are CLI.
 Input-only: no export, SSH, D fit or thermal draw.
 
 Receipts are this script's batch records (batch.json, taskreceipt.json, finish.json), not stage manifests.
 A floating-point gap certificate is numerical, not scientific acceptance.
 """
+
 from pathlib import Path
 import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
 
 import argparse
 from collections import deque
@@ -27,9 +30,8 @@ import resource
 import time
 import traceback
 
-from _bootstrap import ROOT as _BOOTSTRAP
-from _data_root import add_data_root_option, fill_defaults
-from eht_axion.experiment import EHT_DAYS
+from eht_axion.environment import add_data_root_option, fill_defaults
+from eht_axion.experiment import DEFAULT_PATH, EHT_DAYS
 from eht_axion.provenance import contained_path as contained, sha256 as sha
 
 DAYS = tuple(str(day) for day in EHT_DAYS)  # bundle and task keys are strings
@@ -199,7 +201,7 @@ def run_attempt(root, bundle, task, directory, config, identity, numerical_attem
     with (directory / 'job.log').open('x') as log, redirect_stdout(log), redirect_stderr(log):
         try:
             import numpy as np
-            import eht_reconstruct as driver
+            from scripts.eht import reconstruct as driver
             from eht_axion.eht import calibration as core, convex as opt
             eh = core._library()
             d = task['day']
@@ -434,7 +436,7 @@ def controller(args, out):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--bundle-root', type=Path, help='eht_export_bundle.py output (default: eht/bundle)')
+    p.add_argument('--bundle-root', type=Path, help='export_bundle.py output (default: eht/bundle)')
     p.add_argument('--output-root', type=Path, help='batch root; resumable (default: eht/sample)')
     p.add_argument('--workers', type=int, default=64)
     p.add_argument('--resource-wait', type=float, default=300.,
@@ -448,10 +450,10 @@ def main(argv=None):
     p.add_argument('--max-active-memory-gib', type=float, default=100.)
     add_data_root_option(p)
     args = p.parse_args(argv)
-    fill_defaults(p, args, {'bundle_root': ('eht_bundle', {}), 'output_root': ('eht_sample', {})})
+    fill_defaults(p, args, {'bundle_root': ('eht.bundle', {}), 'output_root': ('eht.sample', {})})
     import math
     if args.config is None:
-        args.config = _BOOTSTRAP / 'configs' / 'experiment.yaml'
+        args.config = DEFAULT_PATH
     if (min(args.workers, args.threads) < 1
             or (args.task_limit is not None and args.task_limit < 1)
             or not all(math.isfinite(v) and v > 0 for v in (args.max_active_memory_gib, args.resource_wait))):

@@ -1,25 +1,30 @@
 #!/usr/bin/env python3
-"""EHT imaging: summarize the D-term Monte Carlo images of eht_sample.py into EHT ensembles.
+"""EHT imaging: summarize the D-term Monte Carlo images of scripts/eht/sample.py into EHT ensembles.
 
-The ensembles are the EHT input of the analysis (analysis_limits.py).
+The ensembles are the EHT input of the analysis (scripts/analysis/limits.py).
 
 pixi run -e eht-summary eht-summarize --sample-root MC --output-root OUT
-MC is the output root of eht_sample.py; its batch must be finished and must have been
+MC is the output root of scripts/eht/sample.py; its batch must be finished and must have been
 made with the science values of the current experiment.yaml. Draw count and sky grid
 come from experiment.yaml. Only the blurred images (blurred with
 shared.image.blur_fwhm_uas, like the simulated images) are summarized.
 Outputs: day-D/{stokes.npy,evpa.npy,global.npz},
 axes.npz, report.json (conventions, registration, scope).
 """
+
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
+
 import argparse
 import hashlib
 import json
 
 import numpy as np
 
-from _bootstrap import ROOT
-from _data_root import add_data_root_option, fill_defaults
+from eht_axion.environment import add_data_root_option, fill_defaults
+from eht_axion.experiment import DEFAULT_PATH
 from eht_axion import provenance
 from eht_axion.eht import ensemble as en
 from eht_axion.eht.ensemble import load_stokes_fits
@@ -39,7 +44,7 @@ def summary_settings(config):
 
 
 def verify_batch(root, settings, science):
-    """Verify a finished eht_sample.py output root before any image is read.
+    """Verify a finished scripts/eht/sample.py output root before any image is read.
 
     batch.json must carry its own identity (SHA-256 of the plan) and the science values
     ``science`` of the current experiment; finish.json must list one certified receipt
@@ -65,9 +70,9 @@ def verify_batch(root, settings, science):
     if (batch.get('schema') != 'eht-sample-batch-v2' or hashlib.sha256(encoded).hexdigest() != identity
             or finish.get('schema') != 'eht-sample-finish-v2' or finish.get('identity') != identity
             or finish.get('numerically_certified') != count * len(en.DAYS)):
-        raise ValueError('incomplete or inconsistent eht_sample batch (batch.json / finish.json)')
+        raise ValueError('incomplete or inconsistent Monte Carlo batch (batch.json / finish.json)')
     if batch.get('science') != json.loads(json.dumps(science)):
-        raise ValueError('eht_sample batch was made with different experiment values')
+        raise ValueError('Monte Carlo batch was made with different experiment values')
     draws = checked(results / 'all-draws.json')
     taskpath = results / 'tasks.jsonl'
     provenance.sha256(taskpath)
@@ -139,7 +144,7 @@ def run(selected, out, settings):
                   angle_convention='EVPA radians modulo pi, east of north',
                   registration='none: the Paper VII Sec. 5.2 alignment is a zero shift; '
                                'images used as reconstructed',
-                  resolution='blurred products of eht_sample.py (shared.image.blur_fwhm_uas); '
+                  resolution='blurred products of scripts/eht/sample.py (shared.image.blur_fwhm_uas); '
                              'no blur applied here',
                   evpa_mask='EVPA NaN where I <= 0 or Q+iU = 0',
                   scope='conditional fixed-I D-term MC only; no thermal bootstrap, response variance, '
@@ -153,15 +158,15 @@ def run(selected, out, settings):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--sample-root', type=Path,
-                   help='finished eht_sample.py output root (default: eht/sample)')
+                   help='finished scripts/eht/sample.py output root (default: eht/sample)')
     p.add_argument('--output-root', type=Path, help='new directory (default: eht/ensemble)')
-    p.add_argument('--config', type=Path, default=ROOT / 'configs' / 'experiment.yaml',
+    p.add_argument('--config', type=Path, default=DEFAULT_PATH,
                    help='default: configs/experiment.yaml')
     add_data_root_option(p)
     args = p.parse_args(argv)
-    fill_defaults(p, args, {'sample_root': ('eht_sample', {}), 'output_root': ('eht_ensemble', {})})
+    fill_defaults(p, args, {'sample_root': ('eht.sample', {}), 'output_root': ('eht.ensemble', {})})
     from eht_axion.experiment import read_experiment
-    from eht_sample import science_settings
+    from scripts.eht.sample import science_settings
     settings = summary_settings(read_experiment(args.config))
     sample, destination = args.sample_root.resolve(), args.output_root.resolve()
     if destination.is_relative_to(sample) or sample.is_relative_to(destination):

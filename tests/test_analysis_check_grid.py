@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from analysis_check_grid import load_observation
+from scripts.analysis.check_grid import load_observation
 
 
 def test_saved_observation_roundtrip(tmp_path):
