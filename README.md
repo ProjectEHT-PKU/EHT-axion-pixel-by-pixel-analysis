@@ -7,7 +7,7 @@ an installable package: run the scripts directly or through `pixi run`.
 
 **Documentation: [docs/en/index.md](docs/en/index.md)** (overview, every key of
 `experiment.yaml`, RAPTOR production, EHT imaging, analysis, provenance, data layout,
-package map, development).
+package map, development). Chinese translation: [docs/zh/index.md](docs/zh/index.md).
 
 ## Parameters
 

@@ -64,9 +64,10 @@ checks of repository rules:
 - `test_experiment.py` checks validation of every section of `experiment.yaml` and that no
   public function in `eht_axion` has a numeric default value (a short allow-list covers
   execution settings and array-layout arguments).
-- `test_docs_links.py` checks that every page in `docs/en/` is reachable from `README.md`
-  through relative links, that every relative link and anchor resolves, that every page
-  has one H1 title, and that every page links back to `docs/en/index.md`.
+- `test_docs_links.py` checks both documentation trees, `docs/en/` and `docs/zh/`: every
+  page is reachable from `README.md` through relative links, every relative link and anchor
+  resolves, every page has one H1 title and links back to the `index.md` of its language,
+  and the two trees have the same file names and the same heading levels per page.
 
 ### .env files
 

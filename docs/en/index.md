@@ -6,7 +6,8 @@ This is the entry page of the English documentation of the M87\* EHT axion analy
 repository uses two independent inputs: RAPTOR ray-traced images of a GRMHD flow with an
 axion field, and EHT 2017 polarimetric images of M87\*. The analysis combines them into
 Bayesian upper limits on a dimensionless coupling $c$. Every page below describes the
-code as it is in this repository, and every page links back here.
+code as it is in this repository, and every page links back here. A Chinese translation is
+in [中文文档](../zh/index.md).
 
 ## Pages
 
@@ -46,5 +47,6 @@ code as it is in this repository, and every page links back here.
 ## Related pages
 
 - [Repository README](../../README.md)
+- [中文文档](../zh/index.md)
 - [Overview](overview.md)
 - [Glossary](glossary.md)
