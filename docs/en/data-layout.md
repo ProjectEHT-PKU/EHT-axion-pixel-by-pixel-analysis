@@ -191,7 +191,7 @@ per part:
     paper/                       scripts/analysis/paper.py
 ```
 
-`M87_AXION_DATA_ROOT` (exported, or in `.env`) or `--data-root` names the data root; every
+`EHT_DATA_ROOT` (exported, or in `.env`) or `--data-root` names the data root; every
 script then takes its default input and output roots from this layout, and an explicit
 `--...-root` option overrides a default. The default RAPTOR run root is `raptor/runs/main`
 (`--run-root` or `EHT_RAPTOR_RUN_ROOT` override it); `scripts/raptor/merge.py` merges every directory

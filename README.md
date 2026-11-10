@@ -22,18 +22,18 @@ needs. Machine paths and execution options are command-line options or `.env` /
 ## Run
 
 RAPTOR simulation and EHT imaging do not depend on each other; the analysis needs the
-products of both. With a data root (`M87_AXION_DATA_ROOT` or `--data-root`), every script
+products of both. With a data root (`EHT_DATA_ROOT` or `--data-root`), every script
 reads and writes the default layout of [Data layout](docs/en/data-layout.md#default-layout);
 explicit `--...-root` options override it. Every output root must be new.
 
 ```bash
 pixi install --locked
 pixi run check                                   # tests + lint
-export M87_AXION_DATA_ROOT=/path/to/m87-axion    # or set it in .env
+export EHT_DATA_ROOT=/path/to/m87-axion    # or set it in .env
 
 # RAPTOR simulation (environment raptor-build)
 pixi run -e raptor-build raptor-build
-pixi run -e raptor-build raptor-generate --plan --plan-output $M87_AXION_DATA_ROOT/raptor/plan.json
+pixi run -e raptor-build raptor-generate --plan --plan-output $EHT_DATA_ROOT/raptor/plan.json
 pixi run -e raptor-build raptor-generate
 pixi run -e raptor-build raptor-merge
 

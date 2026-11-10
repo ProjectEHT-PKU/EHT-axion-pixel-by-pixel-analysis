@@ -1,7 +1,7 @@
 """Machine-local settings of the scripts: dotenv files, the data root and its default layout.
 
 Dotenv data are read explicitly (never executed, never searched in the caller's cwd).
-The data root is ``--data-root`` or ``M87_AXION_DATA_ROOT`` (exported, or in ``.env``;
+The data root is ``--data-root`` or ``EHT_DATA_ROOT`` (exported, or in ``.env``;
 CLI > exported environment > dotenv) and gives every script its default input and output
 roots (docs/en/data-layout.md#default-layout). An explicit ``--...-root`` option always
 wins over the default derived from the data root. Without either, the option is an error.
@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # Machine-local locations only; scientific values live in configs/experiment.yaml.
 PATH_KEYS = {
     # Data root of the default layout (docs/en/data-layout.md), read by every script
-    "M87_AXION_DATA_ROOT",
+    "EHT_DATA_ROOT",
     # RAPTOR simulation, read from .env and .env.raptor
     "EHT_RAPTOR_SOURCE_ROOT", "EHT_RAPTOR_RUN_ROOT",
     "EHT_GRMHD_ROOT", "EHT_RADIAL_LOW", "EHT_RADIAL_HIGH",
@@ -89,7 +89,7 @@ def resolve_environment(args, *, raptor=False):
     return values
 
 
-DATA_ROOT_KEY = "M87_AXION_DATA_ROOT"
+DATA_ROOT_KEY = "EHT_DATA_ROOT"
 
 # Relative locations of the default layout; "{day}" is an EHT observing day.
 LAYOUT = {
@@ -122,7 +122,7 @@ def add_data_root_option(parser, *, environment_options=True):
 
 
 def data_root(args, environment=None):
-    """--data-root, else M87_AXION_DATA_ROOT from the resolved environment, else None."""
+    """--data-root, else EHT_DATA_ROOT from the resolved environment, else None."""
     if args.data_root is not None:
         return args.data_root
     if environment is None:

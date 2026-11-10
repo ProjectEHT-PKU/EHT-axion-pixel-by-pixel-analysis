@@ -35,7 +35,7 @@
 ## 运行方法
 
 使用 `raptor-build` 环境（仅限 Linux）。路径依次取自命令行、已导出的环境变量、`.env.raptor`、
-`.env`（[开发](development.md)）。设置了数据根目录（`M87_AXION_DATA_ROOT` 或 `--data-root`）时，下面每个根目录选项都有取自
+`.env`（[开发](development.md)）。设置了数据根目录（`EHT_DATA_ROOT` 或 `--data-root`）时，下面每个根目录选项都有取自
 [默认布局](data-layout.md#默认布局)的默认值；这里的命令显式给出了这些根目录。
 
 ```bash

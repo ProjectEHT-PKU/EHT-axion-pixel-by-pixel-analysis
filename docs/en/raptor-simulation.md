@@ -40,7 +40,7 @@ layout uses `raptor/runs/<name>/`, see [Data layout](data-layout.md#default-layo
 ## How to run
 
 Environment `raptor-build` (Linux only). Paths are taken from the command line, the
-exported environment, `.env.raptor`, then `.env` ([Development](development.md)). With a data root (`M87_AXION_DATA_ROOT` or `--data-root`), every root option below has a
+exported environment, `.env.raptor`, then `.env` ([Development](development.md)). With a data root (`EHT_DATA_ROOT` or `--data-root`), every root option below has a
 default from the [default layout](data-layout.md#default-layout); the commands give the roots
 explicitly.
 

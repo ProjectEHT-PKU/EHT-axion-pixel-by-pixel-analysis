@@ -183,7 +183,7 @@ PAPER/                           stage analysis:paper
     paper/                       scripts/analysis/paper.py
 ```
 
-`M87_AXION_DATA_ROOT`（已导出的环境变量或写在 `.env` 中）或 `--data-root` 指定数据根目录；此后每个
+`EHT_DATA_ROOT`（已导出的环境变量或写在 `.env` 中）或 `--data-root` 指定数据根目录；此后每个
 脚本都按这一布局取得默认的输入和输出根目录，显式给出的 `--...-root` 选项覆盖默认值。默认的 RAPTOR
 运行根目录是 `raptor/runs/main`（可由 `--run-root` 或 `EHT_RAPTOR_RUN_ROOT` 覆盖）；`scripts/raptor/merge.py`
 默认合并 `raptor/runs/` 中的每个目录；`scripts/analysis/check_grid.py` 需要 `--check grid` 或 `--check prior`

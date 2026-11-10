@@ -31,7 +31,7 @@ File details are on [Data layout](data-layout.md).
 
 ## How to run
 
-Default environment. With a data root (`M87_AXION_DATA_ROOT` or `--data-root`), every root option below has a
+Default environment. With a data root (`EHT_DATA_ROOT` or `--data-root`), every root option below has a
 default from the [default layout](data-layout.md#default-layout); the commands give the roots
 explicitly.
 

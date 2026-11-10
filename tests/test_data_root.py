@@ -58,9 +58,9 @@ def test_precedence_cli_root_then_data_root_from_cli_env_dotenv(project, monkeyp
     defaults = {"limits": ("analysis.limits", {})}
     assert parse(["--limits", "x", "--data-root", "/d"], defaults).limits == Path("x")
     assert parse(["--data-root", "/d"], defaults).limits == Path("/d/analysis/limits")
-    (project / ".env").write_text("M87_AXION_DATA_ROOT=data\n")
+    (project / ".env").write_text("EHT_DATA_ROOT=data\n")
     assert parse([], defaults).limits == project / "data/analysis/limits"
-    monkeypatch.setenv("M87_AXION_DATA_ROOT", "/exported")
+    monkeypatch.setenv("EHT_DATA_ROOT", "/exported")
     assert parse([], defaults).limits == Path("/exported/analysis/limits")
     assert parse(["--data-root", "/cli"], defaults).limits == Path("/cli/analysis/limits")
     assert parse(["--no-env-file"], defaults).limits == Path("/exported/analysis/limits")
