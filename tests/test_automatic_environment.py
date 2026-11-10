@@ -93,7 +93,7 @@ def test_raptor_entrypoint_uses_automatic_files(project, monkeypatch):
     args = _raptor_options.options("build", [])
     assert args.run_root == project / "outputs/run"
     assert args.source_root == core
-    assert args.config == ROOT / "experiment.yaml"
+    assert args.config == ROOT / "configs" / "experiment.yaml"
     assert args.config_data["shared"]["mass_solar"] == 6.5e9
 
 

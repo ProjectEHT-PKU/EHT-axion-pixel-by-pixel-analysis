@@ -18,7 +18,7 @@ def options(kind, argv=None):
     parser = argparse.ArgumentParser(
         description=f"{kind}: official RAPTOR build and Python task orchestration")
     parser.add_argument("--config", type=Path, default=DEFAULT_PATH,
-                        help="Experiment parameter file (default: experiment.yaml)")
+                        help="Experiment parameter file (default: configs/experiment.yaml)")
     paths = {"source_root": "EHT_RAPTOR_SOURCE_ROOT",
              "run_root": "EHT_RAPTOR_RUN_ROOT", "fluid_root": "EHT_GRMHD_ROOT",
              "radial_low": "EHT_RADIAL_LOW", "radial_high": "EHT_RADIAL_HIGH"}

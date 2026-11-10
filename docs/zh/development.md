@@ -57,7 +57,7 @@ pixi run verify PATH/TO/STAGE --recursive
 测试只使用合成输入；从不读取观测数据，也不运行 RAPTOR。在默认环境中，需要 ehtim 或 astropy 的测试
 被跳过；`eht-imaging` 环境运行全部测试。有些测试不是某个函数的单元测试，而是对仓库规则的检查：
 
-- `test_experiment.py` 检查 `experiment.yaml` 每个节的校验，以及 `eht_axion` 中没有任何公共函数带
+- `test_experiment.py` 检查 `configs/experiment.yaml` 每个节的校验，以及 `eht_axion` 中没有任何公共函数带
   数值默认值（一个简短的允许列表涵盖执行设置和数组布局参数）。
 - `test_docs_links.py` 检查 `docs/en/` 和 `docs/zh/` 两棵文档树：每一页都能从 `README.md` 经相对
   链接到达，每个相对链接和锚点都能解析，每一页恰有一个 H1 标题，每一页都链接回本语言的 `index.md`，
@@ -84,7 +84,7 @@ pixi run verify PATH/TO/STAGE --recursive
 
 ### 代码修改规则
 
-- 科学取值应写在 `experiment.yaml` 中，只写一次，并在 `eht_axion/experiment.py` 中校验；库函数以显式
+- 科学取值应写在 `configs/experiment.yaml` 中，只写一次，并在 `eht_axion/experiment.py` 中校验；库函数以显式
   参数接收它。
 - 机器路径和执行设置应放在命令行或 `.env` 中。
 - 写出科学产品的脚本使用 `stage_directory`，并把它从仓库之外读取的每个数据文件声明为输入；仓库中的

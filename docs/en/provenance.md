@@ -69,7 +69,7 @@ scientific products:
 
 The code is identified by the git commit only. Because a stage can be written only from a
 clean tracked tree, the commit pins every script, every `eht_axion` module,
-`experiment.yaml`, `pixi.toml` and `pixi.lock`; none of these files is hashed or listed
+`configs/experiment.yaml`, `pixi.toml` and `pixi.lock`; none of these files is hashed or listed
 as an input. Third-party packages are pinned by `pixi.lock`; stages that depend on a
 specific package record its version (for example `ehtim_version` in the EHT imaging plans).
 Files that git does not hold are hashed: data inputs read from outside the repository

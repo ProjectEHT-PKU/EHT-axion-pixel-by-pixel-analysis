@@ -11,7 +11,7 @@
 - 交付的 RAPTOR 数据根目录（一次交付或合并的 `data/`），含 `raptor/res-100/alpha-<α>/` 和
   `raptor/res-400/background/`（[RAPTOR 模拟](raptor-simulation.md)）。
 - `eht_summarize.py` 的 EHT 系综阶段（[EHT 成像](eht-imaging.md)）。
-- `experiment.yaml`：`shared`、`analysis`，以及来自其他节的 `raptor.camera_fov_rg`、
+- `configs/experiment.yaml`：`shared`、`analysis`，以及来自其他节的 `raptor.camera_fov_rg`、
   `raptor.snapshots`、`raptor.response`、`raptor.background` 和 `eht_imaging.uncertainty_draws`
   （[实验配置](experiment-config.md)）。
 
@@ -259,7 +259,7 @@ $\sigma_\mathrm{bg}$、各检验中的最大变化、拟合表）生成；其中
 背景）、EHT 系综、交付的 400 像素无轴子数据立方、RAPTOR 计划以及编译目录中的 `axion.c` 副本。径向表
 是计划中记录的文件（`--radial-low`、`--radial-high` 或 `EHT_RADIAL_LOW`、`EHT_RADIAL_HIGH` 可覆盖其
 路径；SHA-256 必须等于计划中的记录），场窗口 $W(r)=\exp[-(r/r_w)^n]$ 从 `axion.c` 中读取。上限必须
-由当前的 `experiment.yaml` 产生。不做任何重新拟合。输出目录包含：
+由当前的 `configs/experiment.yaml` 产生。不做任何重新拟合。输出目录包含：
 
 - `figures/`：八幅矢量 PDF，即 `radial_function`、`two_photon`、`signal_maps`、`template_maps`、
   `background`、`observational_uncertainty`、`data_vs_model` 和 `limits`；

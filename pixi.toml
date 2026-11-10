@@ -21,7 +21,7 @@ OPENBLAS_NUM_THREADS = "2"
 OMP_NUM_THREADS = "2"
 PYTHONUNBUFFERED = "1"
 
-# Scientific parameters: experiment.yaml. RAPTOR simulation and EHT imaging are independent
+# Scientific parameters: configs/experiment.yaml. RAPTOR simulation and EHT imaging are independent
 # inputs (RAPTOR tasks need -e raptor-build, EHT imaging -e eht-imaging, the EHT ensemble
 # summary -e eht-summary); the analysis combines them.
 [feature.raptor-build]

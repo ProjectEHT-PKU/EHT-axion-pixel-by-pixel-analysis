@@ -59,7 +59,7 @@ pixi run verify PATH/TO/STAGE --recursive  # also re-hash every input and upstre
 | `elapsed_seconds` | 主体的墙钟时间 |
 
 代码只由 git 提交标识。由于只能在受版本控制的文件没有改动时写出阶段，提交就固定了每个脚本、每个
-`eht_axion` 模块、`experiment.yaml`、`pixi.toml` 和 `pixi.lock`；这些文件都不计算哈希，也不列为输入。
+`eht_axion` 模块、`configs/experiment.yaml`、`pixi.toml` 和 `pixi.lock`；这些文件都不计算哈希，也不列为输入。
 第三方程序包由 `pixi.lock` 固定；依赖特定程序包的阶段记录其版本（例如 EHT 成像计划中的
 `ehtim_version`）。git 不保存的文件都计算哈希：从仓库之外读取的数据输入（uvfits、GRMHD 快照、径向
 表、官方 EHT 脚本、上游阶段的文件、编译得到的 RAPTOR 可执行文件）以及每个阶段输出。

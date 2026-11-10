@@ -39,7 +39,8 @@ def dump(path, value):
 
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--config', type=Path, default=experiment.DEFAULT_PATH, help='default: experiment.yaml')
+    p.add_argument('--config', type=Path, default=experiment.DEFAULT_PATH,
+                   help='default: configs/experiment.yaml')
     p.add_argument('--stage', choices=('I', 'fiducial'), required=True)
     p.add_argument('--day', type=int, choices=experiment.EHT_DAYS, required=True)
     for name, env in LOCATION_ENV.items():

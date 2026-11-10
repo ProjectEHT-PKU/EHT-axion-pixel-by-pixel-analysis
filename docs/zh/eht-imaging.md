@@ -16,7 +16,7 @@
 - 馈源旋转表（`EHT_IMAGING_FEED_ROTATION`）：一个 JSON，含 `status: verified`，并对每个台站给出
   `fr_par`、`fr_elev`、`fr_off`（度）。
 - 官方 EHT 成像脚本（`EHT_IMAGING_OFFICIAL_SCRIPT`）。
-- `experiment.yaml`：`shared.image` 和 `eht_imaging` 节（[实验配置](experiment-config.md)）。
+- `configs/experiment.yaml`：`shared.image` 和 `eht_imaging` 节（[实验配置](experiment-config.md)）。
 
 这四个位置是机器路径，在命令行或 `.env` 中给出。
 
@@ -80,7 +80,7 @@ JC 在 HOPS 产品中已做过泄漏改正，AZ、LM、PV 则没有。数据做�
   视场 128 µas 改为 `shared.image.fov_uas`（120 µas）。脚本的最终图像 `im_out`（经其自身的恢复
   模糊之后）即固定 I 图像；它必须已经为正、有限，并位于 64 × 64、120 µas 的网格上。脚本的其他
   设置全部原样使用；特别是 0.6 Jy 的致密源流量密度（`zbl = 0.60`）固定在官方脚本内部，不是
-  `experiment.yaml` 的取值；
+  `configs/experiment.yaml` 的取值；
 - 求解**共享台站增益**：在剔除了短于 `uv_min` 的基线的原生扫描平均数据上，以固定 I 图像为模型，
   对所有台站（包括 PV）做 ehtim 自校准，参数为 `method='both'`、增益容差
   `eht_imaging.gain_tol`（[0.02, 0.2]，官方脚本的取值），左右旋增益相等；
@@ -137,7 +137,7 @@ $w_\mathrm{pvis} + w_m + h_w\ln 2$（有单元测试针对多组权重与 ehtim 
 ### 打包导出
 
 `eht_export_bundle.py` 读取四个 I 根目录和四个精化根目录，逐一校验（完整来源链），并检查：它们的
-成像参数等于当前 `experiment.yaml` 的 `eht_imaging_parameters`，每个精化阶段都源自同一天的 I 阶段，
+成像参数等于当前 `configs/experiment.yaml` 的 `eht_imaging_parameters`，每个精化阶段都源自同一天的 I 阶段，
 每个精化阶段的每次 P 求解都获得证书，四个 I 阶段使用的是同一张馈源表。它以只读方式复制：
 
 - 每天的 `fixedI.fits`、`gaincal-pol.uvfits` 和 `fiducial-dterms.json`；
@@ -151,7 +151,7 @@ $w_\mathrm{pvis} + w_m + h_w\ln 2$（有单元测试针对多组权重与 ehtim 
 ### D 项蒙特卡罗
 
 `eht_sample.py` 校验打包（每个文件的哈希；`fsys`、`covariance_ddof`、`residual_component_sigma`
-以及 P 目标函数权重与 `experiment.yaml` 比对），然后：
+以及 P 目标函数权重与 `configs/experiment.yaml` 比对），然后：
 
 - 构造 D 项分布（`d_distribution`）：对 `solve_sites` 中的每个台站和每种旋向 R、L，在四天的精化
   解上计算 $(\mathrm{Re}\,D, \mathrm{Im}\,D)$ 的均值和 2 × 2 协方差，`covariance_ddof` = 1；
@@ -173,7 +173,7 @@ $w_\mathrm{pvis} + w_m + h_w\ln 2$（有单元测试针对多组权重与 ehtim 
 
 `eht_summarize.py` 读取一个已完成的 `eht_sample.py` 输出根目录（`--sample-root`）。它要求
 `batch.json` 带有自身的身份（批次计划的 SHA-256），其记录的科学取值等于 `eht_sample.py` 从当前
-`experiment.yaml` 派生的取值，并且 `finish.json` 具有相同的身份、对每次抽样列出一份获证书的回执。
+`configs/experiment.yaml` 派生的取值，并且 `finish.json` 具有相同的身份、对每次抽样列出一份获证书的回执。
 它检查这些回执、证书以及每个被读取文件的 SHA-256，然后读取每天 1000 幅模糊图像（不再额外模糊），
 并在 `day-<day>/` 下按天写出：
 

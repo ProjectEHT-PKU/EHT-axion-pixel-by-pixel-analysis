@@ -24,7 +24,8 @@ from eht_axion.eht import convex as solver
 
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--config', type=Path, default=experiment.DEFAULT_PATH, help='default: experiment.yaml')
+    p.add_argument('--config', type=Path, default=experiment.DEFAULT_PATH,
+                   help='default: configs/experiment.yaml')
     p.add_argument('--day', type=int, choices=experiment.EHT_DAYS, required=True)
     p.add_argument('--source-root', type=Path,
                    help='completed fiducial stage of this day (default: eht/fiducial/day-<day>)')

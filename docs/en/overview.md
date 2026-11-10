@@ -15,7 +15,7 @@ $c$ of an axion-induced EVPA oscillation in M87\*.
 - The four EHT 2017 M87\* low-band HOPS uvfits files of April 5, 6, 10 and 11 (days 95, 96,
   100, 101), the EHT feed-rotation table and the official EHT imaging script, read by the
   EHT imaging part.
-- `experiment.yaml`, the single parameter file, read by every script
+- `configs/experiment.yaml`, the single parameter file, read by every script
   ([Experiment configuration](experiment-config.md)).
 
 ## Outputs
@@ -107,11 +107,11 @@ jobs ran in one run root; `raptor_merge` delivers cubes from job roots of severa
 
 ### Rules shared by all parts
 
-- Each script reads `experiment.yaml` sections `shared` and its own section; the analysis
+- Each script reads `configs/experiment.yaml` sections `shared` and its own section; the analysis
   also reads the `raptor` and `eht_imaging` values it needs (for example
   `raptor.response.reference_norm` and `eht_imaging.uncertainty_draws`).
 - Library functions in `eht_axion` have no scientific default values; the values come from
-  `experiment.yaml` through the scripts. A unit test enforces this.
+  `configs/experiment.yaml` through the scripts. A unit test enforces this.
 - Machine paths and execution settings (threads, workers, memory) are command-line options
   or `.env` entries, never YAML values.
 - Every step that writes scientific products publishes a stage directory with a

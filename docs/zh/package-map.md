@@ -13,7 +13,7 @@
 
 | 模块 | 用途 | 主要函数和类 |
 |---|---|---|
-| `eht_axion/experiment.py` | 载入并校验 `experiment.yaml`；派生设置 | `read_experiment`、`validate`、`validate_ray_tracing`、`physical_scale`、`ray_tracing_config`、`analysis_geometry`、`eht_imaging_parameters`、`ANGULAR_BINS`、`EHT_DAYS` |
+| `eht_axion/experiment.py` | 载入并校验 `configs/experiment.yaml`；派生设置 | `read_experiment`、`validate`、`validate_ray_tracing`、`physical_scale`、`ray_tracing_config`、`analysis_geometry`、`eht_imaging_parameters`、`ANGULAR_BINS`、`EHT_DAYS` |
 | `eht_axion/provenance.py` | 阶段清单、输入和输出的 SHA-256、原子化阶段目录、校验 | `stage_directory`、`verify_stage`、`require_declared_outputs`、`verification_session`、`sha256`、`manifest_path`、`source_closure`、`contained_path` |
 | `eht_axion/physics.py` | 物理常数、M87\* 的单位尺度、轴子 211 态频率 | `PhysicalScale`、`omega` |
 | `eht_axion/evpa.py` | 线偏振的 EVPA 和以 $\pi$ 为周期的差值，由 `eht/` 和 `analysis/` 共用 | `finite_evpa`、`circular_difference` |

@@ -19,7 +19,7 @@ RAPTOR product.
 - The feed-rotation table (`EHT_IMAGING_FEED_ROTATION`): JSON with `status: verified` and,
   per station, `fr_par`, `fr_elev`, `fr_off` (degrees).
 - The official EHT imaging script (`EHT_IMAGING_OFFICIAL_SCRIPT`).
-- `experiment.yaml`: `shared.image` and the `eht_imaging` section
+- `configs/experiment.yaml`: `shared.image` and the `eht_imaging` section
   ([Experiment configuration](experiment-config.md)).
 
 The four locations are machine paths, given on the command line or in `.env`.
@@ -96,7 +96,7 @@ Data are scan-averaged coherently once.
   (after its own restoring blur) is the fixed I image; it must already be positive, finite
   and on the 64 × 64, 120 µas grid. All other settings of the script are used unchanged;
   in particular the compact flux density of 0.6 Jy (`zbl = 0.60`) is fixed inside the
-  official script and is not an `experiment.yaml` value;
+  official script and is not an `configs/experiment.yaml` value;
 - solves **shared station gains**: on the native scan-averaged data with baselines shorter
   than `uv_min` removed, an ehtim self-calibration of all stations (including PV) against
   the fixed I image with `method='both'`, gain tolerance `eht_imaging.gain_tol`
@@ -165,7 +165,7 @@ P to the gap tolerance (`gap_atol`, `maxiter`, `check_every`, `time_limit` of
 
 `eht_export_bundle.py` takes the four I roots and the four refined roots, verifies each
 (full lineage), checks that their imaging parameters equal `eht_imaging_parameters` of the
-current `experiment.yaml`, that each refined stage descends from the I stage of the same
+current `configs/experiment.yaml`, that each refined stage descends from the I stage of the same
 day, that every P solve of each refined stage is certified, and that all four I stages used
 one feed table. It copies, read-only:
 
@@ -181,7 +181,7 @@ the P objective weights, under the schema `eht-bundle-v2`.
 ### D-term Monte Carlo
 
 `eht_sample.py` verifies the bundle (every file hash; `fsys`, `covariance_ddof`,
-`residual_component_sigma` and the P objective weights against `experiment.yaml`) and then:
+`residual_component_sigma` and the P objective weights against `configs/experiment.yaml`) and then:
 
 - forms the D-term distribution (`d_distribution`): for each station in `solve_sites` and
   each hand R, L, the mean and the 2 × 2 covariance of $(\mathrm{Re}\,D, \mathrm{Im}\,D)$ over
@@ -208,7 +208,7 @@ are certified.
 `eht_summarize.py` reads a finished `eht_sample.py` output root (`--sample-root`). It
 requires that `batch.json` carries its own identity (the SHA-256 of the batch plan), that
 its recorded science values equal those `eht_sample.py` derives from the current
-`experiment.yaml`, and that `finish.json` has the same identity and lists one certified
+`configs/experiment.yaml`, and that `finish.json` has the same identity and lists one certified
 receipt per draw. It checks the receipts, certificates and the SHA-256 of every consumed
 file, then reads the 1000
 blurred images per day (no further blur) and writes, per day under `day-<day>/`:

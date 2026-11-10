@@ -6,12 +6,12 @@ into phase-marginalized Bayesian upper limits on a dimensionless coupling c. Thi
 an installable package: run the scripts directly or through `pixi run`.
 
 **Documentation: [docs/en/index.md](docs/en/index.md)** (overview, every key of
-`experiment.yaml`, RAPTOR simulation, EHT imaging, analysis, provenance, data layout,
+`configs/experiment.yaml`, RAPTOR simulation, EHT imaging, analysis, provenance, data layout,
 package map, development). Chinese translation: [docs/zh/index.md](docs/zh/index.md).
 
 ## Parameters
 
-[`experiment.yaml`](experiment.yaml) holds every scientific value, each exactly once, in
+[`configs/experiment.yaml`](configs/experiment.yaml) holds every scientific value, each exactly once, in
 the sections `shared`, `raptor`, `eht_imaging` and `analysis`. Each script reads `shared`
 plus its own section; the analysis also reads the `raptor` and `eht_imaging` values it
 needs. Machine paths and execution options are command-line options or `.env` /
@@ -64,11 +64,11 @@ and [Analysis](docs/en/analysis.md). Each step writes stage directories with a
 ## Layout
 
 ```text
-experiment.yaml   the parameter file
+configs/         experiment.yaml, the parameter file
 eht_axion/        library: experiment, provenance, physics, evpa; raptor/, eht/, analysis/
 scripts/          raptor_*, eht_*, analysis_* entry points, verify_products
 tests/            synthetic unit and integration tests
-docs/en/          documentation
+docs/en/, docs/zh/  documentation (English, Chinese)
 ```
 
 A module-by-module list is in [Package map](docs/en/package-map.md), and the default data

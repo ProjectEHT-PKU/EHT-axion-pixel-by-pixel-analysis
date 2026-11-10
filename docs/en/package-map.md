@@ -15,7 +15,7 @@ the top level.
 
 | Module | Purpose | Main functions and classes |
 |---|---|---|
-| `eht_axion/experiment.py` | Load and validate `experiment.yaml`; derived settings | `read_experiment`, `validate`, `validate_ray_tracing`, `physical_scale`, `ray_tracing_config`, `analysis_geometry`, `eht_imaging_parameters`, `ANGULAR_BINS`, `EHT_DAYS` |
+| `eht_axion/experiment.py` | Load and validate `configs/experiment.yaml`; derived settings | `read_experiment`, `validate`, `validate_ray_tracing`, `physical_scale`, `ray_tracing_config`, `analysis_geometry`, `eht_imaging_parameters`, `ANGULAR_BINS`, `EHT_DAYS` |
 | `eht_axion/provenance.py` | Stage manifests, SHA-256 of inputs and outputs, atomic stage directories, verification | `stage_directory`, `verify_stage`, `require_declared_outputs`, `verification_session`, `sha256`, `manifest_path`, `source_closure`, `contained_path` |
 | `eht_axion/physics.py` | Physical constants, M87\* unit scales, axion 211 frequency | `PhysicalScale`, `omega` |
 | `eht_axion/evpa.py` | EVPA of linear polarization and $\pi$-periodic differences, shared by `eht/` and `analysis/` | `finite_evpa`, `circular_difference` |

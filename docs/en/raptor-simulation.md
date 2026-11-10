@@ -16,7 +16,7 @@ cubes for the analysis. RAPTOR simulation does not read any EHT imaging product.
   (`--fluid-root` or `EHT_GRMHD_ROOT`).
 - Two headerless CSV radial tables with columns $\alpha, r, R$ (`--radial-low`,
   `--radial-high` or `EHT_RADIAL_LOW`, `EHT_RADIAL_HIGH`).
-- `experiment.yaml`: `shared` physics keys and the `raptor` section
+- `configs/experiment.yaml`: `shared` physics keys and the `raptor` section
   ([Experiment configuration](experiment-config.md)).
 
 ## Outputs
@@ -178,7 +178,7 @@ re-validated. Then it writes:
 Each product directory contains `generated.json`: the ray-tracing configuration, $\alpha$
 (null for the background), resolution, snapshot labels, footer times in $t_g$, state count,
 $\Omega$, axis order and units. The analysis accepts a product only if this record equals
-what the current `experiment.yaml` would deliver (`generated_inputs`), and it takes the
+what the current `configs/experiment.yaml` would deliver (`generated_inputs`), and it takes the
 frame cadence from the recorded footer times (`input_cadence_hours`).
 
 `raptor_merge.py` calls the same delivery with several `--job-root` arguments and a new

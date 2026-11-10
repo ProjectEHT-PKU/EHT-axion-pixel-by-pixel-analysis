@@ -86,7 +86,7 @@ def run(config_path, raptor_root, output_root):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--config", type=Path, default=DEFAULT_PATH, help="default: experiment.yaml")
+    parser.add_argument("--config", type=Path, default=DEFAULT_PATH, help="default: configs/experiment.yaml")
     parser.add_argument("--raptor-input-root", type=Path,
                         help="delivered data root containing raptor/res-*/ (default: raptor/delivered/data)")
     parser.add_argument("--output-root", type=Path, help="new directory (default: analysis/templates)")

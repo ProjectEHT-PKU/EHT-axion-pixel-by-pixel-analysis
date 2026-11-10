@@ -60,7 +60,7 @@ the default environment the tests that need ehtim or astropy are skipped; the
 `eht-imaging` environment runs all of them. Some tests are not unit tests of a function but
 checks of repository rules:
 
-- `test_experiment.py` checks validation of every section of `experiment.yaml` and that no
+- `test_experiment.py` checks validation of every section of `configs/experiment.yaml` and that no
   public function in `eht_axion` has a numeric default value (a short allow-list covers
   execution settings and array-layout arguments).
 - `test_docs_links.py` checks both documentation trees, `docs/en/` and `docs/zh/`: every
@@ -92,7 +92,7 @@ command-line options or defaults below the data root.
 
 ### Rules for code changes
 
-- A scientific value belongs in `experiment.yaml`, once, with validation in
+- A scientific value belongs in `configs/experiment.yaml`, once, with validation in
   `eht_axion/experiment.py`; library functions receive it as an explicit argument.
 - Machine paths and execution settings belong on the command line or in `.env`.
 - A script that writes scientific products uses `stage_directory` and declares every data

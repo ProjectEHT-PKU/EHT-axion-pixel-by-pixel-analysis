@@ -14,7 +14,7 @@
   `EHT_GRMHD_ROOT`）。
 - 两张无表头的 CSV 径向表，列为 $\alpha, r, R$（`--radial-low`、`--radial-high` 或
   `EHT_RADIAL_LOW`、`EHT_RADIAL_HIGH`）。
-- `experiment.yaml`：`shared` 中的物理键和 `raptor` 节（[实验配置](experiment-config.md)）。
+- `configs/experiment.yaml`：`shared` 中的物理键和 `raptor` 节（[实验配置](experiment-config.md)）。
 
 ## 输出
 
@@ -148,7 +148,7 @@ SHA-256 记录在读取它的每个作业的清单中。每个任务在它自己
   形状为 $(T, 1, 400, 400, 4)$。
 
 每个产品目录含有 `generated.json`：光线追踪配置、$\alpha$（背景为 null）、分辨率、快照标签、以
-$t_g$ 为单位的尾部时间、状态数、$\Omega$、轴顺序和单位。只有当这条记录等于当前 `experiment.yaml`
+$t_g$ 为单位的尾部时间、状态数、$\Omega$、轴顺序和单位。只有当这条记录等于当前 `configs/experiment.yaml`
 会交付的内容（`generated_inputs`）时，分析部分才接受该产品；帧间隔取自记录的尾部时间
 （`input_cadence_hours`）。
 

@@ -14,7 +14,7 @@ in [中文文档](../zh/index.md).
 | Page | Content |
 |---|---|
 | [Overview](overview.md) | The three parts, how their products connect, and a data-flow diagram |
-| [Experiment configuration](experiment-config.md) | Every key of `experiment.yaml`: meaning, unit, value and the code that reads it |
+| [Experiment configuration](experiment-config.md) | Every key of `configs/experiment.yaml`: meaning, unit, value and the code that reads it |
 | [RAPTOR simulation](raptor-simulation.md) | Task plan and task identifiers, build, jobs, job outputs, conversion, delivery and merge, CPU affinity, `.env.raptor` |
 | [EHT imaging](eht-imaging.md) | Paper VII method as implemented: I stage, shared gains, fiducial P/D alternation, refinement, bundle export, D-term Monte Carlo, ensemble summary, known deviations |
 | [Analysis](analysis.md) | Image preprocessing, response fit, templates, aperture observable, feature selection, GRMHD background, covariance models, likelihood, posterior, checks and summary |

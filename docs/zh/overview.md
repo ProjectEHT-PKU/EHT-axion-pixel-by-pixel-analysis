@@ -12,7 +12,7 @@
   的两张径向轮廓表，由 RAPTOR 部分读取。
 - 4 月 5、6、10、11 日（第 95、96、100、101 天）的四个 EHT 2017 M87\* 低频段 HOPS uvfits 文件、
   EHT 馈源旋转表和官方 EHT 成像脚本，由 EHT 成像部分读取。
-- `experiment.yaml`，唯一的参数文件，所有脚本都读取它（[实验配置](experiment-config.md)）。
+- `configs/experiment.yaml`，唯一的参数文件，所有脚本都读取它（[实验配置](experiment-config.md)）。
 
 ## 输出
 
@@ -95,9 +95,9 @@ flowchart LR
 
 ### 各部分共同遵守的规则
 
-- 每个脚本读取 `experiment.yaml` 的 `shared` 节和它自己的节；分析部分还读取它需要的 `raptor` 和
+- 每个脚本读取 `configs/experiment.yaml` 的 `shared` 节和它自己的节；分析部分还读取它需要的 `raptor` 和
   `eht_imaging` 取值（例如 `raptor.response.reference_norm` 和 `eht_imaging.uncertainty_draws`）。
-- `eht_axion` 中的库函数没有科学参数默认值；这些值由脚本从 `experiment.yaml` 传入。有一个单元测试
+- `eht_axion` 中的库函数没有科学参数默认值；这些值由脚本从 `configs/experiment.yaml` 传入。有一个单元测试
   强制检查这一点。
 - 机器路径和执行设置（线程数、工作进程数、内存）是命令行选项或 `.env` 条目，从不写在 YAML 中。
 - 每个写出科学产品的步骤都发布一个带 `manifest.json` 的阶段目录，记录参数、代码的 git 提交以及每个

@@ -414,7 +414,7 @@ def run(args):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: experiment.yaml')
+    p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: configs/experiment.yaml')
     p.add_argument('--ensemble', type=Path, help='eht_summarize.py stage (default: eht/ensemble)')
     p.add_argument('--templates', type=Path, help='analysis_templates.py root (default: analysis/templates)')
     p.add_argument('--output-root', type=Path, help='new directory (default: analysis/limits)')

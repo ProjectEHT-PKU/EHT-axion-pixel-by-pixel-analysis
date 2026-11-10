@@ -2,14 +2,14 @@
 
 ## Purpose
 
-`experiment.yaml` is the only parameter file of the experiment. Every scientific value is
+`configs/experiment.yaml` is the only parameter file of the experiment. Every scientific value is
 written there exactly once, and every script reads it through `eht_axion/experiment.py`.
 This page lists every key with its meaning, unit, current value and the code that reads it,
 and describes validation and the derived settings.
 
 ## Inputs
 
-- `experiment.yaml` in the repository root (the default of every `--config` option).
+- `configs/experiment.yaml` in the repository (the default of every `--config` option).
 - An alternative file can be given with `--config PATH`; it must contain exactly the same
   keys.
 

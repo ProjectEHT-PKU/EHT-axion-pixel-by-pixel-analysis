@@ -29,7 +29,7 @@ def covariance(samples, center):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: experiment.yaml')
+    p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: configs/experiment.yaml')
     p.add_argument('--source', type=Path, help='analysis_limits.py stage (default: analysis/limits)')
     p.add_argument('--templates', type=Path, help='analysis_templates.py root (default: analysis/templates)')
     p.add_argument('--output-root', type=Path, help='new directory (default: analysis/check-covariance)')

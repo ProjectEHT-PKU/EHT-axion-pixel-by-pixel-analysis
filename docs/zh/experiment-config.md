@@ -2,13 +2,13 @@
 
 ## 用途
 
-`experiment.yaml` 是本实验唯一的参数文件。每个科学取值在其中只写一次，每个脚本都通过
+`configs/experiment.yaml` 是本实验唯一的参数文件。每个科学取值在其中只写一次，每个脚本都通过
 `eht_axion/experiment.py` 读取它。本页列出每个键的含义、单位、当前取值和读取它的代码，并说明
 校验规则和派生设置。
 
 ## 输入
 
-- 仓库根目录下的 `experiment.yaml`（所有 `--config` 选项的默认值）。
+- 仓库中的 `configs/experiment.yaml`（所有 `--config` 选项的默认值）。
 - 可以用 `--config PATH` 指定另一个文件；它必须包含完全相同的键。
 
 ## 输出

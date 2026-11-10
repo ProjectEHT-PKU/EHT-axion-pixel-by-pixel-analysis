@@ -64,7 +64,7 @@ def test_bundle_contract_files_and_eht_sample_acceptance(tmp_path):
     assert (bundle / '100/fixedI.fits').read_bytes() == b'I 100'
     assert not (bundle / '100/fixedI.fits').stat().st_mode & 0o222
     assert {p: p.read_bytes() for p in before} == before  # sources untouched
-    science = eht_sample.science_settings(ROOT / 'experiment.yaml')
+    science = eht_sample.science_settings(ROOT / 'configs' / 'experiment.yaml')
     verified, lineage = eht_sample.verify_bundle(bundle, science)
     assert verified == record and all(f['readonly_mode'] for f in lineage['files'].values())
     with pytest.raises(FileExistsError):

@@ -14,7 +14,7 @@ $c$, together with a zero-data control and numerical checks.
   `raptor/res-100/alpha-<α>/` and `raptor/res-400/background/`
   ([RAPTOR simulation](raptor-simulation.md)).
 - The EHT ensemble stage of `eht_summarize.py` ([EHT imaging](eht-imaging.md)).
-- `experiment.yaml`: `shared`, `analysis`, and from the other sections
+- `configs/experiment.yaml`: `shared`, `analysis`, and from the other sections
   `raptor.camera_fov_rg`, `raptor.snapshots`, `raptor.response`, `raptor.background` and
   `eht_imaging.uncertainty_draws` ([Experiment configuration](experiment-config.md)).
 
@@ -305,7 +305,7 @@ axion-off background), the EHT ensemble, the delivered axion-off 400-pixel cubes
 plan and the build's copy of `axion.c`. The radial tables are the files recorded in the plan
 (`--radial-low`, `--radial-high` or `EHT_RADIAL_LOW`, `EHT_RADIAL_HIGH` override the path; the
 SHA-256 must equal the plan record), and the field window $W(r)=\exp[-(r/r_w)^n]$ is read from
-`axion.c`. The limits must have been produced from the current `experiment.yaml`. Nothing is
+`axion.c`. The limits must have been produced from the current `configs/experiment.yaml`. Nothing is
 refitted. The output directory contains:
 
 - `figures/`: eight vector PDFs, `radial_function`, `two_photon`, `signal_maps`,

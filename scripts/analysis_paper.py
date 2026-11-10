@@ -1178,7 +1178,7 @@ def run(args):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--config", type=Path, default=DEFAULT_PATH, help="default: experiment.yaml")
+    p.add_argument("--config", type=Path, default=DEFAULT_PATH, help="default: configs/experiment.yaml")
     for name, default in (
         ("limits", "analysis/limits"),
         ("gridcheck", "analysis/check-grid"),

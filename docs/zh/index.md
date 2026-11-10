@@ -12,7 +12,7 @@ GRMHD 吸积流经 RAPTOR 光线追踪得到的图像，以及 M87\* 的 EHT 201
 | 页面 | 内容 |
 |---|---|
 | [概览](overview.md) | 三个部分、各部分产品之间的关系，以及数据流图 |
-| [实验配置](experiment-config.md) | `experiment.yaml` 的每个键：含义、单位、取值以及读取它的代码 |
+| [实验配置](experiment-config.md) | `configs/experiment.yaml` 的每个键：含义、单位、取值以及读取它的代码 |
 | [RAPTOR 模拟](raptor-simulation.md) | 任务计划与任务标识符、编译、作业、作业输出、格式转换、交付与合并、CPU 亲和性、`.env.raptor` |
 | [EHT 成像](eht-imaging.md) | 按实现描述的 Paper VII 方法：I 阶段、共享增益、基准 P/D 交替、精化、打包导出、D 项蒙特卡罗、系综汇总、已知偏差 |
 | [分析](analysis.md) | 图像预处理、响应拟合、模板、孔径观测量、特征选择、GRMHD 背景、协方差模型、似然、后验、检验与汇总 |

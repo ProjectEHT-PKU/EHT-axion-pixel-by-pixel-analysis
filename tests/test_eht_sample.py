@@ -43,7 +43,7 @@ def snapshot(tmp_path):
 
 def test_bundle_bytes_seeds_and_4000_unique_tasks(tmp_path):
     root, b = snapshot(tmp_path)
-    science = batch.science_settings(SCRIPT.parents[1] / 'experiment.yaml')
+    science = batch.science_settings(SCRIPT.parents[1] / 'configs' / 'experiment.yaml')
     assert science['sites'] == ['AA', 'AP', 'AZ', 'JC', 'LM', 'PV', 'SM']
     assert (science['draws_per_day'], science['seed'], science['fsys']) == (1000, 20210405, .005)
     assert science['monte_carlo'] == dict(initial_p_fraction=.05, gap_atol=1e-6, maxiter=50000,

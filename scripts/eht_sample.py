@@ -440,7 +440,7 @@ def main(argv=None):
     p.add_argument('--resource-wait', type=float, default=300.,
                    help='idle admission timeout seconds; exit 3, safe to resume')
     p.add_argument('--threads', type=int, default=2)
-    p.add_argument('--config', type=Path, help='experiment parameter file (default: experiment.yaml)')
+    p.add_argument('--config', type=Path, help='experiment parameter file (default: configs/experiment.yaml)')
     p.add_argument('--task-limit', type=int,
                    help='attempt cap; full draw plan retained, no partial finish receipt')
     p.add_argument('--resume', action='store_true',
@@ -451,7 +451,7 @@ def main(argv=None):
     fill_defaults(p, args, {'bundle_root': ('eht_bundle', {}), 'output_root': ('eht_sample', {})})
     import math
     if args.config is None:
-        args.config = _BOOTSTRAP / 'experiment.yaml'
+        args.config = _BOOTSTRAP / 'configs' / 'experiment.yaml'
     if (min(args.workers, args.threads) < 1
             or (args.task_limit is not None and args.task_limit < 1)
             or not all(math.isfinite(v) and v > 0 for v in (args.max_active_memory_gib, args.resource_wait))):

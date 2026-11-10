@@ -23,7 +23,7 @@ from .physics import PhysicalScale
 from .raptor.layout import alpha_label
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PATH = ROOT / "experiment.yaml"
+DEFAULT_PATH = ROOT / "configs" / "experiment.yaml"
 
 PHYSICS_KEYS = ("mass_solar", "distance_mpc", "label_step_tg", "alphas", "principal_n")
 SCHEMA = {

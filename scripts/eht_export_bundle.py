@@ -140,7 +140,8 @@ def export(config, i_roots, d_roots, output_root):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--config', type=Path, default=experiment.DEFAULT_PATH, help='default: experiment.yaml')
+    p.add_argument('--config', type=Path, default=experiment.DEFAULT_PATH,
+                   help='default: configs/experiment.yaml')
     p.add_argument('--i-root', type=Path, action='append',
                    help='completed I stage; give all four days (default: eht/intensity/day-<day>)')
     p.add_argument('--d-root', type=Path, action='append',

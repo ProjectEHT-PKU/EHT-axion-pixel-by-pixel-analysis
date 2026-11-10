@@ -155,7 +155,8 @@ def main(argv=None):
     p.add_argument('--sample-root', type=Path,
                    help='finished eht_sample.py output root (default: eht/sample)')
     p.add_argument('--output-root', type=Path, help='new directory (default: eht/ensemble)')
-    p.add_argument('--config', type=Path, default=ROOT / 'experiment.yaml', help='default: experiment.yaml')
+    p.add_argument('--config', type=Path, default=ROOT / 'configs' / 'experiment.yaml',
+                   help='default: configs/experiment.yaml')
     add_data_root_option(p)
     args = p.parse_args(argv)
     fill_defaults(p, args, {'sample_root': ('eht_sample', {}), 'output_root': ('eht_ensemble', {})})
