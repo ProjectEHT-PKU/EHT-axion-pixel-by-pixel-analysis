@@ -24,6 +24,9 @@ shared:  # values used by more than one part
                                  # NOT an effective PSF
 
 raptor:  # simulation input: what determines the ray-traced Stokes images
+  source:                        # the RAPTOR code; the local checkout path comes from .env.raptor / CLI
+    repository: github.com/projecteht-pku/raptor   # host/owner/name; a git remote must point here
+    commit: 20056006820b6536c96de790dd5fdaad5ada4eae  # the checkout must be clean at exactly this commit
   camera_fov_rg: 46.2261         # camera width in gravitational radii
   fluid_spin: 0.9375             # black-hole spin of the BHAC flow; checked against every snapshot footer
   build:                         # RAPTOR setup.sh options

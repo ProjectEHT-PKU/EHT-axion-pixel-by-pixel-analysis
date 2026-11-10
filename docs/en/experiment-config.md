@@ -59,7 +59,7 @@ converted to $r_g$) must fit inside `raptor.camera_fov_rg`, and
 | Function in `eht_axion/experiment.py` | Result | Used by |
 |---|---|---|
 | `physical_scale` | `PhysicalScale`: $t_g = GM/c^3$ (8.893 h for the values below), angular size of $r_g$ (3.819 µas), conversions | analysis scripts, delivery cadence |
-| `ray_tracing_config` | `shared` physics keys (`mass_solar`, `distance_mpc`, `label_step_tg`, `alphas`, `principal_n`) plus the whole `raptor` section | RAPTOR plan, delivery identity (`generated.json`) |
+| `ray_tracing_config` | `shared` physics keys (`mass_solar`, `distance_mpc`, `label_step_tg`, `alphas`, `principal_n`) plus the `raptor` section without `raptor.source` | RAPTOR plan, delivery identity (`generated.json`) |
 | `analysis_geometry` | preprocessing arguments (`sigma`, `init_fov`, `final_fov`, `final_shape`, `rotation_angle`, in $r_g$ and radians) and aperture arguments (`fov`, `radial_max`, `window_degrees`, `angular_bins`) | `analysis_templates.py`, `analysis_limits.py` |
 | `eht_imaging_parameters` | flat dictionary of the `eht_imaging` values (without `refine` and `monte_carlo`), the sky grid (`npix`, `fov_uas`, `blur_fwhm_uas`) and four machine locations | EHT imaging stages, `eht_refine.py`, `eht_export_bundle.py` |
 
@@ -85,6 +85,8 @@ analysis import it); validation requires `eht_imaging.inputs` to have exactly th
 
 | Key | Value | Unit | Meaning | Read by |
 |---|---|---|---|---|
+| `source.repository` | `github.com/projecteht-pku/raptor` | – | RAPTOR repository as host/owner/name (lower case); a git remote of the local checkout must point here | `raptor_build.py` (remote check); build record; plan `raptor_source` |
+| `source.commit` | `2005600…` (40 hex digits) | – | RAPTOR commit; the local checkout must be clean at exactly this commit | `raptor_build.py`; build record; plan `raptor_source`, checked against every build by `run_jobs` and delivery |
 | `camera_fov_rg` | 46.2261 | $r_g$ | camera width (176.5 µas) | RAPTOR `CAM_SIZE_X/Y`; preprocessing `init_fov` |
 | `fluid_spin` | 0.9375 | – | black-hole spin of the BHAC flow; every snapshot footer must report it | `read_snapshot_footer` (plan, job runner) |
 | `build.model` | `bhac` | – | `setup.sh --code` | `raptor/build.py` |

@@ -12,7 +12,6 @@ package; scripts are run directly or through `pixi run`.
 - `pixi.toml` and `pixi.lock`: environments and tasks.
 - `.env` and `.env.raptor`: machine-local paths and execution settings, copied from
   `.env.example` and `.env.raptor.example` (both files are git-ignored).
-- `raptor-source.lock.json`: repository URL and commit of the RAPTOR core.
 
 ## Outputs
 

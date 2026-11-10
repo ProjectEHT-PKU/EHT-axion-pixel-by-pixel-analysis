@@ -107,7 +107,8 @@ def fixture(tmp_path, monkeypatch):
     git(source, 'config', 'user.email', 'test@example.invalid')
     git(source, 'add', '.')
     git(source, 'commit', '-qm', 'fixture')
-    commit = git(source, 'rev-parse', 'HEAD')
+    git(source, 'remote', 'add', 'origin', 'git@github.com:Example/RAPTOR.git')
+    commit = {'repository': 'github.com/example/raptor', 'commit': git(source, 'rev-parse', 'HEAD')}
     (source / 'raw.dat').write_bytes(b'ignored simulation data must not be copied')
     tools = tmp_path / 'tools'
     tools.mkdir()
@@ -131,7 +132,8 @@ def test_build_contract_arguments_snapshot_and_stable_receipt(fixture, monkeypat
     assert build_raptor(source, destination, BUILD, commit) == destination
     record = verify_stage(destination, recursive=True)
     receipt = json.loads((destination / 'receipt.json').read_text())
-    assert receipt['source_commit'] == commit
+    assert receipt['source_repository'] == commit['repository']
+    assert receipt['source_commit'] == commit['commit']
     assert receipt['runtime_cwd'] == str(destination)
     args = receipt['commands'][0][2:]
     assert args == ['--code=bhac', '--metric=mks', '--int=rk4', '--grid=SMR', '--rad=pol',
@@ -144,7 +146,7 @@ def test_build_contract_arguments_snapshot_and_stable_receipt(fixture, monkeypat
     assert not (destination / 'source/.git').exists()
     assert not (destination / 'source/raw.dat').exists()
     assert (destination / 'grid_mks.in').read_text() == 'grid fixture\n'
-    assert 'source_files' not in receipt and record['config']['source_commit'] == commit
+    assert 'source_files' not in receipt and record['config']['source_commit'] == commit['commit']
     assert receipt['binary']['sha256'] == provenance.sha256(destination / 'RAPTOR')
     assert all('.building-' not in entry['path'] for entry in record['inputs'])
     assert not any('consumed' in key for key in receipt)
@@ -175,16 +177,20 @@ def test_cache_and_corrupt_snapshot(fixture):
         build_raptor(source, destination, BUILD, commit)
 
 
-@pytest.mark.parametrize('kind', ['tracked', 'untracked', 'commit'])
+@pytest.mark.parametrize('kind', ['tracked', 'untracked', 'commit', 'repository', 'no-remote'])
 def test_refuses_invalid_source_before_build(fixture, kind):
     source, destination, commit = fixture
     if kind == 'tracked':
         (source / 'src/main.c').write_text('dirty')
     elif kind == 'untracked':
         (source / 'extra').write_text('untracked')
+    elif kind == 'commit':
+        commit = dict(commit, commit='0' * 40)
+    elif kind == 'repository':
+        commit = dict(commit, repository='github.com/other/raptor')
     else:
-        commit = '0' * 40
-    with pytest.raises(ValueError, match='dirty|Wrong RAPTOR commit'):
+        git(source, 'remote', 'remove', 'origin')
+    with pytest.raises(ValueError, match='dirty|Wrong RAPTOR commit|No git remote'):
         build_raptor(source, destination, BUILD, commit)
     assert not destination.exists()
     assert not (destination.parent / 'tool.log').exists()
@@ -240,7 +246,7 @@ def test_rejects_source_symlink_and_unsafe_destination(fixture):
     git(source, 'add', 'escape')
     git(source, 'commit', '-qm', 'unsafe symlink')
     with pytest.raises(ValueError, match='symlink/submodule'):
-        build_raptor(source, destination, BUILD, git(source, 'rev-parse', 'HEAD'))
+        build_raptor(source, destination, BUILD, dict(commit, commit=git(source, 'rev-parse', 'HEAD')))
 
 
 def test_output_symlink_never_written(fixture):

@@ -16,7 +16,7 @@ def main(argv=None):
                            args.run_root / "build")
     plan["input_roots"] = [str(args.fluid_root), str(args.radial_low.parent), str(args.radial_high.parent)]
     plan["source_roots"] = [str(args.source_root)]
-    plan["expected_core_commit"] = args.expected_commit
+    plan["raptor_source"] = dict(args.config_data["raptor"]["source"])
     summary = {"counts": plan["counts"], "requirements": plan["requirements"],
                "warnings": plan["warnings"], "run_root": str(args.run_root),
                "scheduling": {"workers": args.workers, "threads_per_worker": args.threads,

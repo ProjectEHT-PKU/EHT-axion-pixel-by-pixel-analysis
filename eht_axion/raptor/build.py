@@ -17,6 +17,7 @@ import shlex
 import shutil
 import subprocess
 
+from ..experiment import normalize_repository
 from ..provenance import sha256, stage_directory
 
 _FIELDS = {"model", "metric", "integrator", "grid", "polarized", "sfc", "magnetic_polarity",
@@ -61,14 +62,19 @@ def _git(root, *args):
     return _run(["git", "-C", str(root), *args], stdout=subprocess.PIPE).stdout
 
 
-def _clean_source(root, expected_commit):
+def _clean_source(root, source):
+    """The checkout is clean, HEAD is source['commit'] and a remote points to source['repository']."""
     if _git(root, "rev-parse", "--show-toplevel").decode().strip() != str(root):
         raise ValueError("source_root must be the RAPTOR Git repository root")
     commit = _git(root, "rev-parse", "HEAD").decode().strip()
-    if commit != expected_commit:
-        raise ValueError(f"Wrong RAPTOR commit: expected {expected_commit}, found {commit}")
+    if commit != source["commit"]:
+        raise ValueError(f"Wrong RAPTOR commit: expected {source['commit']}, found {commit}")
     if _git(root, "status", "--porcelain", "--untracked-files=all"):
         raise ValueError("Refusing dirty RAPTOR source tree (including untracked files)")
+    remotes = subprocess.run(["git", "-C", str(root), "config", "--get-regexp", r"^remote\..*\.url$"],
+                             stdout=subprocess.PIPE, text=True, check=False).stdout.split()[1::2]
+    if source["repository"] not in {normalize_repository(url) for url in remotes}:
+        raise ValueError(f"No git remote of {root} points to {source['repository']} (remotes: {remotes})")
     return commit
 
 
@@ -165,11 +171,12 @@ def _verify_macros(text, settings):
     return actual
 
 
-def build_raptor(source_root: Path, destination: Path, settings: dict, expected_commit: str) -> Path:
+def build_raptor(source_root: Path, destination: Path, settings: dict, source: dict) -> Path:
     """Build clean pinned core with official setup; return the verified stage directory.
 
     Inputs in the manifest never refer to temporary build paths. The RAPTOR source is
-    identified by its commit (checked against raptor-source.lock.json, clean checkout);
+    identified by raptor.source (repository and commit; clean checkout at that commit with
+    a remote pointing to that repository);
     the private source snapshot copied from that commit is a declared stage output. The
     built binary is hashed: jobs consume it as data. The commands run in the temporary
     stage directory.
@@ -181,10 +188,13 @@ def build_raptor(source_root: Path, destination: Path, settings: dict, expected_
         raise ValueError("Build destination must be outside the core source repository")
     if source_root.is_relative_to(destination.resolve()):
         raise ValueError("Build destination must not contain the core source repository")
-    commit = _clean_source(source_root, expected_commit)
+    if not isinstance(source, dict) or set(source) != {"repository", "commit"}:
+        raise ValueError("raptor.source requires exactly repository and commit")
+    commit = _clean_source(source_root, source)
     records = _tracked_source(source_root, commit)
     env, compiler, toolchain = _toolchain()
-    config = {"settings": settings, "source_commit": commit, "toolchain": toolchain}
+    config = {"settings": settings, "source_repository": source["repository"], "source_commit": commit,
+              "toolchain": toolchain}
     with stage_directory(destination, "raptor:build", config) as work:
         if work is None:
             return destination
@@ -247,9 +257,10 @@ def build_raptor(source_root: Path, destination: Path, settings: dict, expected_
         macros = _run(macro_command, cwd=work, env=env, input="", capture_output=True, text=True).stdout
         (work / "macros.txt").write_text(macros)
         actual = _verify_macros(macros, settings)
-        _clean_source(source_root, expected_commit)
+        _clean_source(source_root, source)
         receipt = {
-            "source_commit": commit, "source_root": str(source_root),
+            "source_repository": source["repository"], "source_commit": commit,
+            "source_root": str(source_root),
             "source_snapshot": str(destination / "source"),
             "settings": settings, "actual_macros": actual, "toolchain": toolchain,
             "binary": {"path": str(destination / "RAPTOR"), "sha256": sha256(work / "RAPTOR")},

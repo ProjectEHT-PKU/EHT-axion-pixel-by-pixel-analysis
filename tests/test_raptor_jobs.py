@@ -18,6 +18,8 @@ from eht_axion.raptor.outputs import CORE_CONSTANTS
 from test_raptor_outputs import make_task, write_products
 
 
+REPOSITORY = "github.com/example/raptor"
+
 @pytest.fixture
 def setup(tmp_path):
     source = tmp_path / "fluid" / "fluid.dat"
@@ -347,9 +349,10 @@ def bound_plan(setup):
     write_table(setup["table"])
     tables = {"low": setup["table"], "high": setup["table"]}
     plan = plan_generation(config, source.parent, tables)
-    plan["expected_core_commit"] = "synthetic-core-commit"
+    plan["raptor_source"] = {"repository": REPOSITORY, "commit": "synthetic-core-commit"}
     plan_build = setup["build"].with_name("plan-build")
-    settings = {"settings": config["raptor"]["build"], "source_commit": "synthetic-core-commit"}
+    settings = {"settings": config["raptor"]["build"], "source_repository": REPOSITORY,
+                "source_commit": "synthetic-core-commit"}
     with provenance.stage_directory(plan_build, "raptor:build", settings) as work:
         for name in ("RAPTOR", "definitions.h"):
             import shutil
@@ -367,7 +370,8 @@ def bound_plan(setup):
             "THETAE_MIN": str(config["raptor"]["build"]["thetae_min"]),
             "THETAE_MAX": str(config["raptor"]["build"]["thetae_max"]),
         }.items()))
-        (work / "receipt.json").write_text(json.dumps({"source_commit": "synthetic-core-commit"}))
+        (work / "receipt.json").write_text(json.dumps({"source_repository": REPOSITORY,
+                                                       "source_commit": "synthetic-core-commit"}))
     setup["build"] = plan_build
     return setup, plan
 
@@ -418,15 +422,18 @@ def test_plan_gate_accepts_bound_plan(bound_plan, monkeypatch):
     assert len(executed) == 1
 
 
-@pytest.mark.parametrize("change", ["commit", "missing-commit", "build", "time", "mass", "omega",
+@pytest.mark.parametrize("change", ["commit", "repository", "missing-commit", "build", "time", "mass",
+                                    "omega",
                                     "table-spin", "source-hash"])
 def test_plan_gate_rejects_semantic_drift_before_launch(bound_plan, change):
     setup, plan = bound_plan
     task = plan["tasks"][0]
     if change == "commit":
-        plan["expected_core_commit"] = "wrong"
+        plan["raptor_source"] = dict(plan["raptor_source"], commit="wrong")
+    elif change == "repository":
+        plan["raptor_source"] = dict(plan["raptor_source"], repository="github.com/other/raptor")
     elif change == "missing-commit":
-        del plan["expected_core_commit"]
+        del plan["raptor_source"]
     elif change == "build":
         plan["config"]["raptor"]["build"]["sigma_cut"] = 2.
     elif change == "time":

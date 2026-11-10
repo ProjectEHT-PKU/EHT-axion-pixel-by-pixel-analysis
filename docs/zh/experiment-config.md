@@ -54,7 +54,7 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | `eht_axion/experiment.py` 中的函数 | 结果 | 使用者 |
 |---|---|---|
 | `physical_scale` | `PhysicalScale`：$t_g = GM/c^3$（按下列取值为 8.893 h）、$r_g$ 的角大小（3.819 µas）及换算 | 分析脚本、交付的帧间隔 |
-| `ray_tracing_config` | `shared` 中的物理键（`mass_solar`、`distance_mpc`、`label_step_tg`、`alphas`、`principal_n`）加上整个 `raptor` 节 | RAPTOR 计划、交付身份（`generated.json`） |
+| `ray_tracing_config` | `shared` 中的物理键（`mass_solar`、`distance_mpc`、`label_step_tg`、`alphas`、`principal_n`）加上不含 `raptor.source` 的 `raptor` 节 | RAPTOR 计划、交付身份（`generated.json`） |
 | `analysis_geometry` | 预处理参数（`sigma`、`init_fov`、`final_fov`、`final_shape`、`rotation_angle`，单位为 $r_g$ 和弧度）和孔径参数（`fov`、`radial_max`、`window_degrees`、`angular_bins`） | `analysis_templates.py`、`analysis_limits.py` |
 | `eht_imaging_parameters` | `eht_imaging` 取值（不含 `refine` 和 `monte_carlo`）、天空网格（`npix`、`fov_uas`、`blur_fwhm_uas`）和四个机器位置组成的扁平字典 | EHT 成像各阶段、`eht_refine.py`、`eht_export_bundle.py` |
 
@@ -79,6 +79,8 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 
 | 键 | 取值 | 单位 | 含义 | 读取者 |
 |---|---|---|---|---|
+| `source.repository` | `github.com/projecteht-pku/raptor` | – | RAPTOR 仓库，写成 host/owner/name（小写）；本地工作副本必须有一个 git 远程仓库指向这里 | `raptor_build.py`（远程仓库检查）；编译记录；计划中的 `raptor_source` |
+| `source.commit` | `2005600…`（40 位十六进制） | – | RAPTOR 提交；本地工作副本必须没有修改且恰好处于该提交 | `raptor_build.py`；编译记录；计划中的 `raptor_source`，由 `run_jobs` 和交付步骤与每个编译比对 |
 | `camera_fov_rg` | 46.2261 | $r_g$ | 相机宽度（176.5 µas） | RAPTOR `CAM_SIZE_X/Y`；预处理 `init_fov` |
 | `fluid_spin` | 0.9375 | – | BHAC 吸积流的黑洞自旋；每个快照尾部都必须给出该值 | `read_snapshot_footer`（计划、作业运行器） |
 | `build.model` | `bhac` | – | `setup.sh --code` | `raptor/build.py` |

@@ -8,8 +8,8 @@
 
 ## 输入
 
-- 处于 `raptor-source.lock.json` 所固定提交的 RAPTOR 源码仓库（`--source-root` 或
-  `EHT_RAPTOR_SOURCE_ROOT`；工作副本必须没有未提交的修改）。
+- RAPTOR 仓库的一个本地工作副本（`--source-root` 或 `EHT_RAPTOR_SOURCE_ROOT`）：没有未提交的修改，
+  恰好处于 `raptor.source.commit`，并且有一个 git 远程仓库指向 `raptor.source.repository`。
 - `raptor.snapshots` 所列标签的 BHAC GRMHD 快照 `data<label>.dat`（`--fluid-root` 或
   `EHT_GRMHD_ROOT`）。
 - 两张无表头的 CSV 径向表，列为 $\alpha, r, R$（`--radial-low`、`--radial-high` 或
@@ -50,17 +50,19 @@ pixi run -e raptor-build raptor-merge --plan plan.json \
 `raptor_generate.py` 的选项：`--max-jobs N`（只运行前 N 个任务；交付要等其余任务完成）、
 `--threads`（每个 RAPTOR 进程的 OpenMP 线程数）、`--workers`（并发进程数）、
 `--cpu-affinity none|physical|logical`、`--cpu-list`、`--timeout-seconds`。编译和生成都接受
-`--config`、`--source-root`、`--run-root`、`--source-lock`、`--env-file` 和 `--no-env-file`。
+`--config`、`--source-root`、`--run-root`、`--env-file` 和 `--no-env-file`。
 
 ## 细节
 
 ### 编译
 
-`build_raptor`（`eht_axion/raptor/build.py`）检查源码工作副本没有未提交的修改且处于固定的提交，
+`build_raptor`（`eht_axion/raptor/build.py`）检查源码工作副本没有未提交的修改（包括未跟踪的文件）、
+HEAD 恰好是 `raptor.source.commit`，并且至少有一个 git 远程仓库地址在规范化之后（去掉协议、用户、端口
+和末尾的 `.git`，`git@host:` 与 `https://host/` 视为相同，转为小写）等于 `raptor.source.repository`；然后
 把受版本控制的源码字节复制到 `build/source/`，并用由 `raptor.build` 派生的参数（`--code`、
 `--metric`、`--int`、`--grid`、`--rad`、`--sf`、`--bflip`、`--sigma-cut`、`--uniform`、
 `--thetae-min`、`--thetae-max`）运行官方的 `setup.sh`。它记录编译器命令行和本次编译的预处理宏
-（`macros.txt`），并核对这些宏与 YAML 设置一致。编译记录包含这些设置、RAPTOR 提交和工具链（源码由提交标识，不再逐文件计算哈希），以及编译得到的可执行
+（`macros.txt`），并核对这些宏与 YAML 设置一致。编译记录包含这些设置、RAPTOR 仓库与提交和工具链（源码由提交标识，不再逐文件计算哈希），以及编译得到的可执行
 文件的 SHA-256，每个作业都把它记录为输入；径向表和快照不是编译输入。
 
 ### 任务计划
@@ -102,7 +104,8 @@ pixi run -e raptor-build raptor-merge --plan plan.json \
 
 ### 作业
 
-`run_jobs`（`eht_axion/raptor/jobs.py`）用固定数目的工作槽位运行任务。启动之前，它校验编译阶段
+`run_jobs`（`eht_axion/raptor/jobs.py`）用固定数目的工作槽位运行任务。启动之前，它校验编译阶段，检查编译的仓库和提交等于计划中的 `raptor_source`（由 `raptor_generate.py`
+从 `raptor.source` 复制而来），
 （包括其来源链），重新读取每个快照尾部和径向表并与计划比对（径向表哈希总是比对；计划中含有快照
 哈希时也比对快照哈希），把编译目录的网格文件和宏与计划比对，并检查内存余量。每个快照和每张表的
 SHA-256 记录在读取它的每个作业的清单中。每个任务在它自己的阶段目录 `jobs/<task id>/` 中运行，

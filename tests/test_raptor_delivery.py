@@ -12,6 +12,8 @@ from eht_axion.raptor.layout import input_raptor_files
 from eht_axion.raptor.delivery import deliver_stokes, generated_inputs, input_cadence_hours
 from test_raptor_outputs import write_products
 
+REPOSITORY = "github.com/example/raptor"
+
 @pytest.fixture(scope="module")
 def delivered(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("generated-delivery")
@@ -33,10 +35,11 @@ def delivered(tmp_path_factory):
     for table in tables.values():
         write_table(table)
     plan = plan_generation(config, fluid, tables, run / "build")
-    plan["expected_core_commit"] = "synthetic-commit"
+    plan["raptor_source"] = {"repository": REPOSITORY, "commit": "synthetic-commit"}
     build = run / "build"
     with stage_directory(build, "raptor:build", {
-        "source_commit": "synthetic-commit", "settings": config["raptor"]["build"]
+        "source_repository": REPOSITORY, "source_commit": "synthetic-commit",
+        "settings": config["raptor"]["build"]
     }) as temp:
         (temp / "RAPTOR").write_text("synthetic binary, never executed")
         (temp / "RAPTOR").chmod(0o755)
@@ -56,7 +59,8 @@ def delivered(tmp_path_factory):
         (temp / "macros.txt").write_text(
             # Real preprocessor output intersperses empty include-guard macros.
             "".join(f"#define GUARD_{key}\n#define {key} ({value})\n" for key,value in macros.items()))
-        (temp / "receipt.json").write_text(json.dumps({"source_commit":"synthetic-commit"}))
+        (temp / "receipt.json").write_text(json.dumps({"source_repository": REPOSITORY,
+                                                       "source_commit": "synthetic-commit"}))
     base_inputs = [build / "manifest.json", build / "RAPTOR", build / "grid_mks.in", build / "definitions.h"]
     for task in plan["tasks"]:
         prepared, identity, inputs = _prepare_task(task)
@@ -182,8 +186,8 @@ def test_convert_only_rejects_wrong_build_even_with_valid_jobs(delivered):
     source = run.parent / "fluid"
     tables = {key: run.parent / f"{key}.csv" for key in ("low", "high")}
     plan = plan_generation(config, source, tables, run / "build")
-    plan["expected_core_commit"] = "other-commit"
-    with pytest.raises(ValueError, match="Build source commit"):
+    plan["raptor_source"] = {"repository": REPOSITORY, "commit": "other-commit"}
+    with pytest.raises(ValueError, match="Build RAPTOR source"):
         deliver_stokes(plan, run)
 
 

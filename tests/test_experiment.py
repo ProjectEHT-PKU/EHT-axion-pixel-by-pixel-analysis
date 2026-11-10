@@ -70,7 +70,7 @@ def test_ray_tracing_subset_excludes_sky_grid_imaging_and_analysis(config):
     subset = ray_tracing_config(config)
     assert set(subset) == {"shared", "raptor"}
     assert set(subset["shared"]) == {"mass_solar", "distance_mpc", "label_step_tg", "alphas", "principal_n"}
-    assert subset["raptor"] == config["raptor"]
+    assert subset["raptor"] == {k: v for k, v in config["raptor"].items() if k != "source"}
     assert ray_tracing_config(subset) == subset
     validate_ray_tracing(subset)
     with pytest.raises(ValueError):
@@ -189,3 +189,20 @@ def test_library_signatures_have_no_numeric_default_values():
                         and (relative, node.name, arg.arg) not in allowed):
                     found.append(f"{relative}:{node.name}({arg.arg}={value})")
     assert not found
+
+
+def test_raptor_source_is_a_normalized_repository_and_a_full_commit():
+    from eht_axion.experiment import normalize_repository
+    for url in ("https://github.com/ProjectEHT-PKU/raptor.git", "git@github.com:ProjectEHT-PKU/raptor",
+                "ssh://git@github.com:22/ProjectEHT-PKU/raptor.git/", "github.com/projecteht-pku/raptor"):
+        assert normalize_repository(url) == "github.com/projecteht-pku/raptor"
+    config = read_experiment()
+    assert set(config["raptor"]["source"]) == {"repository", "commit"}
+    for key, value in (("repository", "https://github.com/projecteht-pku/raptor"),
+                       ("repository", "github.com/ProjectEHT-PKU/raptor"), ("commit", "2005600"),
+                       ("commit", "G" * 40)):
+        bad = deepcopy(config)
+        bad["raptor"]["source"][key] = value
+        with pytest.raises(ValueError, match="raptor.source"):
+            validate(bad)
+    assert "source" not in ray_tracing_config(config)["raptor"]

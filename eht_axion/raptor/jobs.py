@@ -192,18 +192,21 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
             expected = task.get("source_sha256" if path == paths[0] else "table_sha256")
             if expected is not None and expected != digest:
                 raise ValueError(f"Declared plan input hash differs from live bytes: {path}")
-    expected_commit = plan.get("expected_core_commit")
-    if expected_commit is not None:
-        if manifest["config"].get("source_commit") != expected_commit:
-            raise ValueError("Build source commit differs from expected_core_commit")
+    source = plan.get("raptor_source")
+    if source is not None:
+        built = {"repository": manifest["config"].get("source_repository"),
+                 "commit": manifest["config"].get("source_commit")}
+        if built != source:
+            raise ValueError("Build RAPTOR source (repository, commit) differs from the plan's raptor_source")
         receipt_path = build_dir / "receipt.json"
         provenance.require_declared_outputs(build_dir, [receipt_path])
-        if json.loads(receipt_path.read_text()).get("source_commit") != expected_commit:
-            raise ValueError("Build receipt source commit differs from expected_core_commit")
+        receipt = json.loads(receipt_path.read_text())
+        if {"repository": receipt.get("source_repository"), "commit": receipt.get("source_commit")} != source:
+            raise ValueError("Build receipt RAPTOR source differs from the plan's raptor_source")
     if "config" not in plan:
         return
-    if expected_commit is None:
-        raise ValueError("Task plan requires expected_core_commit")
+    if source is None:
+        raise ValueError("Task plan requires raptor_source")
     from ..experiment import validate_ray_tracing
     from ..physics import omega
     from .plan import _parameters, alpha_key, read_snapshot_footer, validate_radial_table

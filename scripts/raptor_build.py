@@ -8,7 +8,7 @@ def main(argv=None):
     args = options("build", argv)
     save_request(args)
     output = build_raptor(args.source_root, args.run_root / "build",
-                          args.config_data["raptor"]["build"], args.expected_commit)
+                          args.config_data["raptor"]["build"], args.config_data["raptor"]["source"])
     print(f"Verified build: {output}")
     return 0
 

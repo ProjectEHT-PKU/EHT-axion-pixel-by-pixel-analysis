@@ -25,7 +25,6 @@ def options(kind, argv=None):
     for key, env in paths.items():
         parser.add_argument("--" + key.replace("_", "-"), type=Path,
                             help=f"Overrides ${env}; relative paths use current working directory")
-    parser.add_argument("--source-lock", type=Path, default=ROOT / "raptor-source.lock.json")
     if kind == "generate":
         parser.add_argument("--plan", action="store_true", help="Validate and list tasks; never launch C")
         parser.add_argument("--plan-output", type=Path,
@@ -63,10 +62,6 @@ def options(kind, argv=None):
         args.source_root = args.source_root.resolve(strict=True)
         args.config = args.config.resolve(strict=True)
         config = read_experiment(args.config)
-        lock = json.loads(args.source_lock.read_text())
-        if lock.get("repository") != "https://github.com/ProjectEHT-PKU/raptor":
-            raise ValueError("Unexpected RAPTOR source lock repository")
-        args.expected_commit = lock["commit"]
         protected = [ROOT, args.source_root]
         for name in ("fluid_root", "radial_low", "radial_high"):
             path = getattr(args, name)
@@ -127,7 +122,7 @@ def save_request(args, plan=None):
     reject_directory_symlinks(directory)
     directory.mkdir(exist_ok=True)
     record = {"config": str(args.config), "run_root": str(args.run_root),
-              "core_source": str(args.source_root), "core_commit": args.expected_commit}
+              "core_source": str(args.source_root), "raptor_source": args.config_data["raptor"]["source"]}
     if plan is not None:
         record["plan"] = plan
     path = directory / f"{uuid.uuid4().hex}.json"

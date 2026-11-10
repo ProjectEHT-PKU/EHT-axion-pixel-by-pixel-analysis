@@ -9,8 +9,9 @@ cubes for the analysis. RAPTOR simulation does not read any EHT imaging product.
 
 ## Inputs
 
-- The RAPTOR source repository at the commit pinned in `raptor-source.lock.json`
-  (`--source-root` or `EHT_RAPTOR_SOURCE_ROOT`; the checkout must be clean).
+- A local checkout of the RAPTOR repository (`--source-root` or `EHT_RAPTOR_SOURCE_ROOT`)
+  that is clean, is at exactly `raptor.source.commit`, and has a git remote pointing to
+  `raptor.source.repository`.
 - BHAC GRMHD snapshots `data<label>.dat` for the labels of `raptor.snapshots`
   (`--fluid-root` or `EHT_GRMHD_ROOT`).
 - Two headerless CSV radial tables with columns $\alpha, r, R$ (`--radial-low`,
@@ -55,21 +56,24 @@ pixi run -e raptor-build raptor-merge --plan plan.json \
 Options of `raptor_generate.py`: `--max-jobs N` (run only the first N tasks; delivery waits
 for the rest), `--threads` (OpenMP threads per RAPTOR process), `--workers` (concurrent
 processes), `--cpu-affinity none|physical|logical`, `--cpu-list`, `--timeout-seconds`. Both
-build and generate accept `--config`, `--source-root`, `--run-root`, `--source-lock`, `--env-file` and
+build and generate accept `--config`, `--source-root`, `--run-root`, `--env-file` and
 `--no-env-file`.
 
 ## Details
 
 ### Build
 
-`build_raptor` (`eht_axion/raptor/build.py`) checks that the source checkout is clean and
-at the pinned commit, copies the tracked source bytes into `build/source/`, and runs the
+`build_raptor` (`eht_axion/raptor/build.py`) checks that the source checkout is clean
+(including untracked files), that HEAD is exactly `raptor.source.commit`, and that at least
+one git remote URL equals `raptor.source.repository` after normalization (scheme, user,
+port and a trailing `.git` removed, `git@host:` and `https://host/` treated alike, lower
+case). It then copies the tracked source bytes into `build/source/`, and runs the
 official `setup.sh` with arguments derived from `raptor.build` (`--code`, `--metric`,
 `--int`, `--grid`, `--rad`, `--sf`, `--bflip`, `--sigma-cut`, `--uniform`, `--thetae-min`,
 `--thetae-max`). It records the compiler command lines and the preprocessor macros of the
 build (`macros.txt`) and verifies that the macros match the YAML settings. The build
-record contains the settings, the RAPTOR commit and the toolchain (the commit identifies the
-source; no per-file source hashes) and the SHA-256 of the built binary, which every job
+record contains the settings, the RAPTOR repository and commit and the toolchain (the commit
+identifies the source; no per-file source hashes) and the SHA-256 of the built binary, which every job
 records as an input; radial tables and snapshots are not build inputs.
 
 ### Task plan
@@ -117,7 +121,9 @@ them never invalidates ray tracing.
 ### Jobs
 
 `run_jobs` (`eht_axion/raptor/jobs.py`) runs the tasks with a fixed number of worker slots.
-Before launching it verifies the build stage (including its lineage), re-reads every
+Before launching it verifies the build stage (including its lineage), checks that the
+build's repository and commit equal the plan's `raptor_source` (which `raptor_generate.py`
+copies from `raptor.source`), re-reads every
 snapshot footer and radial table and compares them with the plan (radial-table hashes
 always; snapshot hashes when the plan contains them), compares the build grid file and
 macros with the plan, and checks memory headroom. The SHA-256 of every snapshot and table

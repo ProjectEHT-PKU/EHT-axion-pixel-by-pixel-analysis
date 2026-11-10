@@ -19,10 +19,13 @@ from eht_axion.raptor.plan import plan_generation
 from test_raptor_outputs import write_products
 from test_raptor_plan import write_snapshot, write_table
 
+REPOSITORY = "github.com/example/raptor"
+
 def _write_build(root, config, compiler, *, settings=None):
     """Two scientifically equivalent builds may have different compiler/binary bytes."""
     build = root / "build"
-    identity = {"source_commit": "fake", "settings": config["raptor"]["build"]
+    identity = {"source_repository": REPOSITORY, "source_commit": "fake",
+                "settings": config["raptor"]["build"]
                 if settings is None else settings}
     with provenance.stage_directory(build, "raptor:build", identity) as temporary:
         # Executable permission is part of the build contract; this is never launched.
@@ -44,7 +47,7 @@ def _write_build(root, config, compiler, *, settings=None):
         (temporary / "macros.txt").write_text(
             "".join(f"#define GUARD_{key}\n#define {key} ({value})\n" for key, value in macros.items()))
         (temporary / "receipt.json").write_text(json.dumps({
-            "source_commit": "fake", "toolchain": {"compiler": compiler}}))
+            "source_repository": REPOSITORY, "source_commit": "fake", "toolchain": {"compiler": compiler}}))
     return [build / name for name in ("manifest.json", "RAPTOR", "grid_mks.in", "definitions.h")]
 
 
@@ -93,7 +96,7 @@ def merged(tmp_path_factory):
             write_table(path)
         roots = [directory / "source-one", directory / "source-two"]
         plan = plan_generation(config, fluid, tables, roots[0] / "build")
-        plan["expected_core_commit"] = "fake"
+        plan["raptor_source"] = {"repository": REPOSITORY, "commit": "fake"}
         assert plan["counts"] == {"snapshots": 2, "baseline": 4, "response": 32,
                                   "background": 2, "total": 36}
         builds = [_write_build(root, config, compiler)

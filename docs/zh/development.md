@@ -11,7 +11,6 @@
 - `pixi.toml` 和 `pixi.lock`：环境和任务。
 - `.env` 和 `.env.raptor`：本机路径和执行设置，由 `.env.example` 和 `.env.raptor.example` 复制而来
   （两个文件都被 git 忽略）。
-- `raptor-source.lock.json`：RAPTOR 核心程序的仓库 URL 和提交。
 
 ## 输出
 

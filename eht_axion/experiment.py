@@ -13,6 +13,7 @@ here, so every script reads the same numbers from the same place.
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 
 import numpy as np
@@ -28,8 +29,9 @@ PHYSICS_KEYS = ("mass_solar", "distance_mpc", "label_step_tg", "alphas", "princi
 SCHEMA = {
     "shared": set(PHYSICS_KEYS) | {"image"},
     "shared.image": {"shape", "fov_uas", "blur_fwhm_uas"},
-    "raptor": {"camera_fov_rg", "fluid_spin", "build", "plasma", "snapshots", "response", "background",
-               "radial_tables", "alpha_table", "grid"},
+    "raptor": {"source", "camera_fov_rg", "fluid_spin", "build", "plasma", "snapshots", "response",
+               "background", "radial_tables", "alpha_table", "grid"},
+    "raptor.source": {"repository", "commit"},
     "raptor.build": {"model", "metric", "integrator", "grid", "polarized", "sfc", "magnetic_polarity",
                      "sigma_cut", "thetae_min", "thetae_max", "uniform_output"},
     "raptor.plasma": {"mass_unit_g", "r_low", "r_high", "inclination_degrees", "frequency_hz",
@@ -91,13 +93,13 @@ _UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
 
 
 # --------------------------------------------------------------------------- checks
-def _section(config, name):
+def _section(config, name, expected=None):
     value = config
     for part in name.split("."):
         if not isinstance(value, dict) or part not in value:
             raise ValueError(f"Missing section: {name}")
         value = value[part]
-    expected = SCHEMA[name]
+    expected = SCHEMA[name] if expected is None else expected
     if not isinstance(value, dict):
         raise ValueError(f"{name} must be a mapping")
     missing, unknown = expected - value.keys(), value.keys() - expected
@@ -158,8 +160,39 @@ def _validate_shared(config):
     _number(image["blur_fwhm_uas"], "shared.image.blur_fwhm_uas", low=0)
 
 
-def _validate_raptor(config):
-    raptor = _section(config, "raptor")
+def normalize_repository(url):
+    """'host/owner/name' of a git URL: no scheme, user, port or trailing .git; lower case.
+
+    https://github.com/A/b.git, git@github.com:A/b and ssh://git@github.com/A/b all give
+    'github.com/a/b'.
+    """
+    text = str(url).strip()
+    match = re.fullmatch(r"[a-z][a-z0-9+.-]*://(?:[^@/]+@)?([^/:]+)(?::\d+)?/(.*)", text, re.IGNORECASE)
+    if match is None:
+        match = re.fullmatch(r"(?:[^@/]+@)?([^/:]+):(.*)", text)  # scp-like user@host:path
+    host, path = (match[1], match[2]) if match else ("", text)
+    path = path.strip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    return f"{host}/{path}".strip("/").lower()
+
+
+def _validate_raptor_source(config):
+    source = _section(config, "raptor.source")
+    repository, commit = source["repository"], source["commit"]
+    if (not isinstance(repository, str) or normalize_repository(repository) != repository
+            or not re.fullmatch(r"[a-z0-9.-]+/[a-z0-9_.-]+/[a-z0-9_.-]+", repository)):
+        raise ValueError("raptor.source.repository must be host/owner/name in lower case, "
+                         "for example github.com/owner/raptor")
+    if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError("raptor.source.commit must be a full 40-character git commit")
+
+
+def _validate_raptor(config, *, with_source=True):
+    """The raptor section; the task-plan subset (ray_tracing_config) carries no source."""
+    raptor = _section(config, "raptor", None if with_source else SCHEMA["raptor"] - {"source"})
+    if with_source:
+        _validate_raptor_source(config)
     _positive(raptor["camera_fov_rg"], "raptor.camera_fov_rg")
     _number(raptor["fluid_spin"], "raptor.fluid_spin", low=0, high=1)
     build = _section(config, "raptor.build")
@@ -328,7 +361,7 @@ def validate_ray_tracing(config):
         raise ValueError(f"Ray-tracing shared values must be exactly {PHYSICS_KEYS}")
     _validate_shared({"shared": dict(config["shared"], image={"shape": 2, "fov_uas": 1.,
                                                               "blur_fwhm_uas": 0.})})
-    _validate_raptor(config)
+    _validate_raptor(config, with_source=False)
     return config
 
 
@@ -350,15 +383,16 @@ def physical_scale(config):
 
 
 def ray_tracing_config(config):
-    """Every value that determines the RAPTOR images: physics scalars + raptor section.
+    """Physics scalars + raptor section without raptor.source: the ray-tracing settings.
 
-    This subset is what task plans and generated-data identities record;
-    the sky grid, eht-imaging and analysis settings are deliberately excluded.
+    This subset is what task plans and generated-data identities record; the sky grid,
+    eht-imaging and analysis settings are excluded. The RAPTOR source (repository and
+    commit) is recorded by the plan as raptor_source and checked against every build.
     """
     if not isinstance(config, dict) or not {"shared", "raptor"} <= config.keys():
         raise ValueError("Ray-tracing configuration requires shared and raptor sections")
     return {"shared": {key: config["shared"][key] for key in PHYSICS_KEYS},
-            "raptor": config["raptor"]}
+            "raptor": {k: v for k, v in config["raptor"].items() if k != "source"}}
 
 
 def analysis_geometry(config) -> dict:
