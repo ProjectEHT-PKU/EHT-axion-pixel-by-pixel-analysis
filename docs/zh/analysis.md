@@ -20,7 +20,7 @@
 - 模板根目录：预处理后的数据立方、逐快照的响应拟合、模板（1D 和 2D）、预处理后的无轴子帧。
 - 上限根目录：选定的观测量、GRMHD 背景、2 种维度 × 3 种协方差模型 × {观测数据, 零数据对照} 的
   上限、`limits.csv`、一幅图和 `report.json`。
-- 检验根目录（网格、先验、协方差）和一个汇总根目录。
+- 检验根目录（网格、先验、协方差）、一个汇总根目录和论文根目录。
 
 文件细节见[数据布局](data-layout.md)。
 
@@ -39,6 +39,9 @@ pixi run analysis-check-grid --source LIMITS --templates TEMPLATES --output-root
 pixi run analysis-check-covariance --source LIMITS --templates TEMPLATES --output-root COV
 pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR \
     --covcheck COV --output-root SUMMARY
+pixi run analysis-paper --limits LIMITS --gridcheck GRID --priorcheck PRIOR --covcheck COV \
+    --templates TEMPLATES --ensemble ENSEMBLE --raptor-input-root MERGED/data \
+    --raptor-plan plan.json --raptor-run-root RUN_ROOT --output-root PAPER
 ```
 
 上面的覆盖值只是示例；检验脚本接受任何与 `analysis.inference` 不同的取值。对
@@ -248,6 +251,31 @@ $c$ 的网格有 `coupling_points`（120）个对数间隔的取值，从 `coupl
 （`fit-chi2.csv`，每个 $\alpha$ 一幅图 `fits-alpha-<α>.png`）；一幅上限图；`report.json`；以及
 `RESULTS.md`。`RESULTS.md` 由配置的 `analysis.inference.credibility` 和本次运行的数字（上限表、
 $\sigma_\mathrm{bg}$、各检验中的最大变化、拟合表）生成；其中不含任何固定的结论。
+
+### 论文输出
+
+`analysis_paper.py`（阶段 `analysis:paper`）把论文从流水线取用的全部内容收集到一个目录中。它读取
+上限、三个检验阶段、模板（论文所用 $\alpha$ 的预处理数据立方、响应拟合和模板，以及预处理后的无轴子
+背景）、EHT 系综、交付的 400 像素无轴子数据立方、RAPTOR 计划以及编译目录中的 `axion.c` 副本。径向表
+是计划中记录的文件（`--radial-low`、`--radial-high` 或 `EHT_RADIAL_LOW`、`EHT_RADIAL_HIGH` 可覆盖其
+路径；SHA-256 必须等于计划中的记录），场窗口 $W(r)=\exp[-(r/r_w)^n]$ 从 `axion.c` 中读取。上限必须
+由当前的 `experiment.yaml` 产生。不做任何重新拟合。输出目录包含：
+
+- `figures/`：八幅矢量 PDF，即 `radial_function`、`two_photon`、`signal_maps`、`template_maps`、
+  `background`、`observational_uncertainty`、`data_vs_model` 和 `limits`；
+- `numbers.tex`：论文中引用的每个数字对应一个 `\newcommand`，命名为 `\Num` 后接不含数字的英文单词
+  （例如 `\NumLimitObsSectorsCorBgAlphaThirty`），每个之前有一行注释给出其说明和来源；
+- `numbers.json`（模式 `analysis-paper-numbers-v1`）：每个宏的 TeX 文本、未经舍入的数值和来源；
+- `table-limits.tex` 和 `table-chi2.tex`：完整的 `tabular` 环境，分别给出观测上限 $c_{95}$（三位
+  有效数字），以及 $c=0$ 和最佳网格点处的 $\chi^2$。
+
+派生量：模拟流量是交付的 400 像素无轴子图像的 $\sum I\,\Delta\Omega$，其中 $\Delta\Omega$ 由
+`raptor.camera_fov_rg` 和 $r_g$ 的角大小得到；重建图像的流量、偏振度和 $\lvert\beta_2\rvert$ 是系综
+`global.npz` 中的取值（按天平均）；模拟图像的偏振度和 $\lvert\beta_2\rvert$ 对转置到 EHT 方向的
+预处理无轴子帧施加 `global_diagnostics` 得到；背景图中的灰色直方图合并了每个扇区以及每个 EVPA 有定义
+的像素的滞后差分。展示上的选择是脚本中的常量，并记录在清单中：`PAPER_ALPHA` = 0.30 和
+`PAPER_SNAPSHOT_LABEL` = 2300（响应图、模板图、$\chi^2$ 表和拟合图）、EVPA 短线设置、径向轮廓、窗口和
+轨道周期的取值半径、近邻像素对的 15 µas 间隔，以及两发射体检验所用的点。
 
 ## 相关页面
 

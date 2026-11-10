@@ -136,6 +136,11 @@ COV/                             stage analysis:check-covariance
 SUMMARY/                         stage analysis:summary
   limits.csv, fit-chi2.csv, grid_vs_primary.csv, prior_vs_dense_grid.csv
   limits.png, fits-alpha-<α>.png (one per alpha), report.json, RESULTS.md
+PAPER/                           stage analysis:paper
+  figures/<name>.pdf             radial_function, two_photon, signal_maps, template_maps, background,
+                                 observational_uncertainty, data_vs_model, limits (vector PDF)
+  numbers.tex, numbers.json      quoted numbers: macro, value, source
+  table-limits.tex, table-chi2.tex   complete tabular environments
 ```
 
 Index conventions in the analysis:

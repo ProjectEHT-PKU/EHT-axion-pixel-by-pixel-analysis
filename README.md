@@ -52,6 +52,7 @@ pixi run analysis-check-grid --check grid --phase-count 128 --coupling-points 24
 pixi run analysis-check-grid --check prior --phase-count 128 --coupling-points 260 --coupling-max 10000
 pixi run analysis-check-covariance
 pixi run analysis-summarize
+pixi run analysis-paper                          # figures, numbers and tables of the paper
 ```
 
 Full command lines, including merging RAPTOR runs and the analysis checks, are in

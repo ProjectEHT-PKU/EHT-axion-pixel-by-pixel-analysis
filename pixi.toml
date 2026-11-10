@@ -62,6 +62,7 @@ analysis-limits = { cmd = "python scripts/analysis_limits.py", description = "An
 analysis-check-grid = { cmd = "python scripts/analysis_check_grid.py", description = "Analysis: re-evaluate limits on a denser grid / wider prior (CLI overrides)" }
 analysis-check-covariance = { cmd = "python scripts/analysis_check_covariance.py", description = "Analysis: split-ensemble covariance sensitivity" }
 analysis-summarize = { cmd = "python scripts/analysis_summarize.py", description = "Analysis: summary tables and figures" }
+analysis-paper = { cmd = "python scripts/analysis_paper.py", description = "Analysis: figures, numbers.tex/json and tables used by the paper" }
 verify = { cmd = "python scripts/verify_products.py", description = "Verify a completed stage: pixi run verify PATH" }
 test = { cmd = 'python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=. scripts"', description = "Run tests; discovery and local source paths are configured here" }
 lint = { cmd = "ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts", description = "Check code using explicit rules; no external Ruff configuration" }

@@ -48,7 +48,7 @@ All environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_NUM_THREAD
 |---|---|
 | `raptor-build`, `raptor-generate`, `raptor-merge` | `scripts/raptor_*.py` |
 | `eht-reconstruct`, `eht-refine`, `eht-export-bundle`, `eht-sample`, `eht-summarize` | `scripts/eht_*.py` |
-| `analysis-templates`, `analysis-limits`, `analysis-check-grid`, `analysis-check-covariance`, `analysis-summarize` | `scripts/analysis_*.py` |
+| `analysis-templates`, `analysis-limits`, `analysis-check-grid`, `analysis-check-covariance`, `analysis-summarize`, `analysis-paper` | `scripts/analysis_*.py` |
 | `verify` | `scripts/verify_products.py` |
 | `test` | `pytest -q -ra` with `testpaths=tests` and `pythonpath=. scripts` |
 | `lint` | `ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts` |

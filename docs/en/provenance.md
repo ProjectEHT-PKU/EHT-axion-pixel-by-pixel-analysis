@@ -85,8 +85,8 @@ file.
 that no hashed file changed (device, inode, size, modification and change times).
 
 By default `stage_directory` verifies the full lineage of every input stage before it
-starts. The small result steps `analysis_check_grid.py`, `analysis_check_covariance.py`
-and `analysis_summarize.py` pass `verify_lineage=False`: they verify the outputs of the
+starts. The small result steps `analysis_check_grid.py`, `analysis_check_covariance.py`,
+`analysis_summarize.py` and `analysis_paper.py` pass `verify_lineage=False`: they verify the outputs of the
 stages they read, and record those manifests as hashed inputs, but do not re-hash the
 whole raw lineage again.
 
@@ -111,7 +111,7 @@ have the form `<part>:<step>` with the part `raptor`, `eht` or `analysis`. JSON 
 outside manifests carry schema strings of the form `<part>-<record>-v<N>`
 (`raptor-generated-v2`, `raptor-merge-v2`, `eht-bundle-v2`, `eht-sample-batch-v2`,
 `eht-sample-task-v2`, `eht-sample-finish-v2`, `eht-ensemble-v2`, `analysis-limits-v2`,
-`analysis-summary-v2`).
+`analysis-summary-v2`, `analysis-paper-v1`, `analysis-paper-numbers-v1`).
 
 | Stage | Written by |
 |---|---|
@@ -127,6 +127,7 @@ outside manifests carry schema strings of the form `<part>-<record>-v<N>`
 | `analysis:check-grid` | `analysis_check_grid.py` |
 | `analysis:check-covariance` | `analysis_check_covariance.py` |
 | `analysis:summary` | `analysis_summarize.py` |
+| `analysis:paper` | `analysis_paper.py` |
 
 ### Receipts outside stage directories
 

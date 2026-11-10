@@ -67,6 +67,8 @@
 | `analysis_check_grid.py` | 在另一个相位或耦合常数网格上重新计算保存的观测量 |
 | `analysis_check_covariance.py` | 由抽样的两半得到的协方差敏感性 |
 | `analysis_summarize.py` | 汇总表、比较和图 |
+| `analysis_paper.py` | 论文的图、引用数字（`numbers.tex`、`numbers.json`）和表格 |
+| `_paper_figures.py` | 论文图的样式和绘图函数 |
 | `verify_products.py` | 校验一个已完成的阶段（`pixi run verify`） |
 | `_bootstrap.py` | 把仓库根目录加入 `sys.path`，以便直接执行脚本 |
 | `_environment.py` | 以数据方式读取 `.env` 和 `.env.raptor`，只允许一组固定的键 |

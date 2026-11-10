@@ -72,7 +72,7 @@ SHA-256 存在于目录之内。`recursive=True` 时，它还重新计算每个�
 哈希的文件发生变化（设备、inode、大小、修改时间和状态改变时间）。
 
 默认情况下，`stage_directory` 在开始之前校验每个输入阶段的完整来源链。小型结果步骤
-`analysis_check_grid.py`、`analysis_check_covariance.py` 和 `analysis_summarize.py` 传入
+`analysis_check_grid.py`、`analysis_check_covariance.py`、`analysis_summarize.py` 和 `analysis_paper.py` 传入
 `verify_lineage=False`：它们校验所读取阶段的输出，并把这些清单作为已计算哈希的输入记录下来，但不再
 重新计算整条原始来源链的哈希。
 
@@ -92,7 +92,7 @@ SHA-256 存在于目录之内。`recursive=True` 时，它还重新计算每个�
 或 `analysis`。清单之外的 JSON 记录带有形式为 `<part>-<record>-v<N>` 的模式字符串
 （`raptor-generated-v2`、`raptor-merge-v2`、`eht-bundle-v2`、`eht-sample-batch-v2`、
 `eht-sample-task-v2`、`eht-sample-finish-v2`、`eht-ensemble-v2`、`analysis-limits-v2`、
-`analysis-summary-v2`）。
+`analysis-summary-v2`、`analysis-paper-v1`、`analysis-paper-numbers-v1`）。
 
 | 阶段 | 写出者 |
 |---|---|
@@ -108,6 +108,7 @@ SHA-256 存在于目录之内。`recursive=True` 时，它还重新计算每个�
 | `analysis:check-grid` | `analysis_check_grid.py` |
 | `analysis:check-covariance` | `analysis_check_covariance.py` |
 | `analysis:summary` | `analysis_summarize.py` |
+| `analysis:paper` | `analysis_paper.py` |
 
 ### 阶段目录之外的回执
 

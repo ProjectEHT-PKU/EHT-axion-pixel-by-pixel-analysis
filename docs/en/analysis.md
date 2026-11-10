@@ -25,7 +25,7 @@ $c$, together with a zero-data control and numerical checks.
 - Limits root: selected observations, GRMHD background, limits for 2 dimensions × 3
   covariance models × {observed, zero-data control}, `limits.csv`, a figure and
   `report.json`.
-- Check roots (grid, prior, covariance) and a summary root.
+- Check roots (grid, prior, covariance), a summary root and the paper root.
 
 File details are on [Data layout](data-layout.md).
 
@@ -45,6 +45,9 @@ pixi run analysis-check-grid --source LIMITS --templates TEMPLATES --output-root
 pixi run analysis-check-covariance --source LIMITS --templates TEMPLATES --output-root COV
 pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR \
     --covcheck COV --output-root SUMMARY
+pixi run analysis-paper --limits LIMITS --gridcheck GRID --priorcheck PRIOR --covcheck COV \
+    --templates TEMPLATES --ensemble ENSEMBLE --raptor-input-root MERGED/data \
+    --raptor-plan plan.json --raptor-run-root RUN_ROOT --output-root PAPER
 ```
 
 The override values above are examples; the check scripts accept any values that differ
@@ -292,6 +295,41 @@ grid point (`fit-chi2.csv`, one figure `fits-alpha-<α>.png` per $\alpha$); a li
 `report.json`; and `RESULTS.md`. `RESULTS.md` is generated from the configured
 `analysis.inference.credibility` and the numbers of the run (limits table, $\sigma_\mathrm{bg}$,
 largest changes in the checks, fit table); it contains no fixed conclusions.
+
+### Paper output
+
+`analysis_paper.py` (stage `analysis:paper`) collects everything the paper takes from the
+pipeline in one directory. It reads the limits, the three check stages, the templates (the
+processed cube, response fit and templates at the paper's $\alpha$, and the processed
+axion-off background), the EHT ensemble, the delivered axion-off 400-pixel cubes, the RAPTOR
+plan and the build's copy of `axion.c`. The radial tables are the files recorded in the plan
+(`--radial-low`, `--radial-high` or `EHT_RADIAL_LOW`, `EHT_RADIAL_HIGH` override the path; the
+SHA-256 must equal the plan record), and the field window $W(r)=\exp[-(r/r_w)^n]$ is read from
+`axion.c`. The limits must have been produced from the current `experiment.yaml`. Nothing is
+refitted. The output directory contains:
+
+- `figures/`: eight vector PDFs, `radial_function`, `two_photon`, `signal_maps`,
+  `template_maps`, `background`, `observational_uncertainty`, `data_vs_model` and `limits`;
+- `numbers.tex`: one `\newcommand` per number quoted in the paper, named `\Num` followed by
+  words without digits (for example `\NumLimitObsSectorsCorBgAlphaThirty`), each preceded by a
+  comment with its description and source;
+- `numbers.json` (schema `analysis-paper-numbers-v1`): the TeX text, the unrounded value and
+  the source of every macro;
+- `table-limits.tex` and `table-chi2.tex`: complete `tabular` environments with the observed
+  $c_{95}$ (three significant digits) and with $\chi^2$ at $c=0$ and at the best grid point.
+
+Derived quantities: the simulated flux is $\sum I\,\Delta\Omega$ of the delivered 400-pixel
+axion-off images, with $\Delta\Omega$ from `raptor.camera_fov_rg` and the angular size of
+$r_g$; the reconstructed flux, polarization fraction and $\lvert\beta_2\rvert$ are the
+`global.npz` values of the ensemble (per-day means); the simulated polarization fraction and
+$\lvert\beta_2\rvert$ apply `global_diagnostics` to the processed axion-off frames, transposed
+to the EHT orientation; the grey histograms of the background figure pool the lagged
+differences of every sector and of every pixel with a defined EVPA. The presentation choices
+are constants of the script and are recorded in the manifest: `PAPER_ALPHA` = 0.30 and
+`PAPER_SNAPSHOT_LABEL` = 2300 (response maps, template figure, $\chi^2$ table and fit figure),
+the EVPA tick settings, the radii at which the radial profiles, the window and the orbital
+period are quoted, the 15 µas separation of close pixel pairs and the two-emitter check
+points.
 
 ## Related pages
 

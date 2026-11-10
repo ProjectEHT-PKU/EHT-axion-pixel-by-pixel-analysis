@@ -19,8 +19,8 @@
 - 交付的 RAPTOR Stokes 数据立方（`data/raptor/res-*/alpha-*/` 和 `data/raptor/res-400/background/`），
   见 [RAPTOR 生产](raptor-production.md)。
 - EHT 系综：每天 1000 幅 D 项蒙特卡罗图像，按天汇总，见 [EHT 成像](eht-imaging.md)。
-- 响应模板、似然特征、六种情形（1D 和 2D 观测量 × 三种协方差模型）的上限 $c_{95}(\alpha)$
-  及其数值检验，见[分析](analysis.md)。
+- 响应模板、似然特征、六种情形（1D 和 2D 观测量 × 三种协方差模型）的上限 $c_{95}(\alpha)$、
+  其数值检验，以及论文所用的图、数字和表格，见[分析](analysis.md)。
 
 ## 运行方法
 
@@ -32,7 +32,7 @@
 | RAPTOR 模拟 | `raptor_build.py`、`raptor_generate.py`、`raptor_merge.py` | `raptor-build` |
 | EHT 成像 | `eht_reconstruct.py`、`eht_refine.py`、`eht_export_bundle.py`、`eht_sample.py` | `eht-imaging` |
 | EHT 成像汇总 | `eht_summarize.py` | `eht-summary` |
-| 分析 | `analysis_templates.py`、`analysis_limits.py`、`analysis_check_grid.py`、`analysis_check_covariance.py`、`analysis_summarize.py` | `default` |
+| 分析 | `analysis_templates.py`、`analysis_limits.py`、`analysis_check_grid.py`、`analysis_check_covariance.py`、`analysis_summarize.py`、`analysis_paper.py` | `default` |
 
 每个脚本都写入一个新的输出根目录，并拒绝覆盖已有结果。
 
@@ -62,10 +62,15 @@ flowchart LR
     AL --> AS[analysis_summarize]
     AG --> AS
     AC --> AS
+    AT --> AP[analysis_paper]
+    AL --> AP
+    AG --> AP
+    AC --> AP
   end
   RM -- "delivered Stokes cubes" --> AT
   RG -- "delivered Stokes cubes" --> AT
   EM -- "EHT ensemble" --> AL
+  EM -- "EHT ensemble" --> AP
 ```
 
 箭头表示“读取……的产品”。当所有作业都在同一个运行根目录中运行时，`raptor_generate` 可以自己交付

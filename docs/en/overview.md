@@ -25,8 +25,8 @@ $c$ of an axion-induced EVPA oscillation in M87\*.
 - The EHT ensemble: 1000 D-term Monte Carlo images per day, summarized per day, see
   [EHT imaging](eht-imaging.md).
 - Response templates, likelihood features, limits $c_{95}(\alpha)$ for six cases
-  (1D and 2D observables, three covariance models) and their numerical checks, see
-  [Analysis](analysis.md).
+  (1D and 2D observables, three covariance models), their numerical checks and the
+  figures, numbers and tables of the paper, see [Analysis](analysis.md).
 
 ## How to run
 
@@ -39,7 +39,7 @@ and [Analysis](analysis.md); environments are listed in [Development](developmen
 | RAPTOR simulation | `raptor_build.py`, `raptor_generate.py`, `raptor_merge.py` | `raptor-build` |
 | EHT imaging | `eht_reconstruct.py`, `eht_refine.py`, `eht_export_bundle.py`, `eht_sample.py` | `eht-imaging` |
 | EHT imaging summary | `eht_summarize.py` | `eht-summary` |
-| Analysis | `analysis_templates.py`, `analysis_limits.py`, `analysis_check_grid.py`, `analysis_check_covariance.py`, `analysis_summarize.py` | `default` |
+| Analysis | `analysis_templates.py`, `analysis_limits.py`, `analysis_check_grid.py`, `analysis_check_covariance.py`, `analysis_summarize.py`, `analysis_paper.py` | `default` |
 
 Every script writes into a new output root and refuses to overwrite existing results.
 
@@ -69,10 +69,15 @@ flowchart LR
     AL --> AS[analysis_summarize]
     AG --> AS
     AC --> AS
+    AT --> AP[analysis_paper]
+    AL --> AP
+    AG --> AP
+    AC --> AP
   end
   RM -- "delivered Stokes cubes" --> AT
   RG -- "delivered Stokes cubes" --> AT
   EM -- "EHT ensemble" --> AL
+  EM -- "EHT ensemble" --> AP
 ```
 
 Arrows mean "reads the product of". `raptor_generate` can deliver cubes itself when all

@@ -69,6 +69,8 @@ the top level.
 | `analysis_check_grid.py` | Re-evaluate saved observations on another phase or coupling grid |
 | `analysis_check_covariance.py` | Covariance sensitivity from two halves of the draws |
 | `analysis_summarize.py` | Summary tables, comparisons and figures |
+| `analysis_paper.py` | Figures, quoted numbers (`numbers.tex`, `numbers.json`) and tables of the paper |
+| `_paper_figures.py` | Style and plotting functions of the paper figures |
 | `verify_products.py` | Verify a completed stage (`pixi run verify`) |
 | `_bootstrap.py` | Put the repository root on `sys.path` for direct script execution |
 | `_environment.py` | Read `.env` and `.env.raptor` as data with a fixed set of allowed keys |
