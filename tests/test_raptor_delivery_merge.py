@@ -236,7 +236,7 @@ def test_each_source_build_must_match_plan_settings(merged, tmp_path, index):
     _write_build(copied, merged.config, "wrong-settings", settings=settings)
     provenance.verify_stage(copied / "build", recursive=True)
     target = tmp_path / "rejected"
-    with pytest.raises(ValueError, match="Build settings differ from production plan"):
+    with pytest.raises(ValueError, match="Build settings differ from the task plan"):
         deliver_stokes(merged.plan, merged.run, job_roots=roots, output_root=target)
     assert not target.exists()
 

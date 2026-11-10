@@ -1,11 +1,11 @@
-# RAPTOR production
+# RAPTOR simulation
 
 ## Purpose
 
 This page describes how the RAPTOR input is produced: building the pinned RAPTOR core,
 planning the ray-tracing tasks, running them as content-addressed jobs, validating each
 job's output, converting the outputs to Stokes cubes and delivering (or merging) those
-cubes for the analysis. RAPTOR production does not read any EHT imaging product.
+cubes for the analysis. RAPTOR simulation does not read any EHT imaging product.
 
 ## Inputs
 

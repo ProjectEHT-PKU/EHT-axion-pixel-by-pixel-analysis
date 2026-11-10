@@ -20,7 +20,7 @@ the top level.
 | `eht_axion/physics.py` | Physical constants, M87\* unit scales, axion 211 frequency | `PhysicalScale`, `omega` |
 | `eht_axion/evpa.py` | EVPA of linear polarization and $\pi$-periodic differences, shared by `eht/` and `analysis/` | `finite_evpa`, `circular_difference` |
 
-### RAPTOR production: eht_axion/raptor
+### RAPTOR simulation: eht_axion/raptor
 
 | Module | Purpose | Main functions |
 |---|---|---|

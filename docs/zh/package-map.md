@@ -18,7 +18,7 @@
 | `eht_axion/physics.py` | 物理常数、M87\* 的单位尺度、轴子 211 态频率 | `PhysicalScale`、`omega` |
 | `eht_axion/evpa.py` | 线偏振的 EVPA 和以 $\pi$ 为周期的差值，由 `eht/` 和 `analysis/` 共用 | `finite_evpa`、`circular_difference` |
 
-### RAPTOR 生产：eht_axion/raptor
+### RAPTOR 模拟：eht_axion/raptor
 
 | 模块 | 用途 | 主要函数 |
 |---|---|---|

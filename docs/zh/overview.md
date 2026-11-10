@@ -17,14 +17,14 @@
 ## 输出
 
 - 交付的 RAPTOR Stokes 数据立方（`data/raptor/res-*/alpha-*/` 和 `data/raptor/res-400/background/`），
-  见 [RAPTOR 生产](raptor-production.md)。
+  见 [RAPTOR 模拟](raptor-simulation.md)。
 - EHT 系综：每天 1000 幅 D 项蒙特卡罗图像，按天汇总，见 [EHT 成像](eht-imaging.md)。
 - 响应模板、似然特征、六种情形（1D 和 2D 观测量 × 三种协方差模型）的上限 $c_{95}(\alpha)$、
   其数值检验，以及论文所用的图、数字和表格，见[分析](analysis.md)。
 
 ## 运行方法
 
-每个部分有自己的 Pixi 环境和脚本。完整命令行见 [RAPTOR 生产](raptor-production.md)、
+每个部分有自己的 Pixi 环境和脚本。完整命令行见 [RAPTOR 模拟](raptor-simulation.md)、
 [EHT 成像](eht-imaging.md)和[分析](analysis.md)的“运行方法”一节；环境列表见[开发](development.md)。
 
 | 部分 | 脚本 | Pixi 环境 |
@@ -109,7 +109,7 @@ flowchart LR
 
 - [文档索引](index.md)
 - [实验配置](experiment-config.md)
-- [RAPTOR 生产](raptor-production.md)
+- [RAPTOR 模拟](raptor-simulation.md)
 - [EHT 成像](eht-imaging.md)
 - [分析](analysis.md)
 - [数据布局](data-layout.md)

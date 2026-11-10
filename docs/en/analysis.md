@@ -12,7 +12,7 @@ $c$, together with a zero-data control and numerical checks.
 
 - The delivered RAPTOR data root (`data/` of a delivery or merge), containing
   `raptor/res-100/alpha-<α>/` and `raptor/res-400/background/`
-  ([RAPTOR production](raptor-production.md)).
+  ([RAPTOR simulation](raptor-simulation.md)).
 - The EHT ensemble stage of `eht_summarize.py` ([EHT imaging](eht-imaging.md)).
 - `experiment.yaml`: `shared`, `analysis`, and from the other sections
   `raptor.camera_fov_rg`, `raptor.snapshots`, `raptor.response`, `raptor.background` and
@@ -337,6 +337,6 @@ points.
 - [Overview](overview.md)
 - [Experiment configuration](experiment-config.md)
 - [EHT imaging](eht-imaging.md)
-- [RAPTOR production](raptor-production.md)
+- [RAPTOR simulation](raptor-simulation.md)
 - [Data layout](data-layout.md)
 - [Glossary](glossary.md)

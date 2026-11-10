@@ -194,5 +194,5 @@ the official EHT script, which runs unchanged apart from two substitutions
 - [Overview](overview.md)
 - [Analysis](analysis.md)
 - [EHT imaging](eht-imaging.md)
-- [RAPTOR production](raptor-production.md)
+- [RAPTOR simulation](raptor-simulation.md)
 - [Development](development.md)

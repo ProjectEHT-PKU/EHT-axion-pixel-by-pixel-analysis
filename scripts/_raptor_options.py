@@ -77,7 +77,7 @@ def options(kind, argv=None):
         for source in protected:
             if (source == args.run_root or source.is_relative_to(args.run_root)
                     or args.run_root.is_relative_to(source)):
-                raise ValueError(f"Production run root overlaps protected input/code root: {source}")
+                raise ValueError(f"Run root overlaps protected input/code root: {source}")
         if (args.run_root / "manifest.json").exists():
             raise ValueError("Run root must be a container, not an existing stage")
         if kind == "generate":

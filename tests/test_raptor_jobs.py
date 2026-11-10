@@ -334,7 +334,7 @@ def _cancel_wait(original):
 
 
 @pytest.fixture
-def production(setup):
+def bound_plan(setup):
     from eht_axion.raptor.plan import plan_generation
     from test_raptor_plan import write_snapshot, write_table
 
@@ -348,9 +348,9 @@ def production(setup):
     tables = {"low": setup["table"], "high": setup["table"]}
     plan = plan_generation(config, source.parent, tables)
     plan["expected_core_commit"] = "synthetic-core-commit"
-    production_build = setup["build"].with_name("production-build")
+    plan_build = setup["build"].with_name("plan-build")
     settings = {"settings": config["raptor"]["build"], "source_commit": "synthetic-core-commit"}
-    with provenance.stage_directory(production_build, "raptor:build", settings) as work:
+    with provenance.stage_directory(plan_build, "raptor:build", settings) as work:
         for name in ("RAPTOR", "definitions.h"):
             import shutil
             shutil.copy2(setup["build"] / name, work / name)
@@ -368,15 +368,15 @@ def production(setup):
             "THETAE_MAX": str(config["raptor"]["build"]["thetae_max"]),
         }.items()))
         (work / "receipt.json").write_text(json.dumps({"source_commit": "synthetic-core-commit"}))
-    setup["build"] = production_build
+    setup["build"] = plan_build
     return setup, plan
 
 
 @pytest.mark.parametrize("product,content", [("grid_mks.in", "hslope = 99\n"),
                                              ("macros.txt", "#define POL 0\n"),
                                              ("receipt.json", '{"source_commit": "wrong"}')])
-def test_production_rejects_verified_but_wrong_build_products(production, product, content):
-    setup, plan = production
+def test_plan_rejects_verified_but_wrong_build_products(bound_plan, product, content):
+    setup, plan = bound_plan
     build = setup["build"]
     (build / product).write_text(content)
     # Another legitimately published build can have internally verified bytes
@@ -393,9 +393,9 @@ def test_production_rejects_verified_but_wrong_build_products(production, produc
     assert not setup["run"].exists()
 
 
-def test_production_gate_accepts_bound_plan(production, monkeypatch):
+def test_plan_gate_accepts_bound_plan(bound_plan, monkeypatch):
     from eht_axion.raptor import jobs
-    setup, plan = production
+    setup, plan = bound_plan
     executed = []
 
     def execute(command, cwd, env, stdout, stderr, timeout):
@@ -420,8 +420,8 @@ def test_production_gate_accepts_bound_plan(production, monkeypatch):
 
 @pytest.mark.parametrize("change", ["commit", "missing-commit", "build", "time", "mass", "omega",
                                     "table-spin", "source-hash"])
-def test_production_gate_rejects_semantic_drift_before_launch(production, change):
-    setup, plan = production
+def test_plan_gate_rejects_semantic_drift_before_launch(bound_plan, change):
+    setup, plan = bound_plan
     task = plan["tasks"][0]
     if change == "commit":
         plan["expected_core_commit"] = "wrong"
@@ -804,9 +804,9 @@ def test_receipt_observes_all_thread_masks_with_single_core_leader(setup):
     assert receipt["actual_cpu_set"] == receipt["cpu_set"] == cpus
 
 
-def test_production_memory_guard_uses_actual_selected_inflight(production, monkeypatch):
+def test_plan_memory_guard_uses_actual_selected_inflight(bound_plan, monkeypatch):
     from eht_axion.raptor import affinity
-    setup, plan = production
+    setup, plan = bound_plan
     calls = []
 
     def reject(workers):
@@ -824,7 +824,7 @@ def test_production_memory_guard_uses_actual_selected_inflight(production, monke
     assert calls == [2]
 
 
-def test_tasks_only_skips_production_memory_guard(setup, monkeypatch):
+def test_tasks_only_skips_plan_memory_guard(setup, monkeypatch):
     from eht_axion.raptor import affinity
 
     def reject(*args, **kwargs):

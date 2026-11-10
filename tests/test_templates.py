@@ -184,7 +184,7 @@ def test_fit_processed_excludes_state0(tmp_path, monkeypatch):
 
 
 def test_response_exact_kernel_columns_and_snapshot_labels(tmp_path, monkeypatch):
-    # 141 tiny frames exercise the production label convention, not production data.
+    # 141 tiny frames exercise the snapshot label convention of experiment.yaml.
     op = operator(2, bins=4)
     use_operator(monkeypatch, op)
     cube = phase_cube(times=141, n=2)

@@ -187,5 +187,5 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 - [概览](overview.md)
 - [分析](analysis.md)
 - [EHT 成像](eht-imaging.md)
-- [RAPTOR 生产](raptor-production.md)
+- [RAPTOR 模拟](raptor-simulation.md)
 - [开发](development.md)

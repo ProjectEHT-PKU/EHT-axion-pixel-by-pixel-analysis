@@ -13,7 +13,7 @@ GRMHD 吸积流经 RAPTOR 光线追踪得到的图像，以及 M87\* 的 EHT 201
 |---|---|
 | [概览](overview.md) | 三个部分、各部分产品之间的关系，以及数据流图 |
 | [实验配置](experiment-config.md) | `experiment.yaml` 的每个键：含义、单位、取值以及读取它的代码 |
-| [RAPTOR 生产](raptor-production.md) | 任务计划与任务标识符、编译、作业、作业输出、格式转换、交付与合并、CPU 亲和性、`.env.raptor` |
+| [RAPTOR 模拟](raptor-simulation.md) | 任务计划与任务标识符、编译、作业、作业输出、格式转换、交付与合并、CPU 亲和性、`.env.raptor` |
 | [EHT 成像](eht-imaging.md) | 按实现描述的 Paper VII 方法：I 阶段、共享增益、基准 P/D 交替、精化、打包导出、D 项蒙特卡罗、系综汇总、已知偏差 |
 | [分析](analysis.md) | 图像预处理、响应拟合、模板、孔径观测量、特征选择、GRMHD 背景、协方差模型、似然、后验、检验与汇总 |
 | [来源记录](provenance.md) | 阶段清单（manifest）、哈希值、原子化阶段目录、校验 |
@@ -26,7 +26,7 @@ GRMHD 吸积流经 RAPTOR 光线追踪得到的图像，以及 M87\* 的 EHT 201
 
 - 理解实验：先读[概览](overview.md)，再读[实验配置](experiment-config.md)。
 - 审查某个科学步骤：读 [EHT 成像](eht-imaging.md)或[分析](analysis.md)，并结合[来源记录](provenance.md)。
-- 运行脚本：读 [RAPTOR 生产](raptor-production.md)、[EHT 成像](eht-imaging.md)和[分析](analysis.md)
+- 运行脚本：读 [RAPTOR 模拟](raptor-simulation.md)、[EHT 成像](eht-imaging.md)和[分析](analysis.md)
   中的“运行方法”一节；环境说明见[开发](development.md)。
 - 查找函数或文件：读[包结构](package-map.md)和[数据布局](data-layout.md)。
 

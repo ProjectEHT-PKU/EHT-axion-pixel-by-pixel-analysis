@@ -14,7 +14,7 @@ from eht_axion.raptor.delivery import deliver_stokes
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--plan", type=Path, help="Frozen production-plan JSON (default: raptor/plan.json)")
+    parser.add_argument("--plan", type=Path, help="Frozen task-plan JSON (default: raptor/plan.json)")
     parser.add_argument("--job-root", type=Path, action="append",
                         help="Source run containing jobs/ and its real build/; repeat for independent runs "
                              "(default: every directory in raptor/runs)")

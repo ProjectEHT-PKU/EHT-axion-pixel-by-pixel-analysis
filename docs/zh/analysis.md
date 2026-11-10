@@ -9,7 +9,7 @@
 ## 输入
 
 - 交付的 RAPTOR 数据根目录（一次交付或合并的 `data/`），含 `raptor/res-100/alpha-<α>/` 和
-  `raptor/res-400/background/`（[RAPTOR 生产](raptor-production.md)）。
+  `raptor/res-400/background/`（[RAPTOR 模拟](raptor-simulation.md)）。
 - `eht_summarize.py` 的 EHT 系综阶段（[EHT 成像](eht-imaging.md)）。
 - `experiment.yaml`：`shared`、`analysis`，以及来自其他节的 `raptor.camera_fov_rg`、
   `raptor.snapshots`、`raptor.response`、`raptor.background` 和 `eht_imaging.uncertainty_draws`
@@ -283,6 +283,6 @@ $\sigma_\mathrm{bg}$、各检验中的最大变化、拟合表）生成；其中
 - [概览](overview.md)
 - [实验配置](experiment-config.md)
 - [EHT 成像](eht-imaging.md)
-- [RAPTOR 生产](raptor-production.md)
+- [RAPTOR 模拟](raptor-simulation.md)
 - [数据布局](data-layout.md)
 - [术语表](glossary.md)

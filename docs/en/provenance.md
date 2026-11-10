@@ -149,6 +149,6 @@ outside manifests carry schema strings of the form `<part>-<record>-v<N>`
 
 - [Documentation index](index.md)
 - [Data layout](data-layout.md)
-- [RAPTOR production](raptor-production.md)
+- [RAPTOR simulation](raptor-simulation.md)
 - [EHT imaging](eht-imaging.md)
 - [Analysis](analysis.md)

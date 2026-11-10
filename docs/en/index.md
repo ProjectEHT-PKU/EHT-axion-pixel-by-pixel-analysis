@@ -15,7 +15,7 @@ in [中文文档](../zh/index.md).
 |---|---|
 | [Overview](overview.md) | The three parts, how their products connect, and a data-flow diagram |
 | [Experiment configuration](experiment-config.md) | Every key of `experiment.yaml`: meaning, unit, value and the code that reads it |
-| [RAPTOR production](raptor-production.md) | Task plan and task identifiers, build, jobs, job outputs, conversion, delivery and merge, CPU affinity, `.env.raptor` |
+| [RAPTOR simulation](raptor-simulation.md) | Task plan and task identifiers, build, jobs, job outputs, conversion, delivery and merge, CPU affinity, `.env.raptor` |
 | [EHT imaging](eht-imaging.md) | Paper VII method as implemented: I stage, shared gains, fiducial P/D alternation, refinement, bundle export, D-term Monte Carlo, ensemble summary, known deviations |
 | [Analysis](analysis.md) | Image preprocessing, response fit, templates, aperture observable, feature selection, GRMHD background, covariance models, likelihood, posterior, checks and summary |
 | [Provenance](provenance.md) | Stage manifests, hashes, atomic stage directories, verification |
@@ -29,7 +29,7 @@ in [中文文档](../zh/index.md).
 - To understand the experiment: [Overview](overview.md), then [Experiment configuration](experiment-config.md).
 - To audit a scientific step: [EHT imaging](eht-imaging.md) or [Analysis](analysis.md),
   together with [Provenance](provenance.md).
-- To run the scripts: the "How to run" sections of [RAPTOR production](raptor-production.md),
+- To run the scripts: the "How to run" sections of [RAPTOR simulation](raptor-simulation.md),
   [EHT imaging](eht-imaging.md) and [Analysis](analysis.md); environments are described in
   [Development](development.md).
 - To find a function or file: [Package map](package-map.md) and [Data layout](data-layout.md).

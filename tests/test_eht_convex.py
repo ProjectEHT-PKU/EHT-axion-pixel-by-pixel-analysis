@@ -1,4 +1,4 @@
-"""Two small numerical contracts; no production images or observations."""
+"""Two small numerical contracts; no observed or simulated images."""
 import numpy as np
 import pytest
 from eht_axion.eht import convex as o

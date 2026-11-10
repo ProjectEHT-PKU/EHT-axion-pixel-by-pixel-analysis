@@ -21,7 +21,7 @@ $c$ of an axion-induced EVPA oscillation in M87\*.
 ## Outputs
 
 - Delivered RAPTOR Stokes cubes (`data/raptor/res-*/alpha-*/` and `data/raptor/res-400/background/`), see
-  [RAPTOR production](raptor-production.md).
+  [RAPTOR simulation](raptor-simulation.md).
 - The EHT ensemble: 1000 D-term Monte Carlo images per day, summarized per day, see
   [EHT imaging](eht-imaging.md).
 - Response templates, likelihood features, limits $c_{95}(\alpha)$ for six cases
@@ -31,7 +31,7 @@ $c$ of an axion-induced EVPA oscillation in M87\*.
 ## How to run
 
 Each part has its own Pixi environment and scripts. Full command lines are in the "How to
-run" sections of [RAPTOR production](raptor-production.md), [EHT imaging](eht-imaging.md)
+run" sections of [RAPTOR simulation](raptor-simulation.md), [EHT imaging](eht-imaging.md)
 and [Analysis](analysis.md); environments are listed in [Development](development.md).
 
 | Part | Scripts | Pixi environment |
@@ -125,7 +125,7 @@ jobs ran in one run root; `raptor_merge` delivers cubes from job roots of severa
 
 - [Documentation index](index.md)
 - [Experiment configuration](experiment-config.md)
-- [RAPTOR production](raptor-production.md)
+- [RAPTOR simulation](raptor-simulation.md)
 - [EHT imaging](eht-imaging.md)
 - [Analysis](analysis.md)
 - [Data layout](data-layout.md)

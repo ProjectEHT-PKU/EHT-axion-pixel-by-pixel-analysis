@@ -321,7 +321,7 @@ def validate(config):
 
 
 def validate_ray_tracing(config):
-    """Validate the ray-tracing subset stored in production plans."""
+    """Validate the ray-tracing subset stored in task plans."""
     if not isinstance(config, dict) or set(config) != {"shared", "raptor"}:
         raise ValueError("Ray-tracing configuration requires exactly shared and raptor")
     if set(config["shared"]) != set(PHYSICS_KEYS):
@@ -352,7 +352,7 @@ def physical_scale(config):
 def ray_tracing_config(config):
     """Every value that determines the RAPTOR images: physics scalars + raptor section.
 
-    This subset is what production plans and generated-data identities record;
+    This subset is what task plans and generated-data identities record;
     the sky grid, eht-imaging and analysis settings are deliberately excluded.
     """
     if not isinstance(config, dict) or not {"shared", "raptor"} <= config.keys():

@@ -7,7 +7,7 @@ and sampling.
 Pinned to ehtim 1.3.2. Circular products and their separate per-real-component
 sigmas remain native. Jones correction propagates diagonal marginal variances;
 it does NOT retain the induced full covariance. No imaging objective weights,
-production execution, thermal bootstrap, or D refits inside samples live here.
+Monte Carlo execution, thermal bootstrap, or D refits inside samples live here.
 """
 
 from copy import deepcopy

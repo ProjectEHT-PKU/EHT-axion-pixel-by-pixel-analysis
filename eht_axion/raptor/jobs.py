@@ -181,9 +181,9 @@ def _prepare_task(task):
 
 
 def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
-    """Reject drift between a production plan, live footer/table, and build.
+    """Reject drift between a task plan, live footer/table, and build.
 
-    A bare tasks-only plan is the lower-level synthetic runner API. Production
+    A bare tasks-only plan is the lower-level synthetic runner API. Full task
     plans carry config/snapshot/table inventories and must satisfy every gate.
     """
     for task, _, paths in prepared:
@@ -203,7 +203,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
     if "config" not in plan:
         return
     if expected_commit is None:
-        raise ValueError("Production plan requires expected_core_commit")
+        raise ValueError("Task plan requires expected_core_commit")
     from ..experiment import validate_ray_tracing
     from ..physics import omega
     from .plan import _parameters, alpha_key, read_snapshot_footer, validate_radial_table
@@ -211,7 +211,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
     config = validate_ray_tracing(plan["config"])
     p = config["raptor"]
     if manifest["config"].get("settings") != p["build"]:
-        raise ValueError("Build settings differ from production plan")
+        raise ValueError("Build settings differ from the task plan")
     # The field spellings of grid_mks.in are defined by the RAPTOR core.
     fields = {}
     for line in grid.read_text().splitlines():
@@ -227,7 +227,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
     expected_grid.update({f"xprobmax{i+1}": v for i, v in enumerate(p["grid"]["xprobmax"])})
     expected_grid["hslope"] = p["grid"]["hslope"]
     if fields != expected_grid:
-        raise ValueError("Effective build grid differs from production plan")
+        raise ValueError("Effective build grid differs from the task plan")
     macro_path = build_dir / "macros.txt"
     provenance.require_declared_outputs(build_dir, [macro_path])
     macro_text = macro_path.read_text()
@@ -245,7 +245,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
     for task, _, _ in prepared:
         label = task["label"]
         if not start <= label <= stop or (label - start) % step:
-            raise ValueError("Task label is not on the production snapshot grid")
+            raise ValueError("Task label is not on the planned snapshot grid")
         snapshot = snapshots.get(label)
         if snapshot is None or Path(snapshot["source_path"]).resolve() != Path(task["source_path"]):
             raise ValueError("Task source differs from plan snapshot inventory")
@@ -261,12 +261,12 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
         enabled = task["kind"] == "response"
         alpha = task["alpha"] if enabled else None
         if enabled and alpha not in config["shared"]["alphas"]:
-            raise ValueError("Task alpha is not in production config")
+            raise ValueError("Task alpha is not in the plan configuration")
         resolution = p["response"]["resolution"]
         if not enabled and task["resolution"] not in {resolution, p["background"]["resolution"]}:
-            raise ValueError("Baseline resolution differs from production config")
+            raise ValueError("Baseline resolution differs from the plan configuration")
         if enabled and task["resolution"] != resolution:
-            raise ValueError("Response resolution differs from production config")
+            raise ValueError("Response resolution differs from the plan configuration")
         phase = task["parameters"]["AXION_PHASE"]
         expected_omega = float(omega(alpha, config["shared"]["principal_n"])) if enabled else 0.
         norm = p["response"]["reference_norm"] if enabled else 0.
@@ -277,7 +277,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
             table_path = str(Path(table["path"]).resolve(strict=True))
             if (task["table_id"] != table_id or task["table_path"] != table_path
                     or task.get("table_spin") != p["radial_tables"][table_id]["spin"]):
-                raise ValueError("Task table identity/spin differs from production plan")
+                raise ValueError("Task table identity/spin differs from the task plan")
             if table.get("sha256") not in (None, provenance.sha256(Path(table_path))):
                 raise ValueError("Live radial table differs from plan inventory hash")
             if table_path not in table_cache:
@@ -289,7 +289,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
         if not enabled:
             expected["AXION_TABLE"] = "disabled"
         if expected != task["parameters"]:
-            raise ValueError("Task model parameters differ from production plan")
+            raise ValueError("Task model parameters differ from the task plan")
 
 
 def _json(path, record):
@@ -439,7 +439,7 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affi
         raise ValueError("Duplicate task ids")
     if "config" in plan and prepared:
         from .affinity import check_memory
-        # Tasks-only plans are synthetic API fixtures. Real production plans
+        # Tasks-only plans are synthetic API fixtures. Full task plans
         # must also be safe when invoked directly, bypassing the CLI guard.
         check_memory(min(workers, len(prepared)))
     provenance.reject_directory_symlinks(build_dir)

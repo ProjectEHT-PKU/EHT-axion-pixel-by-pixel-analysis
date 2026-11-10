@@ -8,12 +8,12 @@
 
 ## 输入
 
-下列产品由后续脚本读取，方式见 [RAPTOR 生产](raptor-production.md)、[EHT 成像](eht-imaging.md)和
+下列产品由后续脚本读取，方式见 [RAPTOR 模拟](raptor-simulation.md)、[EHT 成像](eht-imaging.md)和
 [分析](analysis.md)。
 
 ## 输出
 
-### RAPTOR 生产
+### RAPTOR 模拟
 
 ```text
 RUN_ROOT/
@@ -148,7 +148,7 @@ PAPER/                           stage analysis:paper
 
 ## 运行方法
 
-这些产品由 [RAPTOR 生产](raptor-production.md)、[EHT 成像](eht-imaging.md)和[分析](analysis.md)
+这些产品由 [RAPTOR 模拟](raptor-simulation.md)、[EHT 成像](eht-imaging.md)和[分析](analysis.md)
 中的命令写出。`pixi run verify DIR` 检查一个阶段目录。
 
 ## 细节
@@ -162,7 +162,7 @@ PAPER/                           stage analysis:paper
 ```text
 <data root>/
   raptor/
-    plan.json                    frozen production plan (raptor_generate.py --plan --plan-output)
+    plan.json                    frozen task plan (raptor_generate.py --plan --plan-output)
     runs/<name>/                 run roots of raptor_generate.py (build/, jobs/, attempts/,
                                  config.yaml, requests/); one per host or build; default runs/main
     delivered/                   raptor_merge.py output root: data/raptor/res-*/..., inventory/

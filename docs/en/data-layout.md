@@ -11,12 +11,12 @@ command line. Unless noted otherwise, every directory listed with a stage name c
 ## Inputs
 
 The products below are read by the next scripts as described on
-[RAPTOR production](raptor-production.md), [EHT imaging](eht-imaging.md) and
+[RAPTOR simulation](raptor-simulation.md), [EHT imaging](eht-imaging.md) and
 [Analysis](analysis.md).
 
 ## Outputs
 
-### RAPTOR production
+### RAPTOR simulation
 
 ```text
 RUN_ROOT/
@@ -154,7 +154,7 @@ Index conventions in the analysis:
 
 ## How to run
 
-The products are written by the commands on [RAPTOR production](raptor-production.md),
+The products are written by the commands on [RAPTOR simulation](raptor-simulation.md),
 [EHT imaging](eht-imaging.md) and [Analysis](analysis.md). `pixi run verify DIR` checks a
 stage directory.
 
@@ -170,7 +170,7 @@ per part:
 ```text
 <data root>/
   raptor/
-    plan.json                    frozen production plan (raptor_generate.py --plan --plan-output)
+    plan.json                    frozen task plan (raptor_generate.py --plan --plan-output)
     runs/<name>/                 run roots of raptor_generate.py (build/, jobs/, attempts/,
                                  config.yaml, requests/); one per host or build; default runs/main
     delivered/                   raptor_merge.py output root: data/raptor/res-*/..., inventory/

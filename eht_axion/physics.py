@@ -1,5 +1,5 @@
 """Physical constants, M87* unit conversions (gravitational time/angle scales) and the
-axion 211-state frequency omega(alpha), shared by RAPTOR production and the analysis."""
+axion 211-state frequency omega(alpha), shared by the RAPTOR simulation and the analysis."""
 
 from dataclasses import asdict, dataclass
 import numpy as np

@@ -1,1 +1,1 @@
-"""M87* axion analysis code: RAPTOR production, EHT imaging helpers and limits."""
+"""M87* axion analysis code: RAPTOR simulation, EHT imaging and analysis."""

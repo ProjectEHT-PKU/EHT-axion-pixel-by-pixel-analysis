@@ -6,7 +6,7 @@ into phase-marginalized Bayesian upper limits on a dimensionless coupling c. Thi
 an installable package: run the scripts directly or through `pixi run`.
 
 **Documentation: [docs/en/index.md](docs/en/index.md)** (overview, every key of
-`experiment.yaml`, RAPTOR production, EHT imaging, analysis, provenance, data layout,
+`experiment.yaml`, RAPTOR simulation, EHT imaging, analysis, provenance, data layout,
 package map, development). Chinese translation: [docs/zh/index.md](docs/zh/index.md).
 
 ## Parameters
@@ -56,7 +56,7 @@ pixi run analysis-paper                          # figures, numbers and tables o
 ```
 
 Full command lines, including merging RAPTOR runs and the analysis checks, are in
-[RAPTOR production](docs/en/raptor-production.md), [EHT imaging](docs/en/eht-imaging.md)
+[RAPTOR simulation](docs/en/raptor-simulation.md), [EHT imaging](docs/en/eht-imaging.md)
 and [Analysis](docs/en/analysis.md). Each step writes stage directories with a
 `manifest.json`; `pixi run verify DIR --recursive` re-checks a stage and its lineage
 ([Provenance](docs/en/provenance.md)).

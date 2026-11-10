@@ -8,7 +8,7 @@ from eht_axion.experiment import read_experiment, validate
 from eht_axion.raptor.jobs import _prepare_task, _validate_plan_binding, serialize_parameters
 from eht_axion.raptor.plan import plan_generation
 from test_raptor_plan import write_snapshot, write_table
-from test_raptor_jobs import production, setup  # noqa: F401 -- shared synthetic fixtures
+from test_raptor_jobs import bound_plan, setup  # noqa: F401 -- shared synthetic fixtures
 
 @pytest.mark.parametrize('norm', [.05, .1, .2, .4, .8, 1.6, 2.0])
 def test_positive_finite_norm_and_explicit_model_binding(tmp_path, norm):
@@ -54,8 +54,8 @@ def test_norm_changes_response_not_baseline_identity(tmp_path):
 
 
 @pytest.mark.parametrize('drift', ['config', 'model', 'task-and-model'])
-def test_norm_semantic_drift_still_fails_production_binding(production, drift):  # noqa: F811
-    fixture, p = production
+def test_norm_semantic_drift_still_fails_plan_binding(bound_plan, drift):  # noqa: F811
+    fixture, p = bound_plan
     t = deepcopy(next(t for t in p['tasks'] if t['kind'] == 'response'))
     p['tasks'] = [t]
     if drift == 'config':
