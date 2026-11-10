@@ -48,8 +48,7 @@ def main(argv=None):
             raise ValueError('The source limits were produced from a different experiment')
         draws = config['eht_imaging']['uncertainty_draws']
         half = draws // 2
-        inputs = [Path(__file__).resolve(), args.config.resolve(), provenance.manifest_path(args.source),
-                  args.source/'report.json', Path(__file__).with_name('analysis_limits.py')]
+        inputs = [provenance.manifest_path(args.source), args.source/'report.json']
         products = {}
         for dim in ('1d', '2d'):
             root = args.templates/'templates'/dim
@@ -59,7 +58,6 @@ def main(argv=None):
             path = args.source/f'observations-{dim}.npz'
             provenance.require_declared_outputs(args.source, [path])
             inputs += [provenance.manifest_path(root), root/'templates.npz', path]
-        inputs += sorted((Path(__file__).resolve().parents[1]/'eht_axion').rglob('*.py'))
         identity = dict(source=str(args.source), fixed_observed_centers=True, fixed_selection=True,
                         covariance_halves=[list(range(half)), list(range(half, draws))],
                         covariance_regularization='none', scope='finite MC sensitivity, not new error model')

@@ -105,30 +105,20 @@ def configure_threads(n):
     os.environ['MKL_DYNAMIC'] = 'FALSE'
 
 
-def source_identity():
-    files = {str(p.relative_to(_BOOTSTRAP)): sha(p) for p in
-             sorted((_BOOTSTRAP / 'eht_axion').rglob('*.py'))}
-    for rel in ('scripts/eht_sample.py',
-                'scripts/eht_reconstruct.py', 'pixi.lock', 'pixi.toml'):
-        files[rel] = sha(_BOOTSTRAP / rel)
+def code_identity():
+    """Git commit of the repository (tracked files must be clean) and package versions.
+
+    The commit pins the scripts, eht_axion and pixi.lock; installed packages are
+    recorded by version only.
+    """
+    from eht_axion import provenance
     packages = {}
     for name in ('ehtim', 'numpy', 'scipy', 'astropy', 'threadpoolctl'):
         try:
-            dist = importlib.metadata.distribution(name)
+            packages[name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:
-            if name == 'threadpoolctl':
-                packages[name] = dict(installed=False)
-                continue
-            raise
-        hashes = {}
-        for entry in dist.files or []:
-            if str(entry).endswith(('.py', '.so', '.pyd')):
-                p = Path(dist.locate_file(entry))
-                if p.is_file():
-                    hashes[str(entry)] = sha(p)
-        packages[name] = dict(version=dist.version, files=hashes)
-    return dict(files=files, packages=packages, python=sys.version,
-                executable=sys.executable)
+            packages[name] = 'not-installed'
+    return dict(provenance.code_identity(), packages=packages, python=sys.version.split()[0])
 
 
 def make_draws(root, bundle, n, seed, science):
@@ -322,7 +312,7 @@ def controller(args, out):
     config = dict(draws_per_day=science['draws_per_day'], seed=science['seed'], **science['monte_carlo'],
                   threads=args.threads)
     plan = dict(schema='eht-sample-batch-v2', snapshot=snapshot,
-                source_identity=source_identity(), config=config, science=science)
+                code=code_identity(), config=config, science=science)
     identity = hashlib.sha256(encoded(plan)).hexdigest()
     plan['identity'] = identity
     planpath = out / 'batch.json'

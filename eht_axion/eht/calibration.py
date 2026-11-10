@@ -12,7 +12,6 @@ Monte Carlo execution, thermal bootstrap, or D refits inside samples live here.
 
 from copy import deepcopy
 from functools import lru_cache
-from hashlib import sha256
 from importlib.metadata import version
 import inspect
 import json
@@ -24,11 +23,13 @@ import numpy as np
 
 
 _PRODUCTS = ("rr", "ll", "rl", "lr")
+# pixi.lock pins ehtim; the installed version is checked before any use.
+_EHTIM_VERSION = "1.3.2"
 
 
 def _library():
-    if version("ehtim") != "1.3.2":
-        raise ValueError("ehtim 1.3.2 required")
+    if version("ehtim") != _EHTIM_VERSION:
+        raise ValueError(f"ehtim {_EHTIM_VERSION} required")
     import ehtim
     return ehtim
 
@@ -254,9 +255,8 @@ def apply_fixed_d(base, dterms):
     return _finish_correction(out, base, original, "fixed_D_once_no_refit")
 
 
-# Exact installed 1.3.2 function source, including whitespace. Fail closed if
-# upstream changes; never adapt a guessed/new solver based only on its version.
-_FORWARD_SOURCE_SHA256 = "3e092df9fd6f7fca8d45adf23b9ba457765ba10b0bd7151da2c319f6cb15d500"
+# Each edited line must occur exactly once in the installed function source,
+# otherwise nothing is adapted (the ehtim version is checked by _library).
 _FORWARD_EDITS = (
     ("        prior = np.sum((np.abs(Dpar)**2)/(leakage_tol**2))",
      "        prior = 0.0"),
@@ -266,9 +266,6 @@ _FORWARD_EDITS = (
 
 
 def _adapt_forward_source(source):
-    digest = sha256(source.encode("utf-8")).hexdigest()
-    if digest != _FORWARD_SOURCE_SHA256:
-        raise ValueError("unrecognized official forward solver source SHA256; refusing adaptation")
     adapted = source
     for old, new in _FORWARD_EDITS:
         if adapted.count(old) != 1:
@@ -321,20 +318,17 @@ def _forward_solver(optimizer=None):
     if optimizer is not None:
         namespace["opt"] = optimizer
     exec(compile(adapted, filename, "exec"), namespace)
-    receipt = dict(ehtim="1.3.2", upstream_function="pol_cal_new.leakage_cal_new",
+    receipt = dict(ehtim=version("ehtim"), upstream_function="pol_cal_new.leakage_cal_new",
                    upstream_file=str(Path(pol_cal_new.__file__).resolve()),
-                   official_source_sha256=sha256(source.encode("utf-8")).hexdigest(),
-                   adapted_source_sha256=sha256(adapted.encode("utf-8")).hexdigest(),
                    changes=[dict(old=old, new=new) for old, new in _FORWARD_EDITS],
                    prior="explicit constant zero", prior_gradient="explicit zeros_like(Dpar)")
     return namespace["leakage_cal_new"], receipt
 
 
 def forward_solver_identity():
-    """JSON-serializable source-hash/anchor receipt for driver provenance.
+    """JSON-serializable receipt of the adaptation (ehtim version, function, edited lines).
 
-    SHA256 covers inspect.getsource(leakage_cal_new), not the entire module.
-    Both validation and compilation run afresh; no mutation/patch of ehtim.
+    Validation and compilation run afresh; ehtim itself is not modified.
     """
     return _forward_solver()[1]
 

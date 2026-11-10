@@ -169,8 +169,6 @@ def main(argv=None):
         p.error(f'new output root required: {destination}')
     with provenance.verification_session():
         selected, inputs, identity = verify_batch(sample, settings, science_settings(args.config))
-        inputs += [Path(__file__).resolve(), args.config.resolve(), ROOT / 'scripts/eht_sample.py',
-                   *sorted((ROOT / 'eht_axion').rglob('*.py'))]
         config = dict(batch_identity=identity, draw_count=settings['draws'] * len(en.DAYS))
         with provenance.stage_directory(destination, 'eht:ensemble', config, inputs) as out:
             if out is not None:

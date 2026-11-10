@@ -3,8 +3,8 @@
 ## Purpose
 
 This page explains how every scientific product records where it came from: stage
-directories with a `manifest.json` that binds parameters, input files, output files, code
-and software environment by SHA-256, the atomic way these directories are created, and how
+directories with a `manifest.json` that records the parameters, the git commit of the code
+and the SHA-256 of every data file read and written, the atomic way these directories are created, and how
 to verify a stage and its whole lineage. It also describes the two places that use their
 own receipts instead (the EHT bundle and the D-term Monte Carlo batch).
 
@@ -43,9 +43,12 @@ scientific products:
   contain one of their own inputs.
 - It creates `<destination>.lock` exclusively; a second writer fails instead of waiting.
 - If the destination already exists, it is verified (see [Output roots](#output-roots))
-  and its signature is compared with the new one: equal means a cache hit (the body is
-  skipped, the context yields `None`), different is an error. An existing stage is never
-  replaced.
+  and its recorded stage name, `config` and `inputs` are compared with the new ones: equal
+  means the stage is reused (the body is skipped, the context yields `None`), different is
+  an error. The code commit is not compared, so a resumable RAPTOR run can continue after
+  a commit that does not change its tasks. An existing stage is never replaced.
+- A new stage is written only if the tracked files of the repository are unchanged
+  (`code_identity`; untracked files do not matter); otherwise it is refused.
 - Otherwise the body writes into a temporary directory in the same parent. When the body
   finishes, every file is hashed, `manifest.json` is written last, and the temporary
   directory is renamed to the destination. On failure the temporary directory is removed.
@@ -58,16 +61,20 @@ scientific products:
 | `schema` | manifest schema version (1) |
 | `config` | the parameter record of the stage |
 | `inputs` | for each input file: absolute `path`, `size`, `sha256` |
-| `implementation` | `git_commit` of the repository and `python_source_sha256`, a hash over the relative paths and bytes of every `.py` file under `eht_axion/` |
-| `runtime` | Python version and implementation, platform, machine, versions of numpy, scipy, h5py, matplotlib, PyYAML, and the SHA-256 of `pixi.lock` |
-| `signature` | SHA-256 of `stage`, `schema`, `config`, `inputs`, `python_source_sha256` and `runtime` |
+| `implementation` | `git_commit`: the full commit of the repository |
+| `runtime` | Python version and implementation, platform, machine, and the version strings of numpy, scipy, h5py, matplotlib and PyYAML (not hashed) |
 | `complete` | `true` |
 | `outputs` | for each output file: relative `path`, `size`, `sha256`; shape and dtype for `.npy`, shapes and dtypes of every array for `.npz` |
 | `elapsed_seconds` | wall time of the body |
 
-The git commit is recorded but not part of the signature; uncommitted edits are covered by
-`python_source_sha256`. Scripts add their own source, `experiment.yaml`, `pixi.lock` and,
-for EHT stages, the ehtim package files to the inputs where they matter.
+The code is identified by the git commit only. Because a stage can be written only from a
+clean tracked tree, the commit pins every script, every `eht_axion` module,
+`experiment.yaml`, `pixi.toml` and `pixi.lock`; none of these files is hashed or listed
+as an input. Third-party packages are pinned by `pixi.lock`; stages that depend on a
+specific package record its version (for example `ehtim_version` in the EHT imaging plans).
+Files that git does not hold are hashed: data inputs read from outside the repository
+(uvfits, GRMHD snapshots, radial tables, the official EHT script, upstream stage files, the
+built RAPTOR binary) and every stage output.
 
 ### Verification
 
@@ -95,8 +102,8 @@ whole raw lineage again.
 One rule applies to every script: a script that produces a result refuses an output root
 that already exists. The exceptions are the resumable parts of the pipeline:
 `raptor_build.py`, `raptor_generate.py` and `raptor_merge.py` reuse completed stages in
-their run root (a stage with the same signature is a cache hit, a stage with a different
-signature is an error), and `eht_sample.py` resumes a batch in the same output root if the
+their run root (a stage with the same stage name, config and input data is reused; a
+different stage at the same place is an error), and `eht_sample.py` resumes a batch in the same output root if the
 batch identity is unchanged. `analysis_templates.py` writes several stages below one new
 root.
 
@@ -132,12 +139,11 @@ outside manifests carry schema strings of the form `<part>-<record>-v<N>`
 ### Receipts outside stage directories
 
 - `eht_export_bundle.py` writes `bundle.json` instead of a manifest: every copied file with
-  SHA-256, size and original path, and the science contract. The source stages are
+  SHA-256, size and original path, the science contract and the git commit (`code`). The source stages are
   verified (full lineage) before copying, and copies are made read-only.
 - `eht_sample.py` writes `batch.json` whose `identity` is the SHA-256 of the batch plan
-  (bundle snapshot hashes, science values, hashes of the `eht_axion` sources, of
-  `eht_sample.py`, `eht_reconstruct.py`, `pixi.toml`, `pixi.lock` and of the installed ehtim,
-  numpy, scipy, astropy and threadpoolctl files, thread count). Every attempt writes a `taskreceipt.json`
+  (bundle snapshot hashes, science values, the git commit with the versions of ehtim,
+  numpy, scipy, astropy and threadpoolctl, thread count). Every attempt writes a `taskreceipt.json`
   with the hashes of its outputs; `finish.json` lists the receipt of the certified attempt
   of every draw. `eht_summarize.py` re-checks these receipts before it builds the ensemble
   stage.

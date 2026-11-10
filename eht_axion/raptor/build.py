@@ -8,7 +8,6 @@ Pixi environment; this module never installs into the default environment.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import os
@@ -169,9 +168,11 @@ def _verify_macros(text, settings):
 def build_raptor(source_root: Path, destination: Path, settings: dict, expected_commit: str) -> Path:
     """Build clean pinned core with official setup; return the verified stage directory.
 
-    Inputs in the manifest never refer to temporary build paths. Commit and all
-    tracked byte hashes are signature inputs; the durable private source snapshot
-    is itself a declared stage output. The commands run in the temporary stage directory.
+    Inputs in the manifest never refer to temporary build paths. The RAPTOR source is
+    identified by its commit (checked against raptor-source.lock.json, clean checkout);
+    the private source snapshot copied from that commit is a declared stage output. The
+    built binary is hashed: jobs consume it as data. The commands run in the temporary
+    stage directory.
     """
     settings = _settings(settings)
     source_root = Path(source_root).resolve(strict=True)
@@ -182,10 +183,8 @@ def build_raptor(source_root: Path, destination: Path, settings: dict, expected_
         raise ValueError("Build destination must not contain the core source repository")
     commit = _clean_source(source_root, expected_commit)
     records = _tracked_source(source_root, commit)
-    hashes = [{"path": str(path), "mode": mode, "size": len(data),
-               "sha256": hashlib.sha256(data).hexdigest()} for path, mode, data in records]
     env, compiler, toolchain = _toolchain()
-    config = {"settings": settings, "source_commit": commit, "source_files": hashes, "toolchain": toolchain}
+    config = {"settings": settings, "source_commit": commit, "toolchain": toolchain}
     with stage_directory(destination, "raptor:build", config) as work:
         if work is None:
             return destination
@@ -252,9 +251,6 @@ def build_raptor(source_root: Path, destination: Path, settings: dict, expected_
         receipt = {
             "source_commit": commit, "source_root": str(source_root),
             "source_snapshot": str(destination / "source"),
-            "source_files": [
-                dict(record, path=str(destination / "source" / record["path"])) for record in hashes
-            ],
             "settings": settings, "actual_macros": actual, "toolchain": toolchain,
             "binary": {"path": str(destination / "RAPTOR"), "sha256": sha256(work / "RAPTOR")},
             "compiler_flags_file": str(destination / "compiler-flags.txt"),

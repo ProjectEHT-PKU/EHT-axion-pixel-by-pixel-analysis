@@ -143,7 +143,7 @@ $w_\mathrm{pvis} + w_m + h_w\ln 2$（有单元测试针对多组权重与 ehtim 
 - 每天的 `fixedI.fits`、`gaincal-pol.uvfits` 和 `fiducial-dterms.json`；
 - 来源链文件（`lineage/<day>/I-manifest.json`、`D-manifest.json`、`D-plan.json`、
   `D-termination.json`、`D-steps.json`）；
-- `feed-rotation.json` 和脚本本身。
+- `feed-rotation.json`；`bundle.json` 还记录代码的 git 提交。
 
 `bundle.json` 列出每个文件的 SHA-256 和大小，并在模式 `eht-bundle-v2` 下记录科学约定：`fsys`、
 `covariance_ddof`、`residual_component_sigma`（`residual_d_sigma`）、天空网格和 P 目标函数权重。
@@ -166,7 +166,7 @@ $w_\mathrm{pvis} + w_m + h_w\ln 2$（有单元测试针对多组权重与 ehtim 
 - 对每个获证书的抽样，写出原始图像和模糊图像（`best-raw-IQU.fits`、`best-blurred-IQU.fits`，
   模糊核为 `shared.image.blur_fwhm_uas`）以及一份证书。
 
-批次身份是计划的 SHA-256（打包快照、科学取值、源码和程序包文件的哈希、执行线程数）；只有当全部
+批次身份是计划的 SHA-256（打包快照、科学取值、git 提交和程序包版本、执行线程数）；只有当全部
 4000 次抽样都获得证书时才写出 `finish.json`。
 
 ### 系综汇总

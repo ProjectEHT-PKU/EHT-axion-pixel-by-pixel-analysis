@@ -68,8 +68,9 @@ official `setup.sh` with arguments derived from `raptor.build` (`--code`, `--met
 `--int`, `--grid`, `--rad`, `--sf`, `--bflip`, `--sigma-cut`, `--uniform`, `--thetae-min`,
 `--thetae-max`). It records the compiler command lines and the preprocessor macros of the
 build (`macros.txt`) and verifies that the macros match the YAML settings. The build
-identity contains the settings, the commit, the hash of every tracked source file and the
-toolchain; radial tables and snapshots are not build inputs.
+record contains the settings, the RAPTOR commit and the toolchain (the commit identifies the
+source; no per-file source hashes) and the SHA-256 of the built binary, which every job
+records as an input; radial tables and snapshots are not build inputs.
 
 ### Task plan
 

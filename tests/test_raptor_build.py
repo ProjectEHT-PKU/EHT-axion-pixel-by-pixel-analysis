@@ -2,7 +2,6 @@
 
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 
@@ -88,14 +87,6 @@ def git(root, *args):
 
 @pytest.fixture
 def fixture(tmp_path, monkeypatch):
-    # Isolate cache identity from concurrent edits elsewhere in the checkout.
-    # provenance.signature deliberately hashes *all* Python for unknown stages;
-    # another agent changing jobs.py between two calls must invalidate a real
-    # cache, but must not make this fake-toolchain unit test race with that agent.
-    monkeypatch.setattr(provenance, 'revision', lambda stage=None: {
-        'git_commit': 'fixture', 'python_source_sha256': 'fixture-implementation',
-    })
-    monkeypatch.setattr(provenance, 'runtime_identity', lambda: {'toolchain': 'fixture'})
     source = tmp_path / 'core'
     source.mkdir()
     files = {
@@ -153,7 +144,8 @@ def test_build_contract_arguments_snapshot_and_stable_receipt(fixture, monkeypat
     assert not (destination / 'source/.git').exists()
     assert not (destination / 'source/raw.dat').exists()
     assert (destination / 'grid_mks.in').read_text() == 'grid fixture\n'
-    assert all(Path(r['path']).is_file() for r in receipt['source_files'])
+    assert 'source_files' not in receipt and record['config']['source_commit'] == commit
+    assert receipt['binary']['sha256'] == provenance.sha256(destination / 'RAPTOR')
     assert all('.building-' not in entry['path'] for entry in record['inputs'])
     assert not any('consumed' in key for key in receipt)
     output_paths = {entry['path'] for entry in record['outputs']}
@@ -211,14 +203,12 @@ def test_refuses_invalid_settings(fixture, settings):
     assert not destination.exists()
 
 
-def test_cache_rejects_actual_implementation_change(fixture, monkeypatch):
+def test_existing_build_reused_only_for_the_same_settings(fixture):
     source, destination, commit = fixture
     build_raptor(source, destination, BUILD, commit)
-    monkeypatch.setattr(provenance, 'revision', lambda stage=None: {
-        'git_commit': 'fixture', 'python_source_sha256': 'changed-implementation',
-    })
-    with pytest.raises(ValueError, match='Stale cache'):
-        build_raptor(source, destination, BUILD, commit)
+    assert build_raptor(source, destination, BUILD, commit) == destination
+    with pytest.raises(ValueError, match='A different stage exists'):
+        build_raptor(source, destination, dict(BUILD, sigma_cut=2.0), commit)
 
 
 def test_failure_is_nonzero_and_transactional(fixture, monkeypatch):

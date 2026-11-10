@@ -480,7 +480,6 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affi
     # Prehash the shared closure on the main thread before copying its session
     # into workers. Per-job checks must not scan every other task's raw inputs.
     _assert_sources_unchanged(closure)
-    provenance.runtime_identity()
     base_closure = list(provenance.source_closure(base_inputs))
     env = os.environ.copy()
     # "none" means unbound, not an unsigned policy inherited from the caller.

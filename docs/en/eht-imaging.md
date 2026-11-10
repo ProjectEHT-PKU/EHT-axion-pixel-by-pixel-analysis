@@ -172,7 +172,7 @@ one feed table. It copies, read-only:
 - per day `fixedI.fits`, `gaincal-pol.uvfits` and `fiducial-dterms.json`;
 - lineage files (`lineage/<day>/I-manifest.json`, `D-manifest.json`, `D-plan.json`,
   `D-termination.json`, `D-steps.json`);
-- `feed-rotation.json` and the script itself.
+- `feed-rotation.json`; `bundle.json` also records the git commit of the code.
 
 `bundle.json` lists every file with SHA-256 and size and records the science contract:
 `fsys`, `covariance_ddof`, `residual_component_sigma` (`residual_d_sigma`), the sky grid and
@@ -199,8 +199,8 @@ the P objective weights, under the schema `eht-bundle-v2`.
 - writes, per certified draw, the raw and the blurred image (`best-raw-IQU.fits`,
   `best-blurred-IQU.fits`, blur `shared.image.blur_fwhm_uas`) and a certificate.
 
-The batch identity is the SHA-256 of the plan (bundle snapshot, science values, source and
-package file hashes, execution threads); `finish.json` is written only when all 4000 draws
+The batch identity is the SHA-256 of the plan (bundle snapshot, science values, git commit
+and package versions, execution threads); `finish.json` is written only when all 4000 draws
 are certified.
 
 ### Ensemble summary

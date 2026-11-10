@@ -63,16 +63,13 @@ def run(args):
         obsfiles = [args.source/f'observations-{d}.npz' for d in ('1d', '2d')]
         provenance.require_declared_outputs(args.source, [reportpath, *obsfiles])
         source_report = json.loads(reportpath.read_text())
-        products, inputs = {}, [Path(__file__).resolve(), args.config.resolve(),
-            provenance.manifest_path(args.source), reportpath, *obsfiles,
-            Path(__file__).with_name('analysis_limits.py')]
+        products, inputs = {}, [provenance.manifest_path(args.source), reportpath, *obsfiles]
         for dim in ('1d', '2d'):
             root = args.templates/'templates'/dim
             provenance.verify_stage(root, recursive=False)
             provenance.require_declared_outputs(root, [root/'templates.npz'])
             products[dim] = load_templates(root/'templates.npz', dim)
             inputs += [provenance.manifest_path(root), root/'templates.npz']
-        inputs += sorted((Path(__file__).resolve().parents[1]/'eht_axion').rglob('*.py'))
         identity = dict(changed=changed, source=str(args.source),
             source_verified='completed result outputs and recorded inputs; raw lineage not re-hashed',
             same_selected_observations=True, same_covariance=True)

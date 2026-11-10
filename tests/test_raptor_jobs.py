@@ -709,6 +709,7 @@ import json, sys, threading
 from pathlib import Path
 from eht_axion import provenance
 from eht_axion.raptor.jobs import run_jobs
+provenance.code_identity = lambda root=None: {"git_commit": "0" * 40}  # working tree may be edited
 p = json.loads(sys.argv[1])
 try:
     run_jobs({"tasks": p["tasks"]}, Path(p["build"]), Path(p["run"]), workers=8, threads=1)

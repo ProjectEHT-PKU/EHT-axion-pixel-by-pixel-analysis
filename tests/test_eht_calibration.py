@@ -229,15 +229,12 @@ def test_forward_objective_gradient_and_injected_recovery(toy, monkeypatch):
 
 def test_forward_source_receipt_and_fail_closed():
     pytest.importorskip("ehtim")
-    from hashlib import sha256
     import inspect
     from ehtim.calibrating import pol_cal_new
     source = inspect.getsource(pol_cal_new.leakage_cal_new)
     adapted = core._adapt_forward_source(source)
     identity = core.forward_solver_identity()
-    assert identity["official_source_sha256"] == sha256(source.encode()).hexdigest()
-    assert identity["adapted_source_sha256"] == sha256(adapted.encode()).hexdigest()
-    assert identity["official_source_sha256"] != identity["adapted_source_sha256"]
+    assert identity["ehtim"] == "1.3.2" and adapted != source
     assert len(identity["changes"]) == 2
     restored = adapted
     for change in identity["changes"]:
@@ -245,8 +242,8 @@ def test_forward_source_receipt_and_fail_closed():
         restored = restored.replace(change["new"], change["old"], 1)
     assert restored == source
     json.dumps(identity, allow_nan=False)
-    with pytest.raises(ValueError, match="SHA256"):
-        core._adapt_forward_source(source + "\n")
+    with pytest.raises(ValueError, match="exactly once"):
+        core._adapt_forward_source(source.replace(identity["changes"][0]["old"], ""))
 
 
 def test_forward_zero_leakage_recovery(toy):

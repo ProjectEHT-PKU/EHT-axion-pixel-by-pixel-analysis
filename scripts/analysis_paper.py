@@ -1074,11 +1074,7 @@ def run(args):
             theta = theta[:, np.isfinite(theta).all(axis=0)]
             unmasked[dim] = np.rad2deg(circular_difference(theta[lag:], theta[:-lag])).ravel()
 
-        consumed = sorted(set(inputs.consumed)) + [
-            Path(__file__).resolve(),
-            Path(figures.__file__).resolve(),
-            args.config.resolve(),
-        ]
+        consumed = sorted(set(inputs.consumed))
         identity = dict(
             schema="analysis-paper-v1",
             sources=dict(

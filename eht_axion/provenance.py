@@ -1,4 +1,10 @@
-"""Content-addressed stage manifests and transactional output directories."""
+"""Stage manifests and transactional output directories.
+
+Code is identified by the git commit of this repository only: a stage can be written
+only when the tracked files are unchanged, so the commit pins every script, module,
+experiment.yaml and pixi.lock. Data that git does not hold (inputs read from outside the
+repository and every stage output) are identified by SHA-256.
+"""
 
 from __future__ import annotations
 
@@ -99,19 +105,27 @@ def describe_inputs(paths):
     return result
 
 
-def revision():
-    """Git commit plus a hash of every eht_axion source file (covers uncommitted edits)."""
-    root = Path(__file__).resolve().parents[1]
+REPOSITORY = Path(__file__).resolve().parents[1]
+
+
+def code_identity(root=REPOSITORY):
+    """{"git_commit": full commit}; refuse when tracked files differ from that commit.
+
+    Untracked files (for example git-ignored .env or outputs) do not matter; any
+    uncommitted change to a tracked file does, because the commit must identify the code.
+    """
+    def git(*args):
+        return subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True,
+                              text=True).stdout
     try:
-        commit = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True,
-                                         stderr=subprocess.DEVNULL).strip()
-    except (OSError, subprocess.CalledProcessError):
-        commit = "unknown"
-    h = hashlib.sha256()
-    for path in sorted((root / "eht_axion").rglob("*.py")):
-        h.update(str(path.relative_to(root)).encode())
-        h.update(path.read_bytes())
-    return {"git_commit": commit, "python_source_sha256": h.hexdigest()}
+        commit = git("rev-parse", "HEAD").strip()
+        changes = git("status", "--porcelain", "--untracked-files=no")
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ValueError(f"The code must be a git checkout to write results: {root}") from exc
+    if changes.strip():
+        raise ValueError("Uncommitted changes to tracked files; commit them before writing results "
+                         "(the git commit is the only code identity):\n" + changes.rstrip())
+    return {"git_commit": commit}
 
 
 def product_schema(path):
@@ -135,35 +149,16 @@ def product_schema(path):
     return {}
 
 
-def runtime_identity():
-    """Bind stage reuse to the resolved software environment, not only source."""
-    root = Path(__file__).resolve().parents[1]
+def runtime():
+    """Plain version strings of the interpreter and key packages (pixi.lock pins them)."""
     packages = {}
     for name in ("numpy", "scipy", "h5py", "matplotlib", "PyYAML"):
         try:
             packages[name] = version(name)
         except PackageNotFoundError:
             packages[name] = "not-installed"
-    lock = root / "pixi.lock"
-    return {
-        "python": platform.python_version(), "implementation": platform.python_implementation(),
-        "platform": platform.system(), "machine": platform.machine(), "packages": packages,
-        "pixi_lock_sha256": sha256(lock) if lock.is_file() else None,
-    }
-
-
-def signature(stage, config, inputs):
-    payload = {
-        "stage": stage,
-        "schema": SCHEMA_VERSION,
-        "config": config,
-        "inputs": inputs,
-        "implementation": revision(),
-        "runtime": runtime_identity(),
-    }
-    identity = dict(payload, implementation=payload["implementation"]["python_source_sha256"])
-    encoded = json.dumps(identity, sort_keys=True, separators=(",", ":"), allow_nan=False)
-    return payload, hashlib.sha256(encoded.encode()).hexdigest()
+    return {"python": platform.python_version(), "implementation": platform.python_implementation(),
+            "platform": platform.system(), "machine": platform.machine(), "packages": packages}
 
 
 def manifest_path(directory):
@@ -290,11 +285,14 @@ def verify_input_stages(paths):
 
 @contextlib.contextmanager
 def stage_directory(destination, stage, config, input_paths=(), *, verify_lineage=True):
-    """Yield temporary destination, or None for a verified cache hit.
+    """Yield a temporary destination, or None when an equal stage already exists.
 
     A manifest is committed last, and a stage is never consumed by mere directory
     existence. No hardlinks to inputs. Failed new stages are cleaned; an existing
-    stage is never replaced (a different signature is an error).
+    stage is never replaced. An existing stage is reused only if it verifies and
+    records the same stage name, config and input data (path, size, SHA-256); this
+    lets the resumable RAPTOR steps skip finished stages. The code commit is not part
+    of that comparison: the result scripts refuse existing output roots themselves.
 
     Inputs named manifest.json are completed stages; with verify_lineage their
     whole recorded lineage is re-hashed first. Small result checks that consume
@@ -313,7 +311,6 @@ def stage_directory(destination, stage, config, input_paths=(), *, verify_lineag
             raise ValueError(f"Output stage contains an input source: {path}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     inputs = describe_inputs(input_paths)
-    payload, key = signature(stage, config, inputs)
     lock = destination.with_name(destination.name + ".lock")
     try:
         fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -326,11 +323,13 @@ def stage_directory(destination, stage, config, input_paths=(), *, verify_lineag
     try:
         if destination.exists():
             manifest = verify_stage(destination, recursive=verify_lineage)
-            if manifest["signature"] != key:
-                raise ValueError(f"Stale cache at {destination}; use a new output root")
-            print(f"CACHE HIT {stage}: {destination}", flush=True)
+            recorded = {k: manifest.get(k) for k in ("stage", "config", "inputs")}
+            if recorded != json.loads(json.dumps({"stage": stage, "config": config, "inputs": inputs})):
+                raise ValueError(f"A different stage exists at {destination}; use a new output root")
+            print(f"EXISTING {stage}: {destination}", flush=True)
             yield None
             return
+        code = code_identity()
         temporary = Path(tempfile.mkdtemp(prefix=destination.name + ".building-", dir=destination.parent))
         temporary_token = _STAGE_TEMPORARIES.set(_STAGE_TEMPORARIES.get() + (temporary,))
         started = time.perf_counter()
@@ -350,8 +349,12 @@ def stage_directory(destination, stage, config, input_paths=(), *, verify_lineag
         if not outputs:
             raise ValueError(f"Stage {stage} produced no files")
         manifest = dict(
-            payload,
-            signature=key,
+            stage=stage,
+            schema=SCHEMA_VERSION,
+            config=config,
+            inputs=inputs,
+            implementation=code,
+            runtime=runtime(),
             complete=True,
             outputs=outputs,
             elapsed_seconds=time.perf_counter() - started,

@@ -60,8 +60,8 @@ pixi run -e raptor-build raptor-merge --plan plan.json \
 把受版本控制的源码字节复制到 `build/source/`，并用由 `raptor.build` 派生的参数（`--code`、
 `--metric`、`--int`、`--grid`、`--rad`、`--sf`、`--bflip`、`--sigma-cut`、`--uniform`、
 `--thetae-min`、`--thetae-max`）运行官方的 `setup.sh`。它记录编译器命令行和本次编译的预处理宏
-（`macros.txt`），并核对这些宏与 YAML 设置一致。编译身份包含这些设置、提交、每个受版本控制源文件
-的哈希值和工具链；径向表和快照不是编译输入。
+（`macros.txt`），并核对这些宏与 YAML 设置一致。编译记录包含这些设置、RAPTOR 提交和工具链（源码由提交标识，不再逐文件计算哈希），以及编译得到的可执行
+文件的 SHA-256，每个作业都把它记录为输入；径向表和快照不是编译输入。
 
 ### 任务计划
 

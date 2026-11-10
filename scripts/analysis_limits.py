@@ -405,10 +405,7 @@ def run(args):
                         pixel_stride=features['pixel_stride'],
                         ensemble=source_identity, covariance='D-draw population scatter; independent days',
                         scope='credible limits conditional on grid and prior; D-term scatter as covariance')
-        project = Path(__file__).resolve().parents[1]
-        inputs += source_inputs + background_inputs + [args.config.resolve(), Path(__file__).resolve()]
-        inputs += sorted((project / 'eht_axion').rglob('*.py'))
-        inputs += [project / 'pixi.toml', project / 'pixi.lock']
+        inputs += source_inputs + background_inputs
         with stage_directory(args.output_root.resolve(), 'analysis:limits',
                              identity, inputs) as out:
             if out is not None:

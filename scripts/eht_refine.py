@@ -13,9 +13,8 @@ import argparse
 from importlib import metadata
 import json
 from pathlib import Path
-import sys
 
-from _bootstrap import ROOT
+import _bootstrap  # noqa: F401
 import eht_reconstruct as original
 from _data_root import add_data_root_option, fill_defaults
 from eht_axion import experiment
@@ -65,19 +64,11 @@ def build_plan(a):
     rawname, dname = 'final-raw-IQU.fits', 'final-dterms.json'
     consumed = [a.source_root/rawname, a.source_root/dname]
     provenance.require_declared_outputs(a.source_root, consumed)
-    paths = [*files, provenance.manifest_path(a.source_root), *consumed, Path(__file__), a.config,
-             Path(original.__file__), ROOT/'pixi.lock', Path(c['feed_rotation_file']),
-             *sorted((ROOT/'eht_axion').rglob('*.py'))]
-    # Full Python/package metadata closure, without hashing every native .so.
-    for name in ('ehtim', 'numpy', 'scipy', 'astropy'):
-        dist = metadata.distribution(name)
-        if name == 'ehtim' and dist.version != '1.3.2':
-            raise ValueError('requires ehtim 1.3.2')
-        paths.extend(Path(dist.locate_file(f)) for f in dist.files or []
-                     if str(f).endswith('.py') or Path(str(f)).name in
-                     ('METADATA', 'RECORD', 'direct_url.json'))
-        # Conda can install additional Python files absent from wheel RECORD.
-        paths.extend(Path(dist.locate_file(name)).rglob('*.py'))
+    paths = [*files, provenance.manifest_path(a.source_root), *consumed, Path(c['feed_rotation_file'])]
+    # Third-party packages are pinned by pixi.lock (in git); only their versions are recorded.
+    packages = {name: metadata.version(name) for name in ('ehtim', 'numpy', 'scipy', 'astropy')}
+    if packages['ehtim'] != '1.3.2':
+        raise ValueError('requires ehtim 1.3.2')
     paths = sorted(set(p.resolve(strict=True) for p in paths))
     destination = a.output_root.absolute()
     provenance.reject_directory_symlinks(destination)
@@ -87,7 +78,7 @@ def build_plan(a):
         if path == destination or path.is_relative_to(destination) or destination.is_relative_to(path):
             raise ValueError('source/output overlap')
     return dict(day=a.day, parameters=c, refine=refine, rawname=rawname, dname=dname,
-                inputs=provenance.describe_inputs(paths),
+                inputs=provenance.describe_inputs(paths), packages=packages,
                 cli={k: str(v) if isinstance(v, Path) else v for k, v in vars(a).items()},
                 scope='floating-point fixed-I/D objective certificate; not interval/image uncertainty',
                 D_budget='explicit outer budget; joint D optimality not verified',
@@ -168,12 +159,8 @@ def main(argv=None):
         from astropy.utils import iers
         from eht_axion.eht import calibration as core
         iers.conf.auto_download = False
-        declared = {r['path'] for r in plan['inputs']}
-        for name in ('ehtim', 'numpy', 'scipy', 'astropy'):
-            module = sys.modules[name]
-            package_sources = Path(module.__file__).resolve().parent.rglob('*.py')
-            if any(str(p.resolve()) not in declared for p in package_sources):
-                raise ValueError('actual imported package outside declared closure')
+        if {name: metadata.version(name) for name in plan['packages']} != plan['packages']:
+            raise ValueError('installed packages differ from the versions recorded in the plan')
         with provenance.stage_directory(a.output_root, 'eht:refine', plan,
                                     [Path(r['path']) for r in plan['inputs']]) as out:
             if out is None:

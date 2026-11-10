@@ -260,7 +260,6 @@ def run(args):
     # The source manifests are recorded inputs; their lineage is verified when
     # those stages are made and is not re-hashed here.
     consumed += [provenance.manifest_path(source) for source in sources.values()]
-    consumed.append(Path(__file__).resolve())
     identity = {
         "schema": "analysis-summary-v2",
         "sources": {k: str(v) for k, v in sources.items()},

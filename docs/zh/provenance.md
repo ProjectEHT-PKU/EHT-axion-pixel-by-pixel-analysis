@@ -2,8 +2,8 @@
 
 ## 用途
 
-本页说明每个科学产品如何记录自己的来历：带 `manifest.json` 的阶段目录，用 SHA-256 把参数、输入
-文件、输出文件、代码和软件环境绑定在一起；这些目录如何以原子方式创建；以及如何校验一个阶段及其
+本页说明每个科学产品如何记录自己的来历：带 `manifest.json` 的阶段目录，记录参数、代码的 git 提交，
+以及读写的每个数据文件的 SHA-256；这些目录如何以原子方式创建；以及如何校验一个阶段及其
 整条来源链（lineage）。本页还说明两个改用自有回执的地方（EHT 打包和 D 项蒙特卡罗批次）。
 
 ## 输入
@@ -36,8 +36,11 @@ pixi run verify PATH/TO/STAGE --recursive  # also re-hash every input and upstre
 
 - 它拒绝经由目录符号链接到达的目标，也拒绝包含其自身某个输入的目标。
 - 它以独占方式创建 `<destination>.lock`；第二个写入者直接失败，而不是等待。
-- 如果目标已经存在，就校验它（见[输出根目录](#输出根目录)），并把它的签名与新签名比较：相同即缓存
-  命中（跳过主体，上下文返回 `None`），不同则报错。已有的阶段从不被替换。
+- 如果目标已经存在，就校验它（见[输出根目录](#输出根目录)），并把它记录的阶段名、`config` 和
+  `inputs` 与新的比较：相同则复用该阶段（跳过主体，上下文返回 `None`），不同则报错。代码提交不参与
+  比较，因此可续跑的 RAPTOR 运行在不改变其任务的提交之后仍能继续。已有的阶段从不被替换。
+- 只有当仓库中受版本控制的文件没有改动时才写出新阶段（`code_identity`；未跟踪的文件不影响），
+  否则拒绝。
 - 否则主体写入同一父目录下的一个临时目录。主体结束时，对每个文件计算哈希，最后写入
   `manifest.json`，再把临时目录重命名为目标。失败时删除临时目录。
 
@@ -49,15 +52,17 @@ pixi run verify PATH/TO/STAGE --recursive  # also re-hash every input and upstre
 | `schema` | 清单模式版本（1） |
 | `config` | 该阶段的参数记录 |
 | `inputs` | 每个输入文件的绝对路径 `path`、`size`、`sha256` |
-| `implementation` | 仓库的 `git_commit`，以及 `python_source_sha256`，即对 `eht_axion/` 下每个 `.py` 文件的相对路径和字节计算的哈希 |
-| `runtime` | Python 版本和实现、平台、机器、numpy、scipy、h5py、matplotlib、PyYAML 的版本，以及 `pixi.lock` 的 SHA-256 |
-| `signature` | `stage`、`schema`、`config`、`inputs`、`python_source_sha256` 和 `runtime` 的 SHA-256 |
+| `implementation` | `git_commit`：仓库的完整提交号 |
+| `runtime` | Python 版本和实现、平台、机器，以及 numpy、scipy、h5py、matplotlib 和 PyYAML 的版本字符串（不计算哈希） |
 | `complete` | `true` |
 | `outputs` | 每个输出文件的相对路径 `path`、`size`、`sha256`；`.npy` 还记录形状和数据类型，`.npz` 记录其中每个数组的形状和数据类型 |
 | `elapsed_seconds` | 主体的墙钟时间 |
 
-git 提交会被记录，但不属于签名；未提交的修改由 `python_source_sha256` 覆盖。各脚本在需要的地方
-把它们自己的源码、`experiment.yaml`、`pixi.lock`，以及（对 EHT 阶段）ehtim 程序包文件加入输入。
+代码只由 git 提交标识。由于只能在受版本控制的文件没有改动时写出阶段，提交就固定了每个脚本、每个
+`eht_axion` 模块、`experiment.yaml`、`pixi.toml` 和 `pixi.lock`；这些文件都不计算哈希，也不列为输入。
+第三方程序包由 `pixi.lock` 固定；依赖特定程序包的阶段记录其版本（例如 EHT 成像计划中的
+`ehtim_version`）。git 不保存的文件都计算哈希：从仓库之外读取的数据输入（uvfits、GRMHD 快照、径向
+表、官方 EHT 脚本、上游阶段的文件、编译得到的 RAPTOR 可执行文件）以及每个阶段输出。
 
 ### 校验
 
@@ -79,8 +84,8 @@ SHA-256 存在于目录之内。`recursive=True` 时，它还重新计算每个�
 ### 输出根目录
 
 所有脚本适用同一条规则：产生结果的脚本拒绝已经存在的输出根目录。例外是流水线中可续跑的部分：
-`raptor_build.py`、`raptor_generate.py` 和 `raptor_merge.py` 复用其运行根目录中已完成的阶段（签名
-相同的阶段是缓存命中，签名不同的阶段报错），`eht_sample.py` 在批次身份不变时于同一输出根目录中续跑
+`raptor_build.py`、`raptor_generate.py` 和 `raptor_merge.py` 复用其运行根目录中已完成的阶段（阶段名、
+配置和输入数据都相同的阶段被复用；同一位置上不同的阶段报错），`eht_sample.py` 在批次身份不变时于同一输出根目录中续跑
 批次。`analysis_templates.py` 在一个新的根目录下写出多个阶段。
 
 `stage_directory` 遇到已存在的目标时，用与新阶段相同的来源链设置校验它：默认递归校验，
@@ -113,10 +118,9 @@ SHA-256 存在于目录之内。`recursive=True` 时，它还重新计算每个�
 ### 阶段目录之外的回执
 
 - `eht_export_bundle.py` 写出 `bundle.json` 而不是清单：列出每个复制文件的 SHA-256、大小和原始
-  路径，以及科学约定。复制之前校验源阶段（完整来源链），复制得到的文件设为只读。
+  路径、科学约定以及 git 提交（`code`）。复制之前校验源阶段（完整来源链），复制得到的文件设为只读。
 - `eht_sample.py` 写出 `batch.json`，其 `identity` 是批次计划的 SHA-256（打包快照的哈希、科学取值、
-  `eht_axion` 源码的哈希，`eht_sample.py`、`eht_reconstruct.py`、`pixi.toml`、`pixi.lock` 的哈希，
-  已安装的 ehtim、numpy、scipy、astropy 和 threadpoolctl 文件的哈希，以及线程数）。每次尝试写出一份
+  git 提交以及 ehtim、numpy、scipy、astropy 和 threadpoolctl 的版本，以及线程数）。每次尝试写出一份
   带有其输出哈希的 `taskreceipt.json`；`finish.json` 列出每次抽样获证书尝试的回执。
   `eht_summarize.py` 在构建系综阶段之前重新检查这些回执。
 - `raptor_generate.py` 和 `raptor_build.py` 在运行根目录的 `requests/<uuid>.json` 中追加一条请求

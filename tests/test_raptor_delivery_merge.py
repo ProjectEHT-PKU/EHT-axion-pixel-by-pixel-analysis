@@ -74,11 +74,9 @@ def _unchanged_records(roots, raw_inputs):
 
 @pytest.fixture(scope="module")
 def merged(tmp_path_factory):
-    # Like the build unit fixture, isolate identity from concurrent checkout edits.
-    # Do not test signature-cache reuse while delivery.py is under development.
+    # Module-scoped: the autouse code-identity fixture of conftest is function-scoped.
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(provenance, "revision", lambda stage=None: {
-            "git_commit": "merge-fixture", "python_source_sha256": "merge-fixture-implementation"})
+        patch.setattr(provenance, "code_identity", lambda root=None: {"git_commit": "0" * 40})
         directory = tmp_path_factory.mktemp("merged-delivery")
         config = read_experiment()
         config["shared"]["alphas"] = [0.2]

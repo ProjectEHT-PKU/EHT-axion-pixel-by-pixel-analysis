@@ -115,8 +115,9 @@ jobs ran in one run root; `raptor_merge` delivers cubes from job roots of severa
 - Machine paths and execution settings (threads, workers, memory) are command-line options
   or `.env` entries, never YAML values.
 - Every step that writes scientific products publishes a stage directory with a
-  `manifest.json` that records parameters and SHA-256 hashes of inputs, outputs and code
-  ([Provenance](provenance.md)). The D-term Monte Carlo uses its own batch receipts instead.
+  `manifest.json` that records the parameters, the git commit of the code and the SHA-256
+  of every data input and output ([Provenance](provenance.md)). Results are written only
+  from a checkout without uncommitted changes to tracked files. The D-term Monte Carlo uses its own batch receipts instead.
 - The EHT images are used as reconstructed: EHT Paper VII Sec. 5.2 aligns images by
   cross-correlation, and in this reproduction that alignment is a zero shift; there is no
   re-centring option.

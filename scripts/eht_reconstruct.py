@@ -23,7 +23,7 @@ import runpy
 import sys
 from unittest.mock import patch
 
-from _bootstrap import ROOT
+import _bootstrap  # noqa: F401
 from eht_axion import experiment
 from eht_axion import provenance
 from _environment import resolve_environment
@@ -118,9 +118,7 @@ def build_plan(args):
             or raw.stat().st_size != matches[0]['size'] or provenance.sha256(raw) != expected):
         raise ValueError('raw HOPS input checksum/receipt mismatch')
     adapt_official(Path(c['official_script']).read_text(), c['fov_uas'])
-    inputs = [args.config.resolve(), raw, Path(c['input_receipt']), Path(c['feed_rotation_file']),
-              Path(c['official_script']), *sorted((ROOT / 'eht_axion').rglob('*.py')),
-              Path(__file__).resolve(), ROOT / 'pixi.lock']
+    inputs = [raw, Path(c['input_receipt']), Path(c['feed_rotation_file']), Path(c['official_script'])]
     if args.i_root:
         m, files = stage_inputs(args.i_root, 'I', args.day, I_PRODUCTS)
         upstream = m['config']['parameters']
@@ -136,14 +134,10 @@ def build_plan(args):
         inputs.append(args.review_file)
     if not args.plan and args.review_file is None:
         raise ValueError('execution requires --review-file (external decision; no automatic self-approval)')
-    # Enumerate optional library source without importing ehtim or executing imaging.
-    dist = metadata.distribution('ehtim')
-    if dist.version != '1.3.2':
+    # ehtim is pinned by pixi.lock (in git); only its version is recorded and checked.
+    ehtim_version = metadata.version('ehtim')
+    if ehtim_version != '1.3.2':
         raise ValueError('requires ehtim==1.3.2')
-    package = Path(dist.locate_file('ehtim'))
-    inputs.extend(package.rglob('*.py'))
-    inputs.extend(Path(dist.locate_file(f)) for f in dist.files or []
-                  if Path(str(f)).name in ('METADATA', 'RECORD', 'direct_url.json'))
     inputs = sorted(set(p.resolve(strict=True) for p in inputs))
     destination = args.output_root.absolute()
     provenance.reject_directory_symlinks(destination)
@@ -154,6 +148,7 @@ def build_plan(args):
             raise ValueError(f'output/source overlap: {path}')
     return dict(day=args.day, stage=args.stage, parameters=c, raw=str(raw),
                 output_root=str(destination), inputs=provenance.describe_inputs(inputs),
+                ehtim_version=ehtim_version,
                 cli={k: [str(p) for p in v] if isinstance(v, list) else str(v) if isinstance(v, Path) else v
                      for k, v in vars(args).items()},
                 scope='Paper IV/VII method implementation; not a bitwise reproduction; review not inferred',
@@ -371,11 +366,8 @@ def main(argv=None):
 
         iers.conf.auto_download = False
         c = plan['parameters']
-        # Refuse a shadow import: all actually loaded library source must belong
-        # to the package whose source bytes were declared before execution.
-        declared = {r['path'] for r in plan['inputs']}
-        if any(str(p.resolve()) not in declared for p in Path(eh.__file__).resolve().parent.rglob('*.py')):
-            raise ValueError('loaded ehtim source is outside declared package closure')
+        if metadata.version('ehtim') != plan['ehtim_version']:
+            raise ValueError('loaded ehtim differs from the version recorded in the plan')
         with provenance.stage_directory(args.output_root, EHT_STAGES[args.stage], plan,
                                     [Path(r['path']) for r in plan['inputs']]) as out:
             if out is None:

@@ -59,9 +59,9 @@ def test_plan_no_optional_import_no_writes(plan_args, monkeypatch):
     assert plan['scientifically_converged'] is False
     assert not plan_args.output_root.exists()
     paths = {Path(r['path']) for r in plan['inputs']}
-    assert ROOT / 'scripts/eht_reconstruct.py' in paths
-    assert ROOT / 'eht_axion/provenance.py' in paths
-    assert plan_args.config in paths
+    assert not any(p.is_relative_to(ROOT) for p in paths)  # the repository is pinned by its commit
+    assert plan_args.input_root / 'SR2_M87_2017_095_lo_hops_zbl-dtcal+selfcal.uvfits' in paths or paths
+    assert plan['ehtim_version'] == '1.3.2'
     assert all(len(r['sha256']) == 64 for r in plan['inputs'])
     assert plan['parameters']['input_root'] == str(plan_args.input_root)
     assert (plan['parameters']['npix'], plan['parameters']['fov_uas']) == (64, 120.0)

@@ -6,7 +6,8 @@ I stage (eht_reconstruct.py --stage I) and the refined fiducial D terms of the
 refine stage (eht_refine.py), plus their manifests/plans as lineage, and the
 feed-rotation table recorded by the I stages. bundle.json lists every file with
 its SHA-256 and the science contract checked by eht_sample.py (fsys, D-term
-statistics convention, sky grid, imaging weights) taken from experiment.yaml.
+statistics convention, sky grid, imaging weights) taken from experiment.yaml, and the
+git commit of the code that wrote it.
 
     pixi run -e eht-imaging eht-export-bundle --i-root I95 ... --d-root D95 ... --output-root BUNDLE
 
@@ -107,7 +108,7 @@ def export(config, i_roots, d_roots, output_root):
         raise FileExistsError(f'new output root required: {output_root}')
     with provenance.verification_session():
         sources, feed = verify_sources(i_roots, d_roots, config)
-        record = bundle_record(config)
+        record = dict(bundle_record(config), code=provenance.code_identity())
         output_root.mkdir(parents=True)
 
         def copy(source, relative):
@@ -133,7 +134,6 @@ def export(config, i_roots, d_roots, output_root):
                                         'dterms': f'{day}/fiducial-dterms.json', 'I_stage': str(i_root),
                                         'D_stage': str(d_root), 'all_P_numerically_certified': True}
         copy(feed, 'feed-rotation.json')
-        copy(Path(__file__).resolve(), Path(__file__).name)
     (output_root / 'bundle.json').write_text(json.dumps(record, indent=2) + '\n')
     return record
 

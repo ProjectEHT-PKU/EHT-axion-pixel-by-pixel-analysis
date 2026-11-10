@@ -36,14 +36,20 @@ def test_lowlevel_rejects_dangling_file_link(tmp_path):
     assert not external.exists()
 
 
-def test_runtime_change_invalidates_cache(tmp_path, monkeypatch):
+def test_existing_stage_reused_only_for_equal_config_and_inputs(tmp_path):
+    raw = tmp_path / "raw.txt"
+    raw.write_text("v1")
     target = tmp_path / "stage"
-    with provenance.stage_directory(target, "test", {}, []) as t:
+    with provenance.stage_directory(target, "test", {"k": 1}, [raw]) as t:
         (t / "x.txt").write_text("v1")
-    original = provenance.runtime_identity()
-    monkeypatch.setattr(provenance, "runtime_identity", lambda: dict(original, python="different"))
-    with pytest.raises(ValueError, match="Stale cache"):
-        with provenance.stage_directory(target, "test", {}, []):
+    with provenance.stage_directory(target, "test", {"k": 1}, [raw]) as t:
+        assert t is None
+    with pytest.raises(ValueError, match="A different stage exists"):
+        with provenance.stage_directory(target, "test", {"k": 2}, [raw]):
+            pass
+    raw.write_text("v2")
+    with pytest.raises(ValueError, match="Stale upstream lineage"):
+        with provenance.stage_directory(target, "test", {"k": 1}, [raw]):
             pass
 
 
@@ -83,7 +89,7 @@ def test_runtime_is_recorded_and_outputs_verified(tmp_path):
         (t / "value.txt").write_text("derived")
     record = json.loads((out / "manifest.json").read_text())
     assert record["runtime"]["packages"]["numpy"]
-    assert record["runtime"]["pixi_lock_sha256"]
+    assert record["implementation"] == {"git_commit": "0" * 40}
     assert record["inputs"][0]["path"] == str(raw)
     assert not out.with_suffix(".lock").exists()
     (out / "value.txt").write_text("tampered")

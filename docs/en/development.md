@@ -96,8 +96,10 @@ command-line options or defaults below the data root.
 - A scientific value belongs in `experiment.yaml`, once, with validation in
   `eht_axion/experiment.py`; library functions receive it as an explicit argument.
 - Machine paths and execution settings belong on the command line or in `.env`.
-- A script that writes scientific products uses `stage_directory` and declares every file
-  it reads as an input ([Provenance](provenance.md)).
+- A script that writes scientific products uses `stage_directory` and declares every data
+  file it reads from outside the repository as an input; repository files are identified
+  by the commit and are never inputs ([Provenance](provenance.md)). Commit before running:
+  results are refused while tracked files have uncommitted changes.
 - A product is read only in the format the current code writes; a changed product needs a
   new output root. Scripts refuse existing output roots except where
   resuming is part of the design ([Provenance](provenance.md#output-roots)).

@@ -59,7 +59,8 @@ def test_bundle_contract_files_and_eht_sample_acceptance(tmp_path):
                          'lineage/95/D-manifest.json', 'lineage/95/D-plan.json',
                          'lineage/95/D-termination.json', 'lineage/95/D-steps.json',
                          'lineage/95/I-manifest.json']
-    assert paths[-2:] == ['feed-rotation.json', 'eht_export_bundle.py']
+    assert paths[-1] == 'feed-rotation.json' and not any(p.endswith('.py') for p in paths)
+    assert record['code'] == {'git_commit': '0' * 40}
     assert (bundle / '100/fixedI.fits').read_bytes() == b'I 100'
     assert not (bundle / '100/fixedI.fits').stat().st_mode & 0o222
     assert {p: p.read_bytes() for p in before} == before  # sources untouched

@@ -88,7 +88,9 @@ pixi run verify PATH/TO/STAGE --recursive
 - 科学取值应写在 `experiment.yaml` 中，只写一次，并在 `eht_axion/experiment.py` 中校验；库函数以显式
   参数接收它。
 - 机器路径和执行设置应放在命令行或 `.env` 中。
-- 写出科学产品的脚本使用 `stage_directory`，并把它读取的每个文件声明为输入（[来源记录](provenance.md)）。
+- 写出科学产品的脚本使用 `stage_directory`，并把它从仓库之外读取的每个数据文件声明为输入；仓库中的
+  文件由提交标识，从不作为输入（[来源记录](provenance.md)）。运行前先提交：受版本控制的文件有未提交
+  改动时，结果会被拒绝写出。
 - 产品只按当前代码写出的格式读取；改变了的产品需要新的输出根目录。除了设计上可续跑的地方，脚本都
   拒绝已有的输出根目录（[来源记录](provenance.md#输出根目录)）。
 
