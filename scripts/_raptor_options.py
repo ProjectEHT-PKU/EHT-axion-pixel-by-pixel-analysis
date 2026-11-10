@@ -8,7 +8,8 @@ from pathlib import Path
 import _bootstrap  # noqa: F401
 from eht_axion.experiment import DEFAULT_PATH, read_experiment
 from eht_axion.provenance import reject_directory_symlinks
-from _environment import add_environment_options, resolve_environment
+from _environment import resolve_environment
+from _data_root import DATA_ROOT_KEY, add_data_root_option, data_root, layout_path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -39,7 +40,7 @@ def options(kind, argv=None):
                             help="Disjoint per-worker CPU sets; physical avoids SMT siblings")
         parser.add_argument("--cpu-list", help="Restrict allocation to CPU IDs/ranges, e.g. 0-47")
         parser.add_argument("--timeout-seconds", type=float)
-    add_environment_options(parser)
+    add_data_root_option(parser)
     args = parser.parse_args(argv)
     try:
         environment = resolve_environment(args, raptor=True)
@@ -48,9 +49,14 @@ def options(kind, argv=None):
     for key, env in paths.items():
         if getattr(args, key) is None and environment.get(env):
             setattr(args, key, Path(environment[env]))
-    for key in ("source_root", "run_root"):
-        if getattr(args, key) is None:
-            parser.error(f"Provide --{key.replace('_', '-')} or ${paths[key]}")
+    if args.run_root is None:
+        root = data_root(args, environment)
+        if root is not None:
+            args.run_root = layout_path(root, "raptor_run")
+    if args.source_root is None:
+        parser.error(f"Provide --source-root or ${paths['source_root']}")
+    if args.run_root is None:
+        parser.error(f"Provide --run-root, ${paths['run_root']}, or --data-root / ${DATA_ROOT_KEY}")
     try:
         reject_directory_symlinks(args.run_root)
         args.run_root = args.run_root.resolve()

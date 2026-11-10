@@ -150,15 +150,16 @@ SUMMARY/                         stage analysis:summary
 
 ### 默认布局
 
-所有根目录都在命令行中给出（对 RAPTOR 和 EHT 成像的输入，也可以写在 `.env` / `.env.raptor` 中）；
-代码中不假定任何位置。一次实验的产品保存在一个数据根目录之下，每个部分一个目录：
+每个根目录要么在命令行中给出（对 RAPTOR 和 EHT 成像的输入，也可以写在 `.env` / `.env.raptor`
+中），要么由同一个数据根目录派生；代码中不假定任何机器位置。一次实验的产品保存在该数据根目录之下，
+每个部分一个目录：
 
 ```text
 <data root>/
   raptor/
     plan.json                    frozen production plan (raptor_generate.py --plan --plan-output)
     runs/<name>/                 run roots of raptor_generate.py (build/, jobs/, attempts/,
-                                 config.yaml, requests/); one per host or build
+                                 config.yaml, requests/); one per host or build; default runs/main
     delivered/                   raptor_merge.py output root: data/raptor/res-*/..., inventory/
   eht/
     intensity/day-<day>/         eht_reconstruct.py --stage I
@@ -174,7 +175,14 @@ SUMMARY/                         stage analysis:summary
     check-prior/                 analysis_check_grid.py with a wider coupling range
     check-covariance/            analysis_check_covariance.py
     summary/                     analysis_summarize.py
+    paper/                       analysis_paper.py
 ```
+
+`M87_AXION_DATA_ROOT`（已导出的环境变量或写在 `.env` 中）或 `--data-root` 指定数据根目录；此后每个
+脚本都按这一布局取得默认的输入和输出根目录，显式给出的 `--...-root` 选项覆盖默认值。默认的 RAPTOR
+运行根目录是 `raptor/runs/main`（可由 `--run-root` 或 `EHT_RAPTOR_RUN_ROOT` 覆盖）；`raptor_merge.py`
+默认合并 `raptor/runs/` 中的每个目录；`analysis_check_grid.py` 需要 `--check grid` 或 `--check prior`
+来选择默认输出根目录。产生结果的脚本仍然拒绝已有的输出根目录，因此一个默认输出根目录只能写入一次。
 
 按这一布局，用于得出结果的 RAPTOR 运行有两个运行根目录：`runs/main`（18 234 个作业）和
 `runs/background`（96 个无轴子 400 像素作业，标签 2050–3000，用第二次编译生成）；`raptor_merge.py`

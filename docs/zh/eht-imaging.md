@@ -35,7 +35,8 @@
 ## 运行方法
 
 使用 `eht-imaging` 环境（ehtim 1.3.2、astropy）；`eht_summarize.py` 只需要 `eht-summary`
-（astropy）。每条命令写出一个新的根目录。
+（astropy）。每条命令写出一个新的根目录。设置了数据根目录（`M87_AXION_DATA_ROOT` 或 `--data-root`）时，下面每个根目录选项都有取自
+[默认布局](data-layout.md#默认布局)的默认值；这里的命令显式给出了这些根目录。
 
 ```bash
 # one root per day and stage; repeat for 95, 96, 100, 101

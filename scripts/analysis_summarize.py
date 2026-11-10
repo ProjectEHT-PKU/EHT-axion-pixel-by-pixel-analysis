@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 
 import _bootstrap  # noqa: F401
+from _data_root import add_data_root_option, data_root, fill_defaults, layout_path
 import numpy as np
 
 from eht_axion import provenance
@@ -314,15 +315,25 @@ def run(args):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--limits", type=Path, required=True, help="analysis_limits.py output root")
-    for name in ("gridcheck", "priorcheck", "output-root"):
-        parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--limits", type=Path,
+                        help="analysis_limits.py output root (default: analysis/limits)")
+    parser.add_argument("--gridcheck", type=Path, help="default: analysis/check-grid")
+    parser.add_argument("--priorcheck", type=Path, help="default: analysis/check-prior")
+    parser.add_argument("--output-root", type=Path, help="new directory (default: analysis/summary)")
     parser.add_argument(
         "--covcheck",
         type=Path,
-        help="Optional completed finite-MC covariance sensitivity stage",
+        help="Completed covariance sensitivity stage; optional without a data root "
+             "(default with a data root: analysis/check-covariance)",
     )
+    add_data_root_option(parser)
     args = parser.parse_args(argv)
+    defaults = {"limits": ("analysis_limits", {}), "gridcheck": ("analysis_check_grid", {}),
+                "priorcheck": ("analysis_check_prior", {}), "output_root": ("analysis_summary", {})}
+    root = data_root(args)
+    if args.covcheck is None and root is not None:
+        args.covcheck = layout_path(root, "analysis_check_covariance")
+    fill_defaults(parser, args, defaults)
     run(args)
 
 

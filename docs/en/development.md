@@ -80,6 +80,7 @@ files and `--no-env-file` disables them.
 
 | Key | Read by | Meaning |
 |---|---|---|
+| `M87_AXION_DATA_ROOT` | every script | data root of the default layout ([Data layout](data-layout.md#default-layout)); overridden by `--data-root` |
 | `EHT_IMAGING_INPUT_ROOT` | `eht_reconstruct.py` | directory of the HOPS uvfits files |
 | `EHT_IMAGING_INPUT_RECEIPT` | `eht_reconstruct.py` | input receipt JSON |
 | `EHT_IMAGING_FEED_ROTATION` | `eht_reconstruct.py` | feed-rotation table JSON |
@@ -87,7 +88,8 @@ files and `--no-env-file` disables them.
 | `EHT_RAPTOR_SOURCE_ROOT`, `EHT_GRMHD_ROOT`, `EHT_RADIAL_LOW`, `EHT_RADIAL_HIGH`, `EHT_RAPTOR_RUN_ROOT`, `EHT_RAPTOR_THREADS`, `EHT_RAPTOR_WORKERS`, `EHT_RAPTOR_CPU_AFFINITY`, `EHT_RAPTOR_CPU_LIST`, `EHT_RAPTOR_TIMEOUT_SECONDS` | RAPTOR scripts | see [RAPTOR production](raptor-production.md) |
 
 The analysis scripts, `eht_refine.py`, `eht_export_bundle.py`, `eht_sample.py` and
-`eht_summarize.py` read no `.env` file; all their paths are command-line options.
+`eht_summarize.py` read only `M87_AXION_DATA_ROOT` from `.env`; their other paths are
+command-line options or defaults below the data root.
 
 ### Rules for code changes
 

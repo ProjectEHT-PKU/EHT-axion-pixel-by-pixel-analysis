@@ -28,6 +28,7 @@ import time
 import traceback
 
 from _bootstrap import ROOT as _BOOTSTRAP
+from _data_root import add_data_root_option, fill_defaults
 from eht_axion.experiment import EHT_DAYS
 from eht_axion.provenance import contained_path as contained, sha256 as sha
 
@@ -443,8 +444,8 @@ def controller(args, out):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--bundle-root', type=Path, required=True)
-    p.add_argument('--output-root', type=Path, required=True)
+    p.add_argument('--bundle-root', type=Path, help='eht_export_bundle.py output (default: eht/bundle)')
+    p.add_argument('--output-root', type=Path, help='batch root; resumable (default: eht/sample)')
     p.add_argument('--workers', type=int, default=64)
     p.add_argument('--resource-wait', type=float, default=300.,
                    help='idle admission timeout seconds; exit 3, safe to resume')
@@ -455,7 +456,9 @@ def main(argv=None):
     p.add_argument('--resume', action='store_true',
                    help='explicit resume intent; same-identity resume is safe')
     p.add_argument('--max-active-memory-gib', type=float, default=100.)
+    add_data_root_option(p)
     args = p.parse_args(argv)
+    fill_defaults(p, args, {'bundle_root': ('eht_bundle', {}), 'output_root': ('eht_sample', {})})
     import math
     if args.config is None:
         args.config = _BOOTSTRAP / 'experiment.yaml'

@@ -16,6 +16,7 @@ import argparse
 import json
 
 import _bootstrap  # noqa: F401
+from _data_root import add_data_root_option, fill_defaults
 from eht_axion.analysis.templates import RunLayout, fit_processed, preprocess_cube, summarize_fits
 from eht_axion.experiment import DEFAULT_PATH, analysis_geometry, read_experiment
 from eht_axion.provenance import (
@@ -86,10 +87,13 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", type=Path, default=DEFAULT_PATH, help="default: experiment.yaml")
-    parser.add_argument("--raptor-input-root", type=Path, required=True,
-                        help="delivered data root containing raptor/res-*/")
-    parser.add_argument("--output-root", type=Path, required=True, help="new directory")
+    parser.add_argument("--raptor-input-root", type=Path,
+                        help="delivered data root containing raptor/res-*/ (default: raptor/delivered/data)")
+    parser.add_argument("--output-root", type=Path, help="new directory (default: analysis/templates)")
+    add_data_root_option(parser)
     args = parser.parse_args(argv)
+    fill_defaults(parser, args, {"raptor_input_root": ("raptor_data", {}),
+                                 "output_root": ("analysis_templates", {})})
     run(args.config, args.raptor_input_root, args.output_root)
 
 

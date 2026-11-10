@@ -19,7 +19,8 @@ def test_refine_settings_of_experiment_yaml():
 
 def test_command_line_names_only_roots():
     options = {a.dest for a in w.parser()._actions} - {'help'}
-    assert options == {'config', 'day', 'source_root', 'i_root', 'output_root'}
+    assert options == {'config', 'day', 'source_root', 'i_root', 'output_root', 'data_root', 'env_file',
+                       'no_env_file'}
     with pytest.raises(SystemExit):
         w.parser().parse_args(['--day', '95', '--source-root', 'a', '--i-root', 'b', '--output-root', 'c',
                                '--outer-rounds', '2'])

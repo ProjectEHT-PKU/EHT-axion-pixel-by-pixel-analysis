@@ -11,6 +11,8 @@ from dotenv.parser import parse_stream
 ROOT = Path(__file__).resolve().parents[1]
 # Machine-local locations only; scientific values live in experiment.yaml.
 PATH_KEYS = {
+    # Data root of the default layout (docs/en/data-layout.md), read by every script
+    "M87_AXION_DATA_ROOT",
     # RAPTOR simulation, read from .env and .env.raptor
     "EHT_RAPTOR_SOURCE_ROOT", "EHT_RAPTOR_RUN_ROOT",
     "EHT_GRMHD_ROOT", "EHT_RADIAL_LOW", "EHT_RADIAL_HIGH",
@@ -64,7 +66,7 @@ def resolve_environment(args, *, raptor=False):
                 continue
             if binding.key not in PATH_KEYS | VALUE_KEYS:
                 raise ValueError(f"Unknown dotenv key {binding.key!r} in {path}; "
-                                 "only declared EHT_* settings allowed")
+                                 "only the declared settings are allowed")
             if binding.key in seen:
                 raise ValueError(f"Duplicate dotenv key {binding.key!r} in {path}")
             if binding.value is None:

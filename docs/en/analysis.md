@@ -31,7 +31,9 @@ File details are on [Data layout](data-layout.md).
 
 ## How to run
 
-Default environment.
+Default environment. With a data root (`M87_AXION_DATA_ROOT` or `--data-root`), every root option below has a
+default from the [default layout](data-layout.md#default-layout); the commands give the roots
+explicitly.
 
 ```bash
 pixi run analysis-templates --raptor-input-root MERGED/data --output-root TEMPLATES

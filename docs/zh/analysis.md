@@ -26,7 +26,8 @@
 
 ## 运行方法
 
-使用默认环境。
+使用默认环境。设置了数据根目录（`M87_AXION_DATA_ROOT` 或 `--data-root`）时，下面每个根目录选项都有取自
+[默认布局](data-layout.md#默认布局)的默认值；这里的命令显式给出了这些根目录。
 
 ```bash
 pixi run analysis-templates --raptor-input-root MERGED/data --output-root TEMPLATES

@@ -22,27 +22,36 @@ needs. Machine paths and execution options are command-line options or `.env` /
 ## Run
 
 RAPTOR simulation and EHT imaging do not depend on each other; the analysis needs the
-products of both. Every output root must be new.
+products of both. With a data root (`M87_AXION_DATA_ROOT` or `--data-root`), every script
+reads and writes the default layout of [Data layout](docs/en/data-layout.md#default-layout);
+explicit `--...-root` options override it. Every output root must be new.
 
 ```bash
 pixi install --locked
 pixi run check                                   # tests + lint
+export M87_AXION_DATA_ROOT=/path/to/m87-axion    # or set it in .env
 
 # RAPTOR simulation (environment raptor-build)
 pixi run -e raptor-build raptor-build
+pixi run -e raptor-build raptor-generate --plan --plan-output $M87_AXION_DATA_ROOT/raptor/plan.json
 pixi run -e raptor-build raptor-generate
+pixi run -e raptor-build raptor-merge
 
 # EHT imaging (environment eht-imaging; each of the days 95, 96, 100, 101)
-pixi run -e eht-imaging eht-reconstruct --stage I --day 95 --output-root I95 --review-file REVIEW
-pixi run -e eht-imaging eht-reconstruct --stage fiducial --day 95 --i-root I95 --output-root PD95 --review-file REVIEW
-pixi run -e eht-imaging eht-refine --day 95 --source-root PD95 --i-root I95 --output-root D95
-pixi run -e eht-imaging eht-export-bundle --i-root I95 ... --d-root D95 ... --output-root BUNDLE
-pixi run -e eht-imaging eht-sample --bundle-root BUNDLE --output-root MC
-pixi run -e eht-summary eht-summarize --sample-root MC --output-root ENSEMBLE
+pixi run -e eht-imaging eht-reconstruct --stage I --day 95 --review-file REVIEW
+pixi run -e eht-imaging eht-reconstruct --stage fiducial --day 95 --review-file REVIEW
+pixi run -e eht-imaging eht-refine --day 95
+pixi run -e eht-imaging eht-export-bundle
+pixi run -e eht-imaging eht-sample
+pixi run -e eht-summary eht-summarize
 
 # Analysis (default environment)
-pixi run analysis-templates --raptor-input-root RUN_ROOT/data --output-root TEMPLATES
-pixi run analysis-limits --templates TEMPLATES --ensemble ENSEMBLE --output-root LIMITS
+pixi run analysis-templates
+pixi run analysis-limits
+pixi run analysis-check-grid --check grid --phase-count 128 --coupling-points 240
+pixi run analysis-check-grid --check prior --phase-count 128 --coupling-points 260 --coupling-max 10000
+pixi run analysis-check-covariance
+pixi run analysis-summarize
 ```
 
 Full command lines, including merging RAPTOR runs and the analysis checks, are in

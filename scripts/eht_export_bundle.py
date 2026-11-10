@@ -23,6 +23,7 @@ from pathlib import Path
 import shutil
 
 from _bootstrap import ROOT  # noqa: F401
+from _data_root import DATA_ROOT_KEY, add_data_root_option, data_root, fill_defaults, layout_path
 from eht_axion import experiment
 from eht_axion import provenance
 
@@ -140,12 +141,20 @@ def export(config, i_roots, d_roots, output_root):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--config', type=Path, default=experiment.DEFAULT_PATH, help='default: experiment.yaml')
-    p.add_argument('--i-root', type=Path, action='append', required=True,
-                   help='completed I stage; give all four days')
-    p.add_argument('--d-root', type=Path, action='append', required=True,
-                   help='completed eht_refine stage; give all four days')
-    p.add_argument('--output-root', type=Path, required=True, help='new bundle directory')
+    p.add_argument('--i-root', type=Path, action='append',
+                   help='completed I stage; give all four days (default: eht/intensity/day-<day>)')
+    p.add_argument('--d-root', type=Path, action='append',
+                   help='completed eht_refine stage; give all four days (default: eht/refine/day-<day>)')
+    p.add_argument('--output-root', type=Path, help='new bundle directory (default: eht/bundle)')
+    add_data_root_option(p)
     args = p.parse_args(argv)
+    fill_defaults(p, args, {'output_root': ('eht_bundle', {})})
+    for name, key in (('i_root', 'eht_intensity'), ('d_root', 'eht_refine')):
+        if getattr(args, name) is None:
+            root = data_root(args)
+            if root is None:
+                p.error(f'Provide --{name.replace("_", "-")} (four times), or --data-root / ${DATA_ROOT_KEY}')
+            setattr(args, name, [layout_path(root, key, day=day) for day in experiment.EHT_DAYS])
     record = export(experiment.read_experiment(args.config), args.i_root, args.d_root, args.output_root)
     print(f"EXPORTED {args.output_root}: {len(record['files'])} files, "
           f"{sum(f['size'] for f in record['files'])} bytes")

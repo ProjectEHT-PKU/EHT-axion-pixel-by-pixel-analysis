@@ -20,6 +20,7 @@ from eht_axion.analysis.observations import ObservationData
 from eht_axion.analysis.templates import load_templates
 from eht_axion.experiment import DEFAULT_PATH, read_experiment
 from analysis_limits import options_from_config, plot_results
+from _data_root import add_data_root_option, fill_defaults
 
 
 def load_observation(path):
@@ -113,12 +114,24 @@ def run(args):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: experiment.yaml')
-    for key in ('source', 'templates', 'output-root'):
-        p.add_argument('--'+key, required=True, type=Path)
+    p.add_argument('--source', type=Path, help='analysis_limits.py stage (default: analysis/limits)')
+    p.add_argument('--templates', type=Path, help='analysis_templates.py root (default: analysis/templates)')
+    p.add_argument('--output-root', type=Path,
+                   help='new directory (default: analysis/check-grid or analysis/check-prior, see --check)')
+    p.add_argument('--check', choices=('grid', 'prior'),
+                   help='which default output root of the data layout to use when --output-root is not given')
     p.add_argument('--phase-count', type=int)
     p.add_argument('--coupling-points', type=int)
     p.add_argument('--coupling-max', type=float)
-    run(p.parse_args(argv))
+    add_data_root_option(p)
+    args = p.parse_args(argv)
+    if args.output_root is None and args.check is None:
+        p.error('Provide --output-root, or --check grid|prior with a data root')
+    defaults = {'source': ('analysis_limits', {}), 'templates': ('analysis_templates', {})}
+    if args.output_root is None:
+        defaults['output_root'] = (f'analysis_check_{args.check}', {})
+    fill_defaults(p, args, defaults)
+    run(args)
 
 
 if __name__ == '__main__':

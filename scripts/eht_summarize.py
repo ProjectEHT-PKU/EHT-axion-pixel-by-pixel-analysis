@@ -19,6 +19,7 @@ import json
 import numpy as np
 
 from _bootstrap import ROOT
+from _data_root import add_data_root_option, fill_defaults
 from eht_axion import provenance
 from eht_axion.eht import ensemble as en
 from eht_axion.eht.ensemble import load_stokes_fits
@@ -151,10 +152,13 @@ def run(selected, out, settings):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--sample-root', type=Path, required=True, help='finished eht_sample.py output root')
-    p.add_argument('--output-root', type=Path, required=True)
+    p.add_argument('--sample-root', type=Path,
+                   help='finished eht_sample.py output root (default: eht/sample)')
+    p.add_argument('--output-root', type=Path, help='new directory (default: eht/ensemble)')
     p.add_argument('--config', type=Path, default=ROOT / 'experiment.yaml', help='default: experiment.yaml')
+    add_data_root_option(p)
     args = p.parse_args(argv)
+    fill_defaults(p, args, {'sample_root': ('eht_sample', {}), 'output_root': ('eht_ensemble', {})})
     from eht_axion.experiment import read_experiment
     from eht_sample import science_settings
     settings = summary_settings(read_experiment(args.config))

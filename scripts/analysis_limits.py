@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 
 import _bootstrap  # noqa: F401
+from _data_root import add_data_root_option, fill_defaults
 import numpy as np
 
 from eht_axion.analysis.likelihood import MODES, LimitOptions, calculate_observed
@@ -417,9 +418,14 @@ def run(args):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: experiment.yaml')
-    for name in ('ensemble', 'templates', 'output-root'):
-        p.add_argument('--'+name, type=Path, required=True)
-    run(p.parse_args(argv))
+    p.add_argument('--ensemble', type=Path, help='eht_summarize.py stage (default: eht/ensemble)')
+    p.add_argument('--templates', type=Path, help='analysis_templates.py root (default: analysis/templates)')
+    p.add_argument('--output-root', type=Path, help='new directory (default: analysis/limits)')
+    add_data_root_option(p)
+    args = p.parse_args(argv)
+    fill_defaults(p, args, {'ensemble': ('eht_ensemble', {}), 'templates': ('analysis_templates', {}),
+                            'output_root': ('analysis_limits', {})})
+    run(args)
 
 
 if __name__ == '__main__':

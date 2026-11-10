@@ -73,14 +73,15 @@ pixi run verify PATH/TO/STAGE --recursive
 
 | 键 | 读取者 | 含义 |
 |---|---|---|
+| `M87_AXION_DATA_ROOT` | 所有脚本 | 默认布局的数据根目录（[数据布局](data-layout.md#默认布局)）；可被 `--data-root` 覆盖 |
 | `EHT_IMAGING_INPUT_ROOT` | `eht_reconstruct.py` | HOPS uvfits 文件所在目录 |
 | `EHT_IMAGING_INPUT_RECEIPT` | `eht_reconstruct.py` | 输入回执 JSON |
 | `EHT_IMAGING_FEED_ROTATION` | `eht_reconstruct.py` | 馈源旋转表 JSON |
 | `EHT_IMAGING_OFFICIAL_SCRIPT` | `eht_reconstruct.py` | 官方 EHT 成像脚本 |
 | `EHT_RAPTOR_SOURCE_ROOT`、`EHT_GRMHD_ROOT`、`EHT_RADIAL_LOW`、`EHT_RADIAL_HIGH`、`EHT_RAPTOR_RUN_ROOT`、`EHT_RAPTOR_THREADS`、`EHT_RAPTOR_WORKERS`、`EHT_RAPTOR_CPU_AFFINITY`、`EHT_RAPTOR_CPU_LIST`、`EHT_RAPTOR_TIMEOUT_SECONDS` | RAPTOR 脚本 | 见 [RAPTOR 生产](raptor-production.md) |
 
-分析脚本、`eht_refine.py`、`eht_export_bundle.py`、`eht_sample.py` 和 `eht_summarize.py` 不读取任何
-`.env` 文件；它们的所有路径都是命令行选项。
+分析脚本、`eht_refine.py`、`eht_export_bundle.py`、`eht_sample.py` 和 `eht_summarize.py` 只从 `.env`
+读取 `M87_AXION_DATA_ROOT`；它们的其他路径是命令行选项或数据根目录之下的默认值。
 
 ### 代码修改规则
 

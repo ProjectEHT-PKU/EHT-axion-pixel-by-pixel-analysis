@@ -157,16 +157,17 @@ stage directory.
 
 ### Default layout
 
-All roots are passed on the command line (or, for the RAPTOR and EHT imaging inputs, in
-`.env` / `.env.raptor`); nothing in the code assumes a location. The products of one
-experiment are kept below one data root with one directory per part:
+Every root is either given on the command line (or, for the RAPTOR and EHT imaging inputs,
+in `.env` / `.env.raptor`) or derived from one data root; the code assumes no machine
+location. The products of one experiment are kept below the data root with one directory
+per part:
 
 ```text
 <data root>/
   raptor/
     plan.json                    frozen production plan (raptor_generate.py --plan --plan-output)
     runs/<name>/                 run roots of raptor_generate.py (build/, jobs/, attempts/,
-                                 config.yaml, requests/); one per host or build
+                                 config.yaml, requests/); one per host or build; default runs/main
     delivered/                   raptor_merge.py output root: data/raptor/res-*/..., inventory/
   eht/
     intensity/day-<day>/         eht_reconstruct.py --stage I
@@ -182,7 +183,16 @@ experiment are kept below one data root with one directory per part:
     check-prior/                 analysis_check_grid.py with a wider coupling range
     check-covariance/            analysis_check_covariance.py
     summary/                     analysis_summarize.py
+    paper/                       analysis_paper.py
 ```
+
+`M87_AXION_DATA_ROOT` (exported, or in `.env`) or `--data-root` names the data root; every
+script then takes its default input and output roots from this layout, and an explicit
+`--...-root` option overrides a default. The default RAPTOR run root is `raptor/runs/main`
+(`--run-root` or `EHT_RAPTOR_RUN_ROOT` override it); `raptor_merge.py` merges every directory
+in `raptor/runs/` by default; `analysis_check_grid.py` needs `--check grid` or
+`--check prior` to choose its default output root. Result scripts still refuse an existing
+output root, so a default output root can be written once.
 
 With this layout the RAPTOR run used for the results has two run roots, `runs/main`
 (18 234 jobs) and `runs/background` (96 axion-off 400-pixel jobs, labels 2050–3000, made

@@ -73,6 +73,7 @@ the top level.
 | `_bootstrap.py` | Put the repository root on `sys.path` for direct script execution |
 | `_environment.py` | Read `.env` and `.env.raptor` as data with a fixed set of allowed keys |
 | `_raptor_options.py` | Command-line options shared by `raptor_build.py` and `raptor_generate.py` |
+| `_data_root.py` | `--data-root` / `M87_AXION_DATA_ROOT` and the default roots of the data layout |
 
 ### Tests
 

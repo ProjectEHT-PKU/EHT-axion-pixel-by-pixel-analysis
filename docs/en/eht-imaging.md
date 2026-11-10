@@ -42,7 +42,9 @@ File details are on [Data layout](data-layout.md).
 ## How to run
 
 Environment `eht-imaging` (ehtim 1.3.2, astropy); `eht_summarize.py` needs only
-`eht-summary` (astropy). Every command writes one new root.
+`eht-summary` (astropy). Every command writes one new root. With a data root (`M87_AXION_DATA_ROOT` or `--data-root`), every root option below has a
+default from the [default layout](data-layout.md#default-layout); the commands give the roots
+explicitly.
 
 ```bash
 # one root per day and stage; repeat for 95, 96, 100, 101

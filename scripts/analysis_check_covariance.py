@@ -18,6 +18,7 @@ from eht_axion.analysis.templates import load_templates
 from eht_axion.evpa import circular_difference
 from eht_axion.experiment import DEFAULT_PATH, read_experiment
 from analysis_limits import options_from_config
+from _data_root import add_data_root_option, fill_defaults
 
 
 def covariance(samples, center):
@@ -29,9 +30,13 @@ def covariance(samples, center):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: experiment.yaml')
-    for name in ('source', 'templates', 'output-root'):
-        p.add_argument('--'+name, required=True, type=Path)
+    p.add_argument('--source', type=Path, help='analysis_limits.py stage (default: analysis/limits)')
+    p.add_argument('--templates', type=Path, help='analysis_templates.py root (default: analysis/templates)')
+    p.add_argument('--output-root', type=Path, help='new directory (default: analysis/check-covariance)')
+    add_data_root_option(p)
     args = p.parse_args(argv)
+    fill_defaults(p, args, {'source': ('analysis_limits', {}), 'templates': ('analysis_templates', {}),
+                            'output_root': ('analysis_check_covariance', {})})
     if args.output_root.exists():
         raise FileExistsError(f'New output root required: {args.output_root}')
     with provenance.verification_session():

@@ -17,6 +17,7 @@ import sys
 
 from _bootstrap import ROOT
 import eht_reconstruct as original
+from _data_root import add_data_root_option, fill_defaults
 from eht_axion import experiment
 from eht_axion import provenance
 from eht_axion.eht import convex as solver
@@ -26,10 +27,22 @@ def parser():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=experiment.DEFAULT_PATH, help='default: experiment.yaml')
     p.add_argument('--day', type=int, choices=experiment.EHT_DAYS, required=True)
-    p.add_argument('--source-root', type=Path, required=True, help='completed fiducial stage of this day')
-    p.add_argument('--i-root', type=Path, required=True, help='completed I stage of this day')
-    p.add_argument('--output-root', type=Path, required=True, help='new directory')
+    p.add_argument('--source-root', type=Path,
+                   help='completed fiducial stage of this day (default: eht/fiducial/day-<day>)')
+    p.add_argument('--i-root', type=Path,
+                   help='completed I stage of this day (default: eht/intensity/day-<day>)')
+    p.add_argument('--output-root', type=Path, help='new directory (default: eht/refine/day-<day>)')
+    add_data_root_option(p)
     return p
+
+
+def parse(argv=None):
+    p = parser()
+    args = p.parse_args(argv)
+    day = dict(day=args.day)
+    fill_defaults(p, args, {'source_root': ('eht_fiducial', day), 'i_root': ('eht_intensity', day),
+                            'output_root': ('eht_refine', day)})
+    return args
 
 
 def build_plan(a):
@@ -148,7 +161,7 @@ def run(a, plan, core, eh, out):
 
 
 def main(argv=None):
-    a = parser().parse_args(argv)
+    a = parse(argv)
     with provenance.verification_session():
         plan = build_plan(a)
         import ehtim as eh

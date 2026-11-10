@@ -26,7 +26,8 @@ from unittest.mock import patch
 from _bootstrap import ROOT
 from eht_axion import experiment
 from eht_axion import provenance
-from _environment import add_environment_options, resolve_environment
+from _environment import resolve_environment
+from _data_root import add_data_root_option, fill_defaults
 
 I_PRODUCTS = ('final-fixedI.fits', 'clean-gaincal-pol.uvfits')
 EHT_STAGES = {'I': 'eht:i', 'fiducial': 'eht:fiducial'}  # --stage -> recorded stage name
@@ -43,13 +44,27 @@ def parser():
     p.add_argument('--day', type=int, choices=experiment.EHT_DAYS, required=True)
     for name, env in LOCATION_ENV.items():
         p.add_argument('--' + name.replace('_', '-'), type=Path, help=f'absolute path; overrides ${env}')
-    p.add_argument('--i-root', type=Path, help='completed I stage for the SAME day')
-    p.add_argument('--output-root', required=True, type=Path, help='new directory for this stage/day')
+    p.add_argument('--i-root', type=Path,
+                   help='completed I stage for the SAME day (fiducial; default: eht/intensity/day-<day>)')
+    p.add_argument('--output-root', type=Path,
+                   help='new directory for this stage/day (default: eht/intensity/day-<day> or '
+                        'eht/fiducial/day-<day>)')
     p.add_argument('--review-file', type=Path,
                    help='external review bytes, required for execution; not self-approval')
     p.add_argument('--plan', action='store_true')
-    add_environment_options(p)
+    add_data_root_option(p)
     return p
+
+
+def parse(argv=None):
+    p = parser()
+    args = p.parse_args(argv)
+    day = dict(day=args.day)
+    defaults = {'output_root': ('eht_intensity' if args.stage == 'I' else 'eht_fiducial', day)}
+    if args.stage == 'fiducial':
+        defaults['i_root'] = ('eht_intensity', day)
+    fill_defaults(p, args, defaults)
+    return args
 
 
 LOCATION_ENV = dict(input_root='EHT_IMAGING_INPUT_ROOT', input_receipt='EHT_IMAGING_INPUT_RECEIPT',
@@ -344,7 +359,7 @@ def run_fiducial(base, fixed, c, core, eh, out):
 
 
 def main(argv=None):
-    args = parser().parse_args(argv)
+    args = parse(argv)
     with provenance.verification_session():
         plan = build_plan(args)
         if args.plan:

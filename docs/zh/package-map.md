@@ -71,6 +71,7 @@
 | `_bootstrap.py` | 把仓库根目录加入 `sys.path`，以便直接执行脚本 |
 | `_environment.py` | 以数据方式读取 `.env` 和 `.env.raptor`，只允许一组固定的键 |
 | `_raptor_options.py` | `raptor_build.py` 和 `raptor_generate.py` 共用的命令行选项 |
+| `_data_root.py` | `--data-root` / `M87_AXION_DATA_ROOT` 以及数据布局中的默认根目录 |
 
 ### 测试
 
