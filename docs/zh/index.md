@@ -1,47 +1,96 @@
-# 文档索引
+# M87* EHT 轴子分析流水线文档
 
-## 用途
+[English](../en/index.md) | 简体中文
 
-本页是 M87\* EHT 轴子分析中文文档的入口页。本仓库使用两个相互独立的输入：带轴子场的
-GRMHD 吸积流经 RAPTOR 光线追踪得到的图像，以及 M87\* 的 EHT 2017 偏振图像。分析部分把二者
-结合起来，给出无量纲耦合常数 $c$ 的贝叶斯上限。下列每一页都描述本仓库中代码的现状，并且每一页
-都链接回本页。英文文档见 [English documentation](../en/index.md)。
+本仓库实现了一套完整的科学计算流水线，用于在事件视界望远镜（Event Horizon Telescope, EHT）2017 年 M87\* 偏振观测中搜寻由轴子引起的电矢量位置角（electric-vector position angle, EVPA）振荡。流水线将偏振广义相对论光线追踪（ray tracing）模拟（`RAPTOR`）、含仪器偏振泄漏（D 项，D-term）蒙特卡罗（Monte Carlo）的 EHT Paper VII 偏振成像，以及针对无量纲耦合常数 $c$ 的相位边缘化（phase-marginalized）贝叶斯推断（Bayesian inference）结合起来。代码以直接运行的命令行脚本形式组织，由 [Pixi](https://pixi.prefix.dev/) 管理运行环境，不打包为可安装的 Python 程序包。
 
-## 页面
+## 快速开始
 
-| 页面 | 内容 |
+### 环境要求
+
+- [Pixi](https://pixi.prefix.dev/)（根据 `pixi.lock` 锁定并配置 Python `3.12.*` 及全部科学计算与编译依赖）和 `git`。
+- **平台支持**：`default`、`eht-summary` 和 `eht-imaging` 环境支持 `linux-64`、`linux-aarch64`、`osx-64`、`osx-arm64` 和 `win-64`；编译与运行 C 语言光线追踪核心程序 `RAPTOR`（`raptor-build` 环境）仅支持 `linux-64`。
+- **洁净的 Git 工作树**：写出任何阶段输出时，仓库受版本控制的文件不得含有未提交的修改（`git status --untracked-files=no`），因为仓库当前的 `HEAD` 提交号是唯一的代码溯源（provenance）身份标识。
+
+### 安装环境与配置路径
+
+克隆仓库并安装所需的锁定 Pixi 环境：
+
+```bash
+git clone <repository-url> eht-script-pipeline
+cd eht-script-pipeline
+
+pixi install --locked                  # default environment: analysis, verification, lint, core tests
+pixi install --locked -e eht-imaging   # EHT imaging + full test suite (adds ehtim 1.3.2 and astropy)
+pixi install --locked -e raptor-build  # Linux only: RAPTOR C toolchain and job orchestration
+```
+
+将 `.env.example` 复制为 `.env`，并设置本机的三个路径根目录：
+
+```bash
+cp .env.example .env
+# Edit .env and set:
+# EHT_RAPTOR_SOURCE_ROOT=/path/to/raptor
+# EHT_INPUT_ROOT=/path/to/m87-axion-inputs
+# EHT_DATA_ROOT=/path/to/m87-axion
+```
+
+在 `.env` 中设置 `EHT_DATA_ROOT`（或在 shell 中导出，或通过 `--data-root` 传入）后，所有脚本都会按[默认数据布局](data-layout.md#默认目录布局)自动解析输入和输出目录，并在 `EHT_INPUT_ROOT` 的只读[输入目录布局](data-layout.md#输入目录布局)下定位全部外部输入。所有科学参数集中存放在 [`configs/experiment.yaml`](../../configs/experiment.yaml) 中；机器本地路径存放在唯一的 `.env` 中（见[配置参考](configuration.md)）。
+
+### 运行测试与代码检查
+
+所有单元测试和集成测试均在临时目录中使用合成数据运行，既不需要观测数据文件，也不需要编译好的 `RAPTOR` 可执行文件：
+
+```bash
+pixi run --locked check                                       # default-env tests + Ruff linter
+OPENBLAS_NUM_THREADS=2 pixi run --locked -e eht-imaging test  # full test suite (incl. ehtim & astropy)
+pixi run --locked lint                                        # Ruff check only
+```
+
+### 输入数据来源
+
+`RAPTOR` 模拟与 EHT 成像是两条相互独立的上游流水线，其产出共同作为下游分析的输入：
+
+1. **已交付的 `RAPTOR` Stokes 数据立方**（`$EHT_DATA_ROOT/raptor/delivered/data/`）：可以直接放入已有的模拟归档数据，也可以由广义相对论磁流体力学（general-relativistic magnetohydrodynamics, GRMHD）BHAC 快照（`data001600.dat`–`data003000.dat`）、两张无表头 $(\alpha, r, R)$ 径向轮廓 CSV 表，以及处于提交 `20056006820b6536c96de790dd5fdaad5ada4eae` 的洁净 `github.com/projecteht-pku/raptor` 工作副本依次运行 `raptor-build`、`raptor-generate` 和 `raptor-merge` 生成（由 `.env` 中的 `EHT_INPUT_ROOT` 与 `EHT_RAPTOR_SOURCE_ROOT` 定位；见 [RAPTOR 模拟](raptor-simulation.md)）。
+2. **汇总后的 EHT 偏振系综**（`$EHT_DATA_ROOT/eht/ensemble/`）：可以直接放入已有的成像归档数据，也可以基于 2017 年 M87\* 四个观测日（第 `95`、`96`、`100`、`101` 天）的官方低频段 HOPS `zbl-dtcal+selfcal` `uvfits` 文件、馈源旋转 JSON 表以及官方 EHT 成像脚本，依次运行 `eht-reconstruct`、`eht-refine`、`eht-export-bundle`、`eht-sample` 和 `eht-summarize` 重建生成（位于 `$EHT_INPUT_ROOT/eht/`；见 [EHT 成像](eht-imaging.md)）。
+
+### 在已有数据产品上运行分析链
+
+当 `$EHT_DATA_ROOT/raptor/delivered/data` 与 `$EHT_DATA_ROOT/eht/ensemble` 就绪后，可在 `default` 环境中运行完整的统计推断与数值敏感性检验链：
+
+```bash
+pixi run analysis-templates
+pixi run analysis-limits
+pixi run analysis-check-grid --check grid --phase-count 128 --coupling-points 240
+pixi run analysis-check-grid --check prior --phase-count 128 --coupling-points 260 --coupling-max 10000
+pixi run analysis-check-covariance
+pixi run analysis-summarize
+```
+
+每条命令都会在 `$EHT_DATA_ROOT/analysis/` 下发布一个新的阶段目录（`templates/`、`limits/`、`check-grid/`、`check-prior/`、`check-covariance/` 和 `summary/`，其中包含 `limits/limits.csv` 和 `summary/RESULTS.md`），并拒绝覆盖任何已存在的输出目录。
+
+若还需在 `$EHT_DATA_ROOT/analysis/paper/` 中生成论文插图、LaTeX 数值宏（`numbers.tex`、`numbers.json`）及表格（`table-limits.tex`、`table-chi2.tex`）——该步骤额外读取 `$EHT_DATA_ROOT/raptor/plan.json`、位于 `$EHT_RAPTOR_SOURCE_ROOT` 的 `RAPTOR` 工作副本中的 `src/axion.c`，以及 `$EHT_INPUT_ROOT/radial/` 中的径向轮廓 CSV 表——请运行：
+
+```bash
+pixi run analysis-paper
+```
+
+### 校验结果
+
+每个已发布的阶段目录都包含 `manifest.json`，记录该阶段的参数、仓库 `git_commit` 以及所有声明输入和输出的 SHA-256 校验和。无需重新计算任何科学数据，即可校验某个阶段（加上 `--recursive` 则递归校验整条上游来源链）：
+
+```bash
+pixi run verify $EHT_DATA_ROOT/analysis/limits --recursive
+```
+
+## 文档目录
+
+| 文档页面 | 内容概要 |
 |---|---|
-| [概览](overview.md) | 三个部分、各部分产品之间的关系，以及数据流图 |
-| [实验配置](experiment-config.md) | `configs/experiment.yaml` 的每个键：含义、单位、取值以及读取它的代码 |
-| [RAPTOR 模拟](raptor-simulation.md) | 任务计划与任务标识符、编译、作业、作业输出、格式转换、交付与合并、CPU 亲和性、`.env.raptor` |
-| [EHT 成像](eht-imaging.md) | 按实现描述的 Paper VII 方法：I 阶段、共享增益、基准 P/D 交替、精化、打包导出、D 项蒙特卡罗、系综汇总、已知偏差 |
-| [分析](analysis.md) | 图像预处理、响应拟合、模板、孔径观测量、特征选择、GRMHD 背景、协方差模型、似然、后验、检验与汇总 |
-| [来源记录](provenance.md) | 阶段清单（manifest）、哈希值、原子化阶段目录、校验 |
-| [数据布局](data-layout.md) | 每个脚本写出的目录和文件，以及数组形状和单位 |
-| [包结构](package-map.md) | `eht_axion` 的每个模块和每个脚本，各附一句用途说明 |
-| [开发](development.md) | Pixi 环境与任务、测试、代码检查（lint）、`.env` 文件 |
-| [术语表](glossary.md) | 这些页面中使用的符号和术语 |
-
-## 从哪里开始
-
-- 理解实验：先读[概览](overview.md)，再读[实验配置](experiment-config.md)。
-- 审查某个科学步骤：读 [EHT 成像](eht-imaging.md)或[分析](analysis.md)，并结合[来源记录](provenance.md)。
-- 运行脚本：读 [RAPTOR 模拟](raptor-simulation.md)、[EHT 成像](eht-imaging.md)和[分析](analysis.md)
-  中的“运行方法”一节；环境说明见[开发](development.md)。
-- 查找函数或文件：读[包结构](package-map.md)和[数据布局](data-layout.md)。
-
-## 本文档的约定
-
-- 文件名、键名、函数名和阶段名写成代码格式，例如 `analysis.features`。
-- YAML 键带上所在节的路径，例如 `eht_imaging.refine.gap_atol`。
-- 所有数组中的电矢量位置角（EVPA）均以弧度为单位；EVPA 以 $\pi$ 为模定义。EHT 产品中的天空
-  角度从北向东量度。
-- 天空上的长度以微角秒（µas）或引力半径 $r_g = GM/c^2$ 为单位；时间以小时或 $t_g = GM/c^3$
-  为单位。这些定义中的光速 $c$ 不是耦合常数 $c$；见[术语表](glossary.md)。
-
-## 相关页面
-
-- [仓库 README](../../README.md)
-- [English documentation](../en/index.md)
-- [概览](overview.md)
-- [术语表](glossary.md)
+| [概览与基本概念](overview.md) | 流水线整体架构、Mermaid 数据流图、物理尺度、偏振符号约定及核心设计准则 |
+| [配置参考](configuration.md) | `configs/experiment.yaml` 全部键的逐项说明、校验规则与派生设置，以及 `.env` 中的三个路径根目录与执行设置 |
+| [RAPTOR 模拟](raptor-simulation.md) | 固定版本 `RAPTOR` 编译、BHAC 快照与径向表校验、内容寻址任务、作业调度、CPU 亲和性、数据交付与多机合并 |
+| [EHT 成像](eht-imaging.md) | EHT Paper VII 偏振成像复现、凸优化 PDHG 精化、D 项蒙特卡罗、系综汇总，以及与 Paper VII 的已知差异 |
+| [分析](analysis.md) | 图像预处理、扇形孔径算子、谐波响应模板、特征选择、协方差模型、贝叶斯似然与后验上限、敏感性检验及论文输出 |
+| [数据布局与溯源机制](data-layout.md) | 默认 `$EHT_DATA_ROOT` 目录树、只读 `$EHT_INPUT_ROOT` 输入目录布局、各阶段文件与数组规范、原子化 `stage_directory` 清单、非清单回执与数据校验 |
+| [开发指南](development.md) | Pixi 环境与任务、测试套件与代码检查、模块与脚本索引、架构不变量，以及新增参数或分析阶段的扩展指南 |

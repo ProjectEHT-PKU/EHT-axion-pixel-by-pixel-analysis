@@ -11,8 +11,6 @@ README = ROOT / "README.md"
 TREES = {"en": ROOT / "docs" / "en", "zh": ROOT / "docs" / "zh"}
 INDEXES = {language: tree / "index.md" for language, tree in TREES.items()}
 PAGES = sorted(page for tree in TREES.values() for page in tree.glob("*.md"))
-# First and last section of every page, per language.
-SECTION_TITLES = {"en": ("## Purpose", "## Related pages"), "zh": ("## 用途", "## 相关页面")}
 
 _FENCE = re.compile(r"^(```|~~~)")
 _LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
@@ -128,11 +126,8 @@ def test_every_page_is_reachable_from_readme():
 @pytest.mark.parametrize("path", PAGES, ids=lambda p: str(p.relative_to(ROOT)))
 def test_page_structure_and_back_link(path):
     found = headings(path)
-    first, last = SECTION_TITLES[language(path)]
     assert found and found[0].startswith("# "), "page must start with its H1 title"
     assert sum(h.startswith("# ") for h in found) == 1, "exactly one H1 title"
-    assert found[1] == first, f"the first section is {first}"
-    assert found[-1] == last, f"the last section is {last}"
     levels = [len(_HEADING.match(h)[1]) for h in found]
     assert all(b <= a + 1 for a, b in zip(levels, levels[1:])), "no skipped heading levels"
     index = INDEXES[language(path)]

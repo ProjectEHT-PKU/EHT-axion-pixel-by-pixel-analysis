@@ -1,75 +1,13 @@
-# M87* EHT axion analysis — script pipeline
+# M87* EHT Axion Analysis Pipeline
 
-Scripts for two independent inputs — RAPTOR ray-traced images of a GRMHD flow with an
-axion field, and EHT 2017 M87* polarimetric images — and the analysis that combines them
-into phase-marginalized Bayesian upper limits on a dimensionless coupling c. This is not
-an installable package: run the scripts directly or through `pixi run`.
+[English](docs/en/index.md) | [简体中文](docs/zh/index.md)
 
-**Documentation: [docs/en/index.md](docs/en/index.md)** (overview, every key of
-`configs/experiment.yaml`, RAPTOR simulation, EHT imaging, analysis, provenance, data layout,
-package map, development). Chinese translation: [docs/zh/index.md](docs/zh/index.md).
+Scientific Python pipeline searching for axion-induced electric-vector position angle (EVPA) oscillations in Event Horizon Telescope (EHT) 2017 polarimetric images of M87\*. It orchestrates polarized general-relativistic ray-tracing simulations with `RAPTOR`, EHT Paper VII polarimetric imaging with D-term Monte Carlo, and phase-marginalized Bayesian inference on the dimensionless coupling $c$.
 
-## Parameters
+## Documentation
 
-[`configs/experiment.yaml`](configs/experiment.yaml) holds every scientific value, each exactly once, in
-the sections `shared`, `raptor`, `eht_imaging` and `analysis`. Each script reads `shared`
-plus its own section; the analysis also reads the `raptor` and `eht_imaging` values it
-needs. Machine paths and execution options are command-line options or `.env` /
-`.env.raptor` entries (see [`.env.example`](.env.example) and
-[`.env.raptor.example`](.env.raptor.example)). Details:
-[Experiment configuration](docs/en/experiment-config.md).
+Quick-start instructions, configuration references, method descriptions, data-layout and provenance specifications, and development guides are available in [English](docs/en/index.md) and [简体中文](docs/zh/index.md).
 
-## Run
+## Citation & License
 
-RAPTOR simulation and EHT imaging do not depend on each other; the analysis needs the
-products of both. With a data root (`EHT_DATA_ROOT` or `--data-root`), every script
-reads and writes the default layout of [Data layout](docs/en/data-layout.md#default-layout);
-explicit `--...-root` options override it. Every output root must be new.
-
-```bash
-pixi install --locked
-pixi run check                                   # tests + lint
-export EHT_DATA_ROOT=/path/to/m87-axion    # or set it in .env
-
-# RAPTOR simulation (environment raptor-build)
-pixi run -e raptor-build raptor-build
-pixi run -e raptor-build raptor-generate --plan --plan-output $EHT_DATA_ROOT/raptor/plan.json
-pixi run -e raptor-build raptor-generate
-pixi run -e raptor-build raptor-merge
-
-# EHT imaging (environment eht-imaging; each of the days 95, 96, 100, 101)
-pixi run -e eht-imaging eht-reconstruct --stage I --day 95 --review-file REVIEW
-pixi run -e eht-imaging eht-reconstruct --stage fiducial --day 95 --review-file REVIEW
-pixi run -e eht-imaging eht-refine --day 95
-pixi run -e eht-imaging eht-export-bundle
-pixi run -e eht-imaging eht-sample
-pixi run -e eht-summary eht-summarize
-
-# Analysis (default environment)
-pixi run analysis-templates
-pixi run analysis-limits
-pixi run analysis-check-grid --check grid --phase-count 128 --coupling-points 240
-pixi run analysis-check-grid --check prior --phase-count 128 --coupling-points 260 --coupling-max 10000
-pixi run analysis-check-covariance
-pixi run analysis-summarize
-pixi run analysis-paper                          # figures, numbers and tables of the paper
-```
-
-Full command lines, including merging RAPTOR runs and the analysis checks, are in
-[RAPTOR simulation](docs/en/raptor-simulation.md), [EHT imaging](docs/en/eht-imaging.md)
-and [Analysis](docs/en/analysis.md). Each step writes stage directories with a
-`manifest.json`; `pixi run verify DIR --recursive` re-checks a stage and its lineage
-([Provenance](docs/en/provenance.md)).
-
-## Layout
-
-```text
-configs/            experiment.yaml, the parameter file
-eht_axion/          library: experiment, environment, provenance, physics, evpa; raptor/, eht/, analysis/
-scripts/            entry points in raptor/, eht/, analysis/; verify_products.py
-tests/              synthetic unit and integration tests
-docs/en/, docs/zh/  documentation (English, Chinese)
-```
-
-A module-by-module list is in [Package map](docs/en/package-map.md), and the default data
-directory layout is in [Data layout](docs/en/data-layout.md).
+Citation metadata and open-source license terms will be added upon publication of the accompanying paper.

@@ -1,112 +1,108 @@
 # Development
 
-## Purpose
+[← Documentation index](index.md)
 
-This page describes the software environment of the repository: the Pixi environments and
-tasks, how to run the tests and the linter, how machine-local settings are given through
-`.env` files, and the rules that new code must follow. The repository is not an installable
-package; scripts are run directly or through `pixi run`.
+The repository is structured as a library folder (`eht_axion/`) paired with direct CLI scripts (`scripts/`) and a synthetic test suite (`tests/`), managed reproducibly by [Pixi](https://pixi.prefix.dev/) (`pixi.toml` and `pixi.lock`). It is not packaged as a wheel or installed into `site-packages`.
 
-## Inputs
+## Environments and Pixi tasks
 
-- `pixi.toml` and `pixi.lock`: environments and tasks.
-- `.env` and `.env.raptor`: machine-local paths and execution settings, copied from
-  `.env.example` and `.env.raptor.example` (both files are git-ignored).
+All four Pixi environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_NUM_THREADS=2`, and `PYTHONUNBUFFERED=1` upon activation.
 
-## Outputs
+| Environment | Platforms | Dependencies added beyond `default` | Purpose |
+|---|---|---|---|
+| `default` | `linux-64`, `linux-aarch64`, `osx-64`, `osx-arm64`, `win-64` | Python `3.12.*`, `numpy`, `scipy`, `matplotlib`, `h5py`, `pyyaml`, `pytest`, `ruff`, `python-dotenv` | Analysis scripts, `verify`, `lint`, and non-`ehtim`/`astropy` tests |
+| `raptor-build` | `linux-64` | `c-compiler`, `make`, `gsl`, `hdf5`, `pkg-config`, `rsync` | Compiling `RAPTOR`, running jobs, and merging/delivering cubes |
+| `eht-summary` | All 5 platforms | `astropy` | Summarizing D-term Monte Carlo FITS draws into `eht:ensemble` |
+| `eht-imaging` | All 5 platforms | `astropy`, `ehtim == 1.3.2` (PyPI) | EHT reconstruction, convex refinement, bundle export, Monte Carlo, and full test suite |
 
-None; tests write only to temporary directories.
+| Task | Environment | Command / target |
+|---|---|---|
+| `raptor-build`, `raptor-generate`, `raptor-merge` | `-e raptor-build` | `scripts/raptor/{build,generate,merge}.py` |
+| `eht-reconstruct`, `eht-refine`, `eht-export-bundle`, `eht-sample` | `-e eht-imaging` | `scripts/eht/{reconstruct,refine,export_bundle,sample}.py` |
+| `eht-summarize` | `-e eht-summary` (or `-e eht-imaging`) | `scripts/eht/summarize.py` |
+| `analysis-templates`, `analysis-limits`, `analysis-check-grid`, `analysis-check-covariance`, `analysis-summarize`, `analysis-paper` | `default` | `scripts/analysis/{templates,limits,check_grid,check_covariance,summarize,paper}.py` |
+| `verify` | `default` | `python scripts/verify_products.py` |
+| `test` | `default` or `-e eht-imaging` | `python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=."` |
+| `lint` | `default` | `ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts` |
+| `check` | `default` | Runs `test` and `lint` |
 
-## How to run
+## Testing and linting
+
+Run the full test suite (including `ehtim` and `astropy` tests) and the isolated Ruff linter before reviewing or committing changes:
 
 ```bash
-pixi install --locked
-pixi run check                       # tests and lint in the default environment
-pixi run -e eht-imaging test         # all tests, including those that need ehtim and astropy
-pixi run lint
-pixi run verify PATH/TO/STAGE --recursive
+OPENBLAS_NUM_THREADS=2 pixi run --locked -e eht-imaging test
+pixi run --locked lint
 ```
 
-## Details
+In the `default` environment (`pixi run --locked check`), tests that import `ehtim` or `astropy` skip cleanly via `pytest.importorskip`. Every test uses synthetic fixtures in `pytest`'s `tmp_path` — no observational `uvfits` files, snapshots, or `RAPTOR` binaries are read.
 
-### Environments
+Several test modules enforce repository-wide invariants rather than single-function behavior:
+- `tests/test_experiment.py`: checks `configs/experiment.yaml` schema/range validation and scans the AST of `eht_axion/` (`test_library_signatures_have_no_numeric_default_values`) to forbid numeric default parameter values on public functions (outside a five-entry execution/layout allow-list).
+- `tests/test_data_root.py`: verifies that every entry of `eht_axion.environment.LAYOUT` appears in the `<data root>/` tree and every entry of `INPUT_LAYOUT` in the `<input root>/` tree documented in `docs/en/data-layout.md` and `docs/zh/data-layout.md`, and checks CLI/dotenv root precedence across all scripts.
+- `tests/test_docs_links.py`: verifies that `docs/en/` and `docs/zh/` have identical page sets and heading-level sequences, that every page is reachable from `README.md` and links back to its language `index.md`, and that all relative Markdown links and `#anchors` resolve.
+- `tests/test_stage_safety.py` and `tests/test_provenance.py`: test symlink rejection, source/output overlap guards, dirty-tree rejection, and atomic rollback on failure.
 
-| Environment | Adds | Used for |
+## Codebase structure
+
+### Top-level library modules (`eht_axion/`)
+
+| Module | Responsibility | Key public API |
 |---|---|---|
-| `default` | Python 3.12, numpy, scipy, matplotlib, h5py, PyYAML, pytest, ruff, python-dotenv | analysis scripts, tests, lint, `verify` |
-| `raptor-build` | C compiler, make, GSL, HDF5, pkg-config, rsync (linux-64 only) | `raptor-build`, `raptor-generate`, `raptor-merge` |
-| `eht-summary` | astropy | `eht-summarize` |
-| `eht-imaging` | astropy and ehtim 1.3.2 | `eht-reconstruct`, `eht-refine`, `eht-export-bundle`, `eht-sample` |
+| `eht_axion/experiment.py` | Strict loader, schema/range validator, and derived views of `configs/experiment.yaml` | `read_experiment`, `validate`, `validate_ray_tracing`, `physical_scale`, `ray_tracing_config`, `analysis_geometry`, `eht_imaging_parameters`, `ANGULAR_BINS`, `EHT_DAYS` |
+| `eht_axion/environment.py` | Safe reader of the single `.env`, resolution of the three roots (`EHT_RAPTOR_SOURCE_ROOT`, `EHT_INPUT_ROOT`, `EHT_DATA_ROOT`), and the input and product layouts | `resolve_environment`, `add_environment_options`, `add_data_root_option`, `add_input_root_option`, `data_root`, `input_root`, `raptor_source_root`, `layout_path`, `input_path`, `fill_defaults`, `fill_input_defaults`, `LAYOUT`, `INPUT_LAYOUT` |
+| `eht_axion/provenance.py` | Transactional stage directories, `manifest.json`, git commit identity, and session-scoped SHA-256 verification | `stage_directory`, `verify_stage`, `require_declared_outputs`, `verification_session`, `sha256`, `manifest_path`, `source_closure`, `contained_path`, `code_identity` |
+| `eht_axion/physics.py` | SI/IAU constants, M87\* gravitational time/angle scales, and 211-state frequency | `PhysicalScale`, `omega` |
+| `eht_axion/evpa.py` | Linear-polarization EVPA and $\pi$-periodic circular differences | `finite_evpa`, `circular_difference` |
 
-All environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_NUM_THREADS=2` and
-`PYTHONUNBUFFERED=1`.
+### Subpackages
 
-### Tasks
-
-| Task | Command |
-|---|---|
-| `raptor-build`, `raptor-generate`, `raptor-merge` | `scripts/raptor/*.py` |
-| `eht-reconstruct`, `eht-refine`, `eht-export-bundle`, `eht-sample`, `eht-summarize` | `scripts/eht/*.py` |
-| `analysis-templates`, `analysis-limits`, `analysis-check-grid`, `analysis-check-covariance`, `analysis-summarize`, `analysis-paper` | `scripts/analysis/*.py` |
-| `verify` | `scripts/verify_products.py` |
-| `test` | `pytest -q -ra` with `testpaths=tests` and `pythonpath=.` |
-| `lint` | `ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts` |
-| `check` | `test` and `lint` |
-
-### Tests
-
-The tests use synthetic inputs only; they never read observational data or run RAPTOR. In
-the default environment the tests that need ehtim or astropy are skipped; the
-`eht-imaging` environment runs all of them. Some tests are not unit tests of a function but
-checks of repository rules:
-
-- `test_experiment.py` checks validation of every section of `configs/experiment.yaml` and that no
-  public function in `eht_axion` has a numeric default value (a short allow-list covers
-  execution settings and array-layout arguments).
-- `test_docs_links.py` checks both documentation trees, `docs/en/` and `docs/zh/`: every
-  page is reachable from `README.md` through relative links, every relative link and anchor
-  resolves, every page has one H1 title and links back to the `index.md` of its language,
-  and the two trees have the same file names and the same heading levels per page.
-
-### .env files
-
-`eht_axion/environment.py` reads dotenv files as data: no shell expansion, no variable
-interpolation, no search in the caller's working directory. Relative paths are taken
-relative to the repository root. Unknown keys and duplicate keys are errors. The order of
-precedence is: command-line option, exported environment variable, `.env.raptor` (only for
-`scripts/raptor/build.py` and `scripts/raptor/generate.py`), `.env`. `--env-file PATH` replaces the default
-files and `--no-env-file` disables them.
-
-| Key | Read by | Meaning |
+| Module | Responsibility | Key public API |
 |---|---|---|
-| `EHT_DATA_ROOT` | every script | data root of the default layout ([Data layout](data-layout.md#default-layout)); overridden by `--data-root` |
-| `EHT_IMAGING_INPUT_ROOT` | `scripts/eht/reconstruct.py` | directory of the HOPS uvfits files |
-| `EHT_IMAGING_INPUT_RECEIPT` | `scripts/eht/reconstruct.py` | input receipt JSON |
-| `EHT_IMAGING_FEED_ROTATION` | `scripts/eht/reconstruct.py` | feed-rotation table JSON |
-| `EHT_IMAGING_OFFICIAL_SCRIPT` | `scripts/eht/reconstruct.py` | official EHT imaging script |
-| `EHT_RAPTOR_SOURCE_ROOT`, `EHT_GRMHD_ROOT`, `EHT_RADIAL_LOW`, `EHT_RADIAL_HIGH`, `EHT_RAPTOR_RUN_ROOT`, `EHT_RAPTOR_THREADS`, `EHT_RAPTOR_WORKERS`, `EHT_RAPTOR_CPU_AFFINITY`, `EHT_RAPTOR_CPU_LIST`, `EHT_RAPTOR_TIMEOUT_SECONDS` | RAPTOR scripts | see [RAPTOR simulation](raptor-simulation.md) |
+| `eht_axion/raptor/plan.py` | BHAC footer and radial-CSV validation, task list, and content-addressed SHA-256 task IDs | `plan_generation`, `task_identity`, `read_snapshot_footer`, `validate_radial_table` |
+| `eht_axion/raptor/build.py` | Clean-checkout verification and `setup.sh` compilation of pinned `RAPTOR` | `build_raptor` |
+| `eht_axion/raptor/jobs.py` | Bounded concurrent `RAPTOR` process runner with deterministic slots and resume | `run_jobs`, `serialize_parameters`, `parameter_values` |
+| `eht_axion/raptor/affinity.py` | Disjoint `taskset` CPU allocation and Linux/`cgroup-v2` RAM headroom checks | `allocate_cpu_sets`, `check_memory`, `launch_prefix` |
+| `eht_axion/raptor/outputs.py` | Single-job HDF5 block/coordinate and integrated-spectrum validation | `validate_job_output`, `read_core_constants`, `hdf_mapping` |
+| `eht_axion/raptor/convert.py` | Tiled job HDF5 assembly into float64 `(T, S, H, W, 4)` `stokes.npy` | `convert_hdf5` |
+| `eht_axion/raptor/delivery.py` | Verified cube delivery/merge and downstream experiment-identity checks | `deliver_stokes`, `generated_inputs`, `input_cadence_hours`, `validate_processed_source` |
+| `eht_axion/raptor/layout.py` | Delivered product directory naming (`alpha-<α>/` and `background/` shards) | `alpha_label`, `product_directory`, `input_raptor_files` |
+| `eht_axion/raptor/options.py` | Shared CLI/dotenv parser and `requests/<uuid>.json` audit records for `RAPTOR` scripts | `options`, `save_request` |
+| `eht_axion/eht/calibration.py` | Native circular HOPS loading, `fsys`, inverse Jones D application, zero-prior forward D fit, and 4-day D sampling | `load_native`, `add_fsys`, `make_imaging_obs`, `apply_fixed_d`, `fit_forward_d`, `d_distribution`, `sample_dterms` |
+| `eht_axion/eht/convex.py` | Exact convex fixed-$I$/fixed-$D$ PDHG $P$ solver with duality-gap certification | `exact_cartesian_problem`, `solve_problem`, `CartesianProblem` |
+| `eht_axion/eht/ensemble.py` | Strict 4-HDU Stokes FITS reader, Paper VII global diagnostics, and daily ensemble writer | `load_stokes_fits`, `global_diagnostics`, `summarize` |
+| `eht_axion/analysis/templates.py` | Gaussian blur + sky rotation resampling, 16-phase DFT fit, snapshot MLE summary, and template loader | `preprocess_frame`, `preprocess_cube`, `fit_phase_dft`, `fit_processed`, `summarize_fits`, `load_templates`, `RunLayout` |
+| `eht_axion/analysis/aperture.py` | Sparse CSR bilinear quadrature operator for 1D sector EVPA and brightness | `aperture_operator`, `integrate_stokes`, `sector_brightness` |
+| `eht_axion/analysis/model.py` | Cloud amplitude $b(\alpha)$, circular $\alpha$ interpolation, and two-pair EVPA signal templates | `cloud_amplitude_scaling`, `interpolate_fit_parameters`, `evpa_templates` |
+| `eht_axion/analysis/observations.py` | Daily circular moments, population D-scatter covariances, pair differences, and seam/eigenvalue diagnostics | `ObservationData`, `moments`, `build_observations`, `branch_risk`, `covariance_diagnostics` |
+| `eht_axion/analysis/likelihood.py` | Covariance modes (`std`, `cor`, `cor_fixed_background`), Gaussian $\chi^2$, and phase marginalization | `LimitOptions`, `MODES`, `calculate_observed` |
+| `eht_axion/analysis/posterior.py` | Trapezoidal posterior normalization and analytical piecewise-linear CDF upper-limit inversion | `normalized_posterior_cdf`, `posterior_upper_limit` |
+| `eht_axion/analysis/paper_figures.py` | Deterministic vector-PDF plotting routines for the eight paper figures | `save`, `radial_function`, `two_photon`, `signal_maps`, `template_maps`, `background`, `observational_uncertainty`, `data_vs_model`, `limits` |
 
-The analysis scripts, `scripts/eht/refine.py`, `scripts/eht/export_bundle.py`, `scripts/eht/sample.py` and
-`scripts/eht/summarize.py` read only `EHT_DATA_ROOT` from `.env`; their other paths are
-command-line options or defaults below the data root.
+### Entry-point scripts (`scripts/`)
 
-### Rules for code changes
+Every script starts with a two-line `sys.path` bootstrap locating the repository root (the nearest ancestor containing `eht_axion/`), so `python scripts/<part>/<name>.py` works from any working directory. Test files mirror module and script names (`tests/test_<part>_<name>.py` for `scripts/<part>/<name>.py`).
 
-- A scientific value belongs in `configs/experiment.yaml`, once, with validation in
-  `eht_axion/experiment.py`; library functions receive it as an explicit argument.
-- Machine paths and execution settings belong on the command line or in `.env`.
-- A script that writes scientific products uses `stage_directory` and declares every data
-  file it reads from outside the repository as an input; repository files are identified
-  by the commit and are never inputs ([Provenance](provenance.md)). Commit before running:
-  results are refused while tracked files have uncommitted changes.
-- A product is read only in the format the current code writes; a changed product needs a
-  new output root. Scripts refuse existing output roots except where
-  resuming is part of the design ([Provenance](provenance.md#output-roots)).
+## Extending the pipeline
 
-## Related pages
+### Architectural invariants
 
-- [Documentation index](index.md)
-- [Package map](package-map.md)
-- [Provenance](provenance.md)
-- [Experiment configuration](experiment-config.md)
-- [RAPTOR simulation](raptor-simulation.md)
+1. **Define scientific parameters once in `configs/experiment.yaml`** and validate them in `eht_axion/experiment.py`; pass them explicitly into `eht_axion/` functions without numeric defaults.
+2. **Keep machine paths and execution knobs out of YAML**: use CLI flags, `add_data_root_option` / `fill_defaults`, or declared keys in `eht_axion/environment.py` (`PATH_KEYS`, `VALUE_KEYS`).
+3. **Consume only verified declared stage outputs**: call `verify_stage` and `require_declared_outputs` on upstream stages, and wrap writes in `verification_session()` and `stage_directory(...)`, listing upstream `manifest_path(dir)` and consumed files in `input_paths` (never repository source files).
+4. **Keep lines within 110 characters** and free of Ruff `E`, `F`, and `W` violations (`py312`).
+
+### Adding a scientific parameter
+
+1. Add the key and value under the appropriate section (`shared`, `raptor`, `eht_imaging`, or `analysis`) in `configs/experiment.yaml`.
+2. Add the key name to `SCHEMA` in `eht_axion/experiment.py` and add type/domain checks in `_validate_shared`, `_validate_raptor`, `_validate_eht_imaging`, or `_validate_analysis`.
+3. If the parameter affects `RAPTOR` ray tracing, ensure `ray_tracing_config` (and `task_identity` if per-task) includes it; if it affects EHT imaging stages, ensure `eht_imaging_parameters` (`_EHT_PARAMETER_ORDER`) or solver plan dictionaries include it.
+4. Thread the value explicitly from the script into the `eht_axion/` function signature (with no numeric default) and add positive/negative validation cases in `tests/test_experiment.py`.
+5. Document the key in `docs/en/configuration.md` and `docs/zh/configuration.md`.
+
+### Adding a new analysis stage
+
+1. Add a layout key (for example `"analysis.my_check": "analysis/my-check"`) to `LAYOUT` in `eht_axion/environment.py`, and add the matching line under `analysis/` in the `<data root>/` tree of both `docs/en/data-layout.md` and `docs/zh/data-layout.md` (checked by `tests/test_data_root.py`).
+2. Implement pure numerical logic in `eht_axion/analysis/` without file I/O or default scientific values.
+3. Create `scripts/analysis/my_check.py` with the standard `sys.path` preamble, `add_data_root_option`, and `fill_defaults`. Verify upstream stages via `verify_stage` + `require_declared_outputs`, refuse an existing `--output-root`, and publish outputs inside `stage_directory(destination, "analysis:my-check", identity, inputs, verify_lineage=...)`.
+4. Register an `analysis-my-check` task in `pixi.toml`, add synthetic tests in `tests/test_analysis_my_check.py` and `tests/test_data_root.py`, and document the stage in `docs/en/` and `docs/zh/`.

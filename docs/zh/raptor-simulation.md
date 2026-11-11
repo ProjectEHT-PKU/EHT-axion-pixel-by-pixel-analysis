@@ -1,183 +1,107 @@
 # RAPTOR 模拟
 
-## 用途
+[← 返回文档索引](index.md)
 
-本页说明 RAPTOR 输入如何产生：编译固定版本的 RAPTOR 核心程序，规划光线追踪任务，把任务作为
-按内容寻址的作业运行，校验每个作业的输出，把输出转换为 Stokes 数据立方，并为分析部分交付（或
-合并）这些数据立方。RAPTOR 模拟不读取任何 EHT 成像产品。
+`RAPTOR` 模拟流水线编译固定版本的偏振广义相对论光线追踪（ray tracing）核心程序 `RAPTOR`，校验广义相对论磁流体力学（general-relativistic magnetohydrodynamics, GRMHD）BHAC 快照和轴子径向轮廓表，以有界并发和可选 CPU 绑定方式运行 $18\,330$ 个内容寻址（content-addressed）光线追踪作业，逐一校验 HDF5 与谱文件，并为下游分析交付 float64 精度的斯托克斯（Stokes）数据立方。本部分不依赖任何 EHT 成像产出。
 
-## 输入
+## 前置条件与输入数据
 
-- RAPTOR 仓库的一个本地工作副本（`--source-root` 或 `EHT_RAPTOR_SOURCE_ROOT`）：没有未提交的修改，
-  恰好处于 `raptor.source.commit`，并且有一个 git 远程仓库指向 `raptor.source.repository`。
-- `raptor.snapshots` 所列标签的 BHAC GRMHD 快照 `data<label>.dat`（`--fluid-root` 或
-  `EHT_GRMHD_ROOT`）。
-- 两张无表头的 CSV 径向表，列为 $\alpha, r, R$（`--radial-low`、`--radial-high` 或
-  `EHT_RADIAL_LOW`、`EHT_RADIAL_HIGH`）。
-- `configs/experiment.yaml`：`shared` 中的物理键和 `raptor` 节（[实验配置](experiment-config.md)）。
+运行 `RAPTOR` 脚本需要 Linux（`linux-64`）系统及 `raptor-build` Pixi 环境（含 `c-compiler`、`make`、`gsl`、`hdf5`、`pkg-config`、`rsync`）。共需四项外部输入（通过 `.env` 中的三个根目录 `EHT_RAPTOR_SOURCE_ROOT`、`EHT_INPUT_ROOT` 与 `EHT_DATA_ROOT` 定位，或用命令行选项显式指定；见[配置参考](configuration.md#本机环境变量env)）：
 
-## 输出
+- **`RAPTOR` 源码工作副本**（`--source-root` / `EHT_RAPTOR_SOURCE_ROOT`）：一个洁净的 Git 工作副本（不含已修改或未跟踪文件），其 `HEAD` 恰好处于 `raptor.source.commit`（`20056006820b6536c96de790dd5fdaad5ada4eae`），且至少有一个规范化后等于 `raptor.source.repository`（`github.com/projecteht-pku/raptor`）的 Git 远程仓库地址。
+- **BHAC GRMHD 快照**（`--fluid-root`，默认 `$EHT_INPUT_ROOT/grmhd`）：二进制快照文件 `data<label:06d>.dat`（从 `data001600.dat` 到 `data003000.dat`，步长为 `10`，共 141 个快照）。解析后的文件路径必须是不含空白字符且不超过 255 个 UTF-8 字节的单一路径标记。
+- **径向轮廓表**（`--radial-low`、`--radial-high`，默认 `$EHT_INPUT_ROOT/radial/result_a=0.9375_l1m1.txt` 与 `$EHT_INPUT_ROOT/radial/result_a=0.99_l1m1.txt`）：分别对应 `low`（`spin = 0.9375`）与 `high`（`spin = 0.99`）的两张无表头三列 CSV 文件 $(\alpha, r, R)$，路径同样不超过 255 个 UTF-8 字节且不含空白字符。
+- **实验参数文件**（`--config`，默认 `configs/experiment.yaml`）：读取 `shared` 物理标量及 `raptor` 节。
 
-所有输出都在一个运行根目录之下（`--run-root` 或 `EHT_RAPTOR_RUN_ROOT`；默认布局使用
-`raptor/runs/<name>/`，见[数据布局](data-layout.md#默认布局)）：
-
-- `build/`：编译好的 RAPTOR 及其回执（阶段 `raptor:build`）。
-- `jobs/<task id>/`：每个任务一个阶段（阶段 `raptor:job`）；失败的尝试保存在
-  `attempts/<task id>/` 中。
-- `data/raptor/res-100/alpha-<α>/stokes.npy`：每个 $\alpha$ 一个交付的数据立方；以及
-  `data/raptor/res-400/background/t<A>-t<B>/stokes-t<A>-t<B>.npy`：无轴子的时间分片
-  （阶段 `raptor:delivery`）。
-- `config.yaml`（实验文件的副本）和 `requests/<uuid>.json`（每次调用一条记录）。
-
-`scripts/raptor/merge.py` 把同样的 `data/raptor/...` 目录树写入一个新的输出根目录，另外写出
-`inventory/`（阶段 `raptor:merge`）。文件细节见[数据布局](data-layout.md)。
+运行根目录（`--run-root`，默认 `$EHT_DATA_ROOT/raptor/runs/main`）不得与本仓库根目录、`RAPTOR` 源码目录、快照目录或径向表目录重叠，也不得位于任何已有阶段目录之内。
 
 ## 运行方法
 
-使用 `raptor-build` 环境（仅限 Linux）。路径依次取自命令行、已导出的环境变量、`.env.raptor`、
-`.env`（[开发](development.md)）。设置了数据根目录（`EHT_DATA_ROOT` 或 `--data-root`）时，下面每个根目录选项都有取自
-[默认布局](data-layout.md#默认布局)的默认值；这里的命令显式给出了这些根目录。
+将 `.env.example` 复制为 `.env` 并设置三个根目录 `EHT_RAPTOR_SOURCE_ROOT`、`EHT_INPUT_ROOT` 与 `EHT_DATA_ROOT`。完整流程如下：
 
 ```bash
-pixi run -e raptor-build raptor-build                       # build into RUN_ROOT/build
-pixi run -e raptor-build raptor-generate --plan --plan-output plan.json   # list tasks only
-pixi run -e raptor-build raptor-generate                    # run jobs, then deliver cubes
-pixi run -e raptor-build raptor-generate --convert-only     # deliver already complete jobs
-pixi run -e raptor-build raptor-merge --plan plan.json \
-    --job-root RUN_A --job-root RUN_B --output-root MERGED  # merge runs of several hosts
+# 1. Compile the pinned RAPTOR binary into $EHT_DATA_ROOT/raptor/runs/main/build
+pixi run -e raptor-build raptor-build
+
+# 2. Validate inputs and freeze the task plan without launching C processes
+pixi run -e raptor-build raptor-generate --plan --plan-output $EHT_DATA_ROOT/raptor/plan.json
+
+# 3. Execute ray-tracing jobs (resumable) and deliver Stokes cubes in the run root
+pixi run -e raptor-build raptor-generate
+
+# Deliver cubes from already completed jobs in one run root without launching RAPTOR:
+pixi run -e raptor-build raptor-generate --convert-only
+
+# 4. Merge completed job roots from one or more hosts/runs into $EHT_DATA_ROOT/raptor/delivered
+pixi run -e raptor-build raptor-merge
 ```
 
-`scripts/raptor/generate.py` 的选项：`--max-jobs N`（只运行前 N 个任务；交付要等其余任务完成）、
-`--threads`（每个 RAPTOR 进程的 OpenMP 线程数）、`--workers`（并发进程数）、
-`--cpu-affinity none|physical|logical`、`--cpu-list`、`--timeout-seconds`。编译和生成都接受
-`--config`、`--source-root`、`--run-root`、`--env-file` 和 `--no-env-file`。
+若要显式指定多台主机的作业根目录进行合并（而不扫描 `$EHT_DATA_ROOT/raptor/runs/*`）：
 
-## 细节
+```bash
+pixi run -e raptor-build raptor-merge --plan /path/to/plan.json \
+    --job-root /path/to/runs/host-a --job-root /path/to/runs/host-b \
+    --output-root /path/to/delivered
+```
 
-### 编译
+**`scripts/raptor/generate.py` 的执行选项：**
+- `--max-jobs N`：仅运行计划中的前 `N` 个任务（仍有未完成任务时跳过数据立方交付）。
+- `--workers W`（`EHT_RAPTOR_WORKERS`，默认 `1`）与 `--threads T`（`EHT_RAPTOR_THREADS`，默认 `2`）：并发运行的 `RAPTOR` 进程数及每个进程的 OpenMP 线程数。
+- `--cpu-affinity {none,physical,logical}`（`EHT_RAPTOR_CPU_AFFINITY`，回退值 `none`）与 `--cpu-list RANGE`（`EHT_RAPTOR_CPU_LIST`，如 `0-47`）：使用 `taskset` 对工作进程做 CPU 亲和性（CPU affinity）绑定。
+- `--timeout-seconds SEC`（`EHT_RAPTOR_TIMEOUT_SECONDS`）：单个进程的墙钟超时限制。
 
-`build_raptor`（`eht_axion/raptor/build.py`）检查源码工作副本没有未提交的修改（包括未跟踪的文件）、
-HEAD 恰好是 `raptor.source.commit`，并且至少有一个 git 远程仓库地址在规范化之后（去掉协议、用户、端口
-和末尾的 `.git`，`git@host:` 与 `https://host/` 视为相同，转为小写）等于 `raptor.source.repository`；然后
-把受版本控制的源码字节复制到 `build/source/`，并用由 `raptor.build` 派生的参数（`--code`、
-`--metric`、`--int`、`--grid`、`--rad`、`--sf`、`--bflip`、`--sigma-cut`、`--uniform`、
-`--thetae-min`、`--thetae-max`）运行官方的 `setup.sh`。它记录编译器命令行和本次编译的预处理宏
-（`macros.txt`），并核对这些宏与 YAML 设置一致。编译记录包含这些设置、RAPTOR 仓库与提交和工具链（源码由提交标识，不再逐文件计算哈希），以及编译得到的可执行
-文件的 SHA-256，每个作业都把它记录为输入；径向表和快照不是编译输入。
+`scripts/raptor/build.py` 只需要 `RAPTOR` 工作副本（`--source-root`）和运行根目录（`--run-root`，或 `--data-root` / `EHT_DATA_ROOT`）；它既不要求也不解析输入根目录，因此纯编译机器无需挂载快照或径向表。同一数据根目录下的第二个运行根目录（如 `raptor/runs/background`）通过 `--run-root` 指定。
 
-### 任务计划
+## 编译固定版本的 RAPTOR 核心
 
-`plan_generation`（`eht_axion/raptor/plan.py`）只读取小型输入：
+`build_raptor`（`eht_axion/raptor/build.py`）在 `<run_root>/build/` 发布阶段 `raptor:build`：
 
-- 对每个标签，它读取 `data<label>.dat` 的 BHAC 尾部信息（小端序块布局、以 $t_g$ 为单位的时间、
-  绝热指数、自旋），并检查：自旋等于 `raptor.fluid_spin`（0.9375），块大小能整除
-  `raptor.grid.nxlone`，文件长度不短于尾部信息所隐含的长度，以及相邻尾部时间之差等于
-  `label_step_tg` × 标签差。
-- 每张径向表被载入，检查它是否为覆盖使用它的那些 $\alpha$ 值的矩形递增 $(\alpha, r)$ 网格，并计算
-  哈希值。振幅不做重新缩放。
+1. 校验 `--source-root` 为处于 `raptor.source.commit` 的洁净 Git 仓库，且至少有一个远程地址规范化后等于 `raptor.source.repository`。
+2. 提取受版本控制的源码字节（`git ls-tree` / `git cat-file`）到 `build/source/`，清理外部 `make` 和头文件环境变量（`VPATH`、`CPATH`、`MAKEFLAGS`、`RAPTOR` 等），并解析编译器 `h5cc`（`HDF5_CC`）。
+3. 按 `raptor.build` 派生的参数（`--code`、`--metric`、`--int`、`--grid`、`--rad`、`--sf`、`--bflip`、`--sigma-cut`、`--uniform`、`--thetae-min`、`--thetae-max`）运行官方 `setup.sh`。
+4. 通过 `make -nB all` 记录编译器命令行（`compiler-flags.txt`），通过 `h5cc ... -dM -E` 导出生效的预处理器宏（`macros.txt`），并断言 `metric`、`int_method`、`AMR`、`SMR`、`POL`、`SFC`、`BPOL`、`SIGMA_CUT`、`UNIF`、`THETAE_MIN` 和 `THETAE_MAX` 与 `raptor.build` 一致。
+5. 写出 `receipt.json`，记录工具链信息、生效宏取值以及 `RAPTOR` 可执行文件的 SHA-256（每个下游作业都将其声明为输入）。
 
-对每个快照，计划包含：
+## 任务规划与内容寻址标识符
 
-- 一个分辨率为 `response.resolution`（100）的无轴子（“baseline”）任务和一个分辨率为
-  `background.resolution`（400）的无轴子任务；
-- 对每个 $\alpha$ 和每个相位序号 $k = 0,\dots,15$，一个 100 像素的有轴子（“response”）任务，其中
-  `AXION_ALPHA` $=\alpha$，`AXION_OMEGA` $=\Omega(\alpha)=\alpha(1-\alpha^2/(2n^2))$，
-  `AXION_NORM` $=$ `reference_norm`，`AXION_PHASE` $=k$（核心程序施加的相位为 $k\pi/8$），并使用
-  `raptor.alpha_table` 指定的径向表。
+`plan_generation`（`eht_axion/raptor/plan.py`）仅检查轻量级元数据，不启动任何光线追踪计算：
 
-按当前取值共有 $141 \times 130 = 18\,330$ 个任务。每个任务带有 19 个 `model.in` 取值（以 $M_\odot$
-为单位的 `MBH`、以 kpc 为单位的 `DISTANCE`、以 g 为单位的 `M_UNIT`、`R_LOW`、`R_HIGH`、以度为单位的
-`INCLINATION`、图像尺寸、以 $r_g$ 为单位的相机尺寸、一个频率、`STEPSIZE`、四个轴子取值、
-`AXION_TABLE`、`MAX_LEVEL` = 1）及其输出槽位（baseline 为 0，相位 $k$ 为 $k+1$）。
+- **快照尾部检查**（`read_snapshot_footer`）：读取每个 `data<label:06d>.dat` 末尾 40 字节的小端序 BHAC 尾部及紧邻其前的 `nx`、`neqpar` 记录；核对三维块结构、块尺寸 `nx` 整除 `raptor.grid.nxlone`、黑洞自旋等于 `raptor.fluid_spin`（`0.9375`，绝对容差 $10^{-12}$）、文件字节长度不小于尾部隐含的数据载荷下界、绝热指数 $\gamma$ 恒定，以及相邻快照尾部时间差等于 `shared.label_step_tg * step`（每 10 个标签间隔 $1.0\,t_g$）。
+- **径向表检查**（`validate_radial_table`）：载入每张无表头 CSV，要求有限的 $(\alpha, r, R)$ 且 $R \ge 0$，各行按严格递增的 $\alpha$ 分块排列并共用同一严格递增的 $r$ 网格（$\ge 2$ 个点），核对其覆盖 `raptor.alpha_table` 分配给它的全部 $\alpha$ 值，并计算文件 SHA-256（不对振幅做重新归一化）。
 
-### 任务标识符
+对 141 个快照中的每一个，计划生成 130 个任务（总计 $18\,330$ 个任务）：
+- **2 个 `baseline` 任务**（无轴子：`AXION_ALPHA = 0`、`AXION_OMEGA = 0`、`AXION_NORM = 0`、`AXION_PHASE = 0`、`AXION_TABLE = disabled`、`output_slot = 0`），分辨率分别为 `response.resolution`（`100`）和 `background.resolution`（`400`）；
+- **128 个 `response` 任务**（分辨率 `100` 像素），遍历全部 8 个 $\alpha$ 取值与 16 个相位序号 $k \in \{0, \dots, 15\}$（`AXION_ALPHA` $= \alpha$、`AXION_OMEGA` $= \Omega(\alpha) = \alpha(1 - \alpha^2/(2n^2))$、`AXION_NORM` $= 0.1$、`AXION_PHASE` $= k$ 对应核心相位 $k\pi/8$、`output_slot` $= k + 1$，并使用 `raptor.alpha_table` 指定的径向 CSV 表）。
 
-任务标识符是一个规范化 JSON 文档（`task_identity`）的 SHA-256，该文档包含：
+每个任务携带全部 19 个 `model.in` 参数（以 $M_\odot$ 为单位的 `MBH`、以 $\mathrm{kpc}$ 为单位的 `DISTANCE`、以 $\mathrm{g}$ 为单位的 `M_UNIT`、`R_LOW`、`R_HIGH`、以 $\mathrm{deg}$ 为单位的 `INCLINATION`、`IMG_WIDTH`、`IMG_HEIGHT`、以 $r_g$ 为单位的 `CAM_SIZE_X` 与 `CAM_SIZE_Y`、`FREQS_PER_DEC = 1`、以 $\mathrm{Hz}$ 为单位的 `FREQ_MIN`、`STEPSIZE`、`AXION_ALPHA`、`AXION_OMEGA`、`AXION_NORM`、`AXION_PHASE`、`AXION_TABLE`、`MAX_LEVEL = 1`）。
 
-- `schema_version`（2）；
-- 快照文件名及其尾部元数据；
-- 除表路径之外的 19 个 `model.in` 取值；
-- 对有轴子任务，表的自旋和表内容的 SHA-256；
-- `raptor.grid` 和 `raptor.build`。
+**任务标识符（`task_identity`）：** 规范化 JSON 文档的 SHA-256，包含 `schema_version`（`2`）、快照文件名及尾部元数据、除 `AXION_TABLE` 外的 19 个 `model.in` 取值、径向表的 `{spin, sha256}`（`baseline` 为 `null`）、`raptor.grid` 和 `raptor.build`。天空网格、EHT 成像和分析参数均不进入任务标识符，因此修改下游设置永远不会使已完成的光线追踪作业失效。
 
-天空网格、EHT 成像和分析设置从不进入任务标识符，因此改变它们永远不会使光线追踪结果失效。
+## 作业执行、CPU 亲和性与输出校验
 
-### 作业
+在启动作业前，`scripts/raptor/generate.py` 与 `run_jobs`（`eht_axion/raptor/jobs.py`）会：
+- 检查剩余磁盘空间（$\ge 4 \times \text{output\_stokes\_lower\_bound\_bytes} + 2\,\mathrm{GiB}$）与可用内存余量（$\ge \text{workers} \times \max(2.5\,\mathrm{GiB},\,2 \times \text{per\_process\_memory\_lower\_bound\_bytes}) + 2\,\mathrm{GiB}$，同时考虑 Linux `MemAvailable` 与 cgroup-v2 的 `memory.max - memory.current`）；
+- 校验 `raptor:build` 阶段，核对 `raptor_source`、`grid_mks.in` 及必需的 C 宏（`POL=1`、`num_frequencies=1`、`num_pixels_1d=10`、`NSPIN=3`、`SMR=1`、`AMR=0`、`UNIF=0`、`metric=MKSBHAC`、`DF=TH`、`IMGFILE=1`、`SPECFILE=1`），并重新校验实时快照尾部与径向表哈希；
+- 在单个 `verification_session` 中对共享输入闭包预先计算一次哈希。
 
-`run_jobs`（`eht_axion/raptor/jobs.py`）用固定数目的工作槽位运行任务。启动之前，它校验编译阶段，检查编译的仓库和提交等于计划中的 `raptor_source`（由 `scripts/raptor/generate.py`
-从 `raptor.source` 复制而来），
-（包括其来源链），重新读取每个快照尾部和径向表并与计划比对（径向表哈希总是比对；计划中含有快照
-哈希时也比对快照哈希），把编译目录的网格文件和宏与计划比对，并检查内存余量。每个快照和每张表的
-SHA-256 记录在读取它的每个作业的清单中。每个任务在它自己的阶段目录 `jobs/<task id>/` 中运行，
-输入为编译清单、可执行文件、`grid_mks.in`、`definitions.h`、快照和表。运行根目录不得位于某个阶段
-目录之内（任何上级目录都不得含有 `manifest.json`）。RAPTOR 在一个临时目录中以
-`RAPTOR model.in <snapshot> <output slot>` 的形式调用；若它成功退出，则校验其输出（下一节）并发布
-该阶段。失败的尝试保存在 `attempts/<task id>/attempt-*/` 下（日志、回执和不完整的工作目录），
-从不发布。重新运行时会续跑：只有当一个已发布作业的清单、成功回执、已校验的输出元数据、`model.in`、
-任务回执和网格文件全部一致时才复用它。取消运行会终止所有进程组并保留它们的尝试记录。
+**调度与 CPU 亲和性（`eht_axion/raptor/affinity.py`）：** 第 `i` 个任务确定性地分配给工作槽位 `i % workers`。`allocate_cpu_sets` 为每个工作进程分配互不相交的 `threads` 个 CPU（`physical` 依据 `/sys/devices/system/cpu/*/topology` 在每个物理核 `(socket, core)` 上只选一个逻辑 CPU；`logical` 使用任意允许的逻辑 CPU；`none` 不做绑定）。启用绑定时，进程通过 `taskset --cpu-list ...` 启动并设置 `OMP_PROC_BIND=close`、`OMP_PLACES=cores`，这些绑定参数会写入 `raptor:job` 的阶段配置，保证断点续跑时缓存身份完全一致。
 
-### 作业输出校验
+**执行、续跑与失败现场保留：** 每次实际执行都会创建 `<run_root>/attempts/<task_id>/attempt-*/`（记录 `input.json`、`stdout.log`、`stderr.log`、`result.json`），并在临时阶段目录中调用 `RAPTOR model.in <snapshot> <output_slot>`。若 `RAPTOR` 非零退出、超时或被中断（`SIGINT`/`SIGTERM` 会终止所有活跃进程组），未完成的临时工作目录会被复制到 `attempts/<task_id>/attempt-*/work/`，不会发布为完成阶段。重新运行时，已存在的 `jobs/<task_id>/` 仅在其阶段清单（manifest）、`success.json`、`output.json`、`model.in`、`task.json` 和 `grid_mks.in` 全部校验通过时才会被复用。
 
-`validate_job_output`（`eht_axion/raptor/outputs.py`）检查一个作业：
+**单作业输出校验（`eht_axion/raptor/outputs.py` 中的 `validate_job_output`）：**
+- 检查 `output/img_data_<slot>.h5` 仅包含内部硬链接数据集 `{I,Q,U,V,tau,tauF}<freq:e>`、`alpha` 和 `beta`，每个数据集均为有限值且形状为 `((N/10)^2, 100)`（按 x 优先排列的 $10 \times 10$ 像素块）；
+- 核对每个块的相机坐标 `alpha`、`beta` 与预期像素中心（单位 $r_g$）一致；
+- 核对单行谱文件 `output/spectrum_<slot>_<inclination:.2f>.dat`（`frequency` 及以 $\mathrm{Jy}$ 为单位的 $I, Q, U, V$）与 $\sum \text{HDF5}_{IQUV}\,\Delta\Omega$ 在相对容差 $10^{-10}$ 内一致，其中像素立体角 $\Delta\Omega = (\Delta x\,\Delta y)(r_g / D)^2$ 使用从 `build/definitions.h` 解析出的字面常数 `GGRAV`、`MSUN`、`SPEED_OF_LIGHT` 和 `KPCTOCM`；
+- 在 `output.json` 中记录 $I < 0$ 或 $\sqrt{Q^2 + U^2 + V^2} > I$ 的像素数作为诊断信息，不做数据过滤。
 
-- HDF5 文件 `output/img_data_<slot>.h5` 在单一频率下恰好包含数据集 I、Q、U、V、tau、tauF、alpha、
-  beta，每个的形状为 $((N/10)^2, 100)$（10×10 像素的块），只用硬链接、不用外部存储；
-- 每个块的相机坐标 `alpha`、`beta` 等于预期的像素中心（块和像素均按 x 优先顺序）；
-- 谱文件 `output/spectrum_<slot>_<inclination>.dat` 只有一行（频率以及以 Jy 为单位的 I、Q、U、V），
-  其流量等于 HDF5 强度（Jy/sr）乘以像素立体角 $\Delta\Omega = (\Delta x\,\Delta y)\,(r_g/D)^2$，
-  所用常数取自编译目录的 `definitions.h`，相对容差为 $10^{-10}$。
+## Stokes 数据立方转换、交付与多机合并
 
-结果（`output.json`）还记录 $I<0$ 的像素数和 $\sqrt{Q^2+U^2+V^2} > I$ 的像素数作为诊断量；
-它不做任何科学上的接受判断。
+`convert_hdf5`（`eht_axion/raptor/convert.py`）将矩形 `time × state`（时间 × 状态）网格上的作业 HDF5 分块拼接为形状 `(T, S, N, N, 4)` 的 float64 数组（`[time, state, x, y, IQUV]`，单位 $\mathrm{Jy\,sr^{-1}}$），并写出 `convert.json`。
 
-### 格式转换
+`deliver_stokes`（`eht_axion/raptor/delivery.py`）在一个或多个作业根目录中将每个计划任务唯一对应到一个已完成作业阶段，校验其来源链与 `success.json`，并在 `<target>/data/raptor/` 下发布 `raptor:delivery` 阶段：
+- `res-100/alpha-<alpha:.2f>/stokes.npy`，形状为 `(141, 17, 100, 100, 4)`（共 8 个阶段：状态 `0` 为无轴子基线，状态 `k+1` 对应轴子相位 $k\pi/8$）；
+- `res-400/background/t<A>-t<B>/stokes-t<A>-t<B>.npy`，按最多 10 个连续快照分片（共 15 个阶段：`t1600-t1690` … `t3000-t3000`），形状为 `(T, 1, 400, 400, 4)`。
 
-`convert_hdf5`（`eht_axion/raptor/convert.py`）读取一个由作业 HDF5 文件组成的矩形“时间 × 状态”
-网格，写出一个形状为 $(T, S, N, N, 4)$ 的 float64 数组（Stokes I、Q、U、V，单位 Jy/sr；第 2 轴为
-相机 x，第 3 轴为相机 y）。每个 10×10 的块放在其记录的原点处；这些块必须恰好铺满整幅图像。
+每个交付阶段同时写出 `generated.json`（模式 `raptor-generated-v2`，记录 `ray_tracing_config`、`alpha`、`resolution`、`snapshot_labels`、BHAC 尾部时间 `times_tg`、`state_count`、`omega`、坐标轴与单位）和 `sources.json`（任务到源作业根目录的映射）。下游分析阶段通过 `generated_inputs` 强制核对 `generated.json` 与当前 `configs/experiment.yaml` 完全一致。
 
-### 交付与合并
-
-`deliver_stokes`（`eht_axion/raptor/delivery.py`）把每个计划中的任务恰好分配给一个作业根目录，
-校验每个作业阶段及其来源链，检查每个作业是否声明了其任务的编译和源输入，并检查作业的成功回执。
-作业的 HDF5 通过作业清单中的 SHA-256 值与已校验的 `output.json` 绑定，不再重新校验。然后它写出：
-
-- 对每个 $\alpha$：`res-100/alpha-<α>/stokes.npy`，形状为 (141, 17, 100, 100, 4)；状态 0 是无轴子
-  基线，状态 $k+1$ 的轴子相位为 $k\pi/8$；
-- 对无轴子背景：`res-400/background/t<A>-t<B>/stokes-t<A>-t<B>.npy`，每个分片最多 10 个快照，
-  形状为 $(T, 1, 400, 400, 4)$。
-
-每个产品目录含有 `generated.json`：光线追踪配置、$\alpha$（背景为 null）、分辨率、快照标签、以
-$t_g$ 为单位的尾部时间、状态数、$\Omega$、轴顺序和单位。只有当这条记录等于当前 `configs/experiment.yaml`
-会交付的内容（`generated_inputs`）时，分析部分才接受该产品；帧间隔取自记录的尾部时间
-（`input_cadence_hours`）。
-
-`scripts/raptor/merge.py` 用多个 `--job-root` 参数和一个新的 `--output-root` 调用同一个交付函数，校验冻结
-计划的光线追踪配置，并写出一个列出各产品的清单（inventory）阶段。原有的作业目录不会被修改。
-
-### CPU 亲和性
-
-`allocate_cpu_sets`（`eht_axion/raptor/affinity.py`）给每个工作进程分配一组互不相交的、共
-`threads` 个 CPU。`physical` 每个物理核只用一个逻辑 CPU（依据
-`/sys/devices/system/cpu/*/topology`），`logical` 使用任何允许的 CPU，`none` 不做绑定。绑定使用
-`taskset`；`--cpu-list` 限制允许使用的 CPU。启用绑定时，CPU 集合和 OpenMP 绑定方式属于作业身份的
-一部分。`check_memory` 要求每个工作进程有足够的内存余量（至少 2.5 GiB，在 `scripts/raptor/generate.py`
-中还要求至少为计划给出的每进程下限的两倍），并考虑 cgroup-v2 限制。
-
-### .env.raptor
-
-`scripts/raptor/build.py` 和 `scripts/raptor/generate.py` 读取 `.env.raptor` 和 `.env`（由 `.env.raptor.example`
-复制而来）。键：`EHT_RAPTOR_SOURCE_ROOT`、`EHT_GRMHD_ROOT`、`EHT_RADIAL_LOW`、`EHT_RADIAL_HIGH`、
-`EHT_RAPTOR_RUN_ROOT`、`EHT_RAPTOR_THREADS`（默认 2）、`EHT_RAPTOR_WORKERS`（默认 1）、
-`EHT_RAPTOR_CPU_AFFINITY`（默认 `none`）、`EHT_RAPTOR_CPU_LIST`、`EHT_RAPTOR_TIMEOUT_SECONDS`。
-源码根目录和运行根目录没有默认值。运行根目录不得与源码目录、流体数据目录或径向表目录重叠；一个
-运行根目录始终使用它启动时的实验文件（`config.yaml`），换用不同的文件需要新建一次运行。
-
-## 相关页面
-
-- [文档索引](index.md)
-- [概览](overview.md)
-- [实验配置](experiment-config.md)
-- [来源记录](provenance.md)
-- [数据布局](data-layout.md)
-- [开发](development.md)
+当作业分散在多台主机或多个运行目录中完成时，`scripts/raptor/merge.py` 通过 `deliver_stokes` 将各作业根目录合并交付到互不相交的新目录 `--output-root`（默认 `$EHT_DATA_ROOT/raptor/delivered/`），并写出 `inventory/index.json`（阶段 `raptor:merge`，布局 `raptor-merge-v2`），不修改任何源作业目录。

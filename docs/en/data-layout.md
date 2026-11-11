@@ -1,80 +1,110 @@
-# Data layout
+# Data Layout and Provenance
 
-## Purpose
+[← Documentation index](index.md)
 
-This page lists the directories and files that each script writes, with array shapes,
-axis orders and units, so that every product can be located and read without running the
-code. Names in capitals (`RUN_ROOT`, `TEMPLATES`, …) are the output roots given on the
-command line. Unless noted otherwise, every directory listed with a stage name contains a
-`manifest.json` ([Provenance](provenance.md)).
+Scientific arrays and figures are never stored inside the git repository. Every pipeline script derives its default product directories from a single data root (`EHT_DATA_ROOT` or `--data-root`) and its external inputs from a single read-only input root (`EHT_INPUT_ROOT` or `--input-root`), writes results atomically into stage directories signed with `manifest.json` (or explicit batch/bundle receipts), and verifies upstream SHA-256 checksums before consuming any product.
 
-## Inputs
+## Default layout
 
-The products below are read by the next scripts as described on
-[RAPTOR simulation](raptor-simulation.md), [EHT imaging](eht-imaging.md) and
-[Analysis](analysis.md).
+Setting `EHT_DATA_ROOT` (in `.env` or the shell) or passing `--data-root PATH` organizes an entire experiment under one directory (`eht_axion/environment.py`, `LAYOUT`):
 
-## Outputs
+```text
+<data root>/
+  raptor/
+    plan.json                    frozen task plan (raptor/generate.py --plan --plan-output)
+    runs/<name>/                 per-host/build run root (default: runs/main)
+    delivered/                   merged Stokes cubes (data/raptor/...) and inventory/
+  eht/
+    intensity/day-<day>/         eht/reconstruct.py --stage I
+    fiducial/day-<day>/          eht/reconstruct.py --stage fiducial
+    refine/day-<day>/            eht/refine.py
+    bundle/                      eht/export_bundle.py
+    sample/                      eht/sample.py
+    ensemble/                    eht/summarize.py
+  analysis/
+    templates/                   analysis/templates.py (reads raptor/delivered/data)
+    limits/                      analysis/limits.py
+    check-grid/                  analysis/check_grid.py --check grid
+    check-prior/                 analysis/check_grid.py --check prior
+    check-covariance/            analysis/check_covariance.py
+    summary/                     analysis/summarize.py
+    paper/                       analysis/paper.py
+```
 
-### RAPTOR simulation
+Explicit `--...-root` flags override any default path. `scripts/raptor/merge.py` defaults `--job-root` to every subdirectory of `raptor/runs/`; `scripts/analysis/check_grid.py` requires `--check grid` or `--check prior` when `--output-root` is omitted.
+
+## Input layout
+
+External inputs are only read, never written. Setting `EHT_INPUT_ROOT` (in `.env` or the shell) or passing `--input-root PATH` locates all of them under one directory (`eht_axion/environment.py`, `INPUT_LAYOUT`); the third root, `EHT_RAPTOR_SOURCE_ROOT`, is the `RAPTOR` git checkout:
+
+```text
+<input root>/
+  grmhd/                         data001600.dat ... data003000.dat (BHAC snapshots; --fluid-root)
+  radial/
+    result_a=0.9375_l1m1.txt     radial table "low" (spin 0.9375; --radial-low)
+    result_a=0.99_l1m1.txt       radial table "high" (spin 0.99; --radial-high)
+  eht/                           directory of the uvfits files (--uvfits-dir)
+    SR2_M87_2017_<day>_lo_hops_zbl-dtcal+selfcal.uvfits   eht_imaging.inputs (name, SHA-256)
+    feed-rotation.json           station feed-rotation table (--feed-rotation-file)
+    eht-imaging_pipeline.py      official EHT imaging script (--official-script)
+```
+
+The radial-table file names belong to the `raptor.radial_tables` ids `low` and `high`; the four `uvfits` names and SHA-256 digests are `eht_imaging.inputs` of `configs/experiment.yaml`. Explicit options (shown in parentheses) override single entries. `scripts/analysis/paper.py` checks the radial tables against the SHA-256 recorded in `raptor/plan.json` and reads `src/axion.c` from the `RAPTOR` checkout, which must be clean at `raptor.source.commit`.
+
+## Stage files and array specifications
+
+Unless noted otherwise, every directory tagged with a `stage` identifier contains a `manifest.json`.
+
+### `RAPTOR` simulation
 
 ```text
 RUN_ROOT/
-  config.yaml                    copy of the experiment file of this run
-  requests/<uuid>.json           one record per raptor/build.py / generate.py call
+  config.yaml                    exact copy of configs/experiment.yaml used by this run
+  requests/<uuid>.json           one invocation record per build.py / generate.py run
   build/                         stage raptor:build
-    RAPTOR                       executable
-    source/                      tracked RAPTOR source bytes at raptor.source.commit
+    RAPTOR                       compiled executable
+    source/                      tracked RAPTOR source blobs at raptor.source.commit
     definitions.h, model_*.h, grid_mks.in, ...   files generated by setup.sh
     compile.log, compiler-flags.txt, macros.txt, receipt.json
   jobs/<task id>/                stage raptor:job
     task.json, model.in, grid_mks.in
-    output/img_data_<slot>.h5    I, Q, U, V (Jy/sr), tau, tauF, alpha, beta (r_g)
+    output/img_data_<slot>.h5    {I,Q,U,V,tau,tauF}<freq:e>, alpha, beta; shape ((N/10)^2, 100)
     output/spectrum_<slot>_<inclination>.dat   frequency (Hz), I, Q, U, V (Jy)
     output.json, success.json, stdout.log, stderr.log
-  attempts/<task id>/attempt-*/  input.json, stdout.log, stderr.log, result.json, work/ (failures)
+  attempts/<task id>/attempt-*/  input.json, stdout.log, stderr.log, result.json (+ work/ on failure)
   data/raptor/
-    res-100/alpha-<α>/           stage raptor:delivery, one per alpha
-      stokes.npy                 float64 (141, 17, 100, 100, 4)
+    res-100/alpha-<α>/           stage raptor:delivery (8 directories, alpha-0.10 .. alpha-0.44)
+      stokes.npy                 float64 (141, 17, 100, 100, 4) in Jy/sr
       generated.json, sources.json, convert.json
-    res-400/background/t<A>-t<B>/   stage raptor:delivery, one per shard
-      stokes-t<A>-t<B>.npy       float64 (T <= 10, 1, 400, 400, 4)
+    res-400/background/t<A>-t<B>/   stage raptor:delivery (15 shards, <= 10 snapshots each)
+      stokes-t<A>-t<B>.npy       float64 (T <= 10, 1, 400, 400, 4) in Jy/sr
       generated.json, sources.json, convert.json
 ```
 
-`scripts/raptor/merge.py` writes `OUTPUT/data/raptor/...` as above and
-`OUTPUT/inventory/index.json` (stage `raptor:merge`).
-
-Delivered cubes: axes (time, state, x, y, Stokes); Stokes order I, Q, U, V in Jy/sr; x and
-y are the camera axes. State 0 is axion-off; state $k+1$ has axion phase $k\pi/8$.
-`generated.json` holds the ray-tracing configuration, `alpha` (null for the background),
-`resolution`, `snapshot_labels`, `times_tg` (footer times), `state_count`, `omega` and the
-axis and unit description. `sources.json` maps each task identifier to its job root.
+`scripts/raptor/merge.py` writes `DELIVERED/data/raptor/...` as above plus `DELIVERED/inventory/index.json` (stage `raptor:merge`). Delivered `stokes.npy` axes are `(time, state, x, y, Stokes)` with channels `[I, Q, U, V]` in $\mathrm{Jy\,sr^{-1}}$; state `0` is axion-off and state `k+1` has axion phase $k\pi/8$.
 
 ### EHT imaging
 
 ```text
 I<day>/                          stage eht:i
   plan.json, official-I-original.py, official-I-120-direct.py
-  final-fixedI.fits              fixed I image, 64 x 64, 120 uas
-  clean-gaincal-pol.uvfits       native circular data with shared gains applied
+  final-fixedI.fits              fixed total-intensity image (64 x 64, 120 uas)
+  clean-gaincal-pol.uvfits       native circular visibilities with shared R=L gains applied
   shared-gains.npz, polarization-input.json
 PD<day>/                         stage eht:fiducial
-  plan.json
-  round-<NN>-dterms.json, round-<NN>-raw-IQU.fits, round-<NN>-blurred-IQU.fits
+  plan.json, steps.json, termination.json
+  round-<NN>-dterms.json, round-<NN>-raw-IQU.fits, round-<NN>-blurred-IQU.fits   (NN = 01..50)
   final-raw-IQU.fits, final-blurred-IQU.fits, final-dterms.json
-  steps.json, termination.json
 D<day>/                          stage eht:refine
-  plan.json
-  round-<NN>-*.fits, round-<NN>-dterms.json          one per outer round (01 to 100)
-  final-P-*.fits, final-P-dterms.json                final P solve
+  plan.json, steps.json, D-optimizer-records.json, termination.json, best-P.npz
+  round-<NN>-dterms.json, round-<NN>-raw-IQU.fits, round-<NN>-blurred-IQU.fits   (NN = 01..100)
+  final-P-dterms.json, final-P-raw-IQU.fits, final-P-blurred-IQU.fits
   final-raw-IQU.fits, final-blurred-IQU.fits, final-dterms.json
-  best-P.npz, steps.json, D-optimizer-records.json, termination.json
-BUNDLE/                          no manifest; bundle.json instead
-  bundle.json, feed-rotation.json, scripts/eht/export_bundle.py
-  <day>/fixedI.fits, <day>/gaincal-pol.uvfits, <day>/fiducial-dterms.json
+BUNDLE/                          signed by bundle.json (no manifest.json)
+  bundle.json, feed-rotation.json
+  <day>/fixedI.fits, <day>/gaincal-pol.uvfits, <day>/fiducial-dterms.json        (mode 0444)
   lineage/<day>/I-manifest.json, D-manifest.json, D-plan.json, D-termination.json, D-steps.json
-MC/                              no manifest; batch receipts instead
+MC/                              signed by batch/task/finish receipts (no manifest.json)
   .controller.lock, batch.json, batch-plan.json, all-draws.json, tasks.jsonl, state.json, finish.json
   attempts/<day>-<draw>/attempt-<NNNN>/
     attempt.json, job.log, progress.json, certificate.json, taskreceipt.json
@@ -83,18 +113,13 @@ ENSEMBLE/                        stage eht:ensemble
   axes.npz                       east_uas (64), north_uas (64)
   report.json, consumed-inputs.json
   day-<day>/
-    stokes.npy                   float64 (1000, 64, 64, 4): draw, y, x, IQUV
-    evpa.npy                     float64 (1000, 64, 64): radians in [0, pi), NaN if I <= 0
+    stokes.npy                   float64 (1000, 64, 64, 4): [draw, y, x, IQUV]
+    evpa.npy                     float64 (1000, 64, 64): radians in [0, pi), NaN if I <= 0 or Q=U=0
     global.npz                   values (1000, 6), columns: total_I, m_net, m_resolved,
                                  evpa_rad, beta2_real, beta2_imag
 ```
 
-D-term JSON files map a station to `[[Re D_R, Im D_R], [Re D_L, Im D_L]]` (fractional, not
-percent). FITS images have four HDUs I, Q, U, V on native `RA---SIN`/`DEC--SIN` axes; the
-east offset decreases with the x index and the north offset increases with the y index.
-`<day>-<draw>` uses a four-digit draw index, for example `95-0042`.
-
-`scripts/eht/summarize.py` reads the `MC/` root above directly.
+D-term JSON files map station codes to `[[Re D_R, Im D_R], [Re D_L, Im D_L]]` (fractional complex leakage, not percent). Polarimetric EHT FITS files (`*-IQU.fits`) store four 2D HDUs (`I`, `Q`, `U`, `V`, with `V = 0`) on native `RA---SIN` / `DEC--SIN` axes (east offset decreases with `x`, north offset increases with `y`). Draw IDs `<day>-<draw>` use four-digit zero-padded indices (`95-0000` … `101-0999`).
 
 ### Analysis
 
@@ -117,95 +142,93 @@ LIMITS/                          stage analysis:limits
                                  covariances, pair_differences, pair_covariances,
                                  zero_data_pair_differences, resultant, sample_counts,
                                  local_branch_mean_minus_circular_radians, evpa_samples_radians
-  observations-{1d,2d}.json      selection rules and diagnostics
+  observations-{1d,2d}.json      selection rules, resultant lengths, condition numbers, branch risk
   background-selected-{1d,2d}.npz  selected_indices, differences, sigma_radians, mean_radians,
                                  spatial_covariance
   background-selected-{1d,2d}.json lag, lag_hours, cadence_hours, sigma_radians, method
   {observed,zero-data}-{std,cor,cor_fixed_background}-{1d,2d}.npz
                                  alphas, log10_c95, c95, couplings, log_likelihood,
                                  posterior_density, cdf
-  {observed,zero-data}-{std,cor,cor_fixed_background}-{1d,2d}.json   full diagnostics
-  limits.csv                     data, mode, dimension, alpha, log10_c95, c95
+  {observed,zero-data}-{std,cor,cor_fixed_background}-{1d,2d}.json   full inference diagnostics
+  limits.csv                     columns: data, mode, dimension, alpha, log10_c95, c95
   observed-vs-zero-data.png, report.json
 GRID/, PRIOR/                    stage analysis:check-grid
-  same case files as LIMITS (npz without log_likelihood), limits.csv with delta_log10_c95,
+  same per-case .npz (without log_likelihood) and .json files, limits.csv (+ delta_log10_c95),
   observed-vs-zero-data.png, report.json
 COV/                             stage analysis:check-covariance
-  covariance-sensitivity.csv     half, mode, dimension, alpha, c95, delta_dex
+  covariance-sensitivity.csv     columns: half, mode, dimension, alpha, c95, delta_dex
   report.json
 SUMMARY/                         stage analysis:summary
   limits.csv, fit-chi2.csv, grid_vs_primary.csv, prior_vs_dense_grid.csv
-  limits.png, fits-alpha-<α>.png (one per alpha), report.json, RESULTS.md
+  limits.png, fits-alpha-<α>.png (8 files), report.json, RESULTS.md
 PAPER/                           stage analysis:paper
   figures/<name>.pdf             radial_function, two_photon, signal_maps, template_maps, background,
-                                 observational_uncertainty, data_vs_model, limits (vector PDF)
-  numbers.tex, numbers.json      quoted numbers: macro, value, source
-  table-limits.tex, table-chi2.tex   complete tabular environments
+                                 observational_uncertainty, data_vs_model, limits
+  numbers.tex, numbers.json      quoted paper macros, unrounded values, and sources
+  table-limits.tex, table-chi2.tex
 ```
 
-Index conventions in the analysis:
+**Indexing conventions in analysis products:**
+- 2D `selected_indices` are flat row-major indices $64\,x + y$ into the template grid `[x, y]` (`x = -East`, `y = +North`); `coordinates` holds `(east_uas, north_uas)`.
+- 1D `selected_indices` are integer sector centres in degrees east of north (`0`–`359`).
+- Day axes follow `(95, 96, 100, 101)`; pair axes follow `(96 - 95, 101 - 100)`.
 
-- 2D `selected_indices` are flat indices $64\,x + y$ of the template grid $[x, y]$, which is
-  the transposed EHT map; `coordinates` are (east, north) offsets in µas.
-- 1D `selected_indices` are sector angles in degrees east of north.
-- `observations-*.npz` arrays with a day axis are ordered 95, 96, 100, 101; pair arrays
-  are ordered (96−95, 101−100).
-- In `limits.csv` the column `data` holds `observed` or `zero-data`.
+## Provenance and stage manifests (`eht_axion/provenance.py`)
 
-## How to run
+### Atomic stage creation and output-root policy
 
-The products are written by the commands on [RAPTOR simulation](raptor-simulation.md),
-[EHT imaging](eht-imaging.md) and [Analysis](analysis.md). `pixi run verify DIR` checks a
-stage directory.
+`stage_directory(destination, stage, config, input_paths, *, verify_lineage=True)` wraps every manifest-backed stage:
+- Rejects destinations reached via directory symlinks or overlapping any file in `source_closure(input_paths)`.
+- Acquires `<destination>.lock` with `O_CREAT | O_EXCL` (concurrent writers fail immediately rather than blocking).
+- **Clean-tree rule (`code_identity`)**: refuses to create a new stage if `git status --porcelain --untracked-files=no` reports uncommitted changes to any tracked repository file. Because the working tree is clean, recording `HEAD` (`implementation.git_commit`) uniquely pins every script, `eht_axion/` module, `configs/experiment.yaml`, `pixi.toml`, and `pixi.lock`; repository files are therefore never listed in `inputs`.
+- Writes outputs into a sibling temporary directory `<destination>.building-*`, hashes all produced regular files (no symlinks, non-empty), writes `manifest.json` last, and atomically renames the directory to `<destination>`. On exception, the temporary directory and lock are removed.
+- **Immutability vs. resume**: result scripts (`reconstruct.py`, `refine.py`, `export_bundle.py`, `eht/summarize.py`, and all `scripts/analysis/*.py`) refuse an existing `--output-root`. Resumable steps (`raptor/build.py`, `raptor/generate.py`, `raptor/merge.py`) reuse an existing stage directory only if it passes verification and records identical `(stage, config, inputs)`; `git_commit` is omitted from that cache comparison so a long `RAPTOR` run can resume across commits that do not alter its tasks.
 
-## Details
+### `manifest.json` schema and stage identifiers
 
-### Default layout
+| Field | Contents |
+|---|---|
+| `stage` | Fixed stage identifier `<part>:<step>` (table below) |
+| `schema` | `1` (`SCHEMA_VERSION`) |
+| `config` | JSON-serialized parameter dictionary governing this stage |
+| `inputs` | List of `{path, size, sha256}` for every consumed external or upstream file |
+| `implementation` | `{"git_commit": "<40-hex HEAD>"}` |
+| `runtime` | Python version/implementation, OS/machine, and versions of `numpy`, `scipy`, `h5py`, `matplotlib`, `PyYAML` |
+| `complete` | `true` |
+| `outputs` | List of `{path, size, sha256}` (plus `shape`/`dtype` for `.npy` and per-array shapes/dtypes for `.npz`, inspected via `mmap` with `allow_pickle=False`) |
+| `elapsed_seconds` | Wall-clock execution time of the stage body |
 
-Every root is either given on the command line (or, for the RAPTOR and EHT imaging inputs,
-in `.env` / `.env.raptor`) or derived from one data root; the code assumes no machine
-location. The products of one experiment are kept below the data root with one directory
-per part:
+| Stage name | Producer script |
+|---|---|
+| `raptor:build` | `scripts/raptor/build.py` |
+| `raptor:job` | `scripts/raptor/generate.py` |
+| `raptor:delivery` | `scripts/raptor/generate.py`, `scripts/raptor/merge.py` |
+| `raptor:merge` | `scripts/raptor/merge.py` |
+| `eht:i`, `eht:fiducial` | `scripts/eht/reconstruct.py` |
+| `eht:refine` | `scripts/eht/refine.py` |
+| `eht:ensemble` | `scripts/eht/summarize.py` |
+| `analysis:preprocess`, `analysis:fit`, `analysis:templates`, `analysis:background` | `scripts/analysis/templates.py` |
+| `analysis:limits` | `scripts/analysis/limits.py` |
+| `analysis:check-grid` | `scripts/analysis/check_grid.py` |
+| `analysis:check-covariance` | `scripts/analysis/check_covariance.py` |
+| `analysis:summary` | `scripts/analysis/summarize.py` |
+| `analysis:paper` | `scripts/analysis/paper.py` |
 
-```text
-<data root>/
-  raptor/
-    plan.json                    frozen task plan (scripts/raptor/generate.py --plan --plan-output)
-    runs/<name>/                 run roots of scripts/raptor/generate.py (build/, jobs/, attempts/,
-                                 config.yaml, requests/); one per host or build; default runs/main
-    delivered/                   scripts/raptor/merge.py output root: data/raptor/res-*/..., inventory/
-  eht/
-    intensity/day-<day>/         scripts/eht/reconstruct.py --stage I
-    fiducial/day-<day>/          scripts/eht/reconstruct.py --stage fiducial
-    refine/day-<day>/            scripts/eht/refine.py
-    bundle/                      scripts/eht/export_bundle.py
-    sample/                      scripts/eht/sample.py
-    ensemble/                    scripts/eht/summarize.py
-  analysis/
-    templates/                   scripts/analysis/templates.py (--raptor-input-root raptor/delivered/data)
-    limits/                      scripts/analysis/limits.py
-    check-grid/                  scripts/analysis/check_grid.py with a denser phase and coupling grid
-    check-prior/                 scripts/analysis/check_grid.py with a wider coupling range
-    check-covariance/            scripts/analysis/check_covariance.py
-    summary/                     scripts/analysis/summarize.py
-    paper/                       scripts/analysis/paper.py
+Auxiliary JSON records carry explicit versioned schema tags: `raptor-generated-v2`, `raptor-merge-v2`, `eht-bundle-v2`, `eht-sample-batch-v2`, `eht-sample-task-v2`, `eht-sample-finish-v2`, `eht-ensemble-v2`, `analysis-limits-v2`, `analysis-summary-v2`, `analysis-paper-v1`, and `analysis-paper-numbers-v1`.
+
+### Non-manifest receipts
+
+Two EHT steps manage resumable or read-only multi-day containers with dedicated receipts instead of `manifest.json`:
+- **`BUNDLE/bundle.json`** (`scripts/eht/export_bundle.py`): records `code` (`git_commit`), the science contract (`fsys`, `covariance_ddof`, `residual_component_sigma`, `image`, `objective`), and `{path, sha256, size, original_path}` of every read-only copied file after recursively verifying the four `eht:i` and four `eht:refine` stages.
+- **`MC/batch.json`, `taskreceipt.json`, and `finish.json`** (`scripts/eht/sample.py`): `batch.json` stores `identity` (SHA-256 of the canonical batch plan including bundle hashes, science settings, `git_commit`, package versions, and thread count). Each attempt writes `taskreceipt.json` with output SHA-256s; `finish.json` is written only when all $4000$ draws are certified, and `scripts/eht/summarize.py` re-verifies every receipt, certificate, and blurred FITS hash before creating `eht:ensemble`.
+
+## Verifying products
+
+Run `scripts/verify_products.py` via Pixi to audit any completed stage directory without recomputing data:
+
+```bash
+pixi run verify /path/to/stage              # verify manifest completeness and output SHA-256s
+pixi run verify /path/to/stage --recursive  # also re-hash every declared input and upstream stage
 ```
 
-`EHT_DATA_ROOT` (exported, or in `.env`) or `--data-root` names the data root; every
-script then takes its default input and output roots from this layout, and an explicit
-`--...-root` option overrides a default. The default RAPTOR run root is `raptor/runs/main`
-(`--run-root` or `EHT_RAPTOR_RUN_ROOT` override it); `scripts/raptor/merge.py` merges every directory
-in `raptor/runs/` by default; `scripts/analysis/check_grid.py` needs `--check grid` or
-`--check prior` to choose its default output root. Result scripts still refuse an existing
-output root, so a default output root can be written once.
-
-With this layout the RAPTOR run used for the results has two run roots, `runs/main`
-(18 234 jobs) and `runs/background` (96 axion-off 400-pixel jobs, labels 2050–3000, made
-with a second build); `scripts/raptor/merge.py` delivers both into `delivered/`.
-
-## Related pages
-
-- [Documentation index](index.md)
-- [Provenance](provenance.md)
-- [Package map](package-map.md)
-- [Overview](overview.md)
+Inside a `verification_session()`, each unique file is streamed once (8 MiB blocks) while checking `(st_dev, st_ino, st_size, st_mtime_ns, st_ctime_ns)` before, immediately after hashing, and again when the session exits. Downstream scripts also call `require_declared_outputs(directory, paths)` so undeclared extra files inside a stage directory can never be read accidentally. Lightweight downstream stages (`check_grid.py`, `check_covariance.py`, `analysis/summarize.py`, `paper.py`) pass `verify_lineage=False`: they verify the immediate outputs of the stages they read and hash those `manifest.json` files as inputs without re-streaming the raw upstream `RAPTOR` or `uvfits` ancestry.

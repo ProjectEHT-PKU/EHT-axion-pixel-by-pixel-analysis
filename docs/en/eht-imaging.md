@@ -1,266 +1,106 @@
-# EHT imaging
+# EHT Imaging
 
-## Purpose
+[← Documentation index](index.md)
 
-This page describes the EHT imaging input: a reproduction of the EHT 2017 M87\*
-polarimetric imaging method of EHT Paper VII (with the total-intensity workflow of Paper IV)
-using ehtim 1.3.2, followed by a Monte Carlo over the instrumental leakage (D-term)
-solution that gives 1000 polarimetric images per day. The per-day ensembles of these
-images are the EHT input of the [Analysis](analysis.md). EHT imaging does not read any
-RAPTOR product.
+The EHT imaging pipeline reproduces the EHT 2017 M87\* polarimetric reconstruction method of EHT Paper VII (with total-intensity imaging following Paper IV) on `ehtim == 1.3.2`, refines the daily instrumental leakage (D-term) solutions with an exact convex polarimetric solver, and runs a 1000-draw-per-day D-term Monte Carlo whose summarized ensembles feed the [Analysis](analysis.md). It does not read any `RAPTOR` simulation product.
 
-## Inputs
+## Prerequisites and inputs
 
-- The four HOPS low-band uvfits files `SR2_M87_2017_<day>_lo_hops_zbl-dtcal+selfcal.uvfits`
-  for days 95, 96, 100 and 101 (2017 April 5, 6, 10, 11), in the directory
-  `EHT_IMAGING_INPUT_ROOT`. Their names and SHA-256 are `eht_imaging.inputs`.
-- An input receipt (`EHT_IMAGING_INPUT_RECEIPT`): JSON with `complete: true` and a `files`
-  list (`path`, `sha256`, `size`) that must agree with `eht_imaging.inputs`.
-- The feed-rotation table (`EHT_IMAGING_FEED_ROTATION`): JSON with `status: verified` and,
-  per station, `fr_par`, `fr_elev`, `fr_off` (degrees).
-- The official EHT imaging script (`EHT_IMAGING_OFFICIAL_SCRIPT`).
-- `configs/experiment.yaml`: `shared.image` and the `eht_imaging` section
-  ([Experiment configuration](experiment-config.md)).
+`scripts/eht/reconstruct.py`, `refine.py`, `export_bundle.py`, and `sample.py` run in the `eht-imaging` Pixi environment (`ehtim 1.3.2`, `astropy`); `scripts/eht/summarize.py` requires only `eht-summary` (`astropy`). `scripts/eht/reconstruct.py` reads three machine-local locations from the `eht/` directory of the read-only input root (`EHT_INPUT_ROOT` / `--input-root`, see the [input layout](data-layout.md#input-layout)); each can be overridden by an explicit option, and relative paths are resolved against the working directory:
 
-The four locations are machine paths, given on the command line or in `.env`.
+- **HOPS `uvfits` directory** (`--uvfits-dir`, default `$EHT_INPUT_ROOT/eht`): contains the four released low-band files `SR2_M87_2017_<day>_lo_hops_zbl-dtcal+selfcal.uvfits` for days `95`, `96`, `100`, `101` (2017 April 5, 6, 10, 11), whose filenames and SHA-256 digests must match `eht_imaging.inputs` in `configs/experiment.yaml`.
+- **Feed-rotation table** (`--feed-rotation-file`, default `$EHT_INPUT_ROOT/eht/feed-rotation.json`): JSON with `"status": "verified"`, `"units": {"fr_off": "...degrees..."}`, and per-station `fr_par`, `fr_elev`, `fr_off`.
+- **Official EHT imaging script** (`--official-script`, default `$EHT_INPUT_ROOT/eht/eht-imaging_pipeline.py`): official total-intensity imaging pipeline script.
 
-## Outputs
+The SHA-256 of the selected day's `uvfits` file is checked against `eht_imaging.inputs` before any imaging; the `uvfits` file, feed-rotation table, and official script are hashed into the stage inputs, and their paths are recorded as the `input_root`, `feed_rotation_file`, and `official_script` imaging parameters (`EHT_LOCATIONS`).
 
-- I stage (one per day): fixed total-intensity image `final-fixedI.fits` and gain-calibrated
-  native circular data `clean-gaincal-pol.uvfits`.
-- Fiducial stage (one per day): P images and D terms of every round, final D terms.
-- Refined stage (one per day): exact P images, refined D terms (`final-dterms.json`),
-  certificates.
-- Bundle: the four I products, the four refined D-term files and the feed table, with
-  `bundle.json`.
-- Monte Carlo batch: one certified P image per draw (4 × 1000), with receipts.
-- Ensemble summary: per day `stokes.npy`, `evpa.npy`, `global.npz`, plus
-  `axes.npz` and `report.json`.
+## Running the EHT pipeline
 
-File details are on [Data layout](data-layout.md).
-
-## How to run
-
-Environment `eht-imaging` (ehtim 1.3.2, astropy); `scripts/eht/summarize.py` needs only
-`eht-summary` (astropy). Every command writes one new root. With a data root (`EHT_DATA_ROOT` or `--data-root`), every root option below has a
-default from the [default layout](data-layout.md#default-layout); the commands give the roots
-explicitly.
+With `EHT_INPUT_ROOT` and `EHT_DATA_ROOT` set in `.env`, run the per-day reconstruction and refinement for all four observing days (`95`, `96`, `100`, `101`), then export the bundle, draw the Monte Carlo ensemble, and summarize:
 
 ```bash
-# one root per day and stage; repeat for 95, 96, 100, 101
-pixi run -e eht-imaging eht-reconstruct --stage I --day 95 --output-root I95 --plan
-pixi run -e eht-imaging eht-reconstruct --stage I --day 95 --output-root I95 --review-file REVIEW
-pixi run -e eht-imaging eht-reconstruct --stage fiducial --day 95 --i-root I95 \
-    --output-root PD95 --review-file REVIEW
-pixi run -e eht-imaging eht-refine --day 95 --source-root PD95 --i-root I95 --output-root D95
+# Optional dry-run plan verification (no ehtim import or disk writes)
+pixi run -e eht-imaging eht-reconstruct --stage I --day 95 --plan
 
-# after the four days
-pixi run -e eht-imaging eht-export-bundle --i-root I95 --i-root I96 --i-root I100 --i-root I101 \
-    --d-root D95 --d-root D96 --d-root D100 --d-root D101 --output-root BUNDLE
-pixi run -e eht-imaging eht-sample --bundle-root BUNDLE --output-root MC --workers 64 --threads 2
-pixi run -e eht-summary eht-summarize --sample-root MC --output-root ENSEMBLE
+# 1–3. Per-day fixed-I, fiducial P/D, and convex D refinement
+for day in 95 96 100 101; do
+  pixi run -e eht-imaging eht-reconstruct --stage I --day $day
+  pixi run -e eht-imaging eht-reconstruct --stage fiducial --day $day
+  pixi run -e eht-imaging eht-refine --day $day
+done
+
+# 4. Bundle the four fixed-I and refined-D stages for Monte Carlo sampling
+pixi run -e eht-imaging eht-export-bundle
+
+# 5. Run the 4 x 1000 D-term Monte Carlo (resumable in $EHT_DATA_ROOT/eht/sample)
+pixi run -e eht-imaging eht-sample --workers 64 --threads 2
+
+# 6. Summarize certified blurred FITS draws into $EHT_DATA_ROOT/eht/ensemble
+pixi run -e eht-summary eht-summarize
 ```
 
-`scripts/eht/reconstruct.py --plan` only verifies and hashes the inputs and prints the plan.
-Execution requires `--review-file`, a nonempty file recording an external review decision;
-its bytes become a stage input, and its presence is not an automatic approval.
+Every output directory except `eht/sample` must be new. `scripts/eht/sample.py` supports `--workers` (default `64`), `--threads` (default `2`), `--max-active-memory-gib` (default `100`), `--resource-wait` (default `300` s; exits with code `3` if memory admission remains blocked, safe to resume), `--task-limit`, and `--resume`. Re-running `eht-sample` on the same output directory resumes automatically if the batch plan SHA-256 (`batch.json` `identity`) is identical.
 
-`scripts/eht/sample.py` options: `--workers` (default 64), `--threads` per worker (default 2),
-`--max-active-memory-gib` (default 100), `--resource-wait` (default 300 s), `--task-limit`,
-`--resume`. A run with the same output root resumes; it requires an identical batch
-identity (bundle, science values and code).
+## Reconstruction method
 
-`scripts/eht/summarize.py` reads the output root of `scripts/eht/sample.py` directly (see
-[Ensemble summary](#ensemble-summary)). Running the Monte Carlo on another host and copying
-its output root back is an operational matter outside the pipeline.
+### Native circular data loading (`eht_axion/eht/calibration.py`)
 
-## Details
+`load_native` loads each HOPS `uvfits` file in native circular polarization (`polrep="circ"`, products `RR`, `LL`, `RL`, `LR`) without round-tripping through Stokes:
+- Any visibility record where any of the four correlations or sigmas is non-finite or has $\sigma \le 0$ is dropped completely before averaging.
+- Feed-rotation angles (`fr_par`, `fr_elev`, `fr_off`) are populated from `feed-rotation.json`, station D terms are initialized to `0j`, and calibration flags are set to `ampcal = phasecal = frcal = True`, `dcal = False` (ALMA/APEX/SMA/JCMT in `fixed_sites` are pre-corrected in HOPS; `AZ`, `LM`, `PV` in `solve_sites` remain uncorrected).
+- Visibilities are coherently scan-averaged once (`avg_coherent(0, scan_avg=True)`).
+- `make_imaging_obs` wraps `Obsdata` to preserve structured dtypes on rectangular `tlist` groups under NumPy 2 and fixes the missing factor of $1/4$ in $\operatorname{Var}(I) = (\sigma_{RR}^2 + \sigma_{LL}^2)/4$ in `ehtim` 1.3.2's `msigma` error propagation.
 
-### Data loading
+### Stage `I`: fixed total intensity and shared gains
 
-`load_native` (`eht_axion/eht/calibration.py`) loads a HOPS file in native circular
-polarization (RR, LL, RL, LR) without conversion to Stokes. A whole row is dropped if any
-of the four products or errors is missing or nonpositive. The feed-rotation coefficients of
-the table are written into the station table, D terms are set to zero, and the
-calibration flags are `ampcal = phasecal = frcal = True`, `dcal = False`: the stations
-AA, AP, SM, JC are already leakage-corrected in the HOPS products, and AZ, LM, PV are not.
-Data are scan-averaged coherently once.
+`scripts/eht/reconstruct.py --stage I` publishes stage `eht:i`:
+1. Copies the official EHT script and executes an adapted copy with **only two exact string substitutions**: `"ttype     = 'nfft'"` $\to$ `"ttype     = 'direct'"` and `'fov       = 128*eh.RADPERUAS'` $\to$ `'fov       = 120*eh.RADPERUAS'`. All other settings — including the compact zero-baseline flux `zbl = 0.60` Jy and the $5\,\mu\mathrm{as}$ restoring blur producing `im_out` — remain unchanged. `im_out` is verified to be positive, finite, and on the $64 \times 64$, $120\,\mu\mathrm{as}$ grid, and saved as `final-fixedI.fits`.
+2. Excludes intra-site baselines shorter than `uv_min` ($10^8\,\lambda = 100\,\mathrm{M}\lambda$) from the scan-averaged native circular data, then solves **shared $R = L$ station gains** across all present stations (including `PV`) against `final-fixedI.fits` via `eh.selfcal(..., pol='I', method='both', ttype='direct', gain_tol=[0.02, 0.2])`.
+3. Applies the shared gains (`applycal`) to the native circular visibilities and writes `clean-gaincal-pol.uvfits`, `shared-gains.npz`, and `polarization-input.json`.
 
-### I stage
+All subsequent stages hold $I$ fixed to `final-fixedI.fits` and solve exclusively for linear polarization $P = Q + iU$ ($V = 0$).
 
-`scripts/eht/reconstruct.py --stage I`:
+### Stage `fiducial`: alternating $P$ imaging and forward $D$ fits
 
-- runs the official EHT imaging script on the raw file with exactly two source
-  substitutions: the Fourier transform type `nfft` becomes `direct`, and the field of view
-  128 µas becomes `shared.image.fov_uas` (120 µas). The final image `im_out` of the script
-  (after its own restoring blur) is the fixed I image; it must already be positive, finite
-  and on the 64 × 64, 120 µas grid. All other settings of the script are used unchanged;
-  in particular the compact flux density of 0.6 Jy (`zbl = 0.60`) is fixed inside the
-  official script and is not an `configs/experiment.yaml` value;
-- solves **shared station gains**: on the native scan-averaged data with baselines shorter
-  than `uv_min` removed, an ehtim self-calibration of all stations (including PV) against
-  the fixed I image with `method='both'`, gain tolerance `eht_imaging.gain_tol`
-  ([0.02, 0.2], the value of the official script), and equal right and left gains;
-- applies these gains to the native circular data and writes
-  `clean-gaincal-pol.uvfits`, `shared-gains.npz` and `polarization-input.json`.
+`scripts/eht/reconstruct.py --stage fiducial` publishes stage `eht:fiducial`. Starting from uniform fractional polarization $P = m_0 I e^{2i\chi_0}$ (`initial_m = 0.1`, `initial_evpa_deg = 0.0`) and `dterms = {}` on the `uv_min`-cut gain-calibrated data, each round $r = 1, \dots, 50$ (`rounds`):
+1. At $r \in \{2, 12, 22, 32, 42\}$ (`restart_rounds`), re-initializes $P$ from the $I$-weighted blurred complex polarization fraction,
+   $$P_{\mathrm{init}} = (1 - \epsilon)\,I\,\frac{K_{20} * P}{K_{20} * I},$$
+   with $20\,\mu\mathrm{as}$ Gaussian `restart_blur_uas` and $\epsilon = 10^{-8}$ (`restart_domain_epsilon`) to remain strictly inside $\lvert P/I\rvert < 1$.
+2. Adds fractional systematic noise `fsys = 0.005` in quadrature to `RL` and `LR` variances (`add_fsys`: $\sigma_{RL,LR}^2 \to \sigma_{RL,LR}^2 + \bigl(f_{\mathrm{sys}}\lvert(RR + LL)/2\rvert\bigr)^2$) and applies the current D terms once by inverse Jones calibration (`apply_fixed_d`, temporarily zeroing table SEFDs so input marginal sigmas are preserved).
+3. Solves for $P$ with `ehtim` `Imager` (`pol='P'`, `transform=['mcv']`, `data_term={'pvis': 1.0, 'm': 1.0}`, `reg_term={'hw': 100.0, 'ptv': 1.0}`, `norm_reg=True`, `ttype='direct'`, `maxit=500`, `stop=1e-8`; `shift_objective_constant=True` adds the constant $w_{\mathrm{pvis}} + w_m + h_w\ln 2$ without changing the minimizer).
+4. Refits D terms on `solve_sites` (`AZ`, `LM`, `PV`) against the **uncorrected** `fsys`-augmented base visibilities and the new $P$ image using `fit_forward_d`: a private two-line adaptation of `ehtim.calibrating.pol_cal_new.leakage_cal_new` (`pol_fit=['RL', 'LR']`, `ttype='direct'`) that sets the D-term Gaussian prior and its gradient identically to zero.
 
-The total-intensity image is fixed from here on; all later steps solve only for linear
-polarization $P = Q + iU$ (with $V = 0$).
+After round 50, one final `final-P-only` solve aligns `final-raw-IQU.fits` and `final-blurred-IQU.fits` ($19\,\mu\mathrm{as}$ blur) with `final-dterms.json`.
 
-### Fiducial P/D alternation
+### Convex refinement (`scripts/eht/refine.py` and `eht_axion/eht/convex.py`)
 
-`scripts/eht/reconstruct.py --stage fiducial` reads the I stage of the same day. The base data are
-the gain-calibrated data with `uv_min` applied. Starting from $P = m_0\, I\, e^{2i\chi_0}$
-(`initial_m`, `initial_evpa_deg`), each of `rounds` (50) rounds:
-
-- restarts P at the rounds in `restart_rounds` from the I-weighted fractional
-  polarization blurred with a `restart_blur_uas` (20 µas) Gaussian, scaled by
-  $1-\epsilon$ (`restart_domain_epsilon`) to stay inside $\lvert P/I\rvert < 1$;
-- adds the systematic error `fsys` to the RL/LR errors (`add_fsys`);
-- applies the current D terms by one inverse Jones correction (`apply_fixed_d`);
-- images P with the ehtim `Imager` (`pol='P'`, transform `mcv`, data terms `p_data`:
-  `pvis` and `m`; regularizers `p_reg`: `hw` entropy and `ptv` total variation;
-  `norm_reg`; `maxit`; `stop`; direct Fourier transform; flux of the fixed I image);
-  with `shift_objective_constant` a constant is added to the objective, which does not
-  change the minimizer;
-- refits the D terms of `solve_sites` (AZ, LM, PV) against the same uncorrected noisy base
-  and the new P image with the official forward RL/LR leakage fit of ehtim
-  (`fit_forward_d`), in which the D prior and its gradient are replaced by zero.
-
-A final P-only solve aligns the delivered image with the last D terms. Each round's D
-terms and raw and blurred images are written; `termination.json` records that the stop is
-the fixed round budget.
-
-### Refinement of the fiducial D terms
-
-`scripts/eht/refine.py` refines the fiducial D terms of one day (the refine stage) with an exact
-convex P solver (`eht_axion/eht/convex.py`). For fixed I and fixed D, the ehtim P objective
-with normalized regularizers (`norm_reg` true; the solver implements only this case) is
-convex in $P$:
+For fixed $I > 0$ and fixed D terms, the normalized-regularizer `ehtim` polarimetric objective is strictly convex in $P \in \mathbb{C}^{64 \times 64}$ on the physical disk $\lvert P_x\rvert \le I_x$:
 
 $$
-J(P) = \sum_{t\in\{\mathrm{pvis},m\}} \frac{w_t}{2N_t}\sum_j \frac{\lvert (A_t P)_j - d_{t,j}\rvert^2}{\sigma_{t,j}^2}
- + \frac{h_w}{F}\sum_x I_x\, h\!\left(\frac{\lvert P_x\rvert}{I_x}\right)
- + p_\mathrm{tv}\,\frac{\mathrm{TV}(P)}{\tau_\mathrm{TV}},
+J(P) = \sum_{t \in \{\mathrm{pvis}, m\}} \frac{w_t}{2 N_t} \sum_{j=1}^{N_t} \frac{\lvert (A_t P)_j - d_{t,j}\rvert^2}{\sigma_{t,j}^2} + \frac{h_w}{F} \sum_x I_x\,h\!\left(\frac{\lvert P_x\rvert}{I_x}\right) + p_{\mathrm{tv}}\,\frac{\operatorname{TV}(P)}{\tau_{\mathrm{TV}}},
 $$
 
-with the weights $w_\mathrm{pvis}$, $w_m$ (`eht_imaging.p_data`) and $h_w$, $p_\mathrm{tv}$
-(`eht_imaging.p_reg`; 1, 1, 100, 1), $h(m) = \tfrac12[(1+m)\ln(1+m) + (1-m)\ln(1-m)]$, $F$
-the total flux and $\tau_\mathrm{TV}$ the ehtim TV normalization. $J$ equals the ehtim
-objective plus the constant $w_\mathrm{pvis} + w_m + h_w\ln 2$ (unit test against ehtim for
-several weight sets). The data tuples are those of the official ehtim imager, built with
-the same weights. `solve_problem` runs a diagonally preconditioned primal-dual hybrid gradient
-(PDHG) method and computes, every `check_every` iterations, a feasible dual lower bound;
-the returned P is certified when the best primal value minus the best lower bound is at
-most `gap_atol`. This is a floating-point certificate, not interval arithmetic.
+where $h(m) = \frac{1}{2}\bigl[(1+m)\ln(1+m) + (1-m)\ln(1-m)\bigr]$, $F = \sum_x I_x$, $\tau_{\mathrm{TV}}$ is the `ehtim` beam-scaled TV normalization, and $(d_t, \sigma_t, A_t)$ are extracted directly from `ehtim`'s `Imager._data_tuples`. $J(P)$ equals the `ehtim` objective plus $w_{\mathrm{pvis}} + w_m + h_w\ln 2$.
 
-Starting from the fiducial final P and D, each of `refine.outer_rounds` (100) rounds solves
-P to the gap tolerance (`gap_atol`, `maxiter`, `check_every`, `time_limit` of
-`eht_imaging.refine`) and refits D with `fit_forward_d` using the L-BFGS-B options
-`eht_imaging.refine.d_optimizer`; every optimizer call is recorded in
-`D-optimizer-records.json`. A final P solve uses the last D. `termination.json` records
-`all_P_numerically_certified`; joint P/D optimality is not claimed.
+`solve_problem` minimizes $J(P)$ in reduced variables $x = P / I$ via diagonally preconditioned primal–dual hybrid gradient (PDHG, step-size safety factor $\theta = 0.99 < 1$, safeguarded Newton–bisection radial entropy prox) and evaluates a feasible Fenchel–Rockafellar dual lower bound every `check_every` (`500`) iterations. A solution is **numerically certified** when $\text{best\_primal} - \text{best\_lower} \le \text{gap\_atol}$ (`1e-6`; floating-point duality gap, not interval arithmetic).
 
-### Bundle export
+`scripts/eht/refine.py` (stage `eht:refine`) starts from the fiducial `final-raw-IQU.fits` and `final-dterms.json`, runs `outer_rounds = 100` alternations of certified PDHG $P$ solves (`maxiter = 20000`, `time_limit = 300` s) and forward `L-BFGS-B` D refits (`eht_imaging.refine.d_optimizer`, logged to `D-optimizer-records.json`), followed by a 101st `final-P` solve aligned with the last D terms.
 
-`scripts/eht/export_bundle.py` takes the four I roots and the four refined roots, verifies each
-(full lineage), checks that their imaging parameters equal `eht_imaging_parameters` of the
-current `configs/experiment.yaml`, that each refined stage descends from the I stage of the same
-day, that every P solve of each refined stage is certified, and that all four I stages used
-one feed table. It copies, read-only:
+### Bundle export, D-term Monte Carlo, and ensemble summary
 
-- per day `fixedI.fits`, `gaincal-pol.uvfits` and `fiducial-dterms.json`;
-- lineage files (`lineage/<day>/I-manifest.json`, `D-manifest.json`, `D-plan.json`,
-  `D-termination.json`, `D-steps.json`);
-- `feed-rotation.json`; `bundle.json` also records the git commit of the code.
+1. **Bundle export (`scripts/eht/export_bundle.py`)**: verifies full lineage of all four `eht:i` and four `eht:refine` stages, checks `all_P_numerically_certified == True` on every day, and copies read-only (`0444`) `<day>/fixedI.fits`, `<day>/gaincal-pol.uvfits`, `<day>/fiducial-dterms.json`, `lineage/<day>/*`, and `feed-rotation.json` with `bundle.json` (schema `eht-bundle-v2`).
+2. **D-term Monte Carlo (`scripts/eht/sample.py`)**:
+   - Computes the 4-day mean and $2 \times 2$ $(\operatorname{Re} D, \operatorname{Im} D)$ sample covariance (`covariance_ddof = 1`) per hand (`R`, `L`) and station in `solve_sites` (`d_distribution`).
+   - Draws `uncertainty_draws = 1000` D-term sets per day using `SeedSequence([20210405, day])`: bivariate normal for `AZ`, `LM`, `PV`, and independent zero-mean normal with per-component SD `residual_d_sigma = 0.01` for `AA`, `AP`, `SM`, `JC` (`sample_dterms`). Thermal visibility noise is not resampled and D terms are not refitted per draw.
+   - Solves the exact convex $P$ problem cold-started from $P = 0.05\,I$ (`initial_p_fraction`) with `gap_atol = 1e-6`, `maxiter = 50000`, `time_limit = 600` s; uncertified draws receive one retry (`retry_maxiter = 200000`, `retry_time_limit = 1800` s). Writes `best-raw-IQU.fits`, `best-blurred-IQU.fits` ($19\,\mu\mathrm{as}$ blur), `certificate.json`, and `taskreceipt.json` per draw, and `finish.json` once all $4000$ draws are certified.
+3. **Ensemble summary (`scripts/eht/summarize.py`)**: verifies `batch.json`, `finish.json`, all $4000$ `taskreceipt.json` and `certificate.json` files, and SHA-256 digests of every `best-blurred-IQU.fits`, then publishes stage `eht:ensemble` containing `axes.npz` (`east_uas`, `north_uas`), `report.json`, and per-day `day-<day>/{stokes.npy, evpa.npy, global.npz}`:
+   - `stokes.npy`: float64 `(1000, 64, 64, 4)` (`[draw, y, x, IQUV]` in native FITS orientation);
+   - `evpa.npy`: float64 `(1000, 64, 64)` EVPA in $[0, \pi)\,\mathrm{rad}$ (`NaN` where $I \le 0$ or $Q = U = 0$);
+   - `global.npz`: Paper VII Sec. 5.3 whole-field diagnostics (`total_I`, `m_net`, `m_resolved`, `evpa_rad`, `beta2_real`, `beta2_imag`) computed over the $19\,\mu\mathrm{as}$-blurred images for comparison with Paper VII (used by `paper.py`, not by `limits.py`).
 
-`bundle.json` lists every file with SHA-256 and size and records the science contract:
-`fsys`, `covariance_ddof`, `residual_component_sigma` (`residual_d_sigma`), the sky grid and
-the P objective weights, under the schema `eht-bundle-v2`.
+## Known deviations from EHT Paper VII
 
-### D-term Monte Carlo
-
-`scripts/eht/sample.py` verifies the bundle (every file hash; `fsys`, `covariance_ddof`,
-`residual_component_sigma` and the P objective weights against `configs/experiment.yaml`) and then:
-
-- forms the D-term distribution (`d_distribution`): for each station in `solve_sites` and
-  each hand R, L, the mean and the 2 × 2 covariance of $(\mathrm{Re}\,D, \mathrm{Im}\,D)$ over
-  the four refined daily solutions, with `covariance_ddof` = 1;
-- draws `uncertainty_draws` = 1000 D sets per day (`sample_dterms`) with seed
-  `SeedSequence([seed, day])`: bivariate normal for the `solve_sites` (AZ, LM, PV);
-  zero-mean normal with standard deviation `residual_d_sigma` = 0.01 per real and imaginary
-  component for the `fixed_sites` (AA, AP, SM, JC). Thermal noise is not resampled;
-- for each draw: adds `fsys`, applies the drawn D terms once, and solves the exact convex P
-  problem (weights `p_data`, `p_reg`) from $P = 0.05\,I$ (`initial_p_fraction`) with
-  `eht_imaging.monte_carlo`
-  (`gap_atol`, `maxiter` 50000, `check_every`, `time_limit` 600 s). An uncertified draw gets
-  one second attempt with `retry_maxiter` 200000 and `retry_time_limit` 1800 s; a task with
-  two uncertified attempts or two errors is reported as exhausted;
-- writes, per certified draw, the raw and the blurred image (`best-raw-IQU.fits`,
-  `best-blurred-IQU.fits`, blur `shared.image.blur_fwhm_uas`) and a certificate.
-
-The batch identity is the SHA-256 of the plan (bundle snapshot, science values, git commit
-and package versions, execution threads); `finish.json` is written only when all 4000 draws
-are certified.
-
-### Ensemble summary
-
-`scripts/eht/summarize.py` reads a finished `scripts/eht/sample.py` output root (`--sample-root`). It
-requires that `batch.json` carries its own identity (the SHA-256 of the batch plan), that
-its recorded science values equal those `scripts/eht/sample.py` derives from the current
-`configs/experiment.yaml`, and that `finish.json` has the same identity and lists one certified
-receipt per draw. It checks the receipts, certificates and the SHA-256 of every consumed
-file, then reads the 1000
-blurred images per day (no further blur) and writes, per day under `day-<day>/`:
-
-- `stokes.npy`: shape (1000, 64, 64, 4), axes draw, y, x, IQUV in the native FITS
-  orientation (east offset decreases along x, north increases along y);
-- `evpa.npy`: EVPA $\tfrac12\arg(Q+iU)$ modulo $\pi$ in radians, NaN where $I \le 0$ or
-  $Q+iU=0$;
-- `global.npz`: the image-averaged quantities of EHT Paper VII Sec. 5.3 per draw
-  (`global_diagnostics`, columns `total_I`, `m_net`, `m_resolved`, `evpa_rad`,
-  `beta2_real`, `beta2_imag`), as pixel sums over the whole 120 µas field:
-  - $\lvert m\rvert_\mathrm{net} = \lvert\sum_i P_i\rvert/\sum_i I_i$ (Paper VII eq. 12);
-  - $\langle\lvert m\rvert\rangle = \sum_i\lvert P_i\rvert/\sum_i I_i$ (eq. 13; column
-    `m_resolved`);
-  - the EVPA $\tfrac12\arg\sum_i P_i$;
-  - $\beta_2 = \sum_i P_i\,e^{-2i\varphi_i}/\sum_i I_i$ (eq. 14), with $\varphi$ the position
-    angle east of north about the grid centre. The paper takes $\rho_\mathrm{min} = 0$ and
-    $\rho_\mathrm{max}$ covering the full field of view, so that $I_\mathrm{ring}$ is the
-    total flux; the code does the same.
-
-  The images are the blurred ones (`shared.image.blur_fwhm_uas` = 19 µas, the kernel that
-  Paper VII Sec. 5.1 uses for eht-imaging). The one difference from the paper is the image
-  centre: the paper centres each image at the pixel offset that maximizes the
-  cross-correlation of its blurred Stokes I with the Paper IV consensus image; here the
-  centre is the grid centre. These quantities are for comparison with Paper VII and are
-  not used by the analysis.
-
-`axes.npz` holds `east_uas` and `north_uas`; `report.json` records the conventions.
-
-### Image centre
-
-EHT Paper VII Sec. 5.2 aligns images by cross-correlation. In this reproduction that
-alignment is a zero shift: the images are used as reconstructed on the common grid, and
-the analysis has no re-centring option.
-
-### Known deviations from EHT Paper VII
-
-- This is a method reproduction, not a bitwise reproduction of the published images. The
-  official I script runs with a direct Fourier transform and a 120 µas field of view.
-- The locally solved D terms differ from Paper VII Table 5. The largest difference is for
-  PV on 2017 April 10 (day 100), where $D_R$ differs by about 19 percentage points. The
-  code does not compare with Table 5.
-- `restart_rounds`, `maxit` and the refinement budget are numerical choices, not values
-  from the paper.
-- The image centre for $\beta_2$ (and for all analysis features) is the grid centre, not
-  the cross-correlation centre of Paper VII Sec. 5.2/5.3 (see [Image centre](#image-centre)).
-
-## Related pages
-
-- [Documentation index](index.md)
-- [Overview](overview.md)
-- [Experiment configuration](experiment-config.md)
-- [Analysis](analysis.md)
-- [Provenance](provenance.md)
-- [Data layout](data-layout.md)
+- **Method reproduction, not bitwise image reproduction**: the official total-intensity script is executed with two adaptations (`ttype = 'direct'` instead of `'nfft'`, and `fov = 120` $\mu\mathrm{as}$ instead of `128` $\mu\mathrm{as}$).
+- **Local D-term solutions vs. Paper VII Table 5**: D terms solved locally by `reconstruct.py` and `refine.py` differ from the values tabulated in EHT Paper VII Table 5; the largest discrepancy is on 2017 April 10 (day `100`) at station `PV`, where $D_R$ differs by roughly 19 percentage points. The pipeline does not compare against or substitute Table 5 values.
+- **Zero-shift image centring**: EHT Paper VII Sec. 5.2/5.3 aligns reconstructed images by maximizing the Stokes-$I$ cross-correlation with the Paper IV consensus image. In this reproduction that alignment is a zero shift: all $\beta_2$ diagnostics and all 1D/2D analysis features are evaluated about the native grid centre, with no re-centring option.
+- **Numerical schedules and solver budgets**: `restart_rounds`, `restart_blur_uas`, `maxit`, and the PDHG / `L-BFGS-B` refinement and Monte Carlo budgets in `eht_imaging.refine` and `eht_imaging.monte_carlo` are numerical implementation choices rather than paper-mandated parameters.
