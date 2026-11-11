@@ -11,7 +11,6 @@
 ```bash
 pixi run analysis-expected-signal
 pixi run analysis-limits
-pixi run analysis-summarize
 pixi run analysis-paper
 ```
 
@@ -20,7 +19,6 @@ pixi run analysis-paper
 ```bash
 pixi run analysis-expected-signal --raptor-images IMAGES --output-root EXPECTED
 pixi run analysis-limits --expected-signal EXPECTED --ensemble ENSEMBLE --output-root LIMITS
-pixi run analysis-summarize --limits LIMITS --output-root SUMMARY
 pixi run analysis-paper --limits LIMITS \
     --expected-signal EXPECTED --ensemble ENSEMBLE --raptor-images IMAGES \
     --raptor-plan plan.json --raptor-source-root RAPTOR --output-root PAPER
@@ -132,11 +130,11 @@ $$
 
 `normalized_posterior_cdf`（`eht_axion/analysis/posterior.py`）将似然 $L(c)$ 乘以先验密度 $\pi(c) \propto 1/c$（`log-uniform` 对数均匀先验；`uniform` 则为常数），对 $c$ 采用梯形法则数值积分归一化后验密度；`posterior_upper_limit` 在 `credibility = 0.95` 处对该分段线性后验密度的累积分布函数（cumulative distribution function, CDF）求解析逆，得到 95 % 可信上限 $c_{95}$。每种维度与协方差组合都同时在真实观测差值（`observed`）和**零数据对照**（zero-data control，固定相同特征与协方差并令 $d_1 = d_2 = 0$，标记为 `zero-data`）上运行。
 
-## 结果汇总与论文输出
+## 论文输出（`scripts/analysis/paper.py`）
 
-- **汇总报告（`scripts/analysis/summarize.py`）**：校验 `limits`，写出 `limits.csv`、`fit-chi2.csv`（记录 $c=0$ 与联合网格最佳拟合点处的 $\chi^2$）、`limits.png`、`fits-alpha-<α>.png`、`report.json` 以及完全由数据驱动生成的 `RESULTS.md`（阶段 `analysis:summary`）。
-- **论文输出（`scripts/analysis/paper.py`）**：在不做任何重新拟合的前提下，将论文所需的全部流水线资产汇总到阶段 `analysis:paper`：
-  - `figures/`：8 幅确定性矢量 PDF 图（`radial_function`、`two_photon`、`signal_maps`、`template_maps`、`background`、`observational_uncertainty`、`data_vs_model`、`limits`）；
-  - `numbers.tex` 与 `numbers.json`（模式 `analysis-paper-numbers`）：不含阿拉伯数字的 `\newcommand{\Num...}{...}` LaTeX 宏定义，以及对应的未舍入原值和数据来源；
-  - `table-limits.tex` 与 `table-chi2.tex`：观测上限 $c_{95}$ 表以及 `PAPER_ALPHA = 0.30` 处的 $\chi^2$ 完整 `tabular` 环境。
-  展示参数（`PAPER_ALPHA = 0.30`、`PAPER_SNAPSHOT_LABEL = 2300`、EVPA 偏振短线参数、径向取样半径 `5, 10, 20` $r_g$、近邻像素对阈值 `15` $\mu\mathrm{as}$ 以及双发射源检验参数）全部记录在阶段清单中，径向窗口函数 $W(r) = \exp[-(r/r_w)^n]$ 则直接从 `RAPTOR` 工作副本（`--raptor-source-root` / `EHT_RAPTOR_SOURCE_ROOT`）的 `src/axion.c` 解析，该工作副本必须洁净地处于 `raptor.source.commit`（提交号即标识该文件，因此它不作为阶段输入）。径向表依次取自 `--radial-low` / `--radial-high`、[输入目录布局](data-layout.md#输入目录布局)或 `raptor/plan.json` 中记录的路径，且必须与计划中记录的 SHA-256 一致。
+`scripts/analysis/paper.py` 在不做任何重新拟合的前提下，将论文所需的全部流水线资产汇总到阶段 `analysis:paper`：
+- `figures/`：8 幅确定性矢量 PDF 图（`radial_function`、`two_photon`、`signal_maps`、`template_maps`、`background`、`observational_uncertainty`、`data_vs_model`、`limits`）；
+- `numbers.tex` 与 `numbers.json`（模式 `analysis-paper-numbers`）：不含阿拉伯数字的 `\newcommand{\Num...}{...}` LaTeX 宏定义，以及对应的未舍入原值和数据来源；
+- `table-limits.tex` 与 `table-chi2.tex`：观测上限 $c_{95}$ 表以及 `PAPER_ALPHA = 0.30` 处的 $\chi^2$ 完整 `tabular` 环境。
+
+展示参数（`PAPER_ALPHA = 0.30`、`PAPER_SNAPSHOT_LABEL = 2300`、EVPA 偏振短线参数、径向取样半径 `5, 10, 20` $r_g$、近邻像素对阈值 `15` $\mu\mathrm{as}$ 以及双发射源检验参数）全部记录在阶段清单中，径向窗口函数 $W(r) = \exp[-(r/r_w)^n]$ 则直接从 `RAPTOR` 工作副本（`--raptor-source-root` / `EHT_RAPTOR_SOURCE_ROOT`）的 `src/axion.c` 解析，该工作副本必须洁净地处于 `raptor.source.commit`（提交号即标识该文件，因此它不作为阶段输入）。径向表依次取自 `--radial-low` / `--radial-high`、[输入目录布局](data-layout.md#输入目录布局)或 `raptor/plan.json` 中记录的路径，且必须与计划中记录的 SHA-256 一致。

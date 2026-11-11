@@ -61,10 +61,9 @@ pixi run --locked lint                                        # Ruff check only
 ```bash
 pixi run analysis-expected-signal
 pixi run analysis-limits
-pixi run analysis-summarize
 ```
 
-每条命令都会在 `$EHT_DATA_ROOT/analysis/` 下发布一个新的阶段目录（`expected-signal/`、`limits/` 和 `summary/`，其中包含 `limits/limits.csv` 和 `summary/RESULTS.md`），并拒绝覆盖任何已存在的输出目录。
+每条命令都会在 `$EHT_DATA_ROOT/analysis/` 下发布一个新的阶段目录（`expected-signal/` 和 `limits/`，其中包含 `limits/limits.csv`），并拒绝覆盖任何已存在的输出目录。
 
 若还需在 `$EHT_DATA_ROOT/analysis/paper/` 中生成论文插图、LaTeX 数值宏（`numbers.tex`、`numbers.json`）及表格（`table-limits.tex`、`table-chi2.tex`）——该步骤额外读取 `$EHT_DATA_ROOT/raptor/plan.json`、位于 `$EHT_RAPTOR_SOURCE_ROOT` 的 `RAPTOR` 工作副本中的 `src/axion.c`，以及 `$EHT_INPUT_ROOT/radial/` 中的径向轮廓 CSV 表——请运行：
 

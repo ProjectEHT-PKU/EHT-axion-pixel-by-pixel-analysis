@@ -155,7 +155,7 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | `inference.coupling_min` | `0.0072992700729927005` | – | $c$ 的先验下界 $c_{\min} = 1/137 > 0$ | `calculate_observed` |
 | `inference.coupling_max` | `1000.0` | – | $c$ 的先验上界 $c_{\max} > c_{\min}$ | `calculate_observed` |
 | `inference.prior` | `log-uniform` | – | $c$ 的先验密度：`log-uniform`（对数均匀先验，$\pi(c) \propto 1/c$）或 `uniform`（均匀先验） | `normalized_posterior_cdf` |
-| `inference.credibility` | `0.95` | – | 定义可信上限（credible upper limit）$c_{95}$ 的后验分位数（$\in (0, 1)$） | `posterior_upper_limit`、`RESULTS.md` |
+| `inference.credibility` | `0.95` | – | 定义可信上限（credible upper limit）$c_{95}$ 的后验分位数（$\in (0, 1)$） | `posterior_upper_limit` |
 | `inference.exposure_hours` | `6.0` | $\mathrm{h}$ | $\operatorname{sinc}(\omega T / 2)$ 中的矩形曝光时长 $T \ge 0$ | `evpa_templates` |
 | `inference.day_gap_hours` | `24.0` | $\mathrm{h}$ | 日对内部两天的间隔 $\tau > 0$（$96 - 95$ 与 $101 - 100$） | `evpa_templates`、`paper.py` |
 | `inference.pair_separation_hours` | `120.0` | $\mathrm{h}$ | 两个日对中点之间的时间间隔 $t_2 - t_1 \ge 0$ | `evpa_templates` |

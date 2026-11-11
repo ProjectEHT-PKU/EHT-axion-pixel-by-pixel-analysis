@@ -117,7 +117,7 @@ def capture(monkeypatch, module, name="run"):
 
 
 def test_analysis_scripts_default_roots(project, monkeypatch):
-    from scripts.analysis import expected_signal, limits, summarize
+    from scripts.analysis import expected_signal, limits
 
     calls = capture(monkeypatch, expected_signal)
     expected_signal.main(["--data-root", "/d"])
@@ -128,11 +128,6 @@ def test_analysis_scripts_default_roots(project, monkeypatch):
     args = calls[0][0][0]
     assert (args.ensemble, args.expected_signal, args.output_root) == (
         Path("/d/eht/ensemble"), Path("/d/analysis/expected-signal"), Path("/new"))
-
-    calls = capture(monkeypatch, summarize)
-    summarize.main(["--data-root", "/d"])
-    args = calls[0][0][0]
-    assert (args.limits, args.output_root) == (Path("/d/analysis/limits"), Path("/d/analysis/summary"))
 
 
 def test_eht_scripts_default_roots(project, monkeypatch):

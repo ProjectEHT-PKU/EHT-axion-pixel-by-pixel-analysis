@@ -136,7 +136,6 @@ def save_results(out, products, prepared, config, sigmas, identity):
             'data', 'mode', 'dimension', 'alpha', 'log10_c95', 'c95'])
         writer.writeheader()
         writer.writerows(table)
-    plot_results(out, results)
     report = dict(identity, results=results,
                   supported_cases=[f'{mode}-{dim}' for dim in ('1d', '2d') for mode in MODES],
                   background_sigma_radians=sigmas,
@@ -150,26 +149,6 @@ def save_results(out, products, prepared, config, sigmas, identity):
                             'not a response-model variance.'])
     write_results(out, report, sections)
     return report
-
-
-def plot_results(out, results):
-    import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5), layout='constrained')
-    for ax, dim in zip(axes, ('1d', '2d')):
-        for mode, color in zip(MODES, ('#2679b5', '#e58f24', '#467b46')):
-            for label, style in (('observed', '-'), ('zero-data', '--')):
-                row = results[f'{label}-{mode}-{dim}']
-                ax.plot(row['alphas'], row['log10_c95'], style, color=color, marker='o',
-                        markersize=3, label=f'{label}: {mode}')
-        ax.set(xlabel='Axion alpha', ylabel='log10 c95', title=dim)
-        ax.grid(alpha=.2)
-        ax.legend(fontsize=7)
-    fig.suptitle('Observed day differences and zero-data control; D-term scatter covariance')
-    fig.savefig(out / 'observed-vs-zero-data.png', dpi=160)
-    plt.close(fig)
 
 
 def selected_background(dimension, selected, config, source):

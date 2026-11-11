@@ -155,7 +155,7 @@ Note that the compact zero-baseline flux density (`zbl = 0.60` Jy) of the total-
 | `inference.coupling_min` | `0.0072992700729927005` | – | Lower prior bound $c_{\min} = 1/137 > 0$ | `calculate_observed` |
 | `inference.coupling_max` | `1000.0` | – | Upper prior bound $c_{\max} > c_{\min}$ | `calculate_observed` |
 | `inference.prior` | `log-uniform` | – | Prior density on $c$: `log-uniform` ($\pi(c) \propto 1/c$) or `uniform` | `normalized_posterior_cdf` |
-| `inference.credibility` | `0.95` | – | Credible quantile $\in (0, 1)$ defining $c_{95}$ | `posterior_upper_limit`, `RESULTS.md` |
+| `inference.credibility` | `0.95` | – | Credible quantile $\in (0, 1)$ defining $c_{95}$ | `posterior_upper_limit` |
 | `inference.exposure_hours` | `6.0` | $\mathrm{h}$ | Rectangular exposure duration $T \ge 0$ in $\operatorname{sinc}(\omega T / 2)$ | `evpa_templates` |
 | `inference.day_gap_hours` | `24.0` | $\mathrm{h}$ | Intra-pair day separation $\tau > 0$ ($96 - 95$ and $101 - 100$) | `evpa_templates`, `paper.py` |
 | `inference.pair_separation_hours` | `120.0` | $\mathrm{h}$ | Separation $t_2 - t_1 \ge 0$ between the two pair midpoints | `evpa_templates` |

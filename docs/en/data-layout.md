@@ -24,7 +24,6 @@ Setting `EHT_DATA_ROOT` (in `.env` or the shell) or passing `--data-root PATH` o
   analysis/
     expected-signal/             analysis/expected_signal.py (reads raptor/images)
     limits/                      analysis/limits.py
-    summary/                     analysis/summarize.py
     paper/                       analysis/paper.py
 ```
 
@@ -124,10 +123,6 @@ LIMITS/                          stage analysis:limits
                                  observations/1d/pair_covariances, background/2d/differences,
                                  cases/observed-cor-1d/log_likelihood
   limits.csv                     columns: data, mode, dimension, alpha, log10_c95, c95
-  observed-vs-zero-data.png
-SUMMARY/                         stage analysis:summary
-  limits.csv, fit-chi2.csv
-  limits.png, fits-alpha-<α>.png (8 files), report.json, RESULTS.md
 PAPER/                           stage analysis:paper
   figures/<name>.pdf             radial_function, two_photon, signal_maps, template_maps, background,
                                  observational_uncertainty, data_vs_model, limits
@@ -174,10 +169,9 @@ PAPER/                           stage analysis:paper
 | `eht:ensemble` | `scripts/eht/summarize.py` |
 | `analysis:expected-signal` | `scripts/analysis/expected_signal.py` |
 | `analysis:limits` | `scripts/analysis/limits.py` |
-| `analysis:summary` | `scripts/analysis/summarize.py` |
 | `analysis:paper` | `scripts/analysis/paper.py` |
 
-Auxiliary JSON records name their record type in a `schema` (or `layout`) string: `raptor-generated`, `eht-sample-batch`, `eht-sample-task`, `eht-sample-finish`, `eht-ensemble`, `analysis-limits`, `analysis-summary`, `analysis-paper`, and `analysis-paper-numbers`.
+Auxiliary JSON records name their record type in a `schema` (or `layout`) string: `raptor-generated`, `eht-sample-batch`, `eht-sample-task`, `eht-sample-finish`, `eht-ensemble`, `analysis-limits`, `analysis-paper`, and `analysis-paper-numbers`.
 
 ### Non-manifest receipts
 

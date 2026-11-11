@@ -24,7 +24,6 @@
   analysis/
     expected-signal/             analysis/expected_signal.py (reads raptor/images)
     limits/                      analysis/limits.py
-    summary/                     analysis/summarize.py
     paper/                       analysis/paper.py
 ```
 
@@ -124,10 +123,6 @@ LIMITS/                          stage analysis:limits
                                  observations/1d/pair_covariances, background/2d/differences,
                                  cases/observed-cor-1d/log_likelihood
   limits.csv                     columns: data, mode, dimension, alpha, log10_c95, c95
-  observed-vs-zero-data.png
-SUMMARY/                         stage analysis:summary
-  limits.csv, fit-chi2.csv
-  limits.png, fits-alpha-<α>.png (8 files), report.json, RESULTS.md
 PAPER/                           stage analysis:paper
   figures/<name>.pdf             radial_function, two_photon, signal_maps, template_maps, background,
                                  observational_uncertainty, data_vs_model, limits
@@ -174,10 +169,9 @@ PAPER/                           stage analysis:paper
 | `eht:ensemble` | `scripts/eht/summarize.py` |
 | `analysis:expected-signal` | `scripts/analysis/expected_signal.py` |
 | `analysis:limits` | `scripts/analysis/limits.py` |
-| `analysis:summary` | `scripts/analysis/summarize.py` |
 | `analysis:paper` | `scripts/analysis/paper.py` |
 
-阶段清单之外的辅助 JSON 记录用 `schema`（或 `layout`）字符串标明记录类型：`raptor-generated`、`eht-sample-batch`、`eht-sample-task`、`eht-sample-finish`、`eht-ensemble`、`analysis-limits`、`analysis-summary`、`analysis-paper` 和 `analysis-paper-numbers`。
+阶段清单之外的辅助 JSON 记录用 `schema`（或 `layout`）字符串标明记录类型：`raptor-generated`、`eht-sample-batch`、`eht-sample-task`、`eht-sample-finish`、`eht-ensemble`、`analysis-limits`、`analysis-paper` 和 `analysis-paper-numbers`。
 
 ### 非清单类回执记录
 

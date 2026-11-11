@@ -266,7 +266,6 @@ def test_save_all_six_cases_and_zero_data_control(tmp_path, monkeypatch):
             posterior_density=[[1., .1]] * 8, cdf=[[0., 1.]] * 8)
 
     monkeypatch.setattr(driver, 'calculate_observed', calculate)
-    monkeypatch.setattr(driver, 'plot_results', lambda *args: None)
     monkeypatch.setattr(driver, 'selected_background',
                         lambda dim, selected, config, source: (source['s'], dict(sigma_radians=source['s'])))
     report = driver.save_results(tmp_path, products, prepared, config,

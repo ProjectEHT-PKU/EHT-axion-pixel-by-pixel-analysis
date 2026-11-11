@@ -11,7 +11,7 @@ The M87\* EHT axion pipeline tests for birefringent electric-vector position ang
 | `RAPTOR` simulation | `scripts/raptor/build.py`, `scripts/raptor/generate.py` | `raptor-build` (`linux-64`) | float64 Stokes image cubes (`raptor/images/res-100/alpha-*/stokes.npy`, `res-400/background/stokes.npy`) |
 | EHT imaging | `scripts/eht/reconstruct.py`, `scripts/eht/refine.py`, `scripts/eht/sample.py` | `eht-imaging` | Fixed-$I$ images, refined fiducial D terms, and $4 \times 1000$ certified polarimetric FITS draws |
 | EHT ensemble summary | `scripts/eht/summarize.py` | `eht-summary` | Per-day Stokes/EVPA arrays and Paper VII diagnostics (`eht/ensemble/`) |
-| Analysis | `scripts/analysis/expected_signal.py`, `scripts/analysis/limits.py`, `scripts/analysis/summarize.py`, `scripts/analysis/paper.py` | `default` | Expected axion signal, upper limits $c_{95}(\alpha)$, `RESULTS.md`, and paper figures/macros/tables |
+| Analysis | `scripts/analysis/expected_signal.py`, `scripts/analysis/limits.py`, `scripts/analysis/paper.py` | `default` | Expected axion signal, upper limits $c_{95}(\alpha)$, paper figures/macros/tables |
 
 ```mermaid
 flowchart LR
@@ -28,11 +28,8 @@ flowchart LR
   end
   subgraph AN["Analysis"]
     AT["analysis/expected_signal.py"] --> AL["analysis/limits.py"]
-    AL --> AS["analysis/summarize.py"]
     AT --> AP["analysis/paper.py"]
     AL --> AP
-    AG --> AP
-    AC --> AP
   end
   RG -- "Stokes image cubes" --> AT
   EM -- "EHT ensemble" --> AL

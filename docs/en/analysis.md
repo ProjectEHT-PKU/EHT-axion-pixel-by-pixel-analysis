@@ -11,7 +11,6 @@ With `EHT_DATA_ROOT` set in `.env` (or `--data-root`), all input and output path
 ```bash
 pixi run analysis-expected-signal
 pixi run analysis-limits
-pixi run analysis-summarize
 pixi run analysis-paper
 ```
 
@@ -20,7 +19,6 @@ Explicit directory flags override any layout default:
 ```bash
 pixi run analysis-expected-signal --raptor-images IMAGES --output-root EXPECTED
 pixi run analysis-limits --expected-signal EXPECTED --ensemble ENSEMBLE --output-root LIMITS
-pixi run analysis-summarize --limits LIMITS --output-root SUMMARY
 pixi run analysis-paper --limits LIMITS \
     --expected-signal EXPECTED --ensemble ENSEMBLE --raptor-images IMAGES \
     --raptor-plan plan.json --raptor-source-root RAPTOR --output-root PAPER
@@ -132,11 +130,11 @@ $$
 
 `normalized_posterior_cdf` (`eht_axion/analysis/posterior.py`) multiplies $L(c)$ by $\pi(c) \propto 1/c$ (`log-uniform`, or constant for `uniform`), integrates with the trapezoidal rule in $c$, and `posterior_upper_limit` inverts the cumulative distribution of that piecewise-linear density analytically at `credibility = 0.95` to obtain $c_{95}$. Every dimension/mode pair is evaluated both on the observed differences (`observed`) and on a **zero-data control** ($d_1 = d_2 = 0$ with identical features and covariances, `zero-data`).
 
-## Summary and paper outputs
+## Paper outputs (`scripts/analysis/paper.py`)
 
-- **Summary (`scripts/analysis/summarize.py`)**: verifies `limits` and writes `limits.csv`, `fit-chi2.csv` ($\chi^2$ at $c=0$ and at the joint-grid best fit), `limits.png`, `fits-alpha-<α>.png`, `report.json`, and a purely data-driven `RESULTS.md` (`analysis:summary`).
-- **Paper outputs (`scripts/analysis/paper.py`)**: collects all manuscript assets into stage `analysis:paper` without refitting anything:
-  - `figures/`: eight deterministic vector PDFs (`radial_function`, `two_photon`, `signal_maps`, `template_maps`, `background`, `observational_uncertainty`, `data_vs_model`, `limits`);
-  - `numbers.tex` and `numbers.json` (`analysis-paper-numbers`): digit-free `\newcommand{\Num...}{...}` macros paired with unrounded values and exact data sources;
-  - `table-limits.tex` and `table-chi2.tex`: LaTeX `tabular` environments for observed $c_{95}$ and $\chi^2$ at `PAPER_ALPHA = 0.30`.
-  Presentation constants (`PAPER_ALPHA = 0.30`, `PAPER_SNAPSHOT_LABEL = 2300`, EVPA tick settings, radial sample radii `5, 10, 20` $r_g$, close-pixel threshold `15` $\mu\mathrm{as}$, and two-emitter check parameters) are recorded in the manifest, and the radial window $W(r) = \exp[-(r/r_w)^n]$ is parsed directly from `src/axion.c` of the `RAPTOR` checkout (`--raptor-source-root` / `EHT_RAPTOR_SOURCE_ROOT`), which must be clean at `raptor.source.commit` (the commit identifies the file, so it is not a stage input). The radial tables come from `--radial-low` / `--radial-high`, else the [input layout](data-layout.md#input-layout), else the paths in `raptor/plan.json`, and must match the SHA-256 recorded in the plan.
+`scripts/analysis/paper.py` collects all manuscript assets into stage `analysis:paper` without refitting anything:
+- `figures/`: eight deterministic vector PDFs (`radial_function`, `two_photon`, `signal_maps`, `template_maps`, `background`, `observational_uncertainty`, `data_vs_model`, `limits`);
+- `numbers.tex` and `numbers.json` (`analysis-paper-numbers`): digit-free `\newcommand{\Num...}{...}` macros paired with unrounded values and exact data sources;
+- `table-limits.tex` and `table-chi2.tex`: LaTeX `tabular` environments for observed $c_{95}$ and $\chi^2$ at `PAPER_ALPHA = 0.30`.
+
+Presentation constants (`PAPER_ALPHA = 0.30`, `PAPER_SNAPSHOT_LABEL = 2300`, EVPA tick settings, radial sample radii `5, 10, 20` $r_g$, close-pixel threshold `15` $\mu\mathrm{as}$, and two-emitter check parameters) are recorded in the manifest, and the radial window $W(r) = \exp[-(r/r_w)^n]$ is parsed directly from `src/axion.c` of the `RAPTOR` checkout (`--raptor-source-root` / `EHT_RAPTOR_SOURCE_ROOT`), which must be clean at `raptor.source.commit` (the commit identifies the file, so it is not a stage input). The radial tables come from `--radial-low` / `--radial-high`, else the [input layout](data-layout.md#input-layout), else the paths in `raptor/plan.json`, and must match the SHA-256 recorded in the plan.
