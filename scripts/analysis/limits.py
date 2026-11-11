@@ -30,7 +30,7 @@ from eht_axion.experiment import (
     ANGULAR_BINS, DEFAULT_PATH, analysis_geometry, physical_scale, read_experiment,
 )
 from eht_axion.provenance import (
-    manifest_path, require_declared_outputs, stage_directory, verification_session, verify_stage,
+    manifest_path, require_declared_outputs, stage_directory, verify_stage,
 )
 from eht_axion.raptor.delivery import input_cadence_hours, validate_processed_source
 from eht_axion.raptor.layout import alpha_label
@@ -61,24 +61,24 @@ def options_from_config(config, background_sigma_radians):
         grmhd_sigma_degrees=float(np.rad2deg(sigma)))
 
 
-def validate_templates(root, config, seen):
+def validate_templates(root, config):
     """Verify the template stages: delivered-data identity for all alphas and the analysis geometry."""
     geometry = analysis_geometry(config)
     for alpha in config['shared']['alphas']:
         label = alpha_label(alpha)
         processed = root / 'processed' / label
-        record = verify_stage(processed, recursive=True, _seen=seen)
+        record = verify_stage(processed)
         validate_processed_source(record, config, alpha=alpha,
-                                  resolution=config['raptor']['response']['resolution'], verified=seen)
+                                  resolution=config['raptor']['response']['resolution'])
         if record['config'] != geometry['image_preprocess']:
             raise ValueError('Theory preprocessing differs from selected geometry')
-        record = verify_stage(root / 'response' / label, recursive=True, _seen=seen)
+        record = verify_stage(root / 'response' / label)
         if {k: v for k, v in record['config'].items() if k != 'snapshot_labels'} != geometry['aperturefit']:
             raise ValueError('Theory aperture differs from selected geometry')
     products, inputs = {}, []
     for dim in ('1d', '2d'):
         directory = root / 'templates' / dim
-        record = verify_stage(directory, recursive=True, _seen=seen)
+        record = verify_stage(directory)
         if record['stage'] != 'analysis:templates':
             raise ValueError('Unexpected theory template stage')
         path = directory / 'templates.npz'
@@ -255,7 +255,7 @@ def matched_aperture_samples(native_maps, operator):
     return evpa, intensity, polarized
 
 
-def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
+def prepare_limit_inputs(ensemble, templates, config, products):
     """Read the EHT ensemble (scripts/eht/summarize.py) and select the likelihood features.
 
     Native[y,x] -> template[x,y], physical (-E,N). Sector EVPAs and sector selection
@@ -264,7 +264,7 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     """
     features = config['analysis']['features']
     stride = features['pixel_stride']
-    record = verify_stage(ensemble, recursive=True, _seen=verified)
+    record = verify_stage(ensemble)
     if record['stage'] != 'eht:ensemble':
         raise ValueError('Unexpected EHT ensemble stage')
     report_path = ensemble / 'report.json'
@@ -370,7 +370,7 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
                                   'sum W I and sum W I |P| / sum W I',
                 quadrature=geometry['aperturefit'], qu_rotation='none')))
     processed = templates / 'background'
-    processed_record = verify_stage(processed, recursive=True, _seen=verified)
+    processed_record = verify_stage(processed)
     if processed_record['stage'] != 'analysis:background':
         raise ValueError('Unexpected background preprocessing stage')
     preprocessing = {k: v for k, v in processed_record['config'].items() if k != 'state_indices'}
@@ -381,8 +381,8 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     require_declared_outputs(processed, [stokes_path])
     # Frame spacing from the GRMHD snapshot times recorded with the delivered cubes.
     validate_processed_source(processed_record, config, alpha=None,
-                              resolution=config['raptor']['background']['resolution'], verified=verified)
-    delivered = [Path(e['path']) for e in processed_record['inputs'] if Path(e['path']).suffix == '.npy']
+                              resolution=config['raptor']['background']['resolution'])
+    delivered = [Path(p) for p in processed_record['inputs'] if Path(p).suffix == '.npy']
     cadence = input_cadence_hours(delivered, config)
     background_inputs = [manifest_path(processed), stokes_path,
                          *(path.parent / 'generated.json' for path in delivered)]
@@ -397,22 +397,20 @@ def run(args):
     features = config['analysis']['features']
     if args.output_root.exists():
         raise FileExistsError('New output root required')
-    with verification_session():
-        seen = set()
-        products, inputs = validate_templates(args.templates.resolve(), config, seen)
-        prepared, source_inputs, source_identity, sigmas, background_inputs = prepare_limit_inputs(
-            args.ensemble.resolve(), args.templates.resolve(), config, products, verified=seen)
-        identity = dict(schema='analysis-limits',
-                        scientific_profile=config,
-                        resultant_min=features['resultant_min'], centering=CENTERING,
-                        pixel_stride=features['pixel_stride'],
-                        ensemble=source_identity, covariance='D-draw population scatter; independent days',
-                        scope='credible limits conditional on grid and prior; D-term scatter as covariance')
-        inputs += source_inputs + background_inputs
-        with stage_directory(args.output_root.resolve(), 'analysis:limits',
-                             identity, inputs) as out:
-            if out is not None:
-                return save_results(out, products, prepared, config, sigmas, identity)
+    products, inputs = validate_templates(args.templates.resolve(), config)
+    prepared, source_inputs, source_identity, sigmas, background_inputs = prepare_limit_inputs(
+        args.ensemble.resolve(), args.templates.resolve(), config, products)
+    identity = dict(schema='analysis-limits',
+                    scientific_profile=config,
+                    resultant_min=features['resultant_min'], centering=CENTERING,
+                    pixel_stride=features['pixel_stride'],
+                    ensemble=source_identity, covariance='D-draw population scatter; independent days',
+                    scope='credible limits conditional on grid and prior; D-term scatter as covariance')
+    inputs += source_inputs + background_inputs
+    with stage_directory(args.output_root.resolve(), 'analysis:limits',
+                         identity, inputs) as out:
+        if out is not None:
+            return save_results(out, products, prepared, config, sigmas, identity)
 
 
 def main(argv=None):

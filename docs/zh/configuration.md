@@ -60,17 +60,17 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | `source.commit` | `20056006820b6536c96de790dd5fdaad5ada4eae` | – | 洁净本地 `RAPTOR` 工作副本 `HEAD` 必须精确匹配的 40 位十六进制提交号 | `build_raptor`、`run_jobs`、`deliver_stokes`、`paper.py`（`src/axion.c`） |
 | `camera_fov_rg` | `46.2261` | $r_g$ | 正方形相机视场宽度（$176.5\,\mu\mathrm{as}$） | `RAPTOR` `CAM_SIZE_X/Y`；`analysis_geometry` `init_fov` |
 | `fluid_spin` | `0.9375` | – | 无量纲黑洞自旋 $a \in [0, 1]$，与每个 BHAC 快照尾部核对 | `read_snapshot_footer`、`paper.py` |
-| `build.model` | `bhac` | – | `setup.sh --code`（`bhac`、`harm3d`、`hamr`；`run_jobs` 要求 `MKSBHAC`） | `build_raptor`、`task_identity` |
-| `build.metric` | `mks` | – | `setup.sh --metric`（`mks`、`cks`） | `build_raptor`、`task_identity` |
-| `build.integrator` | `rk4` | – | `setup.sh --int`（`rk4`、`rk2`、`rk45`、`ver`） | `build_raptor`、`task_identity` |
-| `build.grid` | `SMR` | – | `setup.sh --grid`（`SMR`、`AMR`） | `build_raptor`、`task_identity` |
-| `build.polarized` | `true` | – | `setup.sh --rad=pol`（`run_jobs` 要求为 `true`） | `build_raptor`、`task_identity` |
-| `build.sfc` | `true` | – | `setup.sh --sf=sfc` | `build_raptor`、`task_identity` |
-| `build.magnetic_polarity` | `plus` | – | `setup.sh --bflip`（`plus`、`minus`） | `build_raptor`、`task_identity` |
-| `build.sigma_cut` | `1.0` | – | 磁化强度截断 `setup.sh --sigma-cut`（$> 0$） | `build_raptor`、`task_identity` |
-| `build.thetae_min` | `0.001` | – | 无量纲电子温度下限 `--thetae-min`（$> 0$，且 $< \text{thetae\_max}$） | `build_raptor`、`task_identity` |
-| `build.thetae_max` | `100.0` | – | 无量纲电子温度上限 `--thetae-max` | `build_raptor`、`task_identity` |
-| `build.uniform_output` | `false` | – | `setup.sh --uniform=0`（`run_jobs` 要求为 `false`） | `build_raptor`、`task_identity` |
+| `build.model` | `bhac` | – | `setup.sh --code`（`bhac`、`harm3d`、`hamr`；`run_jobs` 要求 `MKSBHAC`） | `build_raptor` |
+| `build.metric` | `mks` | – | `setup.sh --metric`（`mks`、`cks`） | `build_raptor` |
+| `build.integrator` | `rk4` | – | `setup.sh --int`（`rk4`、`rk2`、`rk45`、`ver`） | `build_raptor` |
+| `build.grid` | `SMR` | – | `setup.sh --grid`（`SMR`、`AMR`） | `build_raptor` |
+| `build.polarized` | `true` | – | `setup.sh --rad=pol`（`run_jobs` 要求为 `true`） | `build_raptor` |
+| `build.sfc` | `true` | – | `setup.sh --sf=sfc` | `build_raptor` |
+| `build.magnetic_polarity` | `plus` | – | `setup.sh --bflip`（`plus`、`minus`） | `build_raptor` |
+| `build.sigma_cut` | `1.0` | – | 磁化强度截断 `setup.sh --sigma-cut`（$> 0$） | `build_raptor` |
+| `build.thetae_min` | `0.001` | – | 无量纲电子温度下限 `--thetae-min`（$> 0$，且 $< \text{thetae\_max}$） | `build_raptor` |
+| `build.thetae_max` | `100.0` | – | 无量纲电子温度上限 `--thetae-max` | `build_raptor` |
+| `build.uniform_output` | `false` | – | `setup.sh --uniform=0`（`run_jobs` 要求为 `false`） | `build_raptor` |
 | `plasma.mass_unit_g` | `3.0e+25` | $\mathrm{g}$ | 吸积流质量标度 `M_UNIT`（$> 0$） | `RAPTOR` `model.in` |
 | `plasma.r_low` | `1.0` | – | 离子–电子温度比参数 `R_LOW`（$> 0$） | `RAPTOR` `model.in` |
 | `plasma.r_high` | `1.0` | – | 离子–电子温度比参数 `R_HIGH`（$> 0$） | `RAPTOR` `model.in` |
@@ -81,13 +81,13 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | `response.resolution` | `100` | 像素 | 有轴子图像与 100 像素基线图像的正方形边长（10 的整数倍） | `plan_generation`、`deliver_stokes`、`templates.py` |
 | `response.reference_norm` | `0.1` | – | `AXION_NORM` 参考场振幅（$> 0$） | `RAPTOR` `model.in`、`limits.py`、`paper.py` |
 | `background.resolution` | `400` | 像素 | 无轴子背景图像的正方形边长（10 的整数倍） | `plan_generation`、`deliver_stokes`、`templates.py`、`paper.py` |
-| `radial_tables.low.spin` | `0.9375` | – | `low` 径向 CSV 表声明的黑洞自旋 $a \in [0, 1]$ | `plan_generation`、`task_identity`、`paper.py` |
-| `radial_tables.high.spin` | `0.99` | – | `high` 径向 CSV 表声明的黑洞自旋 $a \in [0, 1]$（有意与 `fluid_spin` 不同） | `plan_generation`、`task_identity`、`paper.py` |
+| `radial_tables.low.spin` | `0.9375` | – | `low` 径向 CSV 表声明的黑洞自旋 $a \in [0, 1]$ | `plan_generation`、`paper.py` |
+| `radial_tables.high.spin` | `0.99` | – | `high` 径向 CSV 表声明的黑洞自旋 $a \in [0, 1]$（有意与 `fluid_spin` 不同） | `plan_generation`、`paper.py` |
 | `alpha_table` | `0.10`–`0.30`: `low`；`0.35`–`0.44`: `high` | – | 将全部两位小数字符串键 `'0.10'`、…、`'0.44'` 映射到 `low` 或 `high` | `plan_generation`、`run_jobs`、`paper.py` |
-| `grid.nxlone` | `[96, 48, 48]` | 网格数 | BHAC `grid_mks.in` 基础计算域网格数（快照块大小 `nx` 必须整除 `nxlone`） | `read_snapshot_footer`、`run_jobs`、`task_identity` |
-| `grid.xprobmin` | `[0.17395330712343798, 0.0, 0.0]` | MKS 坐标 | `grid_mks.in` 中的 `xprobminx1..3`（乘以 $2\pi$ 之前的原始 BHAC 角度坐标） | `run_jobs`、`task_identity` |
-| `grid.xprobmax` | `[7.824046010856292, 0.5, 1.0]` | MKS 坐标 | `grid_mks.in` 中的 `xprobmax1..3` | `run_jobs`、`task_identity` |
-| `grid.hslope` | `0.0` | – | `grid_mks.in` 中的 `hslope` | `run_jobs`、`task_identity` |
+| `grid.nxlone` | `[96, 48, 48]` | 网格数 | BHAC `grid_mks.in` 基础计算域网格数（快照块大小 `nx` 必须整除 `nxlone`） | `read_snapshot_footer`、`run_jobs` |
+| `grid.xprobmin` | `[0.17395330712343798, 0.0, 0.0]` | MKS 坐标 | `grid_mks.in` 中的 `xprobminx1..3`（乘以 $2\pi$ 之前的原始 BHAC 角度坐标） | `run_jobs` |
+| `grid.xprobmax` | `[7.824046010856292, 0.5, 1.0]` | MKS 坐标 | `grid_mks.in` 中的 `xprobmax1..3` | `run_jobs` |
+| `grid.hslope` | `0.0` | – | `grid_mks.in` 中的 `hslope` | `run_jobs` |
 
 ### `eht_imaging`
 

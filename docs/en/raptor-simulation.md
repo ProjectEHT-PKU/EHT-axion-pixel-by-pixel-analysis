@@ -2,7 +2,7 @@
 
 [← Documentation index](index.md)
 
-The `RAPTOR` simulation pipeline compiles a pinned version of the polarized general-relativistic ray tracer `RAPTOR`, validates BHAC GRMHD snapshots and axion radial-profile tables, executes $18\,330$ content-addressed ray-tracing jobs with bounded concurrency and optional CPU pinning, validates every HDF5/spectrum pair, and delivers float64 Stokes cubes for the downstream analysis. It does not depend on any EHT imaging product.
+The `RAPTOR` simulation pipeline compiles a pinned version of the polarized general-relativistic ray tracer `RAPTOR`, validates BHAC GRMHD snapshots and axion radial-profile tables, executes $18\,330$ ray-tracing jobs with bounded concurrency and optional CPU pinning, validates every HDF5/spectrum pair, and delivers float64 Stokes cubes for the downstream analysis. It does not depend on any EHT imaging product.
 
 ## Prerequisites and inputs
 
@@ -60,9 +60,9 @@ pixi run -e raptor-build raptor-merge --plan /path/to/plan.json \
 2. Extracts tracked git blobs (`git ls-tree` / `git cat-file`) into `build/source/`, sanitizes ambient `make`/include variables (`VPATH`, `CPATH`, `MAKEFLAGS`, `RAPTOR`, etc.), and resolves `h5cc` (`HDF5_CC`).
 3. Runs `setup.sh` with `--code`, `--metric`, `--int`, `--grid`, `--rad`, `--sf`, `--bflip`, `--sigma-cut`, `--uniform`, `--thetae-min`, and `--thetae-max` derived from `raptor.build`.
 4. Captures compiler command lines via `make -nB all` (`compiler-flags.txt`) and active preprocessor definitions via `h5cc ... -dM -E` (`macros.txt`), asserting that `metric`, `int_method`, `AMR`, `SMR`, `POL`, `SFC`, `BPOL`, `SIGMA_CUT`, `UNIF`, `THETAE_MIN`, and `THETAE_MAX` match `raptor.build`.
-5. Writes `receipt.json` recording the toolchain, macro values, and the SHA-256 of the `RAPTOR` executable, which downstream jobs declare as an input.
+5. Writes `receipt.json` recording the toolchain, macro values, and the path of the `RAPTOR` executable, which downstream jobs declare as an input.
 
-## Task planning and content-addressed IDs
+## Task planning and task IDs
 
 `plan_generation` (`eht_axion/raptor/plan.py`) inspects only lightweight metadata and performs no ray tracing:
 
@@ -75,18 +75,17 @@ For each of the 141 snapshots, the plan emits 130 tasks ($18\,330$ total):
 
 Each task specifies the 19 `model.in` parameters (`MBH` in $M_\odot$, `DISTANCE` in $\mathrm{kpc}$, `M_UNIT` in $\mathrm{g}$, `R_LOW`, `R_HIGH`, `INCLINATION` in $\mathrm{deg}$, `IMG_WIDTH`, `IMG_HEIGHT`, `CAM_SIZE_X`, `CAM_SIZE_Y` in $r_g$, `FREQS_PER_DEC = 1`, `FREQ_MIN` in $\mathrm{Hz}$, `STEPSIZE`, `AXION_ALPHA`, `AXION_OMEGA`, `AXION_NORM`, `AXION_PHASE`, `AXION_TABLE`, `MAX_LEVEL = 1`).
 
-**Task identifier (`task_identity`):** the SHA-256 of a canonical JSON object containing the snapshot filename and footer metadata, the 19 `model.in` values minus `AXION_TABLE`, `{spin, sha256}` of the radial table (`null` for `baseline`), `raptor.grid`, and `raptor.build`. Sky-grid, EHT imaging, and analysis parameters are excluded, so modifying downstream settings never invalidates ray-traced jobs.
+**Task identifier (`task_id`):** the relative job directory named by the task parameters: `res-<n>/alpha-<α>/t<label>/phase-<k>` for an axion response (for example `res-100/alpha-0.30/t1600/phase-07`) and `res-<n>/baseline/t<label>` for an axion-off image (for example `res-400/baseline/t1600`). A job stage records its full `model.in` configuration; an existing job directory whose recorded configuration differs from the plan is refused, never silently reused.
 
 ## Job execution, CPU affinity, and output validation
 
 Before launching jobs, `scripts/raptor/generate.py` and `run_jobs` (`eht_axion/raptor/jobs.py`):
 - check free disk space ($\ge 4 \times \text{output\_stokes\_lower\_bound\_bytes} + 2\,\mathrm{GiB}$) and available RAM ($\ge \text{workers} \times \max(2.5\,\mathrm{GiB},\,2 \times \text{per\_process\_memory\_lower\_bound\_bytes}) + 2\,\mathrm{GiB}$, honoring Linux `MemAvailable` and cgroup-v2 `memory.max - memory.current`);
-- verify the `raptor:build` stage, match `raptor_source`, `grid_mks.in`, and required C macros (`POL=1`, `num_frequencies=1`, `num_pixels_1d=10`, `NSPIN=3`, `SMR=1`, `AMR=0`, `UNIF=0`, `metric=MKSBHAC`, `DF=TH`, `IMGFILE=1`, `SPECFILE=1`), and re-verify live snapshot footers and radial-table hashes;
-- pre-hash the shared input closure once in a `verification_session`.
+- verify the `raptor:build` stage, match `raptor_source`, `grid_mks.in`, and required C macros (`POL=1`, `num_frequencies=1`, `num_pixels_1d=10`, `NSPIN=3`, `SMR=1`, `AMR=0`, `UNIF=0`, `metric=MKSBHAC`, `DF=TH`, `IMGFILE=1`, `SPECFILE=1`), and recheck live snapshot footers, the radial-table SHA-256 recorded in the plan, and (when the plan records them) the snapshot SHA-256.
 
 **Scheduling and CPU affinity (`eht_axion/raptor/affinity.py`):** task index `i` is deterministically assigned to worker slot `i % workers`. `allocate_cpu_sets` assigns each worker `threads` disjoint CPUs (`physical` selects one logical CPU per `(socket, core)` from `/sys/devices/system/cpu/*/topology`; `logical` selects any allowed CPU; `none` does not pin). When affinity is active, workers launch under `taskset --cpu-list ...` with `OMP_PROC_BIND=close` and `OMP_PLACES=cores`, and those binding settings are recorded in the `raptor:job` config so pinned cache hits remain deterministic on resume.
 
-**Execution, resume, and failure preservation:** each new execution creates `<run_root>/attempts/<task_id>/attempt-*/` (`input.json`, `stdout.log`, `stderr.log`, `result.json`) and invokes `RAPTOR model.in <snapshot> <output_slot>` in a temporary stage directory. If `RAPTOR` fails, times out, or is interrupted (`SIGINT`/`SIGTERM` kills all active process groups), the partial temporary directory is copied to `attempts/<task_id>/attempt-*/work/` and no stage is published. On re-run, an existing `jobs/<task_id>/` stage is reused only if its manifest, `success.json`, `output.json`, `model.in`, `task.json`, and `grid_mks.in` all verify.
+**Execution, resume, and failure preservation:** each new execution creates `<run_root>/attempts/<task_id>/attempt-*/` (`input.json`, `stdout.log`, `stderr.log`, `result.json`) and invokes `RAPTOR model.in <snapshot> <output_slot>` in a temporary stage directory. If `RAPTOR` fails, times out, or is interrupted (`SIGINT`/`SIGTERM` kills all active process groups), the partial temporary directory is copied to `attempts/<task_id>/attempt-*/work/` and no stage is published. On re-run, an existing `jobs/<task_id>/` stage is reused only if its manifest records the same configuration and inputs and its `success.json`, `output.json`, `model.in`, `task.json`, and `grid_mks.in` agree with the task.
 
 **Per-job output validation (`validate_job_output` in `eht_axion/raptor/outputs.py`):**
 - checks `output/img_data_<slot>.h5` has exclusively internal hard-linked datasets `{I,Q,U,V,tau,tauF}<freq:e>`, `alpha`, and `beta`, each finite of shape `((N/10)^2, 100)` ($10 \times 10$ x-major blocks);
@@ -98,7 +97,7 @@ Before launching jobs, `scripts/raptor/generate.py` and `run_jobs` (`eht_axion/r
 
 `convert_hdf5` (`eht_axion/raptor/convert.py`) assembles a rectangular `time × state` grid of validated job HDF5 files into a float64 `(T, S, N, N, 4)` array (`[time, state, x, y, IQUV]` in $\mathrm{Jy\,sr^{-1}}$) and writes `convert.json`.
 
-`deliver_stokes` (`eht_axion/raptor/delivery.py`) maps every planned task to a unique job stage across one or more job roots, verifies each job's lineage and `success.json`, and publishes `raptor:delivery` stages under `<target>/data/raptor/`:
+`deliver_stokes` (`eht_axion/raptor/delivery.py`) maps every planned task to a unique job stage across one or more job roots, checks each job's recorded build and inputs and its `success.json`, and publishes `raptor:delivery` stages under `<target>/data/raptor/`:
 - `res-100/alpha-<alpha:.2f>/stokes.npy` of shape `(141, 17, 100, 100, 4)` (8 stages: state `0` axion-off baseline, state `k+1` phase $k\pi/8$);
 - `res-400/background/t<A>-t<B>/stokes-t<A>-t<B>.npy` in contiguous shards of at most 10 snapshots (15 stages: `t1600-t1690` … `t3000-t3000`), shape `(T, 1, 400, 400, 4)`.
 

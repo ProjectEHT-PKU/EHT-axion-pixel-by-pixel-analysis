@@ -10,7 +10,7 @@ All four Pixi environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_
 
 | Environment | Platforms | Dependencies added beyond `default` | Purpose |
 |---|---|---|---|
-| `default` | `linux-64`, `linux-aarch64`, `osx-64`, `osx-arm64`, `win-64` | Python `3.12.*`, `numpy`, `scipy`, `matplotlib`, `h5py`, `pyyaml`, `pytest`, `ruff`, `python-dotenv` | Analysis scripts, `verify`, `lint`, and non-`ehtim`/`astropy` tests |
+| `default` | `linux-64`, `linux-aarch64`, `osx-64`, `osx-arm64`, `win-64` | Python `3.12.*`, `numpy`, `scipy`, `matplotlib`, `h5py`, `pyyaml`, `pytest`, `ruff`, `python-dotenv` | Analysis scripts, `lint`, and non-`ehtim`/`astropy` tests |
 | `raptor-build` | `linux-64` | `c-compiler`, `make`, `gsl`, `hdf5`, `pkg-config`, `rsync` | Compiling `RAPTOR`, running jobs, and merging/delivering cubes |
 | `eht-summary` | All 5 platforms | `astropy` | Summarizing D-term Monte Carlo FITS draws into `eht:ensemble` |
 | `eht-imaging` | All 5 platforms | `astropy`, `ehtim == 1.3.2` (PyPI) | EHT reconstruction, convex refinement, bundle export, Monte Carlo, and full test suite |
@@ -21,7 +21,6 @@ All four Pixi environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_
 | `eht-reconstruct`, `eht-refine`, `eht-export-bundle`, `eht-sample` | `-e eht-imaging` | `scripts/eht/{reconstruct,refine,export_bundle,sample}.py` |
 | `eht-summarize` | `-e eht-summary` (or `-e eht-imaging`) | `scripts/eht/summarize.py` |
 | `analysis-templates`, `analysis-limits`, `analysis-check-grid`, `analysis-check-covariance`, `analysis-summarize`, `analysis-paper` | `default` | `scripts/analysis/{templates,limits,check_grid,check_covariance,summarize,paper}.py` |
-| `verify` | `default` | `python scripts/verify_products.py` |
 | `test` | `default` or `-e eht-imaging` | `python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=."` |
 | `lint` | `default` | `ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts` |
 | `check` | `default` | Runs `test` and `lint` |
@@ -51,7 +50,7 @@ Several test modules enforce repository-wide invariants rather than single-funct
 |---|---|---|
 | `eht_axion/experiment.py` | Strict loader, schema/range validator, and derived views of `configs/experiment.yaml` | `read_experiment`, `validate`, `validate_ray_tracing`, `physical_scale`, `ray_tracing_config`, `analysis_geometry`, `eht_imaging_parameters`, `ANGULAR_BINS`, `EHT_DAYS` |
 | `eht_axion/environment.py` | Safe reader of the single `.env`, resolution of the three roots (`EHT_RAPTOR_SOURCE_ROOT`, `EHT_INPUT_ROOT`, `EHT_DATA_ROOT`), and the input and product layouts | `resolve_environment`, `add_environment_options`, `add_data_root_option`, `add_input_root_option`, `data_root`, `input_root`, `raptor_source_root`, `layout_path`, `input_path`, `fill_defaults`, `fill_input_defaults`, `LAYOUT`, `INPUT_LAYOUT` |
-| `eht_axion/provenance.py` | Transactional stage directories, `manifest.json`, git commit identity, and session-scoped SHA-256 verification | `stage_directory`, `verify_stage`, `require_declared_outputs`, `verification_session`, `sha256`, `manifest_path`, `source_closure`, `contained_path`, `code_identity` |
+| `eht_axion/provenance.py` | Transactional stage directories, `manifest.json`, git commit identity, and input-file SHA-256 | `stage_directory`, `verify_stage`, `require_declared_outputs`, `sha256`, `manifest_path`, `source_closure`, `contained_path`, `code_identity` |
 | `eht_axion/physics.py` | SI/IAU constants, M87\* gravitational time/angle scales, and 211-state frequency | `PhysicalScale`, `omega` |
 | `eht_axion/evpa.py` | Linear-polarization EVPA and $\pi$-periodic circular differences | `finite_evpa`, `circular_difference` |
 
@@ -59,7 +58,7 @@ Several test modules enforce repository-wide invariants rather than single-funct
 
 | Module | Responsibility | Key public API |
 |---|---|---|
-| `eht_axion/raptor/plan.py` | BHAC footer and radial-CSV validation, task list, and content-addressed SHA-256 task IDs | `plan_generation`, `task_identity`, `read_snapshot_footer`, `validate_radial_table` |
+| `eht_axion/raptor/plan.py` | BHAC footer and radial-CSV validation, task list, and parameter-named task IDs | `plan_generation`, `task_id`, `read_snapshot_footer`, `validate_radial_table` |
 | `eht_axion/raptor/build.py` | Clean-checkout verification and `setup.sh` compilation of pinned `RAPTOR` | `build_raptor` |
 | `eht_axion/raptor/jobs.py` | Bounded concurrent `RAPTOR` process runner with deterministic slots and resume | `run_jobs`, `serialize_parameters`, `parameter_values` |
 | `eht_axion/raptor/affinity.py` | Disjoint `taskset` CPU allocation and Linux/`cgroup-v2` RAM headroom checks | `allocate_cpu_sets`, `check_memory`, `launch_prefix` |
@@ -89,14 +88,14 @@ Every script starts with a two-line `sys.path` bootstrap locating the repository
 
 1. **Define scientific parameters once in `configs/experiment.yaml`** and validate them in `eht_axion/experiment.py`; pass them explicitly into `eht_axion/` functions without numeric defaults.
 2. **Keep machine paths and execution knobs out of YAML**: use CLI flags, `add_data_root_option` / `fill_defaults`, or declared keys in `eht_axion/environment.py` (`PATH_KEYS`, `VALUE_KEYS`).
-3. **Consume only verified declared stage outputs**: call `verify_stage` and `require_declared_outputs` on upstream stages, and wrap writes in `verification_session()` and `stage_directory(...)`, listing upstream `manifest_path(dir)` and consumed files in `input_paths` (never repository source files).
+3. **Consume only verified declared stage outputs**: call `verify_stage` and `require_declared_outputs` on upstream stages, and wrap writes in `stage_directory(...)`, listing upstream `manifest_path(dir)` and consumed files in `input_paths` (never repository source files).
 4. **Keep lines within 110 characters** and free of Ruff `E`, `F`, and `W` violations (`py312`).
 
 ### Adding a scientific parameter
 
 1. Add the key and value under the appropriate section (`shared`, `raptor`, `eht_imaging`, or `analysis`) in `configs/experiment.yaml`.
 2. Add the key name to `SCHEMA` in `eht_axion/experiment.py` and add type/domain checks in `_validate_shared`, `_validate_raptor`, `_validate_eht_imaging`, or `_validate_analysis`.
-3. If the parameter affects `RAPTOR` ray tracing, ensure `ray_tracing_config` (and `task_identity` if per-task) includes it; if it affects EHT imaging stages, ensure `eht_imaging_parameters` (`_EHT_PARAMETER_ORDER`) or solver plan dictionaries include it.
+3. If the parameter affects `RAPTOR` ray tracing, ensure `ray_tracing_config` (and the task parameters if per-task) includes it; if it affects EHT imaging stages, ensure `eht_imaging_parameters` (`_EHT_PARAMETER_ORDER`) or solver plan dictionaries include it.
 4. Thread the value explicitly from the script into the `eht_axion/` function signature (with no numeric default) and add positive/negative validation cases in `tests/test_experiment.py`.
 5. Document the key in `docs/en/configuration.md` and `docs/zh/configuration.md`.
 
@@ -104,5 +103,5 @@ Every script starts with a two-line `sys.path` bootstrap locating the repository
 
 1. Add a layout key (for example `"analysis.my_check": "analysis/my-check"`) to `LAYOUT` in `eht_axion/environment.py`, and add the matching line under `analysis/` in the `<data root>/` tree of both `docs/en/data-layout.md` and `docs/zh/data-layout.md` (checked by `tests/test_data_root.py`).
 2. Implement pure numerical logic in `eht_axion/analysis/` without file I/O or default scientific values.
-3. Create `scripts/analysis/my_check.py` with the standard `sys.path` preamble, `add_data_root_option`, and `fill_defaults`. Verify upstream stages via `verify_stage` + `require_declared_outputs`, refuse an existing `--output-root`, and publish outputs inside `stage_directory(destination, "analysis:my-check", identity, inputs, verify_lineage=...)`.
+3. Create `scripts/analysis/my_check.py` with the standard `sys.path` preamble, `add_data_root_option`, and `fill_defaults`. Verify upstream stages via `verify_stage` + `require_declared_outputs`, refuse an existing `--output-root`, and publish outputs inside `stage_directory(destination, "analysis:my-check", identity, inputs)`.
 4. Register an `analysis-my-check` task in `pixi.toml`, add synthetic tests in `tests/test_analysis_my_check.py` and `tests/test_data_root.py`, and document the stage in `docs/en/` and `docs/zh/`.

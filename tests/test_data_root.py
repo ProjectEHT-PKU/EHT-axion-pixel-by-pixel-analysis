@@ -138,8 +138,8 @@ def test_analysis_scripts_default_roots(project, monkeypatch):
     with pytest.raises(SystemExit):
         check_grid.main(["--data-root", "/d"])
 
-    monkeypatch.setattr(check_covariance.provenance, "verification_session",
-                        lambda: (_ for _ in ()).throw(RuntimeError("roots filled in")))
+    monkeypatch.setattr(check_covariance.provenance, "verify_stage",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("roots filled in")))
     with pytest.raises(RuntimeError, match="roots filled in"):
         check_covariance.main(["--data-root", str(project / "d")])
     (project / "d" / "analysis" / "check-covariance").mkdir(parents=True)

@@ -60,17 +60,17 @@ An alternative YAML file passed via `--config PATH` must contain the exact same 
 | `source.commit` | `20056006820b6536c96de790dd5fdaad5ada4eae` | – | Exact 40-hex commit required at `HEAD` of a clean local `RAPTOR` checkout | `build_raptor`, `run_jobs`, `deliver_stokes`, `paper.py` (`src/axion.c`) |
 | `camera_fov_rg` | `46.2261` | $r_g$ | Square camera width ($176.5\,\mu\mathrm{as}$) | `RAPTOR` `CAM_SIZE_X/Y`; `analysis_geometry` `init_fov` |
 | `fluid_spin` | `0.9375` | – | Dimensionless black-hole spin $a \in [0, 1]$ checked against every BHAC snapshot footer | `read_snapshot_footer`, `paper.py` |
-| `build.model` | `bhac` | – | `setup.sh --code` (`bhac`, `harm3d`, `hamr`; `run_jobs` requires `MKSBHAC`) | `build_raptor`, `task_identity` |
-| `build.metric` | `mks` | – | `setup.sh --metric` (`mks`, `cks`) | `build_raptor`, `task_identity` |
-| `build.integrator` | `rk4` | – | `setup.sh --int` (`rk4`, `rk2`, `rk45`, `ver`) | `build_raptor`, `task_identity` |
-| `build.grid` | `SMR` | – | `setup.sh --grid` (`SMR`, `AMR`) | `build_raptor`, `task_identity` |
-| `build.polarized` | `true` | – | `setup.sh --rad=pol` (`true` required by `run_jobs`) | `build_raptor`, `task_identity` |
-| `build.sfc` | `true` | – | `setup.sh --sf=sfc` | `build_raptor`, `task_identity` |
-| `build.magnetic_polarity` | `plus` | – | `setup.sh --bflip` (`plus`, `minus`) | `build_raptor`, `task_identity` |
-| `build.sigma_cut` | `1.0` | – | Magnetization cut `setup.sh --sigma-cut` ($> 0$) | `build_raptor`, `task_identity` |
-| `build.thetae_min` | `0.001` | – | Minimum dimensionless electron temperature `--thetae-min` ($> 0$, $< \text{thetae\_max}$) | `build_raptor`, `task_identity` |
-| `build.thetae_max` | `100.0` | – | Maximum dimensionless electron temperature `--thetae-max` | `build_raptor`, `task_identity` |
-| `build.uniform_output` | `false` | – | `setup.sh --uniform=0` (`false` required by `run_jobs`) | `build_raptor`, `task_identity` |
+| `build.model` | `bhac` | – | `setup.sh --code` (`bhac`, `harm3d`, `hamr`; `run_jobs` requires `MKSBHAC`) | `build_raptor` |
+| `build.metric` | `mks` | – | `setup.sh --metric` (`mks`, `cks`) | `build_raptor` |
+| `build.integrator` | `rk4` | – | `setup.sh --int` (`rk4`, `rk2`, `rk45`, `ver`) | `build_raptor` |
+| `build.grid` | `SMR` | – | `setup.sh --grid` (`SMR`, `AMR`) | `build_raptor` |
+| `build.polarized` | `true` | – | `setup.sh --rad=pol` (`true` required by `run_jobs`) | `build_raptor` |
+| `build.sfc` | `true` | – | `setup.sh --sf=sfc` | `build_raptor` |
+| `build.magnetic_polarity` | `plus` | – | `setup.sh --bflip` (`plus`, `minus`) | `build_raptor` |
+| `build.sigma_cut` | `1.0` | – | Magnetization cut `setup.sh --sigma-cut` ($> 0$) | `build_raptor` |
+| `build.thetae_min` | `0.001` | – | Minimum dimensionless electron temperature `--thetae-min` ($> 0$, $< \text{thetae\_max}$) | `build_raptor` |
+| `build.thetae_max` | `100.0` | – | Maximum dimensionless electron temperature `--thetae-max` | `build_raptor` |
+| `build.uniform_output` | `false` | – | `setup.sh --uniform=0` (`false` required by `run_jobs`) | `build_raptor` |
 | `plasma.mass_unit_g` | `3.0e+25` | $\mathrm{g}$ | Accretion-flow mass scale `M_UNIT` ($> 0$) | `RAPTOR` `model.in` |
 | `plasma.r_low` | `1.0` | – | Ion-to-electron temperature ratio parameter `R_LOW` ($> 0$) | `RAPTOR` `model.in` |
 | `plasma.r_high` | `1.0` | – | Ion-to-electron temperature ratio parameter `R_HIGH` ($> 0$) | `RAPTOR` `model.in` |
@@ -81,13 +81,13 @@ An alternative YAML file passed via `--config PATH` must contain the exact same 
 | `response.resolution` | `100` | pixels | Square side of axion-on and 100-px baseline images (multiple of 10) | `plan_generation`, `deliver_stokes`, `templates.py` |
 | `response.reference_norm` | `0.1` | – | `AXION_NORM` reference amplitude ($> 0$) | `RAPTOR` `model.in`, `limits.py`, `paper.py` |
 | `background.resolution` | `400` | pixels | Square side of axion-off background images (multiple of 10) | `plan_generation`, `deliver_stokes`, `templates.py`, `paper.py` |
-| `radial_tables.low.spin` | `0.9375` | – | Declared spin $a \in [0, 1]$ of the `low` radial CSV | `plan_generation`, `task_identity`, `paper.py` |
-| `radial_tables.high.spin` | `0.99` | – | Declared spin $a \in [0, 1]$ of the `high` radial CSV (intentionally distinct from `fluid_spin`) | `plan_generation`, `task_identity`, `paper.py` |
+| `radial_tables.low.spin` | `0.9375` | – | Declared spin $a \in [0, 1]$ of the `low` radial CSV | `plan_generation`, `paper.py` |
+| `radial_tables.high.spin` | `0.99` | – | Declared spin $a \in [0, 1]$ of the `high` radial CSV (intentionally distinct from `fluid_spin`) | `plan_generation`, `paper.py` |
 | `alpha_table` | `0.10`–`0.30`: `low`; `0.35`–`0.44`: `high` | – | Maps every two-decimal string key `'0.10'`, …, `'0.44'` to `low` or `high` | `plan_generation`, `run_jobs`, `paper.py` |
-| `grid.nxlone` | `[96, 48, 48]` | cells | Base BHAC `grid_mks.in` domain cells (snapshot block `nx` must divide `nxlone`) | `read_snapshot_footer`, `run_jobs`, `task_identity` |
-| `grid.xprobmin` | `[0.17395330712343798, 0.0, 0.0]` | MKS coords | `xprobminx1..3` in `grid_mks.in` (raw BHAC angle units before $2\pi$ scaling) | `run_jobs`, `task_identity` |
-| `grid.xprobmax` | `[7.824046010856292, 0.5, 1.0]` | MKS coords | `xprobmax1..3` in `grid_mks.in` | `run_jobs`, `task_identity` |
-| `grid.hslope` | `0.0` | – | `hslope` in `grid_mks.in` | `run_jobs`, `task_identity` |
+| `grid.nxlone` | `[96, 48, 48]` | cells | Base BHAC `grid_mks.in` domain cells (snapshot block `nx` must divide `nxlone`) | `read_snapshot_footer`, `run_jobs` |
+| `grid.xprobmin` | `[0.17395330712343798, 0.0, 0.0]` | MKS coords | `xprobminx1..3` in `grid_mks.in` (raw BHAC angle units before $2\pi$ scaling) | `run_jobs` |
+| `grid.xprobmax` | `[7.824046010856292, 0.5, 1.0]` | MKS coords | `xprobmax1..3` in `grid_mks.in` | `run_jobs` |
+| `grid.hslope` | `0.0` | – | `hslope` in `grid_mks.in` | `run_jobs` |
 
 ### `eht_imaging`
 

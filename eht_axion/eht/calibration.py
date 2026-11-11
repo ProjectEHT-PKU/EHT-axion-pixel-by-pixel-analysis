@@ -107,7 +107,7 @@ def load_native(path, feed_file, *, scan_average, fixed_sites, solve_sites):
         _native(obs)
     meta = dict(input=str(path.resolve()), feed_file=str(feed_file.resolve()),
                 calibration_source="2023-D01-01 release README: HOPS zbl-dtcal+selfcal",
-                provenance_hash_verified_here=False, native_polrep="circ", fr_off_unit="degrees",
+                native_polrep="circ", fr_off_unit="degrees",
                 precorrected_sites=list(fixed_sites), remaining_d_sites=list(solve_sites),
                 missing_product_policy="drop complete row if any product/error invalid",
                 rows_loaded=before, rows_flagged=int((~keep).sum()), rows_output=len(obs.data),

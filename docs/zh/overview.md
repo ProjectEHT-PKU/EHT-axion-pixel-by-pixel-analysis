@@ -12,7 +12,6 @@ M87\* EHT 轴子分析流水线用于检验环绕 M87\* 的超轻轴子云（ult
 | EHT 成像 | `scripts/eht/reconstruct.py`、`scripts/eht/refine.py`、`scripts/eht/export_bundle.py`、`scripts/eht/sample.py` | `eht-imaging` | 固定总强度（$I$）图像、精化后的基准仪器偏振泄漏（D 项，D-terms）以及 $4 \times 1000$ 幅带数值证书的偏振 FITS 抽样图像 |
 | EHT 系综汇总 | `scripts/eht/summarize.py` | `eht-summary` | 按天汇总的 Stokes/EVPA 数组及 Paper VII 诊断量（`eht/ensemble/`） |
 | 分析 | `scripts/analysis/templates.py`、`scripts/analysis/limits.py`、`scripts/analysis/check_grid.py`、`scripts/analysis/check_covariance.py`、`scripts/analysis/summarize.py`、`scripts/analysis/paper.py` | `default` | 响应模板、上限 $c_{95}(\alpha)$、敏感性检验、`RESULTS.md` 以及论文图、宏定义和表格 |
-| 校验 | `scripts/verify_products.py` | `default` | 只读的阶段清单（manifest）与 SHA-256 来源链（lineage）校验 |
 
 ```mermaid
 flowchart LR
@@ -54,7 +53,7 @@ flowchart LR
 1. **`RAPTOR` 模拟**（[RAPTOR 模拟](raptor-simulation.md)）。在 141 个 BHAC GRMHD 快照（`data001600.dat` 至 `data003000.dat`，标签步长 10，时间间隔 $1\,t_g$）上，固定版本的 `RAPTOR` C 核心程序分别追踪：
    - 每个快照一幅 $100 \times 100$ 像素和一幅 $400 \times 400$ 像素的无轴子基线图像；
    - 对 $\alpha \in \{0.10, \dots, 0.44\}$ 的 8 个取值与 16 个均匀分布的轴子相位 $\psi_k = k\pi/8$（$k = 0, \dots, 15$）的每种组合，每个快照一幅 $100 \times 100$ 像素的有轴子响应图像。
-   共计 $141 \times (2 + 8 \times 16) = 18\,330$ 个内容寻址（content-addressed）任务，最终交付为单位为 $\mathrm{Jy\,sr^{-1}}$ 的 float64 Stokes $(I, Q, U, V)$ 数据立方。
+   共计 $141 \times (2 + 8 \times 16) = 18\,330$ 个任务，最终交付为单位为 $\mathrm{Jy\,sr^{-1}}$ 的 float64 Stokes $(I, Q, U, V)$ 数据立方。
 2. **EHT 成像**（[EHT 成像](eht-imaging.md)）。基于 `ehtim` 1.3.2，对 2017 年四个观测日（年积日 `95`、`96`、`100`、`101`，即 4 月 5、6、10、11 日）复现 EHT Paper VII 偏振成像流程：
    - 每天重建一幅固定的总强度（$I$）图像，并求解左右旋共享（$R=L$）的台站增益；
    - 执行 50 轮基准线偏振（$P = Q + iU$）成像与针对 `AZ`、`LM`、`PV` 三站的零先验前向 D 项拟合交替；
@@ -107,4 +106,4 @@ flowchart LR
 - **单一科学参数源**：模型中的所有物理常数、求解器容差、网格分辨率和先验区间都在 [`configs/experiment.yaml`](../../configs/experiment.yaml) 中仅定义一次，并由 `eht_axion/experiment.py` 严格校验（见[配置参考](configuration.md)）。
 - **库函数不设科学参数默认值**：`eht_axion/` 中的公共函数全部以显式参数接收调用脚本传入的科学取值；`tests/test_experiment.py` 会扫描 `eht_axion/` 的抽象语法树（AST），拒绝短白名单（仅含并发执行与数组轴位置）之外的任何数值默认参数。
 - **机器环境严格分离**：文件路径、线程数、并发进程数、CPU 绑定和内存上限仅通过命令行选项或唯一的 `.env` 数据文件给出，绝不写入 `configs/experiment.yaml`。全部路径都由三个根目录派生：`RAPTOR` 工作副本（`EHT_RAPTOR_SOURCE_ROOT`）、只读外部输入（`EHT_INPUT_ROOT`）与生成产物（`EHT_DATA_ROOT`）。
-- **不可变阶段目录与加密哈希溯源**：结果脚本通过 `stage_directory` 只写入全新目录，要求受版本控制的文件无未提交改动（`code_identity`），并生成记录完整 `git_commit` 及所有外部输入和阶段输出 SHA-256 摘要的 `manifest.json`（见[数据布局与溯源机制](data-layout.md)）。
+- **不可变阶段目录与溯源记录**：结果脚本通过 `stage_directory` 只写入全新目录，要求受版本控制的文件无未提交改动（`code_identity`），并生成记录配置、完整 `git_commit` 以及全部输入和输出路径的 `manifest.json`（见[数据布局与溯源机制](data-layout.md)）；外部输入文件的 SHA-256 写在 `configs/experiment.yaml` 与 `raptor/plan.json` 中。

@@ -18,7 +18,6 @@ import sys
 sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
 
 import argparse
-import hashlib
 import json
 
 import numpy as np
@@ -44,70 +43,48 @@ def summary_settings(config):
 
 
 def verify_batch(root, settings, science):
-    """Verify a finished scripts/eht/sample.py output root before any image is read.
+    """Check a finished scripts/eht/sample.py output root before any image is read.
 
-    batch.json must carry its own identity (SHA-256 of the plan) and the science values
-    ``science`` of the current experiment; finish.json must list one certified receipt
-    per draw; every consumed receipt, image and certificate is checked by SHA-256.
+    batch.json must record the science values ``science`` of the current experiment;
+    finish.json must list one certified receipt per draw.
     """
     results = Path(root).resolve(strict=True)
     count = settings['draws']
-    paths = []
-
-    def checked(path, digest=None):
-        actual = provenance.sha256(path)
-        if digest is not None and actual != digest:
-            raise ValueError('SHA mismatch: ' + str(path))
-        paths.append(path)
-        return read_json(path)
-
-    batch = checked(results / 'batch.json')
-    finish = checked(results / 'finish.json')
-    identity = batch.get('identity')
-    unsigned = dict(batch)
-    unsigned.pop('identity', None)
-    encoded = json.dumps(unsigned, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
-    if (batch.get('schema') != 'eht-sample-batch' or hashlib.sha256(encoded).hexdigest() != identity
-            or finish.get('schema') != 'eht-sample-finish' or finish.get('identity') != identity
+    batch = read_json(results / 'batch.json')
+    finish = read_json(results / 'finish.json')
+    if (batch.get('schema') != 'eht-sample-batch' or finish.get('schema') != 'eht-sample-finish'
             or finish.get('numerically_certified') != count * len(en.DAYS)):
         raise ValueError('incomplete or inconsistent Monte Carlo batch (batch.json / finish.json)')
     if batch.get('science') != json.loads(json.dumps(science)):
         raise ValueError('Monte Carlo batch was made with different experiment values')
-    draws = checked(results / 'all-draws.json')
+    draws = read_json(results / 'all-draws.json')
     taskpath = results / 'tasks.jsonl'
-    provenance.sha256(taskpath)
-    paths.append(taskpath)
     tasks = [json.loads(line) for line in taskpath.read_text().splitlines()]
     expected = {f'{d}-{k:04d}' for d in en.DAYS for k in range(count)}
     if (len(tasks) != count * len(en.DAYS) or {t['id'] for t in tasks} != expected
             or set(finish['receipts']) != expected):
         raise ValueError(f'not exactly {count} unique draws/day')
+    paths = [results / 'batch.json', results / 'finish.json', results / 'all-draws.json', taskpath]
     selected = {d: {} for d in en.DAYS}
     for task in tasks:
         d, k = task['day'], task['draw']
         if (d not in en.DAYS or not isinstance(k, int) or not 0 <= k < count
                 or task['id'] != f'{d}-{k:04d}' or task['dterms'] != draws[d]['draws'][k]):
             raise ValueError('draw/task mismatch')
-        entry = finish['receipts'][task['id']]
-        directory = contained(results, entry['directory'])
-        receipt = checked(directory / 'taskreceipt.json', entry['sha256'])
-        if (receipt['task'] != task or receipt['identity'] != identity
-                or receipt['status'] != 'certified' or receipt['schema'] != 'eht-sample-task'):
-            raise ValueError('selected receipt identity/status mismatch')
-        products = {}
-        for kind, name in [('blurred', 'best-blurred-IQU.fits'),
-                           ('certificate', 'certificate.json')]:
-            p = contained(directory, name)
-            if provenance.sha256(p) != receipt['outputs'][name]:
-                raise ValueError('consumed output SHA mismatch: ' + str(p))
-            paths.append(p)
-            products[kind] = p
+        directory = contained(results, finish['receipts'][task['id']])
+        receipt = read_json(directory / 'taskreceipt.json')
+        if (receipt['task'] != task or receipt['status'] != 'certified'
+                or receipt['schema'] != 'eht-sample-task'):
+            raise ValueError('selected receipt task/status mismatch')
+        products = {kind: contained(directory, name) for kind, name in
+                    [('blurred', 'best-blurred-IQU.fits'), ('certificate', 'certificate.json')]}
         cert = read_json(products['certificate'])
         solver = cert['solver']
         if not (solver['numerically_certified'] and -1e-10 <= solver['best_gap'] <= cert['gap_atol']):
             raise ValueError('invalid numerical certificate')
+        paths += [directory / 'taskreceipt.json', products['blurred'], products['certificate']]
         selected[d][k] = products
-    return selected, list(dict.fromkeys(paths)), identity
+    return selected, paths
 
 
 def run(selected, out, settings):
@@ -173,14 +150,11 @@ def main(argv=None):
         p.error('sample and output roots must be separate and non-nested')
     if destination.exists():
         p.error(f'new output root required: {destination}')
-    with provenance.verification_session():
-        selected, inputs, identity = verify_batch(sample, settings, science_settings(args.config))
-        config = dict(batch_identity=identity, draw_count=settings['draws'] * len(en.DAYS))
-        with provenance.stage_directory(destination, 'eht:ensemble', config, inputs) as out:
-            if out is not None:
-                records = provenance.describe_inputs(inputs)
-                (out / 'consumed-inputs.json').write_text(json.dumps(records, indent=2) + '\n')
-                run(selected, out, settings)
+    selected, inputs = verify_batch(sample, settings, science_settings(args.config))
+    config = dict(draw_count=settings['draws'] * len(en.DAYS))
+    with provenance.stage_directory(destination, 'eht:ensemble', config, inputs) as out:
+        if out is not None:
+            run(selected, out, settings)
     return 0
 
 

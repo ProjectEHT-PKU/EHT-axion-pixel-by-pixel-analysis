@@ -10,7 +10,7 @@ each day is verified against its SHA-256 in eht_imaging.inputs. Machine-local lo
 --feed-rotation-file and --official-script, else from the eht/ entries of the input root
 (--input-root / EHT_INPUT_ROOT). Not a bitwise reproduction of the published images.
 
---plan only verifies/hashes inputs; no optional imaging import or output writes.
+--plan only checks inputs; no optional imaging import or output writes.
 Each invocation publishes exactly one transactional stage/day to a new root.
 """
 from __future__ import annotations
@@ -105,8 +105,8 @@ def adapt_official(text, fov_uas):
 
 
 def stage_inputs(root, stage, day=None, products=()):
-    """Verify the entire source closure AND that each consumed file is declared."""
-    m = provenance.verify_stage(root, recursive=True)
+    """A completed stage of the expected kind and day; each consumed file must be declared."""
+    m = provenance.verify_stage(root)
     if m['stage'] != EHT_STAGES[stage] or (day is not None and m['config']['day'] != day):
         raise ValueError(f'Expected official {stage} stage for day {day}: {root}')
     paths = [root / name for name in products]
@@ -356,33 +356,32 @@ def run_fiducial(base, fixed, c, core, eh, out):
 
 def main(argv=None):
     args = parse(argv)
-    with provenance.verification_session():
-        plan = build_plan(args)
-        if args.plan:
-            print(json.dumps(plan, indent=2))
-            return plan
-        import ehtim as eh
-        from astropy.utils import iers
-        from eht_axion.eht import calibration as core
-
-        iers.conf.auto_download = False
-        c = plan['parameters']
-        if metadata.version('ehtim') != plan['ehtim_version']:
-            raise ValueError('loaded ehtim differs from the version recorded in the plan')
-        with provenance.stage_directory(args.output_root, EHT_STAGES[args.stage], plan,
-                                    [Path(r['path']) for r in plan['inputs']]) as out:
-            if out is None:
-                raise FileExistsError('new stage/day root required')
-            dump(out / 'plan.json', plan)
-            if args.stage == 'I':
-                run_i(plan, core, eh, out)
-            else:
-                fixed = eh.image.load_fits(str(args.i_root / I_PRODUCTS[0]))
-                validate_fixed(fixed, c, eh)
-                base = load_gaincal_base(args.i_root / I_PRODUCTS[1], c, eh)
-                base = base.flag_uvdist(uv_min=c['uv_min'])
-                run_fiducial(base, fixed, c, core, eh, out)
+    plan = build_plan(args)
+    if args.plan:
+        print(json.dumps(plan, indent=2))
         return plan
+    import ehtim as eh
+    from astropy.utils import iers
+    from eht_axion.eht import calibration as core
+
+    iers.conf.auto_download = False
+    c = plan['parameters']
+    if metadata.version('ehtim') != plan['ehtim_version']:
+        raise ValueError('loaded ehtim differs from the version recorded in the plan')
+    with provenance.stage_directory(args.output_root, EHT_STAGES[args.stage], plan,
+                                [Path(p) for p in plan['inputs']]) as out:
+        if out is None:
+            raise FileExistsError('new stage/day root required')
+        dump(out / 'plan.json', plan)
+        if args.stage == 'I':
+            run_i(plan, core, eh, out)
+        else:
+            fixed = eh.image.load_fits(str(args.i_root / I_PRODUCTS[0]))
+            validate_fixed(fixed, c, eh)
+            base = load_gaincal_base(args.i_root / I_PRODUCTS[1], c, eh)
+            base = base.flag_uvdist(uv_min=c['uv_min'])
+            run_fiducial(base, fixed, c, core, eh, out)
+    return plan
 
 
 if __name__ == '__main__':

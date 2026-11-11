@@ -4,8 +4,6 @@ import inspect
 import json
 import os
 from pathlib import Path
-import signal
-import subprocess
 import sys
 import threading
 import time
@@ -101,9 +99,9 @@ def test_success_resume_stable_lineage_and_private_cwd(setup):
     result = invoke(setup, threads=3)
     assert result["counts"] == {"complete": 1, "cached": 0, "failed": 0}
     job = setup["run"] / "jobs/baseline"
-    manifest = provenance.verify_stage(job, recursive=True)
-    assert all(".building-" not in e["path"] for e in manifest["inputs"])
-    assert str(setup["source"]) in {e["path"] for e in manifest["inputs"]}
+    manifest = provenance.verify_stage(job)
+    assert all(".building-" not in p for p in manifest["inputs"])
+    assert str(setup["source"]) in manifest["inputs"]
     assert json.loads((job / "environment.json").read_text()) == {
         "OMP_NUM_THREADS": "3", "MKL_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"}
     setup["mode"].write_text("failure")
@@ -141,15 +139,6 @@ def test_any_ancestor_manifest_is_refused(setup):
         invoke(setup)
 
 
-def test_actual_stage_ancestor_still_refused(setup):
-    parent = setup["run"].parent / "completed"
-    with provenance.stage_directory(parent, "scientific-stage", {}) as temp:
-        (temp / "result.txt").write_text("immutable")
-    setup["run"] = parent / "runs/main"
-    with pytest.raises(ValueError, match="existing output stage"):
-        invoke(setup)
-
-
 def test_max_jobs_only_selects_first_n(setup):
     second = deepcopy(setup["task"])
     second["id"] = "second"
@@ -172,7 +161,7 @@ def test_plan_explicit_units_and_response_outputslot(setup):
     metadata = json.loads((directory / "output.json").read_text())
     assert metadata["state_slot"] == 1
     assert metadata["physical_phase_index"] == 0
-    assert str(setup["table"]) in {e["path"] for e in provenance.verify_stage(directory)["inputs"]}
+    assert str(setup["table"]) in provenance.verify_stage(directory)["inputs"]
 
 
 def test_baseline_does_not_depend_on_tables(setup):
@@ -185,69 +174,7 @@ def test_baseline_does_not_depend_on_tables(setup):
     result = invoke(setup, [task])
     assert result["counts"]["cached"] == 1
     manifest = provenance.verify_stage(setup["run"] / "jobs/baseline")
-    assert not any("table.csv" in e["path"] for e in manifest["inputs"])
-
-
-def test_source_mutation_rejects_complete(setup):
-    setup["mode"].write_text("mutate")
-    with pytest.raises(ValueError, match="changed"):
-        invoke(setup)
-    assert not (setup["run"] / "jobs/baseline").exists()
-    receipt = next((setup["run"] / "attempts/baseline").glob("*/result.json"))
-    assert json.loads(receipt.read_text())["complete"] is False
-
-
-def test_cross_session_source_bytes_verified(setup):
-    invoke(setup)
-    before = setup["source"].stat()
-    setup["source"].write_bytes(b"x" * before.st_size)
-    os.utime(setup["source"], ns=(before.st_atime_ns, before.st_mtime_ns))
-    result = invoke(setup)
-    assert result["counts"]["failed"] == 1
-    assert "Stale" in result["jobs"][0]["error"]
-
-
-def test_shared_source_read_once_per_invocation(setup, monkeypatch):
-    original = Path.open
-    count = 0
-
-    def counted(path, *args, **kwargs):
-        nonlocal count
-        if path == setup["source"] and args and args[0] == "rb":
-            count += 1
-        return original(path, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "open", counted)
-    tasks = [deepcopy(setup["task"]) for _ in range(3)]
-    for i, task in enumerate(tasks):
-        task["id"] = f"baseline-{i}"
-    result = invoke(setup, tasks, workers=3)
-    assert result["counts"]["complete"] == 3
-    assert count == 1
-    invoke(setup, tasks, workers=2)
-    assert count == 2
-
-
-def test_sixteen_response_phases_share_one_source_hash(setup, monkeypatch):
-    original = Path.open
-    reads = {setup["source"]: 0, setup["table"]: 0}
-
-    def counted(path, *args, **kwargs):
-        if path in reads and args and args[0] == "rb":
-            reads[path] += 1
-        return original(path, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "open", counted)
-    tasks = [make_task(setup["source"], phase=phase) for phase in range(16)]
-    for task in tasks:
-        task["table_path"] = str(setup["table"])
-        task["parameters"]["AXION_TABLE"] = str(setup["table"])
-    result = invoke(setup, tasks, workers=4)
-    assert result["counts"]["complete"] == 16
-    assert reads == {setup["source"]: 1, setup["table"]: 1}
-    result = invoke(setup, tasks, workers=3)
-    assert result["counts"]["cached"] == 16
-    assert reads == {setup["source"]: 2, setup["table"]: 2}
+    assert not any("table.csv" in p for p in manifest["inputs"])
 
 
 def test_task_lock_prevents_launch(setup):
@@ -291,7 +218,7 @@ def test_failure_does_not_rollback_other_jobs(setup, monkeypatch):
     second["id"] = "second"
     result = invoke(setup, [setup["task"], second])
     assert result["counts"] == {"complete": 1, "cached": 0, "failed": 1}
-    provenance.verify_stage(setup["run"] / "jobs/baseline", recursive=True)
+    provenance.verify_stage(setup["run"] / "jobs/baseline")
     assert not (setup["run"] / "jobs/second").exists()
 
 
@@ -379,19 +306,10 @@ def bound_plan(setup):
 @pytest.mark.parametrize("product,content", [("grid_mks.in", "hslope = 99\n"),
                                              ("macros.txt", "#define POL 0\n"),
                                              ("receipt.json", '{"source_commit": "wrong"}')])
-def test_plan_rejects_verified_but_wrong_build_products(bound_plan, product, content):
+def test_plan_rejects_wrong_build_products(bound_plan, product, content):
     setup, plan = bound_plan
     build = setup["build"]
     (build / product).write_text(content)
-    # Another legitimately published build can have internally verified bytes
-    # without matching this plan. Rehash the fixture to simulate that situation.
-    path = build / "manifest.json"
-    record = json.loads(path.read_text())
-    for entry in record["outputs"]:
-        if entry["path"] == product:
-            entry.update(size=(build / product).stat().st_size, sha256=provenance.sha256(build / product))
-    path.write_text(json.dumps(record))
-    provenance.verify_stage(build, recursive=True)
     with pytest.raises(ValueError):
         run_jobs(plan, build, setup["run"], max_jobs=1)
     assert not setup["run"].exists()
@@ -487,7 +405,6 @@ def test_bounded_rolling_overlap_private_states_and_worker_count_resume(setup, m
     lock = threading.Lock()
     barrier = threading.Barrier(2)
     active = peak = calls = 0
-    contexts = []
 
     def execute(command, cwd, env, stdout, stderr, timeout):
         nonlocal active, peak, calls
@@ -496,7 +413,6 @@ def test_bounded_rolling_overlap_private_states_and_worker_count_resume(setup, m
             call = calls
             active += 1
             peak = max(peak, active)
-            contexts.append((provenance._VERIFICATION.get(), provenance._STAGE_TEMPORARIES.get()))
         try:
             if call <= 2:
                 barrier.wait(timeout=10)
@@ -513,14 +429,9 @@ def test_bounded_rolling_overlap_private_states_and_worker_count_resume(setup, m
     assert calls == 5
     assert result["counts"] == {"complete": 5, "cached": 0, "failed": 0}
     assert [r["id"] for r in result["jobs"]] == [t["id"] for t in tasks[:5]]
-    assert len({id(session) for session, _ in contexts}) == 1
-    assert all(len(temporaries) == 1 for _, temporaries in contexts)
-    assert len({temporaries[0] for _, temporaries in contexts}) == 5
-    assert not provenance._STAGE_TEMPORARIES.get()
-    assert provenance._VERIFICATION.get() is None
     for entry in result["jobs"]:
         destination = Path(entry["directory"])
-        manifest = provenance.verify_stage(destination, recursive=True)
+        manifest = provenance.verify_stage(destination)
         assert manifest["config"]["id"] == entry["id"]
         assert "workers" not in manifest["config"]
         assert json.loads((destination / "task.json").read_text()) == manifest["config"]
@@ -530,7 +441,7 @@ def test_bounded_rolling_overlap_private_states_and_worker_count_resume(setup, m
         assert receipt["wall_seconds"] >= receipt["process_wall_seconds"] > 0
         assert receipt["actual_cpu_set"] == sorted(os.sched_getaffinity(0))
         assert entry["wall_seconds"] > 0
-        assert not any(".building-" in e["path"] for e in manifest["inputs"])
+        assert not any(".building-" in e for e in manifest["inputs"])
     assert not (setup["run"] / "jobs/baseline-5").exists()
     resumed = invoke(setup, tasks, workers=3, threads=1, max_jobs=5)
     assert resumed["counts"]["cached"] == 5
@@ -548,7 +459,7 @@ def test_concurrent_failure_is_independent_and_later_jobs_launch(setup):
     assert (Path(failed["attempt"]) / "work/model.in").is_file()
     for entry in result["jobs"]:
         if entry["status"] == "complete":
-            provenance.verify_stage(entry["directory"], recursive=True)
+            provenance.verify_stage(entry["directory"])
 
 
 @pytest.mark.parametrize("options", [
@@ -666,114 +577,6 @@ def test_parallel_timeout_kills_descendants_but_continues_selected_prefix(setup)
         _assert_process_stopped(int(child.read_text()))
 
 
-@pytest.mark.parametrize("exception_type", [KeyboardInterrupt, SystemExit])
-def test_main_cancellation_kills_all_groups_joins_and_stops_launches(setup, monkeypatch, exception_type):
-    from eht_axion.raptor import jobs
-    setup["mode"].write_text("timeout")
-    real_wait = jobs.wait
-    called = False
-
-    def interrupt(fs, **kwargs):
-        nonlocal called
-        if called:
-            return real_wait(fs, **kwargs)
-        called = True
-        deadline = time.monotonic() + 10
-        while len(list(setup["mode"].parent.glob("baseline-*.child.pid"))) < 2:
-            if time.monotonic() > deadline:
-                pytest.fail("fake subprocesses did not start")
-            time.sleep(.02)
-        raise exception_type("test cancellation")
-
-    monkeypatch.setattr(jobs, "wait", interrupt)
-    with pytest.raises(exception_type, match="test cancellation"):
-        invoke(setup, baseline_tasks(setup, 5), workers=2, threads=1)
-    receipts = list((setup["run"] / "attempts").glob("*/*/result.json"))
-    assert len(receipts) == 2
-    for path in receipts:
-        receipt = json.loads(path.read_text())
-        assert receipt["cancelled"] is True
-        assert receipt["complete"] is False
-        assert receipt["returncode"] == -9
-        _assert_process_stopped(receipt["pid"])
-        child = setup["mode"].parent / f"{receipt['task_id']}.child.pid"
-        _assert_process_stopped(int(child.read_text()))
-        assert (path.parent / "work/model.in").is_file()
-    assert not list((setup["run"] / "jobs").glob("*.building-*"))
-    assert not list((setup["run"] / "jobs").glob("*.lock"))
-    assert not any(t.name.startswith("raptor-job") for t in threading.enumerate())
-    assert provenance._VERIFICATION.get() is None
-
-
-def test_real_main_thread_sigint_cancels_eight_fake_groups_and_joins(setup):
-    if len(os.sched_getaffinity(0)) < 8:
-        pytest.skip("eight workers require eight allowed CPUs")
-    setup["mode"].write_text("timeout")
-    payload = json.dumps({"tasks": baseline_tasks(setup, 10), "build": str(setup["build"]),
-                          "run": str(setup["run"]), "marker": str(setup["mode"].parent / "joined.json")})
-    harness = '''
-import json, sys, threading
-from pathlib import Path
-from eht_axion import provenance
-from eht_axion.raptor.jobs import run_jobs
-provenance.code_identity = lambda root=None: {"git_commit": "0" * 40}  # working tree may be edited
-p = json.loads(sys.argv[1])
-try:
-    run_jobs({"tasks": p["tasks"]}, Path(p["build"]), Path(p["run"]), workers=8, threads=1)
-except KeyboardInterrupt:
-    workers = [t.name for t in threading.enumerate() if t.name.startswith("raptor-job")]
-    Path(p["marker"]).write_text(json.dumps({"workers": workers,
-        "session_closed": provenance._VERIFICATION.get() is None,
-        "temporaries_closed": not provenance._STAGE_TEMPORARIES.get()}))
-    sys.exit(130)
-else:
-    sys.exit("expected SIGINT cancellation")
-'''
-    process = subprocess.Popen([sys.executable, "-c", harness, payload],
-                               cwd=Path(__file__).resolve().parents[1],
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               text=True, start_new_session=True)
-    try:
-        deadline = time.monotonic() + 20
-        while len(list(setup["mode"].parent.glob("baseline-*.child.pid"))) < 8:
-            if process.poll() is not None:
-                out, err = process.communicate()
-                pytest.fail(f"runner exited before readiness: {out}\n{err}")
-            if time.monotonic() > deadline:
-                pytest.fail("eight fake groups did not start")
-            time.sleep(.02)
-        os.kill(process.pid, signal.SIGINT)
-        out, err = process.communicate(timeout=15)
-        assert process.returncode == 130, (out, err)
-        marker = json.loads((setup["mode"].parent / "joined.json").read_text())
-        assert marker == {"workers": [], "session_closed": True, "temporaries_closed": True}
-        receipts = list((setup["run"] / "attempts").glob("*/*/result.json"))
-        assert len(receipts) == 8
-        assert len(list((setup["run"] / "attempts").iterdir())) == 8
-        for path in receipts:
-            receipt = json.loads(path.read_text())
-            assert receipt["cancelled"] is True
-            assert receipt["complete"] is False
-            assert receipt["returncode"] == -9
-            assert receipt["pid"] == receipt["process_group"]
-            _assert_process_stopped(receipt["pid"])
-            child = setup["mode"].parent / f"{receipt['task_id']}.child.pid"
-            _assert_process_stopped(int(child.read_text()))
-            assert (path.parent / "work/model.in").is_file()
-        assert not list((setup["run"] / "jobs").iterdir())
-    finally:
-        if process.poll() is None:
-            os.killpg(process.pid, signal.SIGKILL)
-        process.communicate(timeout=10)
-        # Keep failures in this test from leaking fake processes, whose groups
-        # intentionally differ from the runner's session.
-        for child in setup["mode"].parent.glob("baseline-*.child.pid"):
-            try:
-                os.killpg(os.getpgid(int(child.read_text())), signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-
-
 def test_cpu_observation_unions_thread_masks_not_only_openmp_leader(tmp_path, monkeypatch):
     from eht_axion.raptor import jobs
     task_root = tmp_path / "123/task"
@@ -865,25 +668,3 @@ def test_none_clears_unsigned_inherited_binding_and_keeps_binary_command(setup, 
     assert invoke(setup, threads=1)["counts"]["cached"] == 1
 
 
-def test_per_job_source_checks_do_not_rescan_all_selected_sources(setup, monkeypatch):
-    from eht_axion.raptor import jobs
-    tasks = baseline_tasks(setup, 5)
-    sources = []
-    for i, task in enumerate(tasks):
-        path = setup["source"].with_name(f"fluid-{i}.dat")
-        path.write_bytes(b"synthetic")
-        sources.append(path)
-        task["source_path"] = str(path)
-    original = jobs._assert_sources_unchanged
-    scans = []
-
-    def check(paths):
-        scans.append(set(paths).intersection(sources))
-        original(paths)
-
-    monkeypatch.setattr(jobs, "_assert_sources_unchanged", check)
-    result = invoke(setup, tasks, workers=3, threads=1)
-    assert result["counts"]["complete"] == 5
-    assert scans[0] == set(sources)  # one main-thread root-guard closure
-    assert len(scans) == 1 + 2 * len(tasks)
-    assert all(len(scan) == 1 for scan in scans[1:])

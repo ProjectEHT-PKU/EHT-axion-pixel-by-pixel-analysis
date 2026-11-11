@@ -27,11 +27,11 @@ def snapshot(tmp_path):
             else:
                 p.write_bytes((day + kind).encode())
             p.chmod(0o444)
-            files.append(dict(path=rel, sha256=batch.sha(p)))
+            files.append(dict(path=rel))
     feed = root / 'feed-rotation.json'
     feed.write_text('{}')
     feed.chmod(0o444)
-    files.append(dict(path=feed.name, sha256=batch.sha(feed)))
+    files.append(dict(path=feed.name))
     b = dict(schema='eht-bundle', days=days, files=files, feed_file=feed.name,
              covariance_ddof=1, residual_component_sigma=.01, fsys=.005,
              objective=dict(pvis=1.0, m=1.0, hw=100.0, ptv=1.0, norm_reg=True))
@@ -50,7 +50,7 @@ def test_bundle_bytes_seeds_and_4000_unique_tasks(tmp_path):
     verified, lineage = batch.verify_bundle(root, science)
     assert verified == b
     assert all(f['readonly_mode'] for f in lineage['files'].values())
-    assert lineage['bundle_sha256'] == batch.sha(root / 'bundle.json')
+    assert lineage['bundle'] == str(root)
     draws = batch.make_draws(root, b, 1000, 20210405, science)
     tasks = batch.enumerate_tasks(draws)
     assert len(tasks) == len({t['id'] for t in tasks}) == 4000
@@ -63,11 +63,6 @@ def test_bundle_bytes_seeds_and_4000_unique_tasks(tmp_path):
     assert repeated == draws
     assert len({draws[d]['seed'] for d in batch.DAYS}) == 4
     assert draws['95']['draws'][0] != draws['96']['draws'][0]
-    p = root / b['days']['95']['I']
-    p.chmod(0o644)
-    p.write_bytes(b'tampered')
-    with pytest.raises(ValueError, match='hash mismatch'):
-        batch.verify_bundle(root, science)
     with pytest.raises(ValueError, match='science contract'):
         batch.verify_bundle(root, dict(science, fsys=.01))
     with pytest.raises(ValueError, match='science contract'):
@@ -99,19 +94,15 @@ def test_receipts_retry_and_tiny_exact_solver(tmp_path):
         assert report['numerically_certified'] == (number == 3)
         batch.atomic(directory / 'certificate.json', dict(solver=report, gap_atol=1e-8))
         batch.atomic(directory / 'taskreceipt.json',
-            dict(task=task, identity='identity', status='certified' if number == 3 else 'uncertified',
-                 scientifically_certified=False,
-                 outputs={'certificate.json': batch.sha(directory / 'certificate.json')}))
-        completed, numerical, errors = batch.scan_task(tmp_path, task, 'identity')
+            dict(task=task, status='certified' if number == 3 else 'uncertified',
+                 scientifically_certified=False, outputs=['certificate.json']))
+        completed, numerical, errors = batch.scan_task(tmp_path, task)
         assert numerical == 1 and errors == 0
         assert len(completed) == (number == 3)
         assert np.all(abs(P) <= intensity)
     assert (interrupted / 'job.log').read_text() == 'interrupted; must remain unchanged'
-    with pytest.raises(ValueError, match='identity mismatch'):
-        batch.scan_task(tmp_path, task, 'different')
-    (parent / 'attempt-0003' / 'certificate.json').write_text('{}')
-    with pytest.raises(ValueError, match='hash mismatch'):
-        batch.scan_task(tmp_path, task, 'identity')
+    with pytest.raises(ValueError, match='task mismatch'):
+        batch.scan_task(tmp_path, dict(task, draw=1))
     assert 'import numpy' not in SCRIPT.read_text().split('def make_draws')[0]
 
 

@@ -21,7 +21,6 @@ from collections import deque
 from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
 from contextlib import redirect_stdout, redirect_stderr
 import fcntl
-import hashlib
 import importlib.metadata
 import json
 import multiprocessing
@@ -32,7 +31,7 @@ import traceback
 
 from eht_axion.environment import add_data_root_option, fill_defaults
 from eht_axion.experiment import DEFAULT_PATH, EHT_DAYS
-from eht_axion.provenance import contained_path as contained, sha256 as sha
+from eht_axion.provenance import contained_path as contained
 
 DAYS = tuple(str(day) for day in EHT_DAYS)  # bundle and task keys are strings
 _CACHE = {}
@@ -67,10 +66,9 @@ def atomic(path, value):
 
 
 def verify_bundle(root, science):
-    """Hash each bundle file once in the controller; the source stages are not read."""
+    """Check the bundle contract and that every listed file is present; source stages are not read."""
     root = Path(root).resolve()
-    raw = (root / 'bundle.json').read_bytes()
-    b = json.loads(raw)
+    b = json.loads((root / 'bundle.json').read_text())
     if (b.get('schema') != 'eht-bundle' or set(b['days']) != set(DAYS)
             or b.get('covariance_ddof') != science['covariance_ddof']
             or b.get('residual_component_sigma') != science['residual_component_sigma']
@@ -84,19 +82,13 @@ def verify_bundle(root, science):
         if rel in files or rel == 'bundle.json':
             raise ValueError('duplicate/self-referencing bundle file')
         p = contained(root, rel)
-        digest = sha(p)
-        if digest != item['sha256']:
-            raise ValueError('bundle hash mismatch: ' + rel)
-        files[rel] = dict(sha256=digest, bytes=p.stat().st_size,
-                          mode=oct(p.stat().st_mode & 0o777),
-                          readonly_mode=not bool(p.stat().st_mode & 0o222))
+        files[rel] = dict(bytes=p.stat().st_size, readonly_mode=not bool(p.stat().st_mode & 0o222))
     needed = {b['feed_file']}
     for day in DAYS:
         needed.update(b['days'][day][key] for key in ('I', 'obs', 'dterms'))
     if not needed <= files.keys():
         raise ValueError('bundle references unlisted inputs')
-    return b, dict(bundle_sha256=hashlib.sha256(raw).hexdigest(), files=files,
-                   lineage='bundle files verified by SHA-256; the source stages are not re-read')
+    return b, dict(bundle=str(root), files=files)
 
 
 def configure_threads(n):
@@ -149,16 +141,15 @@ def attempt_budget(config, numerical_attempt):
     return config['retry_maxiter'], config['retry_time_limit']
 
 
-def verified_receipt(directory, task, identity):
+def verified_receipt(directory, task):
     p = directory / 'taskreceipt.json'
     if not p.exists():
         return None
     r = json.loads(p.read_text())
-    if r['task'] != task or r['identity'] != identity:
-        raise ValueError('receipt identity mismatch: ' + str(p))
-    for rel, digest in r['outputs'].items():
-        if sha(contained(directory, rel)) != digest:
-            raise ValueError('output hash mismatch: ' + str(directory / rel))
+    if r['task'] != task:
+        raise ValueError('receipt task mismatch: ' + str(p))
+    for rel in r['outputs']:
+        contained(directory, rel)
     if r['status'] == 'certified':
         cert = json.loads((directory / 'certificate.json').read_text())
         report = cert['solver']
@@ -168,11 +159,11 @@ def verified_receipt(directory, task, identity):
     return r
 
 
-def scan_task(out, task, identity):
+def scan_task(out, task):
     """Uncertified/error/interrupted attempts are never counted as completed."""
     receipts = []
     for directory in sorted((out / 'attempts' / task['id']).glob('attempt-*')):
-        r = verified_receipt(directory, task, identity)
+        r = verified_receipt(directory, task)
         if r:
             receipts.append((directory, r))
     completed = [str(p.relative_to(out)) for p, r in receipts if r['status'] == 'certified']
@@ -194,7 +185,7 @@ def init_worker(threads):
         raise RuntimeError('BLAS thread limit not honored')
 
 
-def run_attempt(root, bundle, task, directory, config, identity, numerical_attempt, science):
+def run_attempt(root, bundle, task, directory, config, numerical_attempt, science):
     directory = Path(directory)
     started = time.monotonic()
     status = 'error'
@@ -243,8 +234,8 @@ def run_attempt(root, bundle, task, directory, config, identity, numerical_attem
             status = 'certified' if report['numerically_certified'] else 'uncertified'
         except Exception:
             traceback.print_exc()
-    outputs = {p.name: sha(p) for p in sorted(directory.iterdir()) if p.is_file()}
-    receipt = dict(schema='eht-sample-task', identity=identity, task=task,
+    outputs = [p.name for p in sorted(directory.iterdir()) if p.is_file()]
+    receipt = dict(schema='eht-sample-task', task=task,
                    status=status, numerical_attempt=numerical_attempt,
                    seconds=time.monotonic()-started, outputs=outputs,
                    scientifically_certified=False)
@@ -315,12 +306,10 @@ def controller(args, out):
                   threads=args.threads)
     plan = dict(schema='eht-sample-batch', snapshot=snapshot,
                 code=code_identity(), config=config, science=science)
-    identity = hashlib.sha256(encoded(plan)).hexdigest()
-    plan['identity'] = identity
     planpath = out / 'batch.json'
     if planpath.exists():
         if json.loads(planpath.read_text()) != plan:
-            raise ValueError('resume requires identical snapshot, science and executed source identity')
+            raise ValueError('resume requires the same bundle, science settings and code commit')
     else:
         if any(p.name != '.controller.lock' for p in out.iterdir()):
             raise ValueError('new output root must be empty')
@@ -344,7 +333,7 @@ def controller(args, out):
             f.write(taskbytes)
     pending, done, exhausted = deque(), {}, []
     for t in tasks:
-        completed, numerical, errors = scan_task(out, t, identity)
+        completed, numerical, errors = scan_task(out, t)
         if completed:
             done[t['id']] = completed[0]
         elif numerical >= 2 or errors >= 2:
@@ -378,7 +367,7 @@ def controller(args, out):
                                 available_memory_bytes=available, **projection,
                                 peak_memory_bytes=peak_usage, peak_projected_memory_bytes=peak_projected)
             if expired:
-                state = dict(identity=identity, status='resource_blocked', resumable=True,
+                state = dict(status='resource_blocked', resumable=True,
                              certified=len(done), total=len(tasks), active=0, pending=len(pending),
                              exhausted=exhausted, blocked_seconds=time.monotonic()-blocked_since,
                              resource_wait_seconds=args.resource_wait, **memory_state)
@@ -392,13 +381,13 @@ def controller(args, out):
                 ordinal = 1 + max([int(p.name.split('-')[1]) for p in parent.glob('attempt-*')] or [0])
                 directory = parent / f'attempt-{ordinal:04d}'
                 directory.mkdir()  # Interrupted attempts remain untouched forever.
-                atomic(directory / 'attempt.json', dict(task=t, identity=identity, numerical_attempt=number))
+                atomic(directory / 'attempt.json', dict(task=t, numerical_attempt=number))
                 future = pool.submit(run_attempt, args.bundle_root, bundle,
-                                     t, directory, config, identity, number, science)
+                                     t, directory, config, number, science)
                 active[future] = t
                 submitted += 1
                 continue
-            atomic(out / 'state.json', dict(identity=identity, certified=len(done), total=len(tasks),
+            atomic(out / 'state.json', dict(certified=len(done), total=len(tasks),
                    active=len(active), pending=len(pending), exhausted=exhausted,
                    **memory_state, updated_unix=time.time()))
             ready, _ = wait(active, timeout=5, return_when=FIRST_COMPLETED) if active else ([], [])
@@ -411,20 +400,19 @@ def controller(args, out):
                 except Exception as exc:
                     # A dead pool is not a numerical failure; preserve attempts and exit for restart.
                     raise RuntimeError('worker/process failure; restart same command to recover') from exc
-                completed, numerical, errors = scan_task(out, t, identity)
+                completed, numerical, errors = scan_task(out, t)
                 if completed:
                     done[t['id']] = completed[0]
                 elif numerical < 2 and errors < 2:
                     pending.append((t, numerical + 1))
                 else:
                     exhausted.append(t['id'])
-    atomic(out / 'state.json', dict(identity=identity, certified=len(done), total=len(tasks),
+    atomic(out / 'state.json', dict(certified=len(done), total=len(tasks),
                                    active=0, pending=len(pending), exhausted=exhausted))
     if len(done) == len(tasks):
-        finish = dict(schema='eht-sample-finish', identity=identity,
+        finish = dict(schema='eht-sample-finish',
                       numerically_certified=len(done), scientifically_certified=False,
-                      receipts={k: dict(directory=v, sha256=sha(out / v / 'taskreceipt.json'))
-                                for k, v in sorted(done.items())})
+                      receipts=dict(sorted(done.items())))
         if (out / 'finish.json').exists():
             if json.loads((out / 'finish.json').read_text()) != finish:
                 raise ValueError('finish receipt mismatch')
@@ -446,7 +434,7 @@ def main(argv=None):
     p.add_argument('--task-limit', type=int,
                    help='attempt cap; full draw plan retained, no partial finish receipt')
     p.add_argument('--resume', action='store_true',
-                   help='explicit resume intent; same-identity resume is safe')
+                   help='explicit resume intent; resuming the same batch is safe')
     p.add_argument('--max-active-memory-gib', type=float, default=100.)
     add_data_root_option(p)
     args = p.parse_args(argv)

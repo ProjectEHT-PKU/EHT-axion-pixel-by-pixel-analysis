@@ -10,7 +10,7 @@
 
 | 环境名 | 支持平台 | 在 `default` 基础上新增的依赖 | 用途 |
 |---|---|---|---|
-| `default` | `linux-64`、`linux-aarch64`、`osx-64`、`osx-arm64`、`win-64` | Python `3.12.*`、`numpy`、`scipy`、`matplotlib`、`h5py`、`pyyaml`、`pytest`、`ruff`、`python-dotenv` | 分析脚本、`verify`、代码检查（`lint`）及不依赖 `ehtim`/`astropy` 的测试 |
+| `default` | `linux-64`、`linux-aarch64`、`osx-64`、`osx-arm64`、`win-64` | Python `3.12.*`、`numpy`、`scipy`、`matplotlib`、`h5py`、`pyyaml`、`pytest`、`ruff`、`python-dotenv` | 分析脚本、代码检查（`lint`）及不依赖 `ehtim`/`astropy` 的测试 |
 | `raptor-build` | `linux-64` | `c-compiler`、`make`、`gsl`、`hdf5`、`pkg-config`、`rsync` | 编译 `RAPTOR`、运行光线追踪作业、合并与交付数据立方 |
 | `eht-summary` | 全部 5 个平台 | `astropy` | 将仪器偏振泄漏（D 项，D-term）蒙特卡罗（Monte Carlo）FITS 抽样汇总为 `eht:ensemble` |
 | `eht-imaging` | 全部 5 个平台 | `astropy`、`ehtim == 1.3.2`（PyPI） | EHT 重建、凸优化精化、打包导出、蒙特卡罗抽样以及完整测试套件 |
@@ -21,7 +21,6 @@
 | `eht-reconstruct`、`eht-refine`、`eht-export-bundle`、`eht-sample` | `-e eht-imaging` | `scripts/eht/{reconstruct,refine,export_bundle,sample}.py` |
 | `eht-summarize` | `-e eht-summary`（或 `-e eht-imaging`） | `scripts/eht/summarize.py` |
 | `analysis-templates`、`analysis-limits`、`analysis-check-grid`、`analysis-check-covariance`、`analysis-summarize`、`analysis-paper` | `default` | `scripts/analysis/{templates,limits,check_grid,check_covariance,summarize,paper}.py` |
-| `verify` | `default` | `python scripts/verify_products.py` |
 | `test` | `default` 或 `-e eht-imaging` | `python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=."` |
 | `lint` | `default` | `ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts` |
 | `check` | `default` | 依次运行 `test` 与 `lint` |
@@ -51,7 +50,7 @@ pixi run --locked lint
 |---|---|---|
 | `eht_axion/experiment.py` | `configs/experiment.yaml` 的严格加载器、模式/范围校验器及派生配置视图 | `read_experiment`、`validate`、`validate_ray_tracing`、`physical_scale`、`ray_tracing_config`、`analysis_geometry`、`eht_imaging_parameters`、`ANGULAR_BINS`、`EHT_DAYS` |
 | `eht_axion/environment.py` | 唯一 `.env` 的安全解析器、三个根目录（`EHT_RAPTOR_SOURCE_ROOT`、`EHT_INPUT_ROOT`、`EHT_DATA_ROOT`）的解析，以及输入与产物目录布局 | `resolve_environment`、`add_environment_options`、`add_data_root_option`、`add_input_root_option`、`data_root`、`input_root`、`raptor_source_root`、`layout_path`、`input_path`、`fill_defaults`、`fill_input_defaults`、`LAYOUT`、`INPUT_LAYOUT` |
-| `eht_axion/provenance.py` | 原子化阶段目录、`manifest.json`、Git 提交身份及会话级 SHA-256 溯源（provenance）校验 | `stage_directory`、`verify_stage`、`require_declared_outputs`、`verification_session`、`sha256`、`manifest_path`、`source_closure`、`contained_path`、`code_identity` |
+| `eht_axion/provenance.py` | 原子化阶段目录、`manifest.json`、Git 提交身份及输入文件 SHA-256 | `stage_directory`、`verify_stage`、`require_declared_outputs`、`sha256`、`manifest_path`、`source_closure`、`contained_path`、`code_identity` |
 | `eht_axion/physics.py` | SI/IAU 物理常数、M87\* 引力时间与角度尺度、211 束缚态频率 | `PhysicalScale`、`omega` |
 | `eht_axion/evpa.py` | 线偏振电矢量位置角（EVPA）与 $\pi$ 周期圆统计角度差 | `finite_evpa`、`circular_difference` |
 
@@ -59,7 +58,7 @@ pixi run --locked lint
 
 | 模块 | 职责说明 | 主要公共接口 |
 |---|---|---|
-| `eht_axion/raptor/plan.py` | BHAC 快照尾部与径向 CSV 校验、任务列表及内容寻址 SHA-256 任务 ID | `plan_generation`、`task_identity`、`read_snapshot_footer`、`validate_radial_table` |
+| `eht_axion/raptor/plan.py` | BHAC 快照尾部与径向 CSV 校验、任务列表及按参数命名的任务 ID | `plan_generation`、`task_id`、`read_snapshot_footer`、`validate_radial_table` |
 | `eht_axion/raptor/build.py` | 洁净源码工作副本核验与固定版本 `RAPTOR` 的官方 `setup.sh` 编译 | `build_raptor` |
 | `eht_axion/raptor/jobs.py` | 带确定性工作槽位与断点续跑的有界并发 `RAPTOR` 作业运行器 | `run_jobs`、`serialize_parameters`、`parameter_values` |
 | `eht_axion/raptor/affinity.py` | 互不相交的 `taskset` CPU 分配及 Linux/`cgroup-v2` 内存余量检查 | `allocate_cpu_sets`、`check_memory`、`launch_prefix` |
@@ -89,14 +88,14 @@ pixi run --locked lint
 
 1. **所有科学参数在 `configs/experiment.yaml` 中只写一次**，在 `eht_axion/experiment.py` 中严格校验，并以无默认值的显式参数传给 `eht_axion/` 函数。
 2. **机器路径与并发开关绝不写入 YAML**：统一通过命令行选项、`add_data_root_option` / `fill_defaults` 或在 `eht_axion/environment.py`（`PATH_KEYS`、`VALUE_KEYS`）中注册的环境变量传入。
-3. **只读取已校验且在清单中声明的阶段输出**：对上游阶段调用 `verify_stage` 与 `require_declared_outputs`；写出结果时置于 `verification_session()` 和 `stage_directory(...)` 内，将上游 `manifest_path(dir)` 及实际读取的数据文件列入 `input_paths`（仓库源码文件不列入）。
+3. **只读取已校验且在清单中声明的阶段输出**：对上游阶段调用 `verify_stage` 与 `require_declared_outputs`；写出结果时置于 `stage_directory(...)` 内，将上游 `manifest_path(dir)` 及实际读取的数据文件列入 `input_paths`（仓库源码文件不列入）。
 4. **保持每行不超过 110 字符**，且无任何 Ruff `E`、`F`、`W` 规则告警（目标版本 `py312`）。
 
 ### 添加新的科学参数
 
 1. 在 `configs/experiment.yaml` 对应的节（`shared`、`raptor`、`eht_imaging` 或 `analysis`）下添加新键及其取值。
 2. 在 `eht_axion/experiment.py` 的 `SCHEMA` 中登记该键名，并在 `_validate_shared`、`_validate_raptor`、`_validate_eht_imaging` 或 `_validate_analysis` 中补齐类型与区间检查。
-3. 若该参数决定 `RAPTOR` 光线追踪结果，确保 `ray_tracing_config`（若影响单任务还需包含 `task_identity`）纳入该键；若影响 EHT 成像阶段，确保 `eht_imaging_parameters`（`_EHT_PARAMETER_ORDER`）或求解器计划字典纳入该键。
+3. 若该参数决定 `RAPTOR` 光线追踪结果，确保 `ray_tracing_config`（若影响单任务还需纳入任务参数）纳入该键；若影响 EHT 成像阶段，确保 `eht_imaging_parameters`（`_EHT_PARAMETER_ORDER`）或求解器计划字典纳入该键。
 4. 从入口脚本把该取值显式传入 `eht_axion/` 函数签名（不设数值默认值），并在 `tests/test_experiment.py` 中补充合法与非法取值的测试用例。
 5. 在 `docs/en/configuration.md` 与 `docs/zh/configuration.md` 中同步记录该参数。
 
@@ -104,5 +103,5 @@ pixi run --locked lint
 
 1. 在 `eht_axion/environment.py` 的 `LAYOUT` 中新增布局键（如 `"analysis.my_check": "analysis/my-check"`），并在 `docs/en/data-layout.md` 与 `docs/zh/data-layout.md` 的 `<data root>/` 目录树 `analysis/` 下同步添加对应行（由 `tests/test_data_root.py` 强制检查）。
 2. 在 `eht_axion/analysis/` 中实现不含文件 I/O、不带科学默认值的纯数值计算逻辑。
-3. 新建 `scripts/analysis/my_check.py`，使用标准两行 `sys.path` 引导、`add_data_root_option` 和 `fill_defaults`；用 `verify_stage` + `require_declared_outputs` 校验上游阶段，拒绝已存在的 `--output-root`，并在 `stage_directory(destination, "analysis:my-check", identity, inputs, verify_lineage=...)` 中写出文件。
+3. 新建 `scripts/analysis/my_check.py`，使用标准两行 `sys.path` 引导、`add_data_root_option` 和 `fill_defaults`；用 `verify_stage` + `require_declared_outputs` 校验上游阶段，拒绝已存在的 `--output-root`，并在 `stage_directory(destination, "analysis:my-check", identity, inputs)` 中写出文件。
 4. 在 `pixi.toml` 中注册 `analysis-my-check` 任务，在 `tests/test_analysis_my_check.py` 与 `tests/test_data_root.py` 中添加合成数据测试，并在 `docs/en/` 与 `docs/zh/` 中补充文档。

@@ -1,15 +1,15 @@
 """Stage manifests and transactional output directories.
 
-Code is identified by the git commit of this repository only: a stage can be written
-only when the tracked files are unchanged, so the commit pins every script, module,
-experiment.yaml and pixi.lock. Data that git does not hold (inputs read from outside the
-repository and every stage output) are identified by SHA-256.
+Code is identified by the git commit of this repository: a stage can be written only
+when the tracked files are unchanged, so the commit pins every script, module,
+experiment.yaml and pixi.lock. A manifest records the stage name, its configuration,
+the paths it read, the commit and the files it wrote. External input files carry their
+SHA-256 where they are declared (experiment.yaml, raptor/plan.json), not in manifests.
 """
 
 from __future__ import annotations
 
 import contextlib
-from contextvars import ContextVar
 import hashlib
 import json
 from importlib.metadata import PackageNotFoundError, version
@@ -22,85 +22,35 @@ import threading
 import time
 from pathlib import Path
 
-_VERIFICATION = ContextVar("content_verification_session", default=None)
-_STAGE_TEMPORARIES = ContextVar("active_stage_temporaries", default=())
-
-
-class _VerificationRecords(dict):
-    """Shared across copied worker contexts; protect once-only content reads."""
-
-    def __init__(self):
-        super().__init__()
-        self.lock = threading.RLock()
-
-
-def _file_identity(path):
-    info = path.stat()
-    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
-
-
-@contextlib.contextmanager
-def verification_session():
-    """Hash shared immutable inputs once per invocation, never across invocations.
-
-    Every reuse checks file identity, including ctime, and successful exit checks
-    all hashed files again. This is not a persistent mtime-based content cache.
-    Scope this around a batch of jobs; temporary renamed outputs are not memoized.
-    """
-    current = _VERIFICATION.get()
-    if current is not None:
-        yield
-        return
-    records = _VerificationRecords()
-    token = _VERIFICATION.set(records)
-    try:
-        yield
-        for path, (identity, _) in records.items():
-            if not path.is_file() or _file_identity(path) != identity:
-                raise ValueError(f"Input changed during verification session: {path}")
-    finally:
-        _VERIFICATION.reset(token)
+_HASHES = {}
+_HASH_LOCK = threading.Lock()
 
 
 def sha256(path: Path) -> str:
-    records = _VERIFICATION.get()
-    guard = records.lock if records is not None else contextlib.nullcontext()
-    with guard:
-        return _sha256_verified(path, records)
-
-
-def _sha256_verified(path, records):
+    """SHA-256 of an input file; repeated calls on an unchanged file read it once."""
     path = Path(path).resolve(strict=True)
-    # Atomic stage temporaries move on publish; never bind them to session paths.
-    memoize = records is not None and not any(
-        path.is_relative_to(root) for root in _STAGE_TEMPORARIES.get()
-    )
-    before = _file_identity(path)
-    if memoize and path in records:
-        identity, result = records[path]
-        if before != identity:
-            raise ValueError(f"Input changed during verification session: {path}")
-        return result
+    info = path.stat()
+    key = (path, info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
+    with _HASH_LOCK:
+        if key in _HASHES:
+            return _HASHES[key]
     digest = hashlib.sha256()
     with path.open("rb") as stream:
         for block in iter(lambda: stream.read(8 * 1024 * 1024), b""):
             digest.update(block)
-    if _file_identity(path) != before:
-        raise ValueError(f"Input changed while hashing: {path}")
-    result = digest.hexdigest()
-    if memoize:
-        records[path] = (before, result)
-    return result
+    with _HASH_LOCK:
+        _HASHES[key] = digest.hexdigest()
+    return _HASHES[key]
 
 
 def describe_inputs(paths):
-    """Hash bytes, never trust mtime as scientific input identity."""
+    """Resolved paths of the input files (regular files)."""
     result = []
     for value in paths:
         path = Path(value).resolve(strict=True)
         if not path.is_file():
             raise ValueError(f"Not a regular input file: {path}")
-        result.append({"path": str(path), "size": path.stat().st_size, "sha256": sha256(path)})
+        result.append(str(path))
     return result
 
 
@@ -128,7 +78,7 @@ def code_identity(root=REPOSITORY):
 
 
 def product_schema(path):
-    """Shapes/dtypes are metadata; inspect large NPY through mmap, not a RAM copy."""
+    """Shapes/dtypes of NPY/NPZ products; large NPY is inspected through mmap."""
     import numpy as np
 
     path = Path(path)
@@ -181,44 +131,24 @@ def complete_manifest(directory):
     return manifest
 
 
-def verify_stage(directory, *, recursive=False, _seen=None):
-    """Check a completed stage's outputs (and with recursive=True its whole input lineage)."""
+def verify_stage(directory):
+    """A completed stage: complete manifest and every declared output present inside it."""
     directory = Path(directory).resolve(strict=True)
     manifest = complete_manifest(directory)
-    if recursive:
-        seen = set() if _seen is None else _seen
-        identity = manifest_path(directory).resolve()
-        if identity in seen:
-            return manifest
-        seen.add(identity)
-        for entry in manifest["inputs"]:
-            path = Path(entry["path"])
-            if not path.is_file() or path.stat().st_size != entry["size"] or sha256(path) != entry["sha256"]:
-                raise ValueError(f"Stale upstream lineage: {path}")
-            if path.name == "manifest.json":
-                try:
-                    upstream = json.loads(path.read_text())
-                except (ValueError, OSError):
-                    upstream = {}
-                if is_stage_manifest(upstream):
-                    verify_stage(path.parent, recursive=True, _seen=seen)
     if not manifest.get("outputs"):
         raise ValueError(f"Empty stage: {directory}")
     for entry in manifest["outputs"]:
-        path = (directory / entry["path"]).resolve()
-        if Path(entry["path"]).is_absolute() or ".." in Path(entry["path"]).parts:
+        relative = Path(entry["path"])
+        if relative.is_absolute() or ".." in relative.parts:
             raise ValueError("Unsafe relative product path")
-        if not path.is_relative_to(directory):
-            raise ValueError(f"Unsafe external stage output: {path}")
-        if not path.is_file():
-            raise ValueError(f"Unsafe/missing stage output: {path}")
-        if path.stat().st_size != entry["size"] or sha256(path) != entry["sha256"]:
-            raise ValueError(f"Stage output checksum mismatch: {path}")
+        path = (directory / relative).resolve()
+        if not path.is_relative_to(directory) or not path.is_file():
+            raise ValueError(f"Missing stage output: {path}")
     return manifest
 
 
 def require_declared_outputs(directory, paths):
-    """A verified stage covers declared outputs, never arbitrary extra files."""
+    """A stage covers its declared outputs, never arbitrary extra files."""
     directory = Path(directory).absolute()
     record = complete_manifest(directory)
     declared = {entry["path"] for entry in record["outputs"]}
@@ -233,7 +163,7 @@ def require_declared_outputs(directory, paths):
 
 
 def source_closure(paths):
-    """Enumerate all declared source bytes before replacing any output tree."""
+    """Every file the given inputs were made from (through upstream manifests)."""
     pending, seen = list(paths), set()
     while pending:
         path = Path(pending.pop()).resolve(strict=True)
@@ -244,7 +174,7 @@ def source_closure(paths):
         if path.name == "manifest.json":
             record = json.loads(path.read_text())
             if is_stage_manifest(record):
-                pending.extend(entry["path"] for entry in record["inputs"])
+                pending.extend(record["inputs"])
                 pending.extend(path.parent / entry["path"] for entry in record["outputs"])
 
 
@@ -278,39 +208,30 @@ def require_new_output_file(path):
 
 
 def verify_input_stages(paths):
-    """Verify declared stage manifests, including their full scientific ancestry."""
-    seen = set()
+    """Inputs named manifest.json must be completed stages."""
     for value in paths:
         path = Path(value)
         if path.name == "manifest.json":
             record = json.loads(path.read_text())
             if is_stage_manifest(record):
-                verify_stage(path.parent, recursive=True, _seen=seen)
+                verify_stage(path.parent)
 
 
 @contextlib.contextmanager
-def stage_directory(destination, stage, config, input_paths=(), *, verify_lineage=True):
+def stage_directory(destination, stage, config, input_paths=()):
     """Yield a temporary destination, or None when an equal stage already exists.
 
-    A manifest is committed last, and a stage is never consumed by mere directory
-    existence. No hardlinks to inputs. Failed new stages are cleaned; an existing
-    stage is never replaced. An existing stage is reused only if it verifies and
-    records the same stage name, config and input data (path, size, SHA-256); this
-    lets the resumable RAPTOR steps skip finished stages. The code commit is not part
-    of that comparison: the result scripts refuse existing output roots themselves.
-
-    Inputs named manifest.json are completed stages; with verify_lineage their
-    whole recorded lineage is re-hashed first. Small result checks that consume
-    already verified stage outputs pass verify_lineage=False: their declared
-    inputs (including those manifests) are still hashed and recorded. The same
-    choice applies when an existing destination is verified as a cache hit.
+    The manifest is written last and the directory is published by one rename; a
+    failed new stage is removed and an existing stage is never replaced. An existing
+    stage is reused only when it records the same stage name, config and input paths;
+    this lets the resumable RAPTOR steps skip finished stages. The result scripts
+    refuse existing output roots themselves.
     """
     reject_directory_symlinks(destination)
     destination = Path(destination).resolve()
     input_paths = list(input_paths)
-    if verify_lineage:
-        verify_input_stages(input_paths)
-    # Replacing a directory must never replace its raw inputs, including via symlinks.
+    verify_input_stages(input_paths)
+    # Replacing a directory must never replace its inputs, including via symlinks.
     for path in source_closure(input_paths):
         if path == destination or path.is_relative_to(destination):
             raise ValueError(f"Output stage contains an input source: {path}")
@@ -324,10 +245,9 @@ def stage_directory(destination, stage, config, input_paths=(), *, verify_lineag
     with os.fdopen(fd, "w") as stream:
         stream.write(json.dumps({"pid": os.getpid(), "started": time.time()}))
     temporary = None
-    temporary_token = None
     try:
         if destination.exists():
-            manifest = verify_stage(destination, recursive=verify_lineage)
+            manifest = verify_stage(destination)
             recorded = {k: manifest.get(k) for k in ("stage", "config", "inputs")}
             if recorded != json.loads(json.dumps({"stage": stage, "config": config, "inputs": inputs})):
                 raise ValueError(f"A different stage exists at {destination}; use a new output root")
@@ -336,23 +256,14 @@ def stage_directory(destination, stage, config, input_paths=(), *, verify_lineag
             return
         code = code_identity()
         temporary = Path(tempfile.mkdtemp(prefix=destination.name + ".building-", dir=destination.parent))
-        temporary_token = _STAGE_TEMPORARIES.set(_STAGE_TEMPORARIES.get() + (temporary,))
         started = time.perf_counter()
         yield temporary
-        outputs = [
-            {
-                "path": str(p.relative_to(temporary)),
-                "size": p.stat().st_size,
-                "sha256": sha256(p),
-                **product_schema(p),
-            }
-            for p in sorted(temporary.rglob("*"))
-            if p.is_file() and p.name != "manifest.json"
-        ]
-        if any((temporary / entry["path"]).is_symlink() for entry in outputs):
+        files = [p for p in sorted(temporary.rglob("*")) if p.is_file() and p.name != "manifest.json"]
+        if any(p.is_symlink() for p in files):
             raise ValueError("Stage products must be regular files, not symlinks")
-        if not outputs:
+        if not files:
             raise ValueError(f"Stage {stage} produced no files")
+        outputs = [{"path": str(p.relative_to(temporary)), **product_schema(p)} for p in files]
         manifest = dict(
             stage=stage,
             config=config,
@@ -370,8 +281,6 @@ def stage_directory(destination, stage, config, input_paths=(), *, verify_lineag
         temporary = None
         print(f"COMPLETE {stage}: {destination}", flush=True)
     finally:
-        if temporary_token is not None:
-            _STAGE_TEMPORARIES.reset(temporary_token)
         if temporary is not None:
             shutil.rmtree(temporary)
         lock.unlink(missing_ok=True)

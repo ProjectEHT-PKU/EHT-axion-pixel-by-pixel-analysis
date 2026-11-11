@@ -308,9 +308,9 @@ def test_run_writes_one_complete_paper_directory(data_root, pinned_checkout):
     assert manifest["stage"] == "analysis:paper"
     assert pinned_checkout == [(Path(source_root(data_root)), read_experiment()["raptor"]["source"])]
     # src/axion.c is code pinned by raptor.source: neither an input nor a recorded build location
-    assert not any("axion.c" in e["path"] or "/build" in e["path"] for e in manifest["inputs"])
+    assert not any("axion.c" in e or "/build" in e for e in manifest["inputs"])
     assert "raptor_build" not in manifest["config"]["sources"]
-    radial = {e["path"] for e in manifest["inputs"] if "radial-" in e["path"]}
+    radial = {e for e in manifest["inputs"] if "radial-" in e}
     assert radial == {str(data_root.parent / "radial-low.csv"), str(data_root.parent / "radial-high.csv")}
     assert sorted(p.name for p in (out / "figures").iterdir()) == sorted(f + ".pdf" for f in figures.FIGURES)
     tex = (out / "numbers.tex").read_text()
@@ -344,17 +344,20 @@ def test_pinned_raptor_checkout_is_required(data_root, tmp_path):
 
 
 def test_radial_tables_from_the_input_root(data_root, tmp_path):
+    from argparse import Namespace
+
     inputs = tmp_path / "inputs"
     for key in ("low", "high"):
         target = inputs / paper.INPUT_LAYOUT[f"radial.{key}"]
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes((tmp_path / f"radial-{key}.csv").read_bytes())
-    paper.main(["--data-root", str(data_root), "--no-env-file",
-                "--raptor-source-root", source_root(data_root), "--input-root", str(inputs),
-                "--output-root", str(tmp_path / "new")])
-    manifest = provenance.verify_stage(tmp_path / "new")
-    radial = {e["path"] for e in manifest["inputs"] if e["path"].startswith(str(inputs))}
-    assert radial == {str(inputs / paper.INPUT_LAYOUT[f"radial.{key}"]) for key in ("low", "high")}
+    plan = json.loads((data_root / "raptor/plan.json").read_text())
+    consumed = paper.Inputs()
+    args = Namespace(radial_low=None, radial_high=None, input_root=inputs)
+    tables = paper.radial_tables(args, plan, consumed, {})
+    assert set(tables) == {"low", "high"}
+    assert set(map(str, consumed.consumed)) == {
+        str(inputs / paper.INPUT_LAYOUT[f"radial.{key}"]) for key in ("low", "high")}
 
 
 def test_products_from_another_experiment_are_refused(data_root, tmp_path):

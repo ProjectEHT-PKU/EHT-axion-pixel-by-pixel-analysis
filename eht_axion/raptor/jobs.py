@@ -2,8 +2,9 @@
 
 The build is produced by the core-owned setup/make Python entry point. This
 module only consumes its immutable, declared products. Failed attempts remain
-outside the stage temporary directory. Resume requires both verified lineage
-and the success receipts, never mere directory or HDF5 existence.
+outside the stage temporary directory. Resume requires a complete stage manifest
+with the same configuration and the success receipts, never mere directory or HDF5
+existence.
 """
 from __future__ import annotations
 
@@ -125,7 +126,8 @@ def _build_products(build_dir, manifest):
 def _prepare_task(task):
     task = dict(task)
     identifier = task.get("id")
-    if not isinstance(identifier, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,159}", identifier):
+    if not isinstance(identifier, str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}(/[A-Za-z0-9][A-Za-z0-9_.-]{0,63}){0,7}", identifier):
         raise ValueError("Unsafe task id")
     if task.get("kind") not in {"baseline", "response"}:
         raise ValueError("Task kind must be baseline or response")
@@ -188,9 +190,8 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
     """
     for task, _, paths in prepared:
         for path in paths:
-            digest = provenance.sha256(path)
             expected = task.get("source_sha256" if path == paths[0] else "table_sha256")
-            if expected is not None and expected != digest:
+            if expected is not None and expected != provenance.sha256(path):
                 raise ValueError(f"Declared plan input hash differs from live bytes: {path}")
     source = plan.get("raptor_source")
     if source is not None:
@@ -259,7 +260,8 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
             raise ValueError("Task time differs from live snapshot footer")
         if "metadata" in snapshot and footer_cache[source] != snapshot["metadata"]:
             raise ValueError("Live snapshot footer differs from plan metadata")
-        if snapshot.get("source_sha256") not in (None, provenance.sha256(Path(source))):
+        expected = snapshot.get("source_sha256")
+        if expected is not None and expected != provenance.sha256(source):
             raise ValueError("Live snapshot bytes differ from plan inventory hash")
         enabled = task["kind"] == "response"
         alpha = task["alpha"] if enabled else None
@@ -281,7 +283,7 @@ def _validate_plan_binding(plan, prepared, manifest, build_dir, grid):
             if (task["table_id"] != table_id or task["table_path"] != table_path
                     or task.get("table_spin") != p["radial_tables"][table_id]["spin"]):
                 raise ValueError("Task table identity/spin differs from the task plan")
-            if table.get("sha256") not in (None, provenance.sha256(Path(table_path))):
+            if table.get("sha256") is not None and table["sha256"] != provenance.sha256(table_path):
                 raise ValueError("Live radial table differs from plan inventory hash")
             if table_path not in table_cache:
                 table_cache[table_path] = validate_radial_table(Path(table_path), [])
@@ -402,13 +404,6 @@ def _execute(command, cwd, env, stdout, stderr, timeout):
                 registry.processes.discard(process)
 
 
-def _assert_sources_unchanged(paths):
-    # verification_session's sha256 validates cached stat identity, rather than
-    # rereading 97 GB. It also validates identity before/after the initial read.
-    for path in paths:
-        provenance.sha256(path)
-
-
 def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affinity,
               cpu_list, timeout_seconds):
     from .affinity import allocate_cpu_sets, launch_prefix
@@ -455,7 +450,7 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affi
         marker = parent / "manifest.json"
         if marker.exists() or marker.is_symlink():
             raise ValueError("Refusing to use an existing output stage as a run container/ancestor")
-    manifest = provenance.verify_stage(build_dir, recursive=True)
+    manifest = provenance.verify_stage(build_dir)
     binary, grid, header = _build_products(build_dir, manifest)
     constants = read_core_constants(header)
     _validate_plan_binding(plan, prepared, manifest, build_dir, grid)
@@ -480,10 +475,6 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affi
             root = Path(root).resolve(strict=True)
             if root == run_root or root.is_relative_to(run_root) or run_root.is_relative_to(root):
                 raise ValueError(f"Run root overlaps protected input root: {root}")
-    # Prehash the shared closure on the main thread before copying its session
-    # into workers. Per-job checks must not scan every other task's raw inputs.
-    _assert_sources_unchanged(closure)
-    base_closure = list(provenance.source_closure(base_inputs))
     env = os.environ.copy()
     # "none" means unbound, not an unsigned policy inherited from the caller.
     # Never mutate os.environ: other invocations may run in this interpreter.
@@ -509,11 +500,10 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affi
         registry.check()
         index = next_indices[slot]
         next_indices[slot] += workers
-        # A Context cannot be entered concurrently. Each task gets a fresh copy
-        # of the main session, including an independent stage-temporary stack.
+        # A Context cannot be entered concurrently: each task gets its own copy.
         context = copy_context()
         future = executor.submit(context.run, _run_job, prepared[index], build_dir, run_root,
-                                 binary, grid, header, constants, base_inputs, base_closure,
+                                 binary, grid, header, constants, base_inputs,
                                  threads, cpu_affinity, cpu_sets[slot], prefixes[slot], slot,
                                  env, timeout_seconds, registry)
         active[future] = (index, slot)
@@ -540,7 +530,7 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affi
         raise registry.cause
     finally:
         # Even on main-thread KeyboardInterrupt, all worker receipts and stage
-        # cleanup finish before verification_session checks its shared records.
+        # cleanup finish before returning.
         executor.shutdown(wait=True, cancel_futures=True)
     counts = {status: sum(r["status"] == status for r in results)
               for status in ("complete", "cached", "failed")}
@@ -555,14 +545,13 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affi
 
 
 def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, base_inputs,
-             base_closure, threads, cpu_affinity, cpu_set, prefix, slot, env,
+             threads, cpu_affinity, cpu_set, prefix, slot, env,
              timeout_seconds, registry):
     task, config, task_inputs = prepared
     destination = run_root / "jobs" / task["id"]
     attempt_parent = run_root / "attempts" / task["id"]
     task.update(core_constants=constants, core_constants_source=str(header))
     inputs = base_inputs + task_inputs
-    closure = base_closure + list(provenance.source_closure(task_inputs))
     config.update(threads=threads)
     if cpu_affinity != "none":
         # Worker count is scheduling only; CPU mask/binding can affect floating
@@ -598,11 +587,10 @@ def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, bas
                     raise ValueError("Cached job model.in differs from task")
                 if json.loads((destination / "task.json").read_text()) != config:
                     raise ValueError("Cached task receipt differs from task config")
-                if provenance.sha256(destination / "grid_mks.in") != provenance.sha256(grid):
+                if (destination / "grid_mks.in").read_bytes() != grid.read_bytes():
                     raise ValueError("Cached job grid differs from declared build grid")
                 if json.loads((destination / "output.json").read_text()) != validated:
                     raise ValueError("Cached output validation metadata differs")
-                _assert_sources_unchanged(closure)
                 result.update(status="cached")
             else:
                 attempt_parent.mkdir(parents=True, exist_ok=True)
@@ -621,7 +609,6 @@ def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, bas
                     _json(temporary / "task.json", config)
                     (temporary / "model.in").write_text(serialize_parameters(task["parameters"]))
                     shutil.copyfile(grid, temporary / "grid_mks.in")
-                    _assert_sources_unchanged(closure)
                     registry.check()
                     code, timed_out = _execute(command, temporary, env, attempt / "stdout.log",
                                                attempt / "stderr.log", timeout_seconds)
@@ -637,7 +624,6 @@ def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, bas
                                                        "output_validated": True})
                     shutil.copyfile(attempt / "stdout.log", temporary / "stdout.log")
                     shutil.copyfile(attempt / "stderr.log", temporary / "stderr.log")
-                    _assert_sources_unchanged(closure)
                     registry.check()
                 except BaseException as exc:
                     if not isinstance(exc, Exception):
@@ -681,7 +667,7 @@ def _finish_receipt(attempt, receipt, started):
 def run_jobs(plan: dict, build_dir: Path, run_root: Path, *, max_jobs: int | None = None,
              workers: int = 1, threads: int = 2, cpu_affinity: str = "none",
              cpu_list: str | None = None, timeout_seconds: float | None = None) -> dict:
-    """Run the authorized task prefix with bounded concurrency and shared hashes.
+    """Run the authorized task prefix with bounded concurrency.
 
     No data is copied, no shell is used, and a completed job stage is never rebuilt.
     ``max_jobs`` selects tasks, not workers. Operational failures are returned
@@ -689,7 +675,6 @@ def run_jobs(plan: dict, build_dir: Path, run_root: Path, *, max_jobs: int | Non
     Cancellation kills all active process groups, saves attempts, joins workers,
     then propagates. Each logical worker slot owns a fixed disjoint CPU set.
     """
-    with provenance.verification_session():
-        return _run_jobs(plan, build_dir, run_root, max_jobs=max_jobs, workers=workers,
-                         threads=threads, cpu_affinity=cpu_affinity, cpu_list=cpu_list,
-                         timeout_seconds=timeout_seconds)
+    return _run_jobs(plan, build_dir, run_root, max_jobs=max_jobs, workers=workers,
+                     threads=threads, cpu_affinity=cpu_affinity, cpu_list=cpu_list,
+                     timeout_seconds=timeout_seconds)

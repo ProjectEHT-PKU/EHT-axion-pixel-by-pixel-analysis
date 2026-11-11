@@ -1,7 +1,8 @@
-"""provenance: atomic stage directories, reuse of equal stages, code identity, verification."""
+"""provenance: atomic stage directories, reuse of equal stages, code identity, unsafe paths."""
 import json
 import subprocess
 
+import numpy as np
 import pytest
 
 from eht_axion import provenance
@@ -10,27 +11,34 @@ from eht_axion.provenance import stage_directory, verify_stage
 REAL_CODE_IDENTITY = provenance.code_identity  # captured before the autouse fixture replaces it
 
 
-def test_atomic_stage_cache_and_invalidations(tmp_path):
+def test_stage_is_atomic_reused_only_when_equal_and_records_paths(tmp_path):
     source = tmp_path / "input.txt"
     source.write_text("data")
     out = tmp_path / "stage"
     with stage_directory(out, "test", {"a": 1}, [source]) as temporary:
         (temporary / "value.txt").write_text("product")
-    verify_stage(out)
+        np.save(temporary / "array.npy", np.zeros((2, 3)))
+    record = verify_stage(out)
+    assert list(record) == ["stage", "config", "inputs", "implementation", "runtime", "complete",
+                            "outputs", "elapsed_seconds"]
+    assert record["inputs"] == [str(source)]
+    assert record["implementation"] == {"git_commit": "0" * 40}
+    assert {e["path"] for e in record["outputs"]} == {"value.txt", "array.npy"}
+    assert next(e for e in record["outputs"] if e["path"] == "array.npy")["shape"] == [2, 3]
+    assert "sha256" not in json.dumps(record)
     with stage_directory(out, "test", {"a": 1}, [source]) as temporary:
         assert temporary is None
     with pytest.raises(ValueError, match="A different stage exists"):
         with stage_directory(out, "test", {"a": 2}, [source]):
             pass
     with pytest.raises(RuntimeError, match="injected"):
-        with stage_directory(tmp_path / "failed", "test", {"a": 2}, [source]) as temporary:
+        with stage_directory(tmp_path / "failed", "test", {}, [source]) as temporary:
             (temporary / "value.txt").write_text("wrong")
             raise RuntimeError("injected")
     assert not (tmp_path / "failed").exists()
-    assert (out / "value.txt").read_text() == "product"
     assert not out.with_suffix(".lock").exists()
-    (out / "value.txt").write_text("tampered")
-    with pytest.raises(ValueError, match="checksum"):
+    (out / "value.txt").unlink()
+    with pytest.raises(ValueError, match="Missing stage output"):
         verify_stage(out)
 
 
@@ -55,17 +63,6 @@ def test_code_identity_is_the_commit_of_a_clean_tracked_tree(tmp_path):
         REAL_CODE_IDENTITY(tmp_path / "missing")
 
 
-def test_manifest_records_commit_and_versions_only(tmp_path):
-    raw = tmp_path / "raw.txt"
-    raw.write_text("data")
-    with stage_directory(tmp_path / "stage", "test", {}, [raw]) as out:
-        (out / "value.txt").write_text("v")
-    record = json.loads((tmp_path / "stage" / "manifest.json").read_text())
-    assert record["implementation"] == {"git_commit": "0" * 40}
-    assert "signature" not in record and "pixi_lock_sha256" not in record["runtime"]
-    assert record["inputs"][0]["sha256"] == provenance.sha256(raw)
-
-
 def test_dirty_tree_refuses_a_new_stage_before_writing(tmp_path, monkeypatch):
     def dirty(root=None):
         raise ValueError("Uncommitted changes to tracked files")
@@ -74,3 +71,28 @@ def test_dirty_tree_refuses_a_new_stage_before_writing(tmp_path, monkeypatch):
         with stage_directory(tmp_path / "stage", "test", {}, []) as out:
             (out / "value.txt").write_text("v")
     assert not (tmp_path / "stage").exists()
+
+
+@pytest.mark.parametrize("kind", ["leaf", "ancestor"])
+def test_never_writes_through_directory_symlinks(tmp_path, kind):
+    external = tmp_path / "external"
+    external.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(external, target_is_directory=True)
+    with pytest.raises(ValueError, match="shared directory symlink"):
+        with stage_directory(link / "stage" if kind == "ancestor" else link, "test", {}):
+            pytest.fail("must reject before writing")
+    assert list(external.iterdir()) == []
+
+
+def test_products_must_be_regular_files_and_outputs_never_contain_inputs(tmp_path):
+    source = tmp_path / "source.npy"
+    np.save(source, np.arange(5))
+    with pytest.raises(ValueError, match="regular files"):
+        with stage_directory(tmp_path / "stage", "test", {}, [source]) as temp:
+            (temp / "value.npy").symlink_to(source)
+    assert not (tmp_path / "stage").exists()
+    with pytest.raises(ValueError, match="contains an input"):
+        with stage_directory(tmp_path, "test", {}, [source]):
+            pass
+    assert source.is_file()

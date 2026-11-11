@@ -12,7 +12,7 @@ The EHT imaging pipeline reproduces the EHT 2017 M87\* polarimetric reconstructi
 - **Feed-rotation table** (`--feed-rotation-file`, default `$EHT_INPUT_ROOT/eht/feed-rotation.json`): JSON with `"status": "verified"`, `"units": {"fr_off": "...degrees..."}`, and per-station `fr_par`, `fr_elev`, `fr_off`.
 - **Official EHT imaging script** (`--official-script`, default `$EHT_INPUT_ROOT/eht/eht-imaging_pipeline.py`): official total-intensity imaging pipeline script.
 
-The SHA-256 of the selected day's `uvfits` file is checked against `eht_imaging.inputs` before any imaging; the `uvfits` file, feed-rotation table, and official script are hashed into the stage inputs, and their paths are recorded as the `input_root`, `feed_rotation_file`, and `official_script` imaging parameters (`EHT_LOCATIONS`).
+The SHA-256 of the selected day's `uvfits` file is checked against `eht_imaging.inputs` before any imaging; the `uvfits` file, feed-rotation table, and official script are recorded as stage inputs, and their paths are recorded as the `input_root`, `feed_rotation_file`, and `official_script` imaging parameters (`EHT_LOCATIONS`).
 
 ## Running the EHT pipeline
 
@@ -39,7 +39,7 @@ pixi run -e eht-imaging eht-sample --workers 64 --threads 2
 pixi run -e eht-summary eht-summarize
 ```
 
-Every output directory except `eht/sample` must be new. `scripts/eht/sample.py` supports `--workers` (default `64`), `--threads` (default `2`), `--max-active-memory-gib` (default `100`), `--resource-wait` (default `300` s; exits with code `3` if memory admission remains blocked, safe to resume), `--task-limit`, and `--resume`. Re-running `eht-sample` on the same output directory resumes automatically if the batch plan SHA-256 (`batch.json` `identity`) is identical.
+Every output directory except `eht/sample` must be new. `scripts/eht/sample.py` supports `--workers` (default `64`), `--threads` (default `2`), `--max-active-memory-gib` (default `100`), `--resource-wait` (default `300` s; exits with code `3` if memory admission remains blocked, safe to resume), `--task-limit`, and `--resume`. Re-running `eht-sample` on the same output directory resumes automatically if the batch plan (`batch.json`: bundle files, science settings, code commit, package versions, threads) is identical.
 
 ## Reconstruction method
 
@@ -88,12 +88,12 @@ where $h(m) = \frac{1}{2}\bigl[(1+m)\ln(1+m) + (1-m)\ln(1-m)\bigr]$, $F = \sum_x
 
 ### Bundle export, D-term Monte Carlo, and ensemble summary
 
-1. **Bundle export (`scripts/eht/export_bundle.py`)**: verifies full lineage of all four `eht:i` and four `eht:refine` stages, checks `all_P_numerically_certified == True` on every day, and copies read-only (`0444`) `<day>/fixedI.fits`, `<day>/gaincal-pol.uvfits`, `<day>/fiducial-dterms.json`, `lineage/<day>/*`, and `feed-rotation.json` with `bundle.json` (schema `eht-bundle`).
+1. **Bundle export (`scripts/eht/export_bundle.py`)**: checks all four `eht:i` and four `eht:refine` stages, checks `all_P_numerically_certified == True` on every day, and copies read-only (`0444`) `<day>/fixedI.fits`, `<day>/gaincal-pol.uvfits`, `<day>/fiducial-dterms.json`, `lineage/<day>/*`, and `feed-rotation.json` with `bundle.json` (schema `eht-bundle`).
 2. **D-term Monte Carlo (`scripts/eht/sample.py`)**:
    - Computes the 4-day mean and $2 \times 2$ $(\operatorname{Re} D, \operatorname{Im} D)$ sample covariance (`covariance_ddof = 1`) per hand (`R`, `L`) and station in `solve_sites` (`d_distribution`).
    - Draws `uncertainty_draws = 1000` D-term sets per day using `SeedSequence([20210405, day])`: bivariate normal for `AZ`, `LM`, `PV`, and independent zero-mean normal with per-component SD `residual_d_sigma = 0.01` for `AA`, `AP`, `SM`, `JC` (`sample_dterms`). Thermal visibility noise is not resampled and D terms are not refitted per draw.
    - Solves the exact convex $P$ problem cold-started from $P = 0.05\,I$ (`initial_p_fraction`) with `gap_atol = 1e-6`, `maxiter = 50000`, `time_limit = 600` s; uncertified draws receive one retry (`retry_maxiter = 200000`, `retry_time_limit = 1800` s). Writes `best-raw-IQU.fits`, `best-blurred-IQU.fits` ($19\,\mu\mathrm{as}$ blur), `certificate.json`, and `taskreceipt.json` per draw, and `finish.json` once all $4000$ draws are certified.
-3. **Ensemble summary (`scripts/eht/summarize.py`)**: verifies `batch.json`, `finish.json`, all $4000$ `taskreceipt.json` and `certificate.json` files, and SHA-256 digests of every `best-blurred-IQU.fits`, then publishes stage `eht:ensemble` containing `axes.npz` (`east_uas`, `north_uas`), `report.json`, and per-day `day-<day>/{stokes.npy, evpa.npy, global.npz}`:
+3. **Ensemble summary (`scripts/eht/summarize.py`)**: verifies `batch.json`, `finish.json`, and all $4000$ `taskreceipt.json` and `certificate.json` files, then publishes stage `eht:ensemble` containing `axes.npz` (`east_uas`, `north_uas`), `report.json`, and per-day `day-<day>/{stokes.npy, evpa.npy, global.npz}`:
    - `stokes.npy`: float64 `(1000, 64, 64, 4)` (`[draw, y, x, IQUV]` in native FITS orientation);
    - `evpa.npy`: float64 `(1000, 64, 64)` EVPA in $[0, \pi)\,\mathrm{rad}$ (`NaN` where $I \le 0$ or $Q = U = 0$);
    - `global.npz`: Paper VII Sec. 5.3 whole-field diagnostics (`total_I`, `m_net`, `m_resolved`, `evpa_rad`, `beta2_real`, `beta2_imag`) computed over the $19\,\mu\mathrm{as}$-blurred images for comparison with Paper VII (used by `paper.py`, not by `limits.py`).

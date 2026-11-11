@@ -2,7 +2,7 @@
 
 [← Documentation index](index.md)
 
-Scientific arrays and figures are never stored inside the git repository. Every pipeline script derives its default product directories from a single data root (`EHT_DATA_ROOT` or `--data-root`) and its external inputs from a single read-only input root (`EHT_INPUT_ROOT` or `--input-root`), writes results atomically into stage directories signed with `manifest.json` (or explicit batch/bundle receipts), and verifies upstream SHA-256 checksums before consuming any product.
+Scientific arrays and figures are never stored inside the git repository. Every pipeline script derives its default product directories from a single data root (`EHT_DATA_ROOT` or `--data-root`) and its external inputs from a single read-only input root (`EHT_INPUT_ROOT` or `--input-root`), and writes results atomically into stage directories described by `manifest.json` (or explicit batch/bundle receipts).
 
 ## Default layout
 
@@ -111,7 +111,7 @@ MC/                              signed by batch/task/finish receipts (no manife
     best-raw-IQU.fits, best-blurred-IQU.fits
 ENSEMBLE/                        stage eht:ensemble
   axes.npz                       east_uas (64), north_uas (64)
-  report.json, consumed-inputs.json
+  report.json
   day-<day>/
     stokes.npy                   float64 (1000, 64, 64, 4): [draw, y, x, IQUV]
     evpa.npy                     float64 (1000, 64, 64): radians in [0, pi), NaN if I <= 0 or Q=U=0
@@ -177,12 +177,12 @@ PAPER/                           stage analysis:paper
 
 ### Atomic stage creation and output-root policy
 
-`stage_directory(destination, stage, config, input_paths, *, verify_lineage=True)` wraps every manifest-backed stage:
+`stage_directory(destination, stage, config, input_paths)` wraps every manifest-backed stage:
 - Rejects destinations reached via directory symlinks or overlapping any file in `source_closure(input_paths)`.
 - Acquires `<destination>.lock` with `O_CREAT | O_EXCL` (concurrent writers fail immediately rather than blocking).
 - **Clean-tree rule (`code_identity`)**: refuses to create a new stage if `git status --porcelain --untracked-files=no` reports uncommitted changes to any tracked repository file. Because the working tree is clean, recording `HEAD` (`implementation.git_commit`) uniquely pins every script, `eht_axion/` module, `configs/experiment.yaml`, `pixi.toml`, and `pixi.lock`; repository files are therefore never listed in `inputs`.
-- Writes outputs into a sibling temporary directory `<destination>.building-*`, hashes all produced regular files (no symlinks, non-empty), writes `manifest.json` last, and atomically renames the directory to `<destination>`. On exception, the temporary directory and lock are removed.
-- **Immutability vs. resume**: result scripts (`reconstruct.py`, `refine.py`, `export_bundle.py`, `eht/summarize.py`, and all `scripts/analysis/*.py`) refuse an existing `--output-root`. Resumable steps (`raptor/build.py`, `raptor/generate.py`, `raptor/merge.py`) reuse an existing stage directory only if it passes verification and records identical `(stage, config, inputs)`; `git_commit` is omitted from that cache comparison so a long `RAPTOR` run can resume across commits that do not alter its tasks.
+- Writes outputs into a sibling temporary directory `<destination>.building-*`, lists all produced regular files (no symlinks, non-empty), writes `manifest.json` last, and atomically renames the directory to `<destination>`. On exception, the temporary directory and lock are removed.
+- **Immutability vs. resume**: result scripts (`reconstruct.py`, `refine.py`, `export_bundle.py`, `eht/summarize.py`, and all `scripts/analysis/*.py`) refuse an existing `--output-root`. Resumable steps (`raptor/build.py`, `raptor/generate.py`, `raptor/merge.py`) reuse an existing stage directory only if it is complete and records identical `(stage, config, inputs)`; `git_commit` is omitted from that cache comparison so a long `RAPTOR` run can resume across commits that do not alter its tasks.
 
 ### `manifest.json` fields and stage identifiers
 
@@ -190,11 +190,11 @@ PAPER/                           stage analysis:paper
 |---|---|
 | `stage` | Fixed stage identifier `<part>:<step>` (table below) |
 | `config` | JSON-serialized parameter dictionary governing this stage |
-| `inputs` | List of `{path, size, sha256}` for every consumed external or upstream file |
+| `inputs` | Resolved paths of every consumed external or upstream file |
 | `implementation` | `{"git_commit": "<40-hex HEAD>"}` |
 | `runtime` | Python version/implementation, OS/machine, and versions of `numpy`, `scipy`, `h5py`, `matplotlib`, `PyYAML` |
 | `complete` | `true`; a `manifest.json` with a non-empty string `stage` and `complete: true` is what identifies a completed stage |
-| `outputs` | List of `{path, size, sha256}` (plus `shape`/`dtype` for `.npy` and per-array shapes/dtypes for `.npz`, inspected via `mmap` with `allow_pickle=False`) |
+| `outputs` | List of `{path}` (plus `shape`/`dtype` for `.npy` and per-array shapes/dtypes for `.npz`, inspected via `mmap` with `allow_pickle=False`) |
 | `elapsed_seconds` | Wall-clock execution time of the stage body |
 
 | Stage name | Producer script |
@@ -218,16 +218,5 @@ Auxiliary JSON records name their record type in a `schema` (or `layout`) string
 ### Non-manifest receipts
 
 Two EHT steps manage resumable or read-only multi-day containers with dedicated receipts instead of `manifest.json`:
-- **`BUNDLE/bundle.json`** (`scripts/eht/export_bundle.py`): records `code` (`git_commit`), the science contract (`fsys`, `covariance_ddof`, `residual_component_sigma`, `image`, `objective`), and `{path, sha256, size, original_path}` of every read-only copied file after recursively verifying the four `eht:i` and four `eht:refine` stages.
-- **`MC/batch.json`, `taskreceipt.json`, and `finish.json`** (`scripts/eht/sample.py`): `batch.json` stores `identity` (SHA-256 of the canonical batch plan including bundle hashes, science settings, `git_commit`, package versions, and thread count). Each attempt writes `taskreceipt.json` with output SHA-256s; `finish.json` is written only when all $4000$ draws are certified, and `scripts/eht/summarize.py` re-verifies every receipt, certificate, and blurred FITS hash before creating `eht:ensemble`.
-
-## Verifying products
-
-Run `scripts/verify_products.py` via Pixi to audit any completed stage directory without recomputing data:
-
-```bash
-pixi run verify /path/to/stage              # verify manifest completeness and output SHA-256s
-pixi run verify /path/to/stage --recursive  # also re-hash every declared input and upstream stage
-```
-
-Inside a `verification_session()`, each unique file is streamed once (8 MiB blocks) while checking `(st_dev, st_ino, st_size, st_mtime_ns, st_ctime_ns)` before, immediately after hashing, and again when the session exits. Downstream scripts also call `require_declared_outputs(directory, paths)` so undeclared extra files inside a stage directory can never be read accidentally. Lightweight downstream stages (`check_grid.py`, `check_covariance.py`, `analysis/summarize.py`, `paper.py`) pass `verify_lineage=False`: they verify the immediate outputs of the stages they read and hash those `manifest.json` files as inputs without re-streaming the raw upstream `RAPTOR` or `uvfits` ancestry.
+- **`BUNDLE/bundle.json`** (`scripts/eht/export_bundle.py`): records `code` (`git_commit`), the science contract (`fsys`, `covariance_ddof`, `residual_component_sigma`, `image`, `objective`), and `{path, size, original_path}` of every read-only copied file after checking the four `eht:i` and four `eht:refine` stages.
+- **`MC/batch.json`, `taskreceipt.json`, and `finish.json`** (`scripts/eht/sample.py`): `batch.json` stores the batch plan (bundle files, science settings, `git_commit`, package versions, and thread count); a resume requires the same plan. Each attempt writes `taskreceipt.json` (task, status, output file names); `finish.json` is written only when all $4000$ draws are certified, and `scripts/eht/summarize.py` checks every receipt and certificate before creating `eht:ensemble`.

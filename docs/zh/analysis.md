@@ -145,7 +145,7 @@ $$
 
 ## 敏感性检验、结果汇总与论文输出
 
-- **网格与先验检验（`scripts/analysis/check_grid.py`）**：直接读取 `analysis:limits` 保存的 `observations-{1d,2d}.npz`，用命令行覆盖的 `--phase-count`、`--coupling-points` 和/或 `--coupling-max` 重新计算全部上限（阶段 `analysis:check-grid`），报告相对于源阶段的 $\Delta\log_{10} c_{95}$，不重新筛选特征，也不重复遍历上游原始数据哈希。
+- **网格与先验检验（`scripts/analysis/check_grid.py`）**：直接读取 `analysis:limits` 保存的 `observations-{1d,2d}.npz`，用命令行覆盖的 `--phase-count`、`--coupling-points` 和/或 `--coupling-max` 重新计算全部上限（阶段 `analysis:check-grid`），报告相对于源阶段的 $\Delta\log_{10} c_{95}$，不重新筛选特征。
 - **半样本协方差检验（`scripts/analysis/check_covariance.py`）**：将每天的 1000 次抽样拆分为前一半 `first500` 与后一半 `last500`，围绕固定的全系综圆均值 $\bar{\chi}_d$ 重新计算 $C_d$，并报告六种观测情形下的 $\Delta\log_{10} c_{95}$（阶段 `analysis:check-covariance`）。
 - **汇总报告（`scripts/analysis/summarize.py`）**：校验 `limits`、`gridcheck`、`priorcheck` 及可选的 `covcheck`，确认各检验未改变特征数量，写出 `limits.csv`、`grid_vs_primary.csv`、`prior_vs_dense_grid.csv`、`fit-chi2.csv`（记录 $c=0$ 与联合网格最佳拟合点处的 $\chi^2$）、`limits.png`、`fits-alpha-<α>.png`、`report.json` 以及完全由数据驱动生成的 `RESULTS.md`（阶段 `analysis:summary`）。
 - **论文输出（`scripts/analysis/paper.py`）**：在不做任何重新拟合的前提下，将论文所需的全部流水线资产汇总到阶段 `analysis:paper`：

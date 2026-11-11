@@ -1,17 +1,7 @@
 import numpy as np
 import pytest
 
-from eht_axion.provenance import stage_directory
 from eht_axion.analysis.templates import load_templates
-
-
-def test_output_root_cannot_contain_input(tmp_path):
-    raw = tmp_path / "raw.npy"
-    np.save(raw, np.arange(5))
-    with pytest.raises(ValueError, match="contains an input"):
-        with stage_directory(tmp_path, "test", {}, [raw]):
-            pass
-    assert raw.is_file()
 
 
 @pytest.mark.parametrize("dimension, shape", [("1d", (3,)), ("2d", (2, 2))])

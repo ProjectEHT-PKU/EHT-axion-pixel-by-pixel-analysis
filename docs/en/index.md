@@ -20,7 +20,7 @@ Clone the repository and install the locked Pixi environments you need:
 git clone <repository-url> eht-script-pipeline
 cd eht-script-pipeline
 
-pixi install --locked                  # default environment: analysis, verification, lint, core tests
+pixi install --locked                  # default environment: analysis, lint, core tests
 pixi install --locked -e eht-imaging   # EHT imaging + full test suite (adds ehtim 1.3.2 and astropy)
 pixi install --locked -e raptor-build  # Linux only: RAPTOR C toolchain and job orchestration
 ```
@@ -75,22 +75,14 @@ To generate the publication figures, LaTeX macros (`numbers.tex`, `numbers.json`
 pixi run analysis-paper
 ```
 
-### Verify results
-
-Every published stage contains a `manifest.json` recording parameters, the repository `git_commit`, and SHA-256 checksums of all declared inputs and outputs. Verify a stage (and with `--recursive`, its entire upstream lineage) without recomputing any science products:
-
-```bash
-pixi run verify $EHT_DATA_ROOT/analysis/limits --recursive
-```
-
 ## Documentation
 
 | Guide | Contents |
 |---|---|
 | [Overview and concepts](overview.md) | Pipeline architecture, Mermaid data-flow diagram, physical scales, polarimetric notation, and core design rules |
 | [Configuration](configuration.md) | Complete key-by-key reference for `configs/experiment.yaml`, validation and derived views, and the three path roots and execution settings of `.env` |
-| [RAPTOR simulation](raptor-simulation.md) | Pinned `RAPTOR` build, BHAC snapshot and radial-table validation, content-addressed tasks, job runner, CPU affinity, delivery, and multi-host merge |
+| [RAPTOR simulation](raptor-simulation.md) | Pinned `RAPTOR` build, BHAC snapshot and radial-table validation, task IDs, job runner, CPU affinity, delivery, and multi-host merge |
 | [EHT imaging](eht-imaging.md) | EHT Paper VII polarimetric imaging reproduction, convex PDHG refinement, D-term Monte Carlo, ensemble summary, and deviations from Paper VII |
 | [Analysis](analysis.md) | Image preprocessing, sector aperture operator, harmonic templates, feature selection, covariance modes, Bayesian likelihood/posterior, checks, and paper outputs |
-| [Data layout and provenance](data-layout.md) | Default `$EHT_DATA_ROOT` tree, read-only `$EHT_INPUT_ROOT` input layout, per-stage file/array specifications, atomic `stage_directory` manifests, non-manifest receipts, and verification |
+| [Data layout and provenance](data-layout.md) | Default `$EHT_DATA_ROOT` tree, read-only `$EHT_INPUT_ROOT` input layout, per-stage file/array specifications, atomic `stage_directory` manifests, and non-manifest receipts |
 | [Development](development.md) | Pixi environments and tasks, test suite and linter, module/script map, architectural invariants, and guides for extending parameters or stages |

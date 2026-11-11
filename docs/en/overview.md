@@ -12,7 +12,6 @@ The M87\* EHT axion pipeline tests for birefringent electric-vector position ang
 | EHT imaging | `scripts/eht/reconstruct.py`, `scripts/eht/refine.py`, `scripts/eht/export_bundle.py`, `scripts/eht/sample.py` | `eht-imaging` | Fixed-$I$ images, refined fiducial D terms, and $4 \times 1000$ certified polarimetric FITS draws |
 | EHT ensemble summary | `scripts/eht/summarize.py` | `eht-summary` | Per-day Stokes/EVPA arrays and Paper VII diagnostics (`eht/ensemble/`) |
 | Analysis | `scripts/analysis/templates.py`, `scripts/analysis/limits.py`, `scripts/analysis/check_grid.py`, `scripts/analysis/check_covariance.py`, `scripts/analysis/summarize.py`, `scripts/analysis/paper.py` | `default` | Response templates, upper limits $c_{95}(\alpha)$, sensitivity checks, `RESULTS.md`, and paper figures/macros/tables |
-| Verification | `scripts/verify_products.py` | `default` | Read-only manifest and SHA-256 lineage validation |
 
 ```mermaid
 flowchart LR
@@ -54,7 +53,7 @@ Arrows mean "reads the verified output of". When all ray-tracing jobs execute un
 1. **`RAPTOR` simulation** ([RAPTOR simulation](raptor-simulation.md)). Across 141 BHAC GRMHD snapshots (`data001600.dat` to `data003000.dat` in steps of 10 labels, $1\,t_g$ cadence), the pinned `RAPTOR` C core ray-traces:
    - one axion-off baseline image at $100 \times 100$ pixels and one at $400 \times 400$ pixels per snapshot;
    - one axion-on response image at $100 \times 100$ pixels for each of the 8 values of $\alpha \in \{0.10, \dots, 0.44\}$ and each of 16 uniformly spaced axion phases $\psi_k = k\pi/8$ ($k = 0, \dots, 15$).
-   This yields $141 \times (2 + 8 \times 16) = 18\,330$ content-addressed tasks, delivered as float64 Stokes $(I, Q, U, V)$ cubes in $\mathrm{Jy\,sr^{-1}}$.
+   This yields $141 \times (2 + 8 \times 16) = 18\,330$ tasks, delivered as float64 Stokes $(I, Q, U, V)$ cubes in $\mathrm{Jy\,sr^{-1}}$.
 2. **EHT imaging** ([EHT imaging](eht-imaging.md)). Reproduces the EHT Paper VII polarimetric imaging workflow on `ehtim` 1.3.2 for the four 2017 observing days (`95`, `96`, `100`, `101`, corresponding to April 5, 6, 10, 11):
    - reconstructs a fixed total-intensity ($I$) image per day and solves shared $R=L$ station gains;
    - runs 50 rounds of fiducial linear-polarization ($P = Q + iU$) imaging and forward D-term (instrumental leakage) fitting for `AZ`, `LM`, and `PV`;
@@ -107,4 +106,4 @@ All angles stored in `.npy` and `.npz` products are in radians. Sky position ang
 - **Single source of scientific parameters**: every physical constant of the model, solver tolerance, grid resolution, and prior bound is defined once in [`configs/experiment.yaml`](../../configs/experiment.yaml) and validated strictly by `eht_axion/experiment.py` (see [Configuration](configuration.md)).
 - **No scientific defaults in library code**: public functions in `eht_axion/` accept all scientific parameters explicitly from the calling script; `tests/test_experiment.py` inspects the AST of `eht_axion/` and rejects numeric default arguments outside a small execution/layout allow-list.
 - **Strict separation of machine environment**: file paths, thread counts, worker counts, CPU pinning, and memory caps live exclusively in CLI options and the single `.env` data file — never in `configs/experiment.yaml`. All paths derive from three roots: the `RAPTOR` checkout (`EHT_RAPTOR_SOURCE_ROOT`), the read-only external inputs (`EHT_INPUT_ROOT`), and the generated products (`EHT_DATA_ROOT`).
-- **Immutable stages and cryptographic provenance**: result scripts write only to new directories via `stage_directory`, require a clean tracked git working tree (`code_identity`), and emit `manifest.json` containing the full `git_commit` and SHA-256 digests of every external input and stage output (see [Data layout and provenance](data-layout.md)).
+- **Immutable stages and recorded provenance**: result scripts write only to new directories via `stage_directory`, require a clean tracked git working tree (`code_identity`), and emit `manifest.json` containing the configuration, the full `git_commit`, and the paths of every input and output (see [Data layout and provenance](data-layout.md)); external input files carry their SHA-256 in `configs/experiment.yaml` and `raptor/plan.json`.

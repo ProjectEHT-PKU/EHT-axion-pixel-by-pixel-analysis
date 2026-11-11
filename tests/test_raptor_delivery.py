@@ -90,9 +90,9 @@ def test_delivery_shapes_axes_labels_and_ancestry(delivered):
         inputs, labels = generated_inputs(paths, config, alpha=alpha, resolution=resolution)
         assert labels == [1600, 1610]
         assert paths[0].parent / "manifest.json" in inputs
-        record = verify_stage(paths[0].parent, recursive=True)
-        assert all(".building-" not in e["path"] for e in record["inputs"])
-        assert len([e for e in record["inputs"] if e["path"].endswith("manifest.json")]) == shape[0]*shape[1]
+        record = verify_stage(paths[0].parent)
+        assert all(".building-" not in e for e in record["inputs"])
+        assert len([e for e in record["inputs"] if e.endswith("manifest.json")]) == shape[0]*shape[1]
 
 
 @pytest.mark.parametrize("key,value", [("mass_solar", 6.2e9), ("distance_mpc", 16.9)])
@@ -103,27 +103,6 @@ def test_generated_physics_cannot_be_silently_changed(delivered, key, value):
     paths = input_raptor_files(run / "data", .2, 100)
     with pytest.raises(ValueError, match="identity differs"):
         generated_inputs(paths, changed, alpha=.2, resolution=100)
-
-
-def test_generated_metadata_and_job_ancestors_live_verified(delivered):
-    config, run, products = delivered
-    path = products[0]
-    metadata = path.parent / "generated.json"
-    contents = metadata.read_text()
-    changed = json.loads(contents)
-    changed["omega"] = .2
-    metadata.write_text(json.dumps(changed))
-    with pytest.raises(ValueError, match="checksum"):
-        generated_inputs([path], config, alpha=.2, resolution=100)
-    metadata.write_text(contents)
-    hdf = next((run / "jobs").glob("*/output/*.h5"))
-    original = hdf.read_bytes()
-    try:
-        hdf.write_bytes(b"changed")
-        with pytest.raises(ValueError, match="checksum|lineage"):
-            generated_inputs([path], config, alpha=.2, resolution=100)
-    finally:
-        hdf.write_bytes(original)
 
 
 def test_analysis_ignores_sky_grid_but_not_ray_tracing_changes(delivered):
@@ -153,14 +132,14 @@ def test_generated_data_reaches_templates_and_background(delivered, tmp_path):
     run_templates(path, run / "data", output)
     with np.load(output / "response/alpha-0.20/response-2d.npz") as z:
         np.testing.assert_array_equal(z["snapshot_labels"], [1600, 1610])
-    record = verify_stage(output / "processed/alpha-0.20", recursive=True)
+    record = verify_stage(output / "processed/alpha-0.20")
     validate_processed_source(record, profile, alpha=.2, resolution=100)
-    bg = verify_stage(output / "background", recursive=True)
+    bg = verify_stage(output / "background")
     validate_processed_source(bg, profile, alpha=None, resolution=400)
     assert bg["config"]["state_indices"] == [0]
     assert np.load(output / "background/stokes.npy", mmap_mode="r").shape == (2, 1, 8, 8, 4)
     assert not (output / "background-unmasked").exists()
-    delivered = [Path(e["path"]) for e in bg["inputs"] if e["path"].endswith(".npy")]
+    delivered = [Path(e) for e in bg["inputs"] if e.endswith(".npy")]
     assert input_cadence_hours(delivered, profile) > 0
     with pytest.raises(FileExistsError):
         run_templates(path, run / "data", output)
@@ -173,7 +152,7 @@ def test_missing_metadata_is_rejected(delivered):
     content = metadata.read_bytes()
     metadata.unlink()
     try:
-        with pytest.raises(ValueError, match="missing"):
+        with pytest.raises(ValueError, match="Missing stage output"):
             generated_inputs([path], config, alpha=.2, resolution=100)
     finally:
         metadata.write_bytes(content)

@@ -52,7 +52,7 @@ def parse(argv=None):
 def build_plan(a):
     config = experiment.read_experiment(a.config)
     refine = config['eht_imaging']['refine']
-    source = provenance.verify_stage(a.source_root, recursive=True)
+    source = provenance.verify_stage(a.source_root)
     im, files = original.stage_inputs(a.i_root, 'I', a.day, original.I_PRODUCTS)
     if source['stage'] != 'eht:fiducial' or source['config']['day'] != a.day:
         raise ValueError('source must be the fiducial stage of the same day')
@@ -62,8 +62,7 @@ def build_plan(a):
     locations = {key: c[key] for key in experiment.EHT_LOCATIONS}
     if c != json.loads(json.dumps(experiment.eht_imaging_parameters(config, locations))):
         raise ValueError('source imaging parameters differ from experiment.yaml eht_imaging')
-    recorded = {Path(r['path']).resolve() for r in provenance.describe_inputs(
-        provenance.source_closure([provenance.manifest_path(a.source_root)]))}
+    recorded = set(provenance.source_closure([provenance.manifest_path(a.source_root)]))
     if any((a.i_root/n).resolve() not in recorded for n in original.I_PRODUCTS):
         raise ValueError('source does not descend from this same I stage')
     rawname, dname = 'final-raw-IQU.fits', 'final-dterms.json'
@@ -158,21 +157,20 @@ def run(a, plan, core, eh, out):
 
 def main(argv=None):
     a = parse(argv)
-    with provenance.verification_session():
-        plan = build_plan(a)
-        import ehtim as eh
-        from astropy.utils import iers
-        from eht_axion.eht import calibration as core
-        iers.conf.auto_download = False
-        if {name: metadata.version(name) for name in plan['packages']} != plan['packages']:
-            raise ValueError('installed packages differ from the versions recorded in the plan')
-        with provenance.stage_directory(a.output_root, 'eht:refine', plan,
-                                    [Path(r['path']) for r in plan['inputs']]) as out:
-            if out is None:
-                raise FileExistsError(a.output_root)
-            original.dump(out/'plan.json', plan)
-            print(f'READY day={a.day} working={out}', flush=True)
-            return run(a, plan, core, eh, out)
+    plan = build_plan(a)
+    import ehtim as eh
+    from astropy.utils import iers
+    from eht_axion.eht import calibration as core
+    iers.conf.auto_download = False
+    if {name: metadata.version(name) for name in plan['packages']} != plan['packages']:
+        raise ValueError('installed packages differ from the versions recorded in the plan')
+    with provenance.stage_directory(a.output_root, 'eht:refine', plan,
+                                [Path(p) for p in plan['inputs']]) as out:
+        if out is None:
+            raise FileExistsError(a.output_root)
+        original.dump(out/'plan.json', plan)
+        print(f'READY day={a.day} working={out}', flush=True)
+        return run(a, plan, core, eh, out)
 
 
 if __name__ == '__main__':

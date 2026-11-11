@@ -1,6 +1,5 @@
 """Synthetic BHAC footers and CSVs only: no ray tracing and no stored RAPTOR outputs."""
 
-from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
@@ -51,7 +50,6 @@ def test_task_contract_and_physical_time(inputs, tmp_path):
     plan = plan_generation(config, fluid, tables, build)
     assert not build.exists()
     assert set(plan["config"]) == {"shared", "raptor"}
-    assert plan["verification"] == "unverified"
     assert plan["hash_inputs"] is False
     assert plan["counts"] == {"snapshots": 2, "baseline": 4, "response": 256,
                               "background": 2, "total": 260}
@@ -97,80 +95,22 @@ def test_task_contract_and_physical_time(inputs, tmp_path):
     assert json.loads(json.dumps(plan, allow_nan=False)) == plan
 
 
-def test_default_plan_hashes_only_small_tables_and_never_writes(inputs, monkeypatch):
-    from eht_axion.raptor.plan import file_sha256
+def test_snapshots_hashed_only_on_request_and_ids_name_the_parameters(inputs):
     config, fluid, tables = inputs
     before = {p: p.stat().st_mtime_ns for p in fluid.parent.rglob("*")}
-
-    def tables_only(path):
-        if Path(path).suffix != ".csv":
-            pytest.fail("light plan must not hash snapshots")
-        return file_sha256(path)
-    monkeypatch.setattr("eht_axion.raptor.plan.file_sha256", tables_only)
-    plan = plan_generation(config, fluid, tables)
-    assert all(t["source_sha256"] is None for t in plan["tasks"])
-    assert all(t["table_sha256"] for t in plan["tasks"] if t["kind"] == "response")
-    assert {p: p.stat().st_mtime_ns for p in fluid.parent.rglob("*")} == before
-
-
-def test_explicit_hashes_once_per_unique_file(inputs, monkeypatch):
-    from eht_axion.raptor.plan import file_sha256
-    config, fluid, tables = inputs
-    calls = []
-    def tracked(path):
-        calls.append(path)
-        return file_sha256(path)
-    monkeypatch.setattr("eht_axion.raptor.plan.file_sha256", tracked)
     light = plan_generation(config, fluid, tables)
-    calls.clear()
+    assert all(t["source_sha256"] is None for t in light["tasks"])
+    assert all(t["table_sha256"] for t in light["tasks"] if t["kind"] == "response")
+    assert {p: p.stat().st_mtime_ns for p in fluid.parent.rglob("*")} == before
     plan = plan_generation(config, fluid, tables, hash_inputs=True)
-    assert len(calls) == len(set(calls)) == 4
-    assert plan["verification"] == "input_hashes_only"
-    assert [t["id"] for t in plan["tasks"]] == [t["id"] for t in light["tasks"]]
     for snapshot in plan["snapshots"]:
-        expected = hashlib.sha256(Path(snapshot["source_path"]).read_bytes()).hexdigest()
-        assert snapshot["source_sha256"] == expected
-    assert all(t["source_sha256"] for t in plan["tasks"])
-    assert all(t["table_sha256"] for t in plan["tasks"] if t["kind"] == "response")
-
-
-def baselines(plan):
-    return [t["id"] for t in plan["tasks"] if t["kind"] == "baseline"]
-
-
-def responses(plan):
-    return [t["id"] for t in plan["tasks"] if t["kind"] == "response"]
-
-
-def test_ids_depend_only_on_ray_tracing_inputs(inputs):
-    config, fluid, tables = inputs
-    first = plan_generation(config, fluid, tables)
-    assert first == plan_generation(config, fluid, tables)
-    changed = deepcopy(config)
-    changed["analysis"]["inference"]["coupling_points"] = 121
-    changed["shared"]["image"]["fov_uas"] = 128.0
-    changed["eht_imaging"]["fsys"] = 0.01
-    assert plan_generation(changed, fluid, tables) == first
-    changed["raptor"]["response"]["reference_norm"] = 0.2
-    second = plan_generation(changed, fluid, tables)
-    assert first["config_sha256"] != second["config_sha256"]
-    assert baselines(first) == baselines(second)
-    assert not set(responses(first)) & set(responses(second))
-    changed["raptor"]["camera_fov_rg"] = 46.3
-    third = plan_generation(changed, fluid, tables)
-    assert not set(baselines(first)) & set(baselines(third))
-
-
-def test_table_content_enters_response_ids_only(inputs):
-    config, fluid, tables = inputs
-    first = plan_generation(config, fluid, tables)
-    write_table(tables["low"], (0.1, 0.2, 0.44))
-    second = plan_generation(config, fluid, tables)
-    assert first["radial_tables"]["low"]["sha256"] != second["radial_tables"]["low"]["sha256"]
-    assert baselines(first) == baselines(second)
-    low = {t["id"] for t in first["tasks"] if t["table_id"] == "low"}
-    high = {t["id"] for t in first["tasks"] if t["table_id"] == "high"}
-    assert not low & set(responses(second)) and high <= set(responses(second))
+        content = Path(snapshot["source_path"]).read_bytes()
+        assert snapshot["source_sha256"] == hashlib.sha256(content).hexdigest()
+    ids = [t["id"] for t in plan["tasks"]]
+    assert ids == [t["id"] for t in light["tasks"]]
+    assert ids[:3] == ["res-100/baseline/t1600", "res-400/baseline/t1600",
+                       "res-100/alpha-0.10/t1600/phase-00"]
+    assert "res-100/alpha-0.44/t1610/phase-15" in ids
 
 
 def test_no_lexicographic_slice_or_extra_file_reads(inputs):
@@ -267,7 +207,6 @@ def test_resource_lower_bounds_and_official_setup(inputs):
     req = plan["requirements"]
     assert req["output_stokes_lower_bound_bytes"] == (258 * 100**2 + 2 * 400**2) * 4 * 8
     assert req["per_process_memory_lower_bound_bytes"] > 0
-    assert req["live_rehash_required_at_execution"] is True
     assert req["free_space_check_owner"] == "caller"
     assert "--sf=sfc" in req["official_setup_args"]
     assert "--sigma-cut=1.0" in req["official_setup_args"]

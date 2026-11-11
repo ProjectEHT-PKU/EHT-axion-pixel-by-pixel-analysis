@@ -52,12 +52,11 @@ def test_plan_no_optional_import_no_writes(plan_args, monkeypatch):
     assert plan['day'] == 95 and plan['stage'] == 'I'
     assert plan['scientifically_converged'] is False
     assert not plan_args.output_root.exists()
-    paths = {Path(r['path']) for r in plan['inputs']}
+    paths = {Path(p) for p in plan['inputs']}
     assert not any(p.is_relative_to(ROOT) for p in paths)  # the repository is pinned by its commit
     assert paths == {plan_args.uvfits_dir / 'SR2_M87_2017_095_lo_hops_zbl-dtcal+selfcal.uvfits',
                      plan_args.feed_rotation_file, plan_args.official_script}
     assert plan['ehtim_version'] == '1.3.2'
-    assert all(len(r['sha256']) == 64 for r in plan['inputs'])
     assert plan['parameters']['input_root'] == str(plan_args.uvfits_dir)
     locations = {k: plan['parameters'][k] for k in w.experiment.EHT_LOCATIONS}
     expected = w.experiment.eht_imaging_parameters(w.experiment.read_experiment(plan_args.config), locations)
@@ -371,5 +370,5 @@ def test_source_stage_must_declare_consumed_products(tmp_path, monkeypatch):
     monkeypatch.setattr(w.provenance, 'require_declared_outputs', declared)
     with pytest.raises(ValueError, match='not a declared'):
         w.stage_inputs(tmp_path, 'I', 95, w.I_PRODUCTS)
-    verified.assert_called_once_with(tmp_path, recursive=True)
+    verified.assert_called_once_with(tmp_path)
     declared.assert_called_once_with(tmp_path, [tmp_path / p for p in w.I_PRODUCTS])

@@ -38,21 +38,6 @@ def test_invalid_norm_still_rejected(norm):
         validate(c)
 
 
-def test_norm_changes_response_not_baseline_identity(tmp_path):
-    c = read_experiment()
-    c['raptor']['snapshots'] = {'start': 1600, 'stop': 1600, 'step': 10}
-    write_snapshot(tmp_path / 'data001600.dat')
-    table = tmp_path / 'radial.csv'
-    write_table(table)
-    p = plan_generation(c, tmp_path, {'low': table, 'high': table})
-    c['raptor']['response']['reference_norm'] = .8
-    q = plan_generation(c, tmp_path, {'low': table, 'high': table})
-    assert [t['id'] for t in p['tasks'] if t['kind'] == 'baseline'] == [
-        t['id'] for t in q['tasks'] if t['kind'] == 'baseline']
-    assert set(t['id'] for t in p['tasks'] if t['kind'] == 'response').isdisjoint(
-        t['id'] for t in q['tasks'] if t['kind'] == 'response')
-
-
 @pytest.mark.parametrize('drift', ['config', 'model', 'task-and-model'])
 def test_norm_semantic_drift_still_fails_plan_binding(bound_plan, drift):  # noqa: F811
     fixture, p = bound_plan
@@ -65,8 +50,8 @@ def test_norm_semantic_drift_still_fails_plan_binding(bound_plan, drift):  # noq
     else:
         t['norm'] = .8
         t['parameters']['AXION_NORM']['value'] = .8
-    with provenance.verification_session(), pytest.raises(ValueError):
+    with pytest.raises(ValueError):
         prepared = [_prepare_task(t)]
-        m = provenance.verify_stage(fixture['build'], recursive=True)
+        m = provenance.verify_stage(fixture['build'])
         _validate_plan_binding(p, prepared, m, fixture['build'], fixture['build'] / 'grid_mks.in')
     assert not fixture['run'].exists()

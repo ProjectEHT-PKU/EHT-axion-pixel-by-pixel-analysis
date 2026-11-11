@@ -18,7 +18,7 @@ import shutil
 import subprocess
 
 from ..experiment import normalize_repository
-from ..provenance import sha256, stage_directory
+from ..provenance import stage_directory
 
 _FIELDS = {"model", "metric", "integrator", "grid", "polarized", "sfc", "magnetic_polarity",
            "sigma_cut", "thetae_min", "thetae_max", "uniform_output"}
@@ -178,8 +178,7 @@ def build_raptor(source_root: Path, destination: Path, settings: dict, source: d
     identified by raptor.source (repository and commit; clean checkout at that commit with
     a remote pointing to that repository);
     the private source snapshot copied from that commit is a declared stage output. The
-    built binary is hashed: jobs consume it as data. The commands run in the temporary
-    stage directory.
+    commands run in the temporary stage directory.
     """
     settings = _settings(settings)
     source_root = Path(source_root).resolve(strict=True)
@@ -263,7 +262,7 @@ def build_raptor(source_root: Path, destination: Path, settings: dict, source: d
             "source_root": str(source_root),
             "source_snapshot": str(destination / "source"),
             "settings": settings, "actual_macros": actual, "toolchain": toolchain,
-            "binary": {"path": str(destination / "RAPTOR"), "sha256": sha256(work / "RAPTOR")},
+            "binary": str(destination / "RAPTOR"),
             "compiler_flags_file": str(destination / "compiler-flags.txt"),
             "commands": commands, "command_cwd": str(work),
             "runtime_cwd": str(destination), "tables_are_build_dependencies": False,

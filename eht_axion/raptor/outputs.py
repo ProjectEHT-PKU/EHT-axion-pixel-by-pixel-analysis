@@ -104,8 +104,6 @@ def validate_job_output(directory: Path, task: dict) -> dict:
     frequency = p["FREQ_MIN"]
     names = dict(mapping["datasets"], tau=f"tau{frequency:e}", tauF=f"tauF{frequency:e}",
                  alpha="alpha", beta="beta")
-    integrated = []
-    negative_i = overpolarized = 0
     with h5py.File(hdf, "r") as source:
         if set(source.keys()) != set(names.values()):
             raise ValueError("Expected exactly I/Q/U/V/tau/tauF/alpha/beta at one frequency")
@@ -118,27 +116,26 @@ def validate_job_output(directory: Path, task: dict) -> dict:
                 raise ValueError(f"Invalid HDF5 dataset shape/type: {name}, expected {shape}")
             if data.is_virtual or data.external:
                 raise ValueError(f"External HDF5 storage is unsupported: {name}")
-        totals = np.zeros(4, dtype=np.float64)
-        scale = np.array([p["CAM_SIZE_X"], p["CAM_SIZE_Y"]], dtype=float)
-        # Bounded memory: at most one block of eight channels at a time.
-        pixel_x, pixel_y = np.arange(100) // 10, np.arange(100) % 10
-        for block, (origin_x, origin_y) in enumerate(mapping["block_origins"]):
-            arrays = {key: np.asarray(source[name][block], dtype=np.float64)
-                      for key, name in names.items()}
-            if not all(np.isfinite(a).all() for a in arrays.values()):
-                raise ValueError(f"Nonfinite HDF5 channel in block {block}")
-            expected_x = -scale[0] / 2 + (origin_x + pixel_x + .5) * scale[0] / resolution
-            expected_y = -scale[1] / 2 + (origin_y + pixel_y + .5) * scale[1] / resolution
-            for axis, expected, extent in (("alpha", expected_x, scale[0]),
-                                            ("beta", expected_y, scale[1])):
-                if not np.allclose(arrays[axis], expected, rtol=0,
-                                   atol=64 * np.finfo(float).eps * extent):
-                    raise ValueError(f"Incorrect {axis} pixel centers/order in block {block}")
-            stokes = np.stack([arrays[c] for c in "IQUV"])
-            totals += np.sum(stokes, axis=1, dtype=np.float64)
-            negative_i += int(np.count_nonzero(stokes[0] < 0))
-            overpolarized += int(np.count_nonzero(np.linalg.norm(stokes[1:], axis=0) > stokes[0]))
-        integrated = totals * d_omega
+        # One image is small (resolution**2 x 8 doubles): read each channel once.
+        arrays = {key: np.asarray(source[name][...], dtype=np.float64) for key, name in names.items()}
+    if not all(np.isfinite(a).all() for a in arrays.values()):
+        raise ValueError("Nonfinite HDF5 channel")
+    scale = np.array([p["CAM_SIZE_X"], p["CAM_SIZE_Y"]], dtype=float)
+    origins = np.asarray(mapping["block_origins"], dtype=float)
+    pixel_x, pixel_y = np.arange(100) // 10, np.arange(100) % 10
+    expected_x = -scale[0] / 2 + (origins[:, :1] + pixel_x + .5) * scale[0] / resolution
+    expected_y = -scale[1] / 2 + (origins[:, 1:] + pixel_y + .5) * scale[1] / resolution
+    for axis, expected, extent in (("alpha", expected_x, scale[0]), ("beta", expected_y, scale[1])):
+        if not np.allclose(arrays[axis], expected, rtol=0, atol=64 * np.finfo(float).eps * extent):
+            raise ValueError(f"Incorrect {axis} pixel centers/order")
+    stokes = np.stack([arrays[c] for c in "IQUV"])
+    # Block sums accumulated in block order (the recorded integrated flux depends on the order).
+    totals = np.zeros(4, dtype=np.float64)
+    for block_sum in np.sum(stokes, axis=2, dtype=np.float64).T:
+        totals += block_sum
+    negative_i = int(np.count_nonzero(stokes[0] < 0))
+    overpolarized = int(np.count_nonzero(np.linalg.norm(stokes[1:], axis=0) > stokes[0]))
+    integrated = totals * d_omega
     try:
         rows = np.loadtxt(spectrum, ndmin=2)
     except (OSError, ValueError) as exc:

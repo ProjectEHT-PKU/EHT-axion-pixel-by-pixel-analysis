@@ -1,19 +1,15 @@
 """RAPTOR task planning: read-only BHAC snapshot/radial-table checks and the JSON task list.
 
 No build, subprocess, output directory, discovery of earlier outputs or simulation is
-performed here. Execution must hash live source/table/build bytes and bind those
-hashes to its own session records. Only the small BHAC footers and the radial
-tables are read here.
+performed here. Only the small BHAC footers and the radial tables are read; the
+radial tables (and with hash_inputs the snapshots) are recorded with their SHA-256.
 
-Task ids are SHA-256 digests of exactly what determines one RAPTOR image: the
-snapshot (name + footer metadata), the 19 model.in values except the table path,
-the radial-table content hash and spin, the core grid and the build settings.
-Analysis, sky-grid and eht-imaging settings never enter a task id.
+A task id is the relative job directory named by its parameters:
+res-<n>/alpha-<a>/t<label>/phase-<k> for an axion response, res-<n>/baseline/t<label>
+for an axion-off image.
 """
 
 from copy import deepcopy
-import hashlib
-import json
 import math
 from pathlib import Path
 import struct
@@ -22,6 +18,7 @@ import numpy as np
 
 from ..experiment import ray_tracing_config, validate_ray_tracing
 from .. import physics
+from ..provenance import sha256
 from .layout import alpha_label
 
 # The core applies AXION_PHASE * pi/8: 16 phases cover one period (state k+1 = phase k).
@@ -36,9 +33,11 @@ def alpha_key(alpha):
     return alpha_label(alpha).removeprefix("alpha-")
 
 
-def _digest(value):
-    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"),
-                                     allow_nan=False).encode("utf-8")).hexdigest()
+def task_id(resolution, label, alpha, phase):
+    """Relative job directory of one RAPTOR image."""
+    if alpha is None:
+        return f"res-{resolution}/baseline/t{label}"
+    return f"res-{resolution}/{alpha_label(alpha)}/t{label}/phase-{phase:02d}"
 
 
 def _path(path, name):
@@ -47,15 +46,6 @@ def _path(path, name):
     if len(text.encode("utf-8")) > 255 or any(c.isspace() or c == "\0" for c in text):
         raise ValueError(f"{name} must be a single C path token of at most 255 UTF-8 bytes: {path}")
     return path
-
-
-def file_sha256(path: Path) -> str:
-    """Stream once per caller-selected unique input; never load a fluid into RAM."""
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as source:
-        for block in iter(lambda: source.read(8 * 1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def read_snapshot_footer(path: Path, grid: dict, fluid_spin: float) -> dict:
@@ -167,27 +157,13 @@ def _parameters(config, resolution, alpha, omega, norm, phase, table_path):
     return {name: {"unit": unit, "value": value} for name, unit, value in entries}
 
 
-def task_identity(snapshot, parameters, table, config):
-    """Digest of everything that determines one RAPTOR image (see module docstring)."""
-    raptor = config["raptor"]
-    values = {name: item["value"] if isinstance(item, dict) else item for name, item in parameters.items()}
-    values.pop("AXION_TABLE")
-    return _digest({
-        "snapshot": {"name": snapshot["snapshot_name"], "metadata": snapshot["metadata"]},
-        "parameters": values,
-        "table": None if table is None else {"spin": table["spin"], "sha256": table["sha256"]},
-        "grid": raptor["grid"], "build": raptor["build"],
-    })
-
-
 def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path],
                     build_path: Path | None = None, *, hash_inputs: bool = False) -> dict:
     """Plan inclusive configured labels; no lexicographic listing or hidden slice.
 
     ``config`` is the experiment (or its ray-tracing subset). ``build_path`` is an
     opaque caller-selected build location, recorded only. Radial tables are small
-    and always hashed (their content defines task ids); ``hash_inputs`` also
-    streams every snapshot once. Execution still has to hash live inputs.
+    and always hashed; ``hash_inputs`` also streams every snapshot once.
     """
     config = deepcopy(validate_ray_tracing(ray_tracing_config(config)))
     shared, p = config["shared"], config["raptor"]
@@ -195,7 +171,6 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
         raise ValueError("hash_inputs must be a boolean")
     if not isinstance(radial_paths, dict) or set(radial_paths) != set(p["radial_tables"]):
         raise ValueError(f"radial_paths requires exactly {sorted(p['radial_tables'])}")
-    config_sha = _digest(config)
     fluid_root = Path(fluid_root).resolve()
     build = None if build_path is None else str(_path(build_path, "build_path"))
 
@@ -215,7 +190,7 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
                 raise ValueError(f"BHAC gamma changes across snapshots: {name}")
         snapshots.append({
             "label": label, "snapshot_name": name, "time_tg": metadata["time_tg"],
-            "source_path": str(path), "source_sha256": file_sha256(path) if hash_inputs else None,
+            "source_path": str(path), "source_sha256": sha256(path) if hash_inputs else None,
             "metadata": metadata,
         })
 
@@ -227,7 +202,7 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
         # Unique physical files are loaded once, even if explicitly mapped twice.
         key = str(path)
         if key not in table_cache:
-            table_cache[key] = (validate_radial_table(path, []), file_sha256(path))
+            table_cache[key] = (validate_radial_table(path, []), sha256(path))
         metadata, digest = deepcopy(table_cache[key][0]), table_cache[key][1]
         if any(not metadata["alpha_min"] <= alpha <= metadata["alpha_max"] for alpha in required):
             raise ValueError(f"Radial CSV {table_id} does not cover required alphas {required}: {path}")
@@ -245,7 +220,7 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
         table_path = None if table is None else table["path"]
         parameters = _parameters(config, resolution, alpha, omega, norm, phase, table_path)
         tasks.append({
-            "id": task_identity(snapshot, parameters, table, config), "label": snapshot["label"],
+            "id": task_id(resolution, snapshot["label"], alpha, phase), "label": snapshot["label"],
             "snapshot_name": snapshot["snapshot_name"], "time_tg": snapshot["time_tg"],
             "source_path": snapshot["source_path"], "source_sha256": snapshot["source_sha256"],
             "kind": "response" if enabled else "baseline", "resolution": resolution,
@@ -278,15 +253,11 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
     from .build import _arguments, _settings
 
     return {
-        "config_sha256": config_sha, "config": config,
-        "build_path": build, "hash_inputs": hash_inputs,
-        "verification": "input_hashes_only" if hash_inputs else "unverified",
+        "config": config, "build_path": build, "hash_inputs": hash_inputs,
         "snapshots": snapshots, "radial_tables": tables, "tasks": tasks,
         "counts": {"snapshots": len(snapshots), "baseline": baseline_count,
                    "response": response_count, "background": len(snapshots), "total": len(tasks)},
         "requirements": {
-            "source_sha256_required_at_execution": True, "table_sha256_required_at_execution": True,
-            "build_sha256_required_at_execution": True, "live_rehash_required_at_execution": True,
             "free_space_check_owner": "caller", "output_stokes_lower_bound_bytes": stokes_bytes,
             "per_process_memory_lower_bound_bytes": memory_bytes,
             "unique_source_bytes": sum(s["metadata"]["size_bytes"] for s in snapshots),
@@ -294,8 +265,6 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
             "label_time_offset_tg": snapshots[0]["time_tg"] - start * shared["label_step_tg"],
         },
         "warnings": [
-            "Task ids describe planned ray-tracing inputs; "
-            "execution must bind live source/table/build SHA256.",
             "Footer/payload lower-bound checks do not validate fluid values or AMR forest semantics.",
             "Radial CSV spin/provenance cannot be inferred from alpha,r,R columns; "
             "configured spins are declarations.",

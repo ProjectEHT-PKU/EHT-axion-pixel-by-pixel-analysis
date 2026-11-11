@@ -4,14 +4,14 @@
 For each of the four days, copy the fixed I image and gain-calibrated data of the
 I stage (scripts/eht/reconstruct.py --stage I) and the refined fiducial D terms of the
 refine stage (scripts/eht/refine.py), plus their manifests/plans as lineage, and the
-feed-rotation table recorded by the I stages. bundle.json lists every file with
-its SHA-256 and the science contract checked by scripts/eht/sample.py (fsys, D-term
-statistics convention, sky grid, imaging weights) taken from experiment.yaml, and the
-git commit of the code that wrote it.
+feed-rotation table recorded by the I stages. bundle.json lists every file and the
+science contract checked by scripts/eht/sample.py (fsys, D-term statistics convention,
+sky grid, imaging weights) taken from experiment.yaml, and the git commit of the code
+that wrote it.
 
     pixi run -e eht-imaging eht-export-bundle --i-root I95 ... --d-root D95 ... --output-root BUNDLE
 
-Both stage kinds must be complete, lineage-verified, of the same day set, made
+Both stage kinds must be complete, of the same day set, made
 with the eht_imaging parameters of experiment.yaml, and every P solve of the
 refine stage must be numerically certified. Source stages are only read.
 """
@@ -39,11 +39,11 @@ SCHEMA = 'eht-bundle'
 
 
 def _by_day(roots, stage, config):
-    """Verify each root (full lineage) and index it by its recorded day."""
+    """Check each root and index it by its recorded day."""
     result = {}
     for root in roots:
         root = Path(root).resolve(strict=True)
-        manifest = provenance.verify_stage(root, recursive=True)
+        manifest = provenance.verify_stage(root)
         if manifest['stage'] != stage:
             raise ValueError(f'{root}: expected stage {stage}, found {manifest["stage"]}')
         parameters = manifest['config']['parameters']
@@ -83,7 +83,7 @@ def verify_sources(i_roots, d_roots, config):
             raise ValueError(f'day {day}: not every P solve of the D stage is certified')
         sources[day] = (i_root, d_root)
     feed = Path(feeds.pop()).resolve(strict=True)
-    recorded = {Path(e['path']).resolve() for _, m in images.values() for e in m['inputs']}
+    recorded = {Path(p).resolve() for _, m in images.values() for p in m['inputs']}
     if feed not in recorded:
         raise ValueError('feed-rotation table is not a declared input of the I stages')
     return sources, feed
@@ -109,34 +109,30 @@ def export(config, i_roots, d_roots, output_root):
     provenance.reject_directory_symlinks(output_root)
     if output_root.exists():
         raise FileExistsError(f'new output root required: {output_root}')
-    with provenance.verification_session():
-        sources, feed = verify_sources(i_roots, d_roots, config)
-        record = dict(bundle_record(config), code=provenance.code_identity())
-        output_root.mkdir(parents=True)
+    sources, feed = verify_sources(i_roots, d_roots, config)
+    record = dict(bundle_record(config), code=provenance.code_identity())
+    output_root.mkdir(parents=True)
 
-        def copy(source, relative):
-            destination = output_root / relative
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, destination)
-            destination.chmod(0o444)
-            digest = provenance.sha256(destination)
-            if digest != provenance.sha256(source):
-                raise ValueError(f'copy differs from its source: {source}')
-            record['files'].append(dict(path=relative, sha256=digest, size=destination.stat().st_size,
-                                        original_path=str(source)))
+    def copy(source, relative):
+        destination = output_root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+        destination.chmod(0o444)
+        record['files'].append(dict(path=relative, size=destination.stat().st_size,
+                                    original_path=str(source)))
 
-        for day in DAYS:
-            i_root, d_root = sources[day]
-            for name, target in I_FILES.items():
-                copy(i_root / name, f'{day}/{target}')
-            copy(d_root / 'final-dterms.json', f'{day}/fiducial-dterms.json')
-            for name in D_LINEAGE:
-                copy(d_root / name, f'lineage/{day}/D-{name}')
-            copy(i_root / 'manifest.json', f'lineage/{day}/I-manifest.json')
-            record['days'][str(day)] = {'I': f'{day}/fixedI.fits', 'obs': f'{day}/gaincal-pol.uvfits',
-                                        'dterms': f'{day}/fiducial-dterms.json', 'I_stage': str(i_root),
-                                        'D_stage': str(d_root), 'all_P_numerically_certified': True}
-        copy(feed, 'feed-rotation.json')
+    for day in DAYS:
+        i_root, d_root = sources[day]
+        for name, target in I_FILES.items():
+            copy(i_root / name, f'{day}/{target}')
+        copy(d_root / 'final-dterms.json', f'{day}/fiducial-dterms.json')
+        for name in D_LINEAGE:
+            copy(d_root / name, f'lineage/{day}/D-{name}')
+        copy(i_root / 'manifest.json', f'lineage/{day}/I-manifest.json')
+        record['days'][str(day)] = {'I': f'{day}/fixedI.fits', 'obs': f'{day}/gaincal-pol.uvfits',
+                                    'dterms': f'{day}/fiducial-dterms.json', 'I_stage': str(i_root),
+                                    'D_stage': str(d_root), 'all_P_numerically_certified': True}
+    copy(feed, 'feed-rotation.json')
     (output_root / 'bundle.json').write_text(json.dumps(record, indent=2) + '\n')
     return record
 

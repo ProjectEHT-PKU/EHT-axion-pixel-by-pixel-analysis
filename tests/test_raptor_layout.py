@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 
-from eht_axion.provenance import manifest_path, stage_directory, verify_stage
 from eht_axion.analysis.templates import RunLayout
 from eht_axion.raptor.layout import alpha_label, input_raptor_files, product_directory
 
@@ -49,38 +48,3 @@ def test_run_layout_directories(tmp_path):
     assert layout.response(0.44) == tmp_path / "response/alpha-0.44"
     assert layout.templates("2d") == tmp_path / "templates/2d"
     assert layout.background_processed == tmp_path / "background"
-
-
-def test_recursive_lineage_refuses_changed_source(tmp_path):
-    source = tmp_path / "raw.txt"
-    source.write_text("original")
-    stage = tmp_path / "processed"
-    with stage_directory(stage, "test", {}, [source]) as temp:
-        (temp / "product.txt").write_text("derived")
-    assert manifest_path(stage).name == "manifest.json"
-    source.write_text("changed")
-    assert verify_stage(stage)["complete"]
-    with pytest.raises(ValueError, match="Stale upstream lineage"):
-        verify_stage(stage, recursive=True)
-
-
-def test_stage_products_must_not_be_symlinks(tmp_path):
-    source = tmp_path / "source.npy"
-    np.save(source, np.arange(5))
-    with pytest.raises(ValueError, match="regular files"):
-        with stage_directory(tmp_path / "stage", "test", {}, [source]) as temp:
-            (temp / "value.npy").symlink_to(source)
-    assert not (tmp_path / "stage").exists()
-
-
-def test_stage_rejects_leaf_directory_link(tmp_path):
-    target = tmp_path / "shared"
-    target.mkdir()
-    (target / "keep.txt").write_text("original")
-    leaf = tmp_path / "run/alpha-0.30"
-    leaf.parent.mkdir()
-    leaf.symlink_to(target, target_is_directory=True)
-    with pytest.raises(ValueError, match="shared directory symlink"):
-        with stage_directory(leaf, "test", {}, []):
-            pass
-    assert (target / "keep.txt").read_text() == "original"

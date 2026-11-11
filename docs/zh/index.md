@@ -20,7 +20,7 @@
 git clone <repository-url> eht-script-pipeline
 cd eht-script-pipeline
 
-pixi install --locked                  # default environment: analysis, verification, lint, core tests
+pixi install --locked                  # default environment: analysis, lint, core tests
 pixi install --locked -e eht-imaging   # EHT imaging + full test suite (adds ehtim 1.3.2 and astropy)
 pixi install --locked -e raptor-build  # Linux only: RAPTOR C toolchain and job orchestration
 ```
@@ -75,22 +75,14 @@ pixi run analysis-summarize
 pixi run analysis-paper
 ```
 
-### 校验结果
-
-每个已发布的阶段目录都包含 `manifest.json`，记录该阶段的参数、仓库 `git_commit` 以及所有声明输入和输出的 SHA-256 校验和。无需重新计算任何科学数据，即可校验某个阶段（加上 `--recursive` 则递归校验整条上游来源链）：
-
-```bash
-pixi run verify $EHT_DATA_ROOT/analysis/limits --recursive
-```
-
 ## 文档目录
 
 | 文档页面 | 内容概要 |
 |---|---|
 | [概览与基本概念](overview.md) | 流水线整体架构、Mermaid 数据流图、物理尺度、偏振符号约定及核心设计准则 |
 | [配置参考](configuration.md) | `configs/experiment.yaml` 全部键的逐项说明、校验规则与派生设置，以及 `.env` 中的三个路径根目录与执行设置 |
-| [RAPTOR 模拟](raptor-simulation.md) | 固定版本 `RAPTOR` 编译、BHAC 快照与径向表校验、内容寻址任务、作业调度、CPU 亲和性、数据交付与多机合并 |
+| [RAPTOR 模拟](raptor-simulation.md) | 固定版本 `RAPTOR` 编译、BHAC 快照与径向表校验、任务标识符、作业调度、CPU 亲和性、数据交付与多机合并 |
 | [EHT 成像](eht-imaging.md) | EHT Paper VII 偏振成像复现、凸优化 PDHG 精化、D 项蒙特卡罗、系综汇总，以及与 Paper VII 的已知差异 |
 | [分析](analysis.md) | 图像预处理、扇形孔径算子、谐波响应模板、特征选择、协方差模型、贝叶斯似然与后验上限、敏感性检验及论文输出 |
-| [数据布局与溯源机制](data-layout.md) | 默认 `$EHT_DATA_ROOT` 目录树、只读 `$EHT_INPUT_ROOT` 输入目录布局、各阶段文件与数组规范、原子化 `stage_directory` 清单、非清单回执与数据校验 |
+| [数据布局与溯源机制](data-layout.md) | 默认 `$EHT_DATA_ROOT` 目录树、只读 `$EHT_INPUT_ROOT` 输入目录布局、各阶段文件与数组规范、原子化 `stage_directory` 清单与非清单回执 |
 | [开发指南](development.md) | Pixi 环境与任务、测试套件与代码检查、模块与脚本索引、架构不变量，以及新增参数或分析阶段的扩展指南 |

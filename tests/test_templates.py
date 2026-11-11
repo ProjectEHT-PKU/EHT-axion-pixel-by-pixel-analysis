@@ -354,3 +354,15 @@ def test_existing_products_are_not_overwritten(tmp_path):
     with pytest.raises(FileExistsError):
         stages.preprocess_cube(source, tmp_path / "stage", **kwargs)
     assert digest(result["stokes"]) == before
+
+
+def test_lowlevel_rejects_dangling_file_link(tmp_path):
+    out = tmp_path / "out"
+    out.mkdir()
+    external = tmp_path / "external.npy"
+    (out / "stokes.npy").symlink_to(external)
+    with pytest.raises(ValueError, match="output file symlink"):
+        np.save(tmp_path / "cube.npy", np.ones((1, 1, 2, 2, 4)))
+        stages.preprocess_cube(tmp_path / "cube.npy", out, sigma=0, init_fov=2,
+                        final_fov=2, rotation_angle=0, final_shape=2)
+    assert not external.exists()

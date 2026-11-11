@@ -177,14 +177,14 @@ class Numbers:
 
 # ----------------------------------------------------------------------------- inputs
 class Inputs:
-    """Verified access to the files of completed stages; records every consumed file."""
+    """Access to the files of completed stages; records every consumed file."""
 
     def __init__(self):
         self.consumed = []
 
     def stage(self, directory, stage, files):
         directory = Path(directory).resolve()
-        record = provenance.verify_stage(directory, recursive=False)
+        record = provenance.verify_stage(directory)
         if record["stage"] != stage:
             raise ValueError(f"{directory}: expected stage {stage}, found {record['stage']}")
         paths = [directory / f for f in files]
@@ -231,8 +231,8 @@ def radial_tables(args, plan, inputs, environment):
 def raptor_axion_source(args, config, environment):
     """src/axion.c of the RAPTOR checkout: clean, HEAD = raptor.source.commit, remote = repository.
 
-    The pinned commit identifies the file (code, not a data input), so it is not hashed or
-    recorded as a stage input.
+    The pinned commit identifies the file (code, not a data input), so it is not recorded
+    as a stage input.
     """
     root = raptor_source_root(args, environment)
     if root is None:
@@ -952,250 +952,248 @@ def run(args):
     limits = args.limits.resolve()
     environment = resolve_environment(args)
     axion_source = raptor_axion_source(args, config, environment)
-    with provenance.verification_session():
-        files = ["report.json"] + [
-            f"{p}-{d}.{e}"
-            for p in ("observations", "background-selected")
-            for d in DIMENSIONS
-            for e in ("npz", "json")
-        ]
-        files += [f"observed-{m}-{d}.json" for d in DIMENSIONS for m in MODES]
-        inputs.stage(limits, "analysis:limits", files)
-        report = read_json(limits / "report.json")
-        if report["scientific_profile"] != config:
-            raise ValueError("The limits were produced from a different experiment.yaml")
-        reports = {}
-        for name, path, stage in (
-            ("grid", args.gridcheck, "analysis:check-grid"),
-            ("prior", args.priorcheck, "analysis:check-grid"),
-        ):
-            inputs.stage(path, stage, ["report.json"])
-            reports[name] = read_json(Path(path) / "report.json")
-        inputs.stage(
-            args.covcheck, "analysis:check-covariance", ["covariance-sensitivity.csv", "report.json"]
-        )
-        with (Path(args.covcheck) / "covariance-sensitivity.csv").open(newline="") as stream:
-            covariance_rows = list(csv.DictReader(stream))
-        layout = RunLayout(args.templates.resolve())
-        inputs.stage(layout.processed(PAPER_ALPHA), "analysis:preprocess", ["stokes.npy"])
-        inputs.stage(layout.response(PAPER_ALPHA), "analysis:fit", ["response-2d.npz"])
-        for dim in DIMENSIONS:
-            inputs.stage(layout.templates(dim), "analysis:templates", ["templates.npz"])
-        inputs.stage(layout.background_processed, "analysis:background", ["stokes.npy"])
-        ensemble = args.ensemble.resolve()
-        inputs.stage(
-            ensemble,
-            "eht:ensemble",
-            ["report.json", "axes.npz"] + [f"day-{day}/global.npz" for day in EHT_DAYS],
-        )
-        shards = input_raptor_files(
-            args.raptor_input_root.resolve(), None, config["raptor"]["background"]["resolution"]
-        )
-        for shard in shards:
-            inputs.stage(shard.parent, "raptor:delivery", [shard.name, "generated.json"])
-        plan = read_json(inputs.file(args.raptor_plan))
-        tables = radial_tables(args, plan, inputs, environment)
+    files = ["report.json"] + [
+        f"{p}-{d}.{e}"
+        for p in ("observations", "background-selected")
+        for d in DIMENSIONS
+        for e in ("npz", "json")
+    ]
+    files += [f"observed-{m}-{d}.json" for d in DIMENSIONS for m in MODES]
+    inputs.stage(limits, "analysis:limits", files)
+    report = read_json(limits / "report.json")
+    if report["scientific_profile"] != config:
+        raise ValueError("The limits were produced from a different experiment.yaml")
+    reports = {}
+    for name, path, stage in (
+        ("grid", args.gridcheck, "analysis:check-grid"),
+        ("prior", args.priorcheck, "analysis:check-grid"),
+    ):
+        inputs.stage(path, stage, ["report.json"])
+        reports[name] = read_json(Path(path) / "report.json")
+    inputs.stage(
+        args.covcheck, "analysis:check-covariance", ["covariance-sensitivity.csv", "report.json"]
+    )
+    with (Path(args.covcheck) / "covariance-sensitivity.csv").open(newline="") as stream:
+        covariance_rows = list(csv.DictReader(stream))
+    layout = RunLayout(args.templates.resolve())
+    inputs.stage(layout.processed(PAPER_ALPHA), "analysis:preprocess", ["stokes.npy"])
+    inputs.stage(layout.response(PAPER_ALPHA), "analysis:fit", ["response-2d.npz"])
+    for dim in DIMENSIONS:
+        inputs.stage(layout.templates(dim), "analysis:templates", ["templates.npz"])
+    inputs.stage(layout.background_processed, "analysis:background", ["stokes.npy"])
+    ensemble = args.ensemble.resolve()
+    inputs.stage(
+        ensemble,
+        "eht:ensemble",
+        ["report.json", "axes.npz"] + [f"day-{day}/global.npz" for day in EHT_DAYS],
+    )
+    shards = input_raptor_files(
+        args.raptor_input_root.resolve(), None, config["raptor"]["background"]["resolution"]
+    )
+    for shard in shards:
+        inputs.stage(shard.parent, "raptor:delivery", [shard.name, "generated.json"])
+    plan = read_json(inputs.file(args.raptor_plan))
+    tables = radial_tables(args, plan, inputs, environment)
 
-        obs = {d: npz(limits / f"observations-{d}.npz") for d in DIMENSIONS}
-        info = {d: read_json(limits / f"observations-{d}.json") for d in DIMENSIONS}
-        background = {d: npz(limits / f"background-selected-{d}.npz") for d in DIMENSIONS}
-        background_info = read_json(limits / "background-selected-1d.json")
-        observed = {(m, d): read_json(limits / f"observed-{m}-{d}.json") for d in DIMENSIONS for m in MODES}
-        features = {d: len(obs[d]["selected_indices"]) for d in DIMENSIONS}
-        rows = chi2_rows(limits)
+    obs = {d: npz(limits / f"observations-{d}.npz") for d in DIMENSIONS}
+    info = {d: read_json(limits / f"observations-{d}.json") for d in DIMENSIONS}
+    background = {d: npz(limits / f"background-selected-{d}.npz") for d in DIMENSIONS}
+    background_info = read_json(limits / "background-selected-1d.json")
+    observed = {(m, d): read_json(limits / f"observed-{m}-{d}.json") for d in DIMENSIONS for m in MODES}
+    features = {d: len(obs[d]["selected_indices"]) for d in DIMENSIONS}
+    rows = chi2_rows(limits)
 
-        times = []
-        flux = []
-        scale = physical_scale(config)
-        rg_radians = np.deg2rad(scale.angular_rg_uas / 3.6e9)
-        n400 = config["raptor"]["background"]["resolution"]
-        solid_angle = (config["raptor"]["camera_fov_rg"] / n400 * rg_radians) ** 2
-        for shard in shards:
-            times += read_json(shard.parent / "generated.json")["times_tg"]
-            cube = np.load(shard, mmap_mode="r", allow_pickle=False)
-            flux += list(np.asarray(cube[:, 0, ..., 0]).sum(axis=(1, 2)) * solid_angle)
-        flux = np.asarray(flux)
+    times = []
+    flux = []
+    scale = physical_scale(config)
+    rg_radians = np.deg2rad(scale.angular_rg_uas / 3.6e9)
+    n400 = config["raptor"]["background"]["resolution"]
+    solid_angle = (config["raptor"]["camera_fov_rg"] / n400 * rg_radians) ** 2
+    for shard in shards:
+        times += read_json(shard.parent / "generated.json")["times_tg"]
+        cube = np.load(shard, mmap_mode="r", allow_pickle=False)
+        flux += list(np.asarray(cube[:, 0, ..., 0]).sum(axis=(1, 2)) * solid_angle)
+    flux = np.asarray(flux)
 
-        add_scales(numbers, config, times, background_info["lag_hours"], len(background["1d"]["differences"]))
-        profiles = radial_profiles(config, tables)
-        window = window_constants(axion_source)
-        add_radial(numbers, profiles, window)
+    add_scales(numbers, config, times, background_info["lag_hours"], len(background["1d"]["differences"]))
+    profiles = radial_profiles(config, tables)
+    window = window_constants(axion_source)
+    add_radial(numbers, profiles, window)
 
-        cloud = config["analysis"]["cloud"]
-        b = cloud_amplitude_scaling(
-            PAPER_ALPHA,
-            coefficient=cloud["coefficient"],
-            pivot_alpha=cloud["pivot_alpha"],
-            exponent=cloud["exponent"],
+    cloud = config["analysis"]["cloud"]
+    b = cloud_amplitude_scaling(
+        PAPER_ALPHA,
+        coefficient=cloud["coefficient"],
+        pivot_alpha=cloud["pivot_alpha"],
+        exponent=cloud["exponent"],
+    )
+    per_c = b / config["raptor"]["response"]["reference_norm"]
+    response = npz(layout.response(PAPER_ALPHA) / "response-2d.npz")
+    index = int(np.flatnonzero(response["snapshot_labels"] == PAPER_SNAPSHOT_LABEL)[0])
+    processed = np.load(layout.processed(PAPER_ALPHA) / "stokes.npy", mmap_mode="r", allow_pickle=False)
+    frame = np.asarray(processed[index, 0])
+    amplitude_deg = np.rad2deg(response["amplitude"][index] * per_c)
+    templates = {d: npz(layout.templates(d) / "templates.npz") for d in DIMENSIONS}
+    j = {d: int(np.flatnonzero(np.isclose(templates[d]["alphas"], PAPER_ALPHA))[0]) for d in DIMENSIONS}
+    sector_mean = np.rad2deg(templates["1d"]["amplitude_mean"][j["1d"]] * per_c)
+    sector_fraction = (
+        templates["1d"]["amplitude_std"][j["1d"]] / templates["1d"]["amplitude_mean"][j["1d"]]
+    )
+    add_signal(numbers, amplitude_deg, sector_mean, sector_fraction)
+
+    axes = npz(ensemble / "axes.npz")
+    ensemble_report = read_json(ensemble / "report.json")
+    if ensemble_report["bunit"].upper() != "JY/PIXEL":
+        raise ValueError("Reconstruction flux requires images in Jy/pixel")
+    background_frames = np.load(
+        layout.background_processed / "stokes.npy", mmap_mode="r", allow_pickle=False
+    )
+    model_m, model_beta = [], []
+    for item in background_frames:
+        values = global_diagnostics(
+            np.asarray(item[0]).transpose(1, 0, 2), axes["east_uas"], axes["north_uas"]
         )
-        per_c = b / config["raptor"]["response"]["reference_norm"]
-        response = npz(layout.response(PAPER_ALPHA) / "response-2d.npz")
-        index = int(np.flatnonzero(response["snapshot_labels"] == PAPER_SNAPSHOT_LABEL)[0])
-        processed = np.load(layout.processed(PAPER_ALPHA) / "stokes.npy", mmap_mode="r", allow_pickle=False)
-        frame = np.asarray(processed[index, 0])
-        amplitude_deg = np.rad2deg(response["amplitude"][index] * per_c)
-        templates = {d: npz(layout.templates(d) / "templates.npz") for d in DIMENSIONS}
-        j = {d: int(np.flatnonzero(np.isclose(templates[d]["alphas"], PAPER_ALPHA))[0]) for d in DIMENSIONS}
-        sector_mean = np.rad2deg(templates["1d"]["amplitude_mean"][j["1d"]] * per_c)
-        sector_fraction = (
-            templates["1d"]["amplitude_std"][j["1d"]] / templates["1d"]["amplitude_mean"][j["1d"]]
-        )
-        add_signal(numbers, amplitude_deg, sector_mean, sector_fraction)
+        model_m.append(values[2])
+        model_beta.append(abs(complex(values[4], values[5])))
+    recon = {day: npz(ensemble / f"day-{day}" / "global.npz") for day in EHT_DAYS}
+    column = {day: list(recon[day]["columns"]) for day in EHT_DAYS}
+    recon_m = [recon[d]["values"][:, column[d].index("m_resolved")].mean() for d in EHT_DAYS]
+    recon_beta = [
+        np.abs(
+            recon[d]["values"][:, column[d].index("beta2_real")]
+            + 1j * recon[d]["values"][:, column[d].index("beta2_imag")]
+        ).mean()
+        for d in EHT_DAYS
+    ]
+    recon_flux = np.mean([recon[d]["values"][:, column[d].index("total_I")].mean() for d in EHT_DAYS])
+    add_model_vs_reconstruction(
+        numbers, flux, recon_flux, np.asarray(model_m), np.asarray(model_beta), recon_m, recon_beta
+    )
+    frequency = ensemble_report["frequency_hz"] / 1e9
+    numbers.add(
+        "NumObsFrequencyGHz",
+        f"{frequency:.2f}",
+        frequency,
+        "eht/ensemble report.json frequency_hz",
+        "reference frequency of the EHT data (GHz)",
+    )
 
-        axes = npz(ensemble / "axes.npz")
-        ensemble_report = read_json(ensemble / "report.json")
-        if ensemble_report["bunit"].upper() != "JY/PIXEL":
-            raise ValueError("Reconstruction flux requires images in Jy/pixel")
-        background_frames = np.load(
-            layout.background_processed / "stokes.npy", mmap_mode="r", allow_pickle=False
-        )
-        model_m, model_beta = [], []
-        for item in background_frames:
-            values = global_diagnostics(
-                np.asarray(item[0]).transpose(1, 0, 2), axes["east_uas"], axes["north_uas"]
+    branch = min(
+        min(entry["distance_to_seam_in_sigma"])
+        for saved in observed.values()
+        for entry in saved["branch_risk"]
+    )
+    add_observations(numbers, obs, info, background, config, branch)
+    add_limits(numbers, report["results"])
+    add_chi2(numbers, rows)
+    add_checks(numbers, reports["grid"], reports["prior"], covariance_rows)
+    add_two_emitter(numbers, figures)
+
+    # Unmasked background: every sector / pixel with a defined EVPA in all frames.
+    operator = theory_aperture_operator(config)
+    lag = config["analysis"]["background"]["lag_frames"]
+    unmasked = {}
+    for dim in DIMENSIONS:
+        theta = background_evpa(background_frames, dim, operator)
+        theta = theta[:, np.isfinite(theta).all(axis=0)]
+        unmasked[dim] = np.rad2deg(circular_difference(theta[lag:], theta[:-lag])).ravel()
+
+    consumed = sorted(set(inputs.consumed))
+    identity = dict(
+        schema="analysis-paper",
+        sources=dict(
+            limits=str(limits),
+            gridcheck=str(Path(args.gridcheck).resolve()),
+            priorcheck=str(Path(args.priorcheck).resolve()),
+            covcheck=str(Path(args.covcheck).resolve()),
+            templates=str(layout.root),
+            ensemble=str(ensemble),
+            raptor_input_root=str(args.raptor_input_root.resolve()),
+            raptor_plan=str(Path(args.raptor_plan).resolve()),
+        ),
+        presentation=dict(
+            paper_alpha=PAPER_ALPHA,
+            paper_snapshot_label=PAPER_SNAPSHOT_LABEL,
+            ticks=TICKS,
+            radial_sample_rg=RADIAL_SAMPLE_RG,
+            window_sample_rg=WINDOW_SAMPLE_RG,
+            orbit_radius_rg=ORBIT_RADIUS_RG,
+            close_separation_uas=CLOSE_SEPARATION_UAS,
+            growth_rate_denominator=GROWTH_RATE_DENOMINATOR,
+            two_emitter={k: v for k, v in TWO_EMITTER.items()},
+        ),
+        refitted=False,
+    )
+    with provenance.stage_directory(
+        destination, "analysis:paper", identity, consumed
+    ) as out:
+        figure_dir = out / "figures"
+        figure_dir.mkdir()
+        import matplotlib.pyplot as plt
+
+        with plt.rc_context(figures.STYLE):
+            high = [alpha for alpha, _s, is_high, _r, _v in profiles if is_high]
+            low = [alpha for alpha, _s, is_high, _r, _v in profiles if not is_high]
+            switch = (max(low) + min(high)) / 2 if high and low else None
+            horizon = 1 + np.sqrt(1 - config["raptor"]["fluid_spin"] ** 2)
+            figures.radial_function(figure_dir, profiles, window, horizon, switch, RADIAL_SAMPLE_RG)
+            figures.two_photon(figure_dir, TWO_EMITTER["left_ratio"], TWO_EMITTER["right_phi_degrees"])
+            fov = config["shared"]["image"]["fov_uas"]
+            figures.signal_maps(figure_dir, frame, amplitude_deg, response["phase"][index], fov, TICKS)
+            mean = templates["2d"]["amplitude_mean"][j["2d"]]
+            fraction = templates["2d"]["amplitude_std"][j["2d"]] / mean
+            spread = np.rad2deg(templates["1d"]["amplitude_std"][j["1d"]] * per_c)
+            figures.template_maps(
+                figure_dir, np.rad2deg(mean * per_c), fraction, sector_mean, spread, fov
             )
-            model_m.append(values[2])
-            model_beta.append(abs(complex(values[4], values[5])))
-        recon = {day: npz(ensemble / f"day-{day}" / "global.npz") for day in EHT_DAYS}
-        column = {day: list(recon[day]["columns"]) for day in EHT_DAYS}
-        recon_m = [recon[d]["values"][:, column[d].index("m_resolved")].mean() for d in EHT_DAYS]
-        recon_beta = [
-            np.abs(
-                recon[d]["values"][:, column[d].index("beta2_real")]
-                + 1j * recon[d]["values"][:, column[d].index("beta2_imag")]
-            ).mean()
-            for d in EHT_DAYS
-        ]
-        recon_flux = np.mean([recon[d]["values"][:, column[d].index("total_I")].mean() for d in EHT_DAYS])
-        add_model_vs_reconstruction(
-            numbers, flux, recon_flux, np.asarray(model_m), np.asarray(model_beta), recon_m, recon_beta
-        )
-        frequency = ensemble_report["frequency_hz"] / 1e9
-        numbers.add(
-            "NumObsFrequencyGHz",
-            f"{frequency:.2f}",
-            frequency,
-            "eht/ensemble report.json frequency_hz",
-            "reference frequency of the EHT data (GHz)",
-        )
-
-        branch = min(
-            min(entry["distance_to_seam_in_sigma"])
-            for saved in observed.values()
-            for entry in saved["branch_risk"]
-        )
-        add_observations(numbers, obs, info, background, config, branch)
-        add_limits(numbers, report["results"])
-        add_chi2(numbers, rows)
-        add_checks(numbers, reports["grid"], reports["prior"], covariance_rows)
-        add_two_emitter(numbers, figures)
-
-        # Unmasked background: every sector / pixel with a defined EVPA in all frames.
-        operator = theory_aperture_operator(config)
-        lag = config["analysis"]["background"]["lag_frames"]
-        unmasked = {}
-        for dim in DIMENSIONS:
-            theta = background_evpa(background_frames, dim, operator)
-            theta = theta[:, np.isfinite(theta).all(axis=0)]
-            unmasked[dim] = np.rad2deg(circular_difference(theta[lag:], theta[:-lag])).ravel()
-
-        consumed = sorted(set(inputs.consumed))
-        identity = dict(
-            schema="analysis-paper",
-            sources=dict(
-                limits=str(limits),
-                gridcheck=str(Path(args.gridcheck).resolve()),
-                priorcheck=str(Path(args.priorcheck).resolve()),
-                covcheck=str(Path(args.covcheck).resolve()),
-                templates=str(layout.root),
-                ensemble=str(ensemble),
-                raptor_input_root=str(args.raptor_input_root.resolve()),
-                raptor_plan=str(Path(args.raptor_plan).resolve()),
-            ),
-            presentation=dict(
-                paper_alpha=PAPER_ALPHA,
-                paper_snapshot_label=PAPER_SNAPSHOT_LABEL,
-                ticks=TICKS,
-                radial_sample_rg=RADIAL_SAMPLE_RG,
-                window_sample_rg=WINDOW_SAMPLE_RG,
-                orbit_radius_rg=ORBIT_RADIUS_RG,
-                close_separation_uas=CLOSE_SEPARATION_UAS,
-                growth_rate_denominator=GROWTH_RATE_DENOMINATOR,
-                two_emitter={k: v for k, v in TWO_EMITTER.items()},
-            ),
-            verification="completed stage outputs read; raw lineage inherited, not rehashed; "
-            "nothing refitted",
-        )
-        with provenance.stage_directory(
-            destination, "analysis:paper", identity, consumed, verify_lineage=False
-        ) as out:
-            figure_dir = out / "figures"
-            figure_dir.mkdir()
-            import matplotlib.pyplot as plt
-
-            with plt.rc_context(figures.STYLE):
-                high = [alpha for alpha, _s, is_high, _r, _v in profiles if is_high]
-                low = [alpha for alpha, _s, is_high, _r, _v in profiles if not is_high]
-                switch = (max(low) + min(high)) / 2 if high and low else None
-                horizon = 1 + np.sqrt(1 - config["raptor"]["fluid_spin"] ** 2)
-                figures.radial_function(figure_dir, profiles, window, horizon, switch, RADIAL_SAMPLE_RG)
-                figures.two_photon(figure_dir, TWO_EMITTER["left_ratio"], TWO_EMITTER["right_phi_degrees"])
-                fov = config["shared"]["image"]["fov_uas"]
-                figures.signal_maps(figure_dir, frame, amplitude_deg, response["phase"][index], fov, TICKS)
-                mean = templates["2d"]["amplitude_mean"][j["2d"]]
-                fraction = templates["2d"]["amplitude_std"][j["2d"]] / mean
-                spread = np.rad2deg(templates["1d"]["amplitude_std"][j["1d"]] * per_c)
-                figures.template_maps(
-                    figure_dir, np.rad2deg(mean * per_c), fraction, sector_mean, spread, fov
+            selected = {
+                d: (
+                    np.rad2deg(background[d]["differences"]),
+                    float(np.rad2deg(background[d]["mean_radians"])),
+                    float(np.rad2deg(background[d]["sigma_radians"])),
                 )
-                selected = {
-                    d: (
-                        np.rad2deg(background[d]["differences"]),
-                        float(np.rad2deg(background[d]["mean_radians"])),
-                        float(np.rad2deg(background[d]["sigma_radians"])),
-                    )
-                    for d in DIMENSIONS
-                }
-                figures.background(figure_dir, selected, unmasked)
-                entries = {}
-                for d in DIMENSIONS:
-                    sigma, correlation = dterm_statistics(obs[d])
-                    coordinates = obs[d]["coordinates"]
-                    entries[d] = dict(
-                        x=coordinates[:, 0] if d == "1d" else np.arange(1, features[d] + 1),
-                        sigma_deg=np.rad2deg(sigma),
-                        correlation=correlation,
-                        separation=np.linalg.norm(coordinates[:, None] - coordinates[None], axis=-1),
-                    )
-                figures.observational_uncertainty(figure_dir, entries)
-                fits = {}
-                for d in DIMENSIONS:
-                    saved = observed[("cor_fixed_background", d)]
-                    k = int(np.flatnonzero(np.isclose(saved["alphas"], PAPER_ALPHA))[0])
-                    covariance = np.asarray(saved["effective_pair_covariances"])
-                    fits[d] = dict(
-                        x=entries[d]["x"],
-                        data_deg=np.rad2deg(obs[d]["pair_differences"]),
-                        sigma_deg=np.rad2deg(np.sqrt(np.diagonal(covariance, axis1=-2, axis2=-1))),
-                        prediction_deg=np.rad2deg(np.asarray(saved["fits"][k]["prediction_radians"])),
-                    )
-                figures.data_vs_model(
-                    figure_dir, fits, PAPER_ALPHA, config["analysis"]["features"]["sector_spacing_degrees"]
+                for d in DIMENSIONS
+            }
+            figures.background(figure_dir, selected, unmasked)
+            entries = {}
+            for d in DIMENSIONS:
+                sigma, correlation = dterm_statistics(obs[d])
+                coordinates = obs[d]["coordinates"]
+                entries[d] = dict(
+                    x=coordinates[:, 0] if d == "1d" else np.arange(1, features[d] + 1),
+                    sigma_deg=np.rad2deg(sigma),
+                    correlation=correlation,
+                    separation=np.linalg.norm(coordinates[:, None] - coordinates[None], axis=-1),
                 )
-                curves = {
-                    (data, mode, d): (
-                        report["results"][f"{data}-{mode}-{d}"]["alphas"],
-                        report["results"][f"{data}-{mode}-{d}"]["c95"],
-                    )
-                    for data in DATA_WORDS
-                    for mode in MODES
-                    for d in DIMENSIONS
-                }
-                figures.limits(figure_dir, curves, features)
-            (out / "numbers.tex").write_text(numbers.tex())
-            (out / "numbers.json").write_text(json.dumps(numbers.json(), indent=2, allow_nan=False) + "\n")
-            (out / "table-limits.tex").write_text(table_limits(report["results"], features))
-            (out / "table-chi2.tex").write_text(table_chi2(rows))
+            figures.observational_uncertainty(figure_dir, entries)
+            fits = {}
+            for d in DIMENSIONS:
+                saved = observed[("cor_fixed_background", d)]
+                k = int(np.flatnonzero(np.isclose(saved["alphas"], PAPER_ALPHA))[0])
+                covariance = np.asarray(saved["effective_pair_covariances"])
+                fits[d] = dict(
+                    x=entries[d]["x"],
+                    data_deg=np.rad2deg(obs[d]["pair_differences"]),
+                    sigma_deg=np.rad2deg(np.sqrt(np.diagonal(covariance, axis1=-2, axis2=-1))),
+                    prediction_deg=np.rad2deg(np.asarray(saved["fits"][k]["prediction_radians"])),
+                )
+            figures.data_vs_model(
+                figure_dir, fits, PAPER_ALPHA, config["analysis"]["features"]["sector_spacing_degrees"]
+            )
+            curves = {
+                (data, mode, d): (
+                    report["results"][f"{data}-{mode}-{d}"]["alphas"],
+                    report["results"][f"{data}-{mode}-{d}"]["c95"],
+                )
+                for data in DATA_WORDS
+                for mode in MODES
+                for d in DIMENSIONS
+            }
+            figures.limits(figure_dir, curves, features)
+        (out / "numbers.tex").write_text(numbers.tex())
+        (out / "numbers.json").write_text(json.dumps(numbers.json(), indent=2, allow_nan=False) + "\n")
+        (out / "table-limits.tex").write_text(table_limits(report["results"], features))
+        (out / "table-chi2.tex").write_text(table_chi2(rows))
     print(f"PAPER OUTPUT {destination}: {len(numbers.items)} numbers, {len(figures.FIGURES)} figures")
     return destination
 

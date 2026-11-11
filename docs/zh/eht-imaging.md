@@ -12,7 +12,7 @@ EHT 成像流水线基于 `ehtim == 1.3.2` 复现 EHT Paper VII 的 2017 年事�
 - **馈源旋转表**（`--feed-rotation-file`，默认 `$EHT_INPUT_ROOT/eht/feed-rotation.json`）：含 `"status": "verified"`、`"units": {"fr_off": "...degrees..."}` 以及各台站 `fr_par`、`fr_elev`、`fr_off` 的 JSON。
 - **官方 EHT 成像脚本**（`--official-script`，默认 `$EHT_INPUT_ROOT/eht/eht-imaging_pipeline.py`）：官方总强度成像流水线脚本。
 
-在任何成像计算之前，所选观测日 `uvfits` 文件的 SHA-256 会与 `eht_imaging.inputs` 核对；`uvfits` 文件、馈源旋转表和官方脚本均被计算哈希并记入阶段输入，其路径作为成像参数 `input_root`、`feed_rotation_file` 与 `official_script`（`EHT_LOCATIONS`）记录下来。
+在任何成像计算之前，所选观测日 `uvfits` 文件的 SHA-256 会与 `eht_imaging.inputs` 核对；`uvfits` 文件、馈源旋转表和官方脚本均记入阶段输入，其路径作为成像参数 `input_root`、`feed_rotation_file` 与 `official_script`（`EHT_LOCATIONS`）记录下来。
 
 ## 运行 EHT 成像流水线
 
@@ -39,7 +39,7 @@ pixi run -e eht-imaging eht-sample --workers 64 --threads 2
 pixi run -e eht-summary eht-summarize
 ```
 
-除 `eht/sample` 外，所有输出目录都必须是全新目录。`scripts/eht/sample.py` 支持 `--workers`（默认 `64`）、`--threads`（默认 `2`）、`--max-active-memory-gib`（默认 `100`）、`--resource-wait`（默认 `300` s；若内存准入持续受阻则以状态码 `3` 退出，可安全续跑）、`--task-limit` 和 `--resume`。只要批次计划的 SHA-256（`batch.json` 中的 `identity`）不变，对同一输出目录重新运行 `eht-sample` 会自动断点续跑。
+除 `eht/sample` 外，所有输出目录都必须是全新目录。`scripts/eht/sample.py` 支持 `--workers`（默认 `64`）、`--threads`（默认 `2`）、`--max-active-memory-gib`（默认 `100`）、`--resource-wait`（默认 `300` s；若内存准入持续受阻则以状态码 `3` 退出，可安全续跑）、`--task-limit` 和 `--resume`。只要批次计划（`batch.json`：打包文件、科学参数、代码提交号、依赖包版本、线程数）不变，对同一输出目录重新运行 `eht-sample` 会自动断点续跑。
 
 ## 图像重建方法
 
@@ -88,12 +88,12 @@ $$
 
 ### 打包导出、D 项蒙特卡罗与系综汇总
 
-1. **打包导出（`scripts/eht/export_bundle.py`）**：递归校验四个 `eht:i` 阶段和四个 `eht:refine` 阶段的完整来源链，确认每天均满足 `all_P_numerically_certified == True`，将以只读权限（`0444`）复制的 `<day>/fixedI.fits`、`<day>/gaincal-pol.uvfits`、`<day>/fiducial-dterms.json`、`lineage/<day>/*` 和 `feed-rotation.json` 连同 `bundle.json`（模式 `eht-bundle`）导出到打包目录。
+1. **打包导出（`scripts/eht/export_bundle.py`）**：检查四个 `eht:i` 阶段和四个 `eht:refine` 阶段，确认每天均满足 `all_P_numerically_certified == True`，将以只读权限（`0444`）复制的 `<day>/fixedI.fits`、`<day>/gaincal-pol.uvfits`、`<day>/fiducial-dterms.json`、`lineage/<day>/*` 和 `feed-rotation.json` 连同 `bundle.json`（模式 `eht-bundle`）导出到打包目录。
 2. **D 项蒙特卡罗（`scripts/eht/sample.py`）**：
    - 对 `solve_sites` 中的每个台站和每种圆偏振旋向（`R`、`L`），由四天精化解计算 $(\operatorname{Re} D, \operatorname{Im} D)$ 的均值与 $2 \times 2$ 样本协方差（`covariance_ddof = 1`，见 `d_distribution`）。
    - 每天以随机数种子 `SeedSequence([20210405, day])` 抽取 `uncertainty_draws = 1000` 组 D 项（`sample_dterms`）：`AZ`、`LM`、`PV` 服从二元正态分布；预改正台站 `AA`、`AP`、`SM`、`JC` 在每个实部和虚部分量上独立抽取标准差为 `residual_d_sigma = 0.01` 的零均值正态残差。不重抽样热噪声，也不对每次抽样重拟合 D 项。
    - 每次抽样从冷启动初值 $P = 0.05\,I$（`initial_p_fraction`）出发求解精确凸优化 $P$ 问题（`gap_atol = 1e-6`、`maxiter = 50000`、`time_limit = 600` s）；若第一次尝试未获证书，则自动以 `retry_maxiter = 200000`、`retry_time_limit = 1800` s 重试一次。每次抽样写出 `best-raw-IQU.fits`、`best-blurred-IQU.fits`（$19\,\mu\mathrm{as}$ 模糊）、`certificate.json` 和 `taskreceipt.json`；仅当全部 $4000$ 次抽样均获得证书时才写出 `finish.json`。
-3. **系综汇总（`scripts/eht/summarize.py`）**：逐一核对 `batch.json`、`finish.json`、全部 $4000$ 份 `taskreceipt.json` 与 `certificate.json` 以及每个 `best-blurred-IQU.fits` 的 SHA-256，发布阶段 `eht:ensemble`，生成 `axes.npz`（`east_uas`、`north_uas`）、`report.json` 及逐日目录 `day-<day>/{stokes.npy, evpa.npy, global.npz}`：
+3. **系综汇总（`scripts/eht/summarize.py`）**：逐一核对 `batch.json`、`finish.json`、以及全部 $4000$ 份 `taskreceipt.json` 与 `certificate.json`，发布阶段 `eht:ensemble`，生成 `axes.npz`（`east_uas`、`north_uas`）、`report.json` 及逐日目录 `day-<day>/{stokes.npy, evpa.npy, global.npz}`：
    - `stokes.npy`：float64 `(1000, 64, 64, 4)`（原生 FITS 方向下的 `[draw, y, x, IQUV]`）；
    - `evpa.npy`：float64 `(1000, 64, 64)`，取 $[0, \pi)\,\mathrm{rad}$ 内的电矢量位置角（EVPA；$I \le 0$ 或 $Q = U = 0$ 处为 `NaN`）；
    - `global.npz`：在 $19\,\mu\mathrm{as}$ 模糊图像上按全视场像素求和计算的 Paper VII 第 5.3 节全局诊断量（`total_I`、`m_net`、`m_resolved`、`evpa_rad`、`beta2_real`、`beta2_imag`），用于与 Paper VII 对比（由 `paper.py` 读取，`limits.py` 不使用）。

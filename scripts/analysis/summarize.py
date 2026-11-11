@@ -216,7 +216,7 @@ def run(args):
         sources["covcheck"] = args.covcheck.resolve()
     reports, consumed, records = {}, [], {}
     for name, source in sources.items():
-        record = provenance.verify_stage(source, recursive=False)
+        record = provenance.verify_stage(source)
         expected = (
             "analysis:check-grid"
             if name in ("gridcheck", "priorcheck")
@@ -260,19 +260,14 @@ def run(args):
                     "features": result["features"],
                 }
             )
-    # The source manifests are recorded inputs; their lineage is verified when
-    # those stages are made and is not re-hashed here.
     consumed += [provenance.manifest_path(source) for source in sources.values()]
     identity = {
         "schema": "analysis-summary",
         "sources": {k: str(v) for k, v in sources.items()},
-        "verification": (
-            "completed small stage outputs only; raw lineage inherited, not rehashed"
-        ),
         "calibration_certification": False,
     }
     with provenance.stage_directory(
-        destination, "analysis:summary", identity, consumed, verify_lineage=False
+        destination, "analysis:summary", identity, consumed
     ) as out:
         write_csv(out / "limits.csv", limits)
         write_csv(out / "fit-chi2.csv", fits)

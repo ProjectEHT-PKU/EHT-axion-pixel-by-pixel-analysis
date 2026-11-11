@@ -2,7 +2,7 @@
 
 [← 返回文档索引](index.md)
 
-科学数据数组与插图从不存入 Git 代码仓库。所有流水线脚本都从单一数据根目录（`EHT_DATA_ROOT` 或 `--data-root`）派生默认的产物目录，并从单一只读输入根目录（`EHT_INPUT_ROOT` 或 `--input-root`）派生外部输入路径，以原子方式写入由阶段清单（manifest，`manifest.json`）或显式批次/打包回执签名的目录，并在消费任何上游数据产品之前校验其 SHA-256 校验和。
+科学数据数组与插图从不存入 Git 代码仓库。所有流水线脚本都从单一数据根目录（`EHT_DATA_ROOT` 或 `--data-root`）派生默认的产物目录，并从单一只读输入根目录（`EHT_INPUT_ROOT` 或 `--input-root`）派生外部输入路径，并以原子方式写入由阶段清单（manifest，`manifest.json`）或显式批次/打包回执描述的目录。
 
 ## 默认目录布局
 
@@ -111,7 +111,7 @@ MC/                              signed by batch/task/finish receipts (no manife
     best-raw-IQU.fits, best-blurred-IQU.fits
 ENSEMBLE/                        stage eht:ensemble
   axes.npz                       east_uas (64), north_uas (64)
-  report.json, consumed-inputs.json
+  report.json
   day-<day>/
     stokes.npy                   float64 (1000, 64, 64, 4): [draw, y, x, IQUV]
     evpa.npy                     float64 (1000, 64, 64): radians in [0, pi), NaN if I <= 0 or Q=U=0
@@ -177,12 +177,12 @@ PAPER/                           stage analysis:paper
 
 ### 原子化阶段创建与输出根目录规则
 
-每个基于清单的数据溯源（provenance）阶段都由上下文管理器 `stage_directory(destination, stage, config, input_paths, *, verify_lineage=True)` 创建：
+每个基于清单的数据溯源（provenance）阶段都由上下文管理器 `stage_directory(destination, stage, config, input_paths)` 创建：
 - 拒绝经由目录符号链接到达的目标路径，并拒绝与 `source_closure(input_paths)` 中任何输入文件重叠的目标路径。
 - 以 `O_CREAT | O_EXCL` 独占方式创建 `<destination>.lock`（并发写入者会立即报错退出，而不是阻塞等待）。
 - **洁净工作树规则（`code_identity`）**：若 `git status --porcelain --untracked-files=no` 检测到受版本控制文件存在未提交改动，代码拒绝创建任何新阶段。由于工作树洁净，记录完整提交号 `HEAD`（`implementation.git_commit`）即可唯一锁定全部脚本、`eht_axion/` 模块、`configs/experiment.yaml`、`pixi.toml` 与 `pixi.lock`，因此仓库自身文件不列入 `inputs`。
-- 阶段主体先写入同级临时目录 `<destination>.building-*`；完成后为全部常规输出文件计算哈希（禁止符号链接，禁止空阶段），最后写入 `manifest.json`，再将临时目录原子重命名为 `<destination>`。若中途抛出异常，自动清理临时目录与锁文件。
-- **不可变输出与断点续跑**：产生结果的脚本（`reconstruct.py`、`refine.py`、`export_bundle.py`、`eht/summarize.py` 以及全部 `scripts/analysis/*.py`）一律拒绝已存在的 `--output-root`。设计上支持续跑的步骤（`raptor/build.py`、`raptor/generate.py`、`raptor/merge.py`）在目标阶段已存在时，仅当其校验通过且记录的 `(stage, config, inputs)` 完全一致时才复用缓存；该比较有意忽略 `git_commit`，使长时运行的 `RAPTOR` 批次可在不改变光线追踪任务的提交之后继续续跑。
+- 阶段主体先写入同级临时目录 `<destination>.building-*`；完成后列出全部常规输出文件（禁止符号链接，禁止空阶段），最后写入 `manifest.json`，再将临时目录原子重命名为 `<destination>`。若中途抛出异常，自动清理临时目录与锁文件。
+- **不可变输出与断点续跑**：产生结果的脚本（`reconstruct.py`、`refine.py`、`export_bundle.py`、`eht/summarize.py` 以及全部 `scripts/analysis/*.py`）一律拒绝已存在的 `--output-root`。设计上支持续跑的步骤（`raptor/build.py`、`raptor/generate.py`、`raptor/merge.py`）在目标阶段已存在时，仅当其已完成且记录的 `(stage, config, inputs)` 完全一致时才复用缓存；该比较有意忽略 `git_commit`，使长时运行的 `RAPTOR` 批次可在不改变光线追踪任务的提交之后继续续跑。
 
 ### `manifest.json` 结构与阶段标识符
 
@@ -190,11 +190,11 @@ PAPER/                           stage analysis:paper
 |---|---|
 | `stage` | 固定的阶段标识符 `<part>:<step>`（见下表） |
 | `config` | 决定本阶段的 JSON 序列化参数字典 |
-| `inputs` | 每个外部或上游消费文件的 `{path, size, sha256}` 列表 |
+| `inputs` | 每个外部或上游消费文件的解析后路径 |
 | `implementation` | `{"git_commit": "<40-hex HEAD>"}` |
 | `runtime` | Python 版本与实现、操作系统/硬件架构，以及 `numpy`、`scipy`、`h5py`、`matplotlib`、`PyYAML` 的版本号 |
 | `complete` | `true`；`stage` 为非空字符串且 `complete: true` 的 `manifest.json` 即标识一个已完成阶段 |
-| `outputs` | 每个输出文件的 `{path, size, sha256}` 列表（对 `.npy` 额外记录 `shape`/`dtype`，对 `.npz` 记录各命名数组的形状和数据类型；均通过 `allow_pickle=False` 的只读内存映射 `mmap` 读取） |
+| `outputs` | 每个输出文件的 `{path}` 列表（对 `.npy` 额外记录 `shape`/`dtype`，对 `.npz` 记录各命名数组的形状和数据类型；均通过 `allow_pickle=False` 的只读内存映射 `mmap` 读取） |
 | `elapsed_seconds` | 阶段主体的墙钟运行秒数 |
 
 | 阶段标识符 | 写出脚本 |
@@ -218,16 +218,5 @@ PAPER/                           stage analysis:paper
 ### 非清单类回执记录
 
 EHT 流水线中有两个步骤使用专门设计的回执记录来管理只读跨天容器或可续跑蒙特卡罗（Monte Carlo）批次，而不写 `manifest.json`：
-- **`BUNDLE/bundle.json`**（`scripts/eht/export_bundle.py`）：在递归校验完四个 `eht:i` 阶段和四个 `eht:refine` 阶段后，记录 `code`（`git_commit`）、科学约定（`fsys`、`covariance_ddof`、`residual_component_sigma`、`image`、`objective`）以及每个只读复制文件的 `{path, sha256, size, original_path}`。
-- **`MC/batch.json`、`taskreceipt.json` 与 `finish.json`**（`scripts/eht/sample.py`）：`batch.json` 记录 `identity`（包含打包哈希、科学参数、`git_commit`、依赖包版本及线程数的规范化批次计划 SHA-256）。每次尝试写出带输出哈希的 `taskreceipt.json`；仅当全部 $4000$ 次抽样获得证书后写出 `finish.json`，并由 `scripts/eht/summarize.py` 在生成 `eht:ensemble` 前逐一复核所有回执、证书与模糊 FITS 文件哈希。
-
-## 校验数据产品
-
-通过 Pixi 运行 `scripts/verify_products.py` 可对任意已完成的阶段目录做只读审计，不重新计算数据：
-
-```bash
-pixi run verify /path/to/stage              # verify manifest completeness and output SHA-256s
-pixi run verify /path/to/stage --recursive  # also re-hash every declared input and upstream stage
-```
-
-在单个 `verification_session()` 会话中，每个唯一输入文件仅按 8 MiB 分块流式读取计算一次哈希，同时在读取前、读取后及会话退出时核对文件元信息 `(st_dev, st_ino, st_size, st_mtime_ns, st_ctime_ns)` 未发生变化。下游脚本读取其他阶段的文件时均调用 `require_declared_outputs(directory, paths)`，杜绝误读未在清单中声明的额外文件。轻量级下游结果步骤（`check_grid.py`、`check_covariance.py`、`analysis/summarize.py`、`paper.py`）传入 `verify_lineage=False`：它们校验直接上游阶段的输出并将这些 `manifest.json` 作为带哈希输入记录下来，但不再重复读取整条原始 `RAPTOR` 或 `uvfits` 来源链（lineage）。
+- **`BUNDLE/bundle.json`**（`scripts/eht/export_bundle.py`）：在检查完四个 `eht:i` 阶段和四个 `eht:refine` 阶段后，记录 `code`（`git_commit`）、科学约定（`fsys`、`covariance_ddof`、`residual_component_sigma`、`image`、`objective`）以及每个只读复制文件的 `{path, size, original_path}`。
+- **`MC/batch.json`、`taskreceipt.json` 与 `finish.json`**（`scripts/eht/sample.py`）：`batch.json` 记录批次计划（打包文件、科学参数、`git_commit`、依赖包版本及线程数），续跑要求计划相同。每次尝试写出 `taskreceipt.json`（任务、状态、输出文件名）；仅当全部 $4000$ 次抽样获得证书后写出 `finish.json`，并由 `scripts/eht/summarize.py` 在生成 `eht:ensemble` 前逐一检查所有回执与证书。

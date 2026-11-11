@@ -172,7 +172,7 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     delivered = tmp_path / 'raptor/res-400/background/t1600-t1690/stokes-t1600-t1690.npy'
     records[processed] = dict(stage='analysis:background',
                              config=dict(geometry['image_preprocess'], state_indices=[0]),
-                             inputs=[dict(path=str(delivered)), dict(path=str(delivered.parent / 'x.json'))])
+                             inputs=[str(delivered), str(delivered.parent / 'x.json')])
     checked, cadences = [], []
     monkeypatch.setattr(driver, 'validate_processed_source',
                         lambda record, config, **kw: checked.append((record['stage'], kw['alpha'],
@@ -188,7 +188,7 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     products = {'1d': (None, None, None, np.ones(360, dtype=bool)),
                 '2d': (None, None, None, valid2d)}
     prepared, _, _, sigmas, background_inputs = driver.prepare_limit_inputs(
-        ensemble, theory, config, products, verified=set())
+        ensemble, theory, config, products)
     assert checked == [('analysis:background', None, 400)]
     assert cadences == [[delivered]]
     assert sigmas == {dim: dict(stokes=str(processed / 'stokes.npy'), cadence_hours=8.)

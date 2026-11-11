@@ -145,7 +145,7 @@ $$
 
 ## Sensitivity checks, summary, and paper outputs
 
-- **Grid and prior checks (`scripts/analysis/check_grid.py`)**: re-evaluates the saved `observations-{1d,2d}.npz` of `analysis:limits` with overridden `--phase-count`, `--coupling-points`, and/or `--coupling-max` (stage `analysis:check-grid`, reporting $\Delta\log_{10} c_{95}$ against the source stage without re-selecting features or re-hashing raw upstream lineage).
+- **Grid and prior checks (`scripts/analysis/check_grid.py`)**: re-evaluates the saved `observations-{1d,2d}.npz` of `analysis:limits` with overridden `--phase-count`, `--coupling-points`, and/or `--coupling-max` (stage `analysis:check-grid`, reporting $\Delta\log_{10} c_{95}$ against the source stage without re-selecting features).
 - **Split-ensemble covariance check (`scripts/analysis/check_covariance.py`)**: splits each day's 1000 draws into `first500` and `last500`, recomputes $C_d$ around the fixed full-ensemble circular means $\bar{\chi}_d$, and reports $\Delta\log_{10} c_{95}$ across all six observed cases (`analysis:check-covariance`).
 - **Summary (`scripts/analysis/summarize.py`)**: verifies `limits`, `gridcheck`, `priorcheck`, and optional `covcheck`, asserts unchanged feature counts across checks, and writes `limits.csv`, `grid_vs_primary.csv`, `prior_vs_dense_grid.csv`, `fit-chi2.csv` ($\chi^2$ at $c=0$ and at the joint-grid best fit), `limits.png`, `fits-alpha-<α>.png`, `report.json`, and a purely data-driven `RESULTS.md` (`analysis:summary`).
 - **Paper outputs (`scripts/analysis/paper.py`)**: collects all manuscript assets into stage `analysis:paper` without refitting anything:

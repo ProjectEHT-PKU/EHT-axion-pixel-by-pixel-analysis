@@ -153,11 +153,11 @@ def test_merged_sources_and_recursive_ancestry_preserve_both_actual_builds(merge
     assert m.builds[0][1].read_bytes() != m.builds[1][1].read_bytes()
     for name in ("grid_mks.in", "definitions.h", "macros.txt"):
         assert (m.roots[0] / "build" / name).read_bytes() == (m.roots[1] / "build" / name).read_bytes()
-    build_records = [provenance.verify_stage(root / "build", recursive=True)
+    build_records = [provenance.verify_stage(root / "build")
                      for root in m.roots]
     assert build_records[0]["config"] == build_records[1]["config"]
     for path, resolution, count in zip(m.products, (100, 400), (34, 2)):
-        record = provenance.verify_stage(path.parent, recursive=True)
+        record = provenance.verify_stage(path.parent)
         sources = json.loads((path.parent / "sources.json").read_text())
         selected = [task for task in m.plan["tasks"] if task["resolution"] == resolution]
         assert sources == [{"task_id": task["id"], "root": str(m.owners[task["id"]])}
@@ -170,11 +170,11 @@ def test_merged_sources_and_recursive_ancestry_preserve_both_actual_builds(merge
             job = m.owners[task["id"]] / "jobs" / task["id"]
             expected_inputs.update((job / "manifest.json",
                                     job / "output" / f"img_data_{task['output_slot']}.h5"))
-            job_record = provenance.verify_stage(job, recursive=True)
+            job_record = provenance.verify_stage(job)
             _, _, raw = _prepare_task(task)
             build = m.builds[m.roots.index(m.owners[task["id"]])]
-            assert {Path(entry["path"]) for entry in job_record["inputs"]} == set(build + raw)
-        assert {Path(entry["path"]) for entry in record["inputs"]} == expected_inputs
+            assert {Path(p) for p in job_record["inputs"]} == set(build + raw)
+        assert {Path(p) for p in record["inputs"]} == expected_inputs
         closure = set(provenance.source_closure([path.parent / "manifest.json"]))
         assert {p for p in closure if p.name == "RAPTOR"} == {build[1] for build in m.builds}
         assert {build[0] for build in m.builds} <= closure
@@ -195,7 +195,7 @@ def test_merged_background_reaches_real_downstream_path(merged, tmp_path):
     analysis = tmp_path / "analysis"
     run_templates(config_path, merged.output / "data", analysis)
     processed = analysis / "background"
-    record = provenance.verify_stage(processed, recursive=True)
+    record = provenance.verify_stage(processed)
     validate_processed_source(record, profile, alpha=None, resolution=400)
     assert np.load(processed / "stokes.npy", mmap_mode="r").shape == (2, 1, 8, 8, 4)
     closure = set(provenance.source_closure([processed / "manifest.json"]))
@@ -235,7 +235,7 @@ def test_each_source_build_must_match_plan_settings(merged, tmp_path, index):
     settings = deepcopy(merged.config["raptor"]["build"])
     settings["sigma_cut"] = 2.0
     _write_build(copied, merged.config, "wrong-settings", settings=settings)
-    provenance.verify_stage(copied / "build", recursive=True)
+    provenance.verify_stage(copied / "build")
     target = tmp_path / "rejected"
     with pytest.raises(ValueError, match="Build settings differ from the task plan"):
         deliver_stokes(merged.plan, merged.run, job_roots=roots, output_root=target)
@@ -255,7 +255,7 @@ def test_job_inputs_must_name_exact_actual_source_build(merged, tmp_path, case):
     # These are complete valid stages, not checksum-corruption failures.
     for task in merged.plan["tasks"]:
         if task["label"] == 1610:
-            provenance.verify_stage(copied / "jobs" / task["id"], recursive=True)
+            provenance.verify_stage(copied / "jobs" / task["id"])
     target = tmp_path / "rejected"
     with pytest.raises(ValueError, match="Job lineage does not declare the selected build and source inputs"):
         deliver_stokes(merged.plan, merged.run, job_roots=roots, output_root=target)
