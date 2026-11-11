@@ -358,6 +358,12 @@ def test_fiducial_total_d_solves_against_fresh_base_and_final_p_only(tmp_path, c
     assert final['PV'] == [[.01, .02], [-.03, .04]]
     assert json.loads((tmp_path / 'steps.json').read_text())[-1]['stage'] == 'final-P-only'
     assert not json.loads((tmp_path / 'termination.json').read_text())['scientifically_converged']
+    assert not list(tmp_path.glob('round-*'))
+    with np.load(tmp_path / 'rounds.npz', allow_pickle=False) as rounds:
+        assert list(rounds['sites']) == config['solve_sites']
+        assert rounds['dterms'].shape == (3, len(config['solve_sites']), 2, 2)
+        np.testing.assert_array_equal(rounds['dterms'][-1, -1], [[.01, .02], [-.03, .04]])
+        assert rounds['raw_qu'].shape[:2] == rounds['blurred_qu'].shape[:2] == (3, 2)
 
 
 def test_source_stage_must_declare_consumed_products(tmp_path, monkeypatch):

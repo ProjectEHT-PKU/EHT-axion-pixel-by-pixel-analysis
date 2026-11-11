@@ -105,6 +105,7 @@ def run(a, plan, core, eh, out):
     present = set(map(str, base.tarr['site']))
     dterms = original.d_dictionary({s: v for s, v in data.items() if s in present})
     steps, d_records = [], []
+    rounds = original.Rounds(c['solve_sites'])
 
     def problem(d):
         obs = core.make_imaging_obs(core.apply_fixed_d(core.add_fsys(base.copy(), c['fsys']), d))
@@ -113,7 +114,6 @@ def run(a, plan, core, eh, out):
 
     count = refine['outer_rounds'] + 1
     for r in range(1, count+1):
-        label = 'final-P' if r == count else f'round-{r:02d}'
         before = image.qvec+1j*image.uvec
         # New problem, B/b, steps, duals and LB history on EVERY call.
         p, report, trace = solver.solve_problem(problem(dterms), before,
@@ -139,15 +139,15 @@ def run(a, plan, core, eh, out):
                        D_max_delta=max(float(np.max(abs(np.asarray(new[s])-np.asarray(dterms[s]))))
                                        for s in new))
             dterms = new
-        original.save_image(image, out/label, c, eh)
-        original.dump(out/(label+'-dterms.json'), dterms)
+        if r < count:
+            rounds.add(image, dterms, c, eh)
         steps.append(row)
         original.dump(out/'steps.json', steps)
         original.dump(out/'D-optimizer-records.json', d_records)
+    # The last P solve (aligned with the last D terms) is the final image.
     original.save_image(image, out/'final', c, eh)
     original.dump(out/'final-dterms.json', dterms)
-    # Small archive: no matrices, duals, per-iteration images, or duplicate I.
-    np.savez_compressed(out/'best-P.npz', P=p)
+    rounds.save(out/'rounds.npz')
     original.dump(out/'termination.json', dict(
         all_P_numerically_certified=all(s['P']['numerically_certified'] for s in steps),
         joint_D_optimality='not verified', D_refitted=True, outer_rounds=refine['outer_rounds'],
@@ -168,7 +168,6 @@ def main(argv=None):
                                 [Path(p) for p in plan['inputs']]) as out:
         if out is None:
             raise FileExistsError(a.output_root)
-        original.dump(out/'plan.json', plan)
         print(f'READY day={a.day} working={out}', flush=True)
         return run(a, plan, core, eh, out)
 

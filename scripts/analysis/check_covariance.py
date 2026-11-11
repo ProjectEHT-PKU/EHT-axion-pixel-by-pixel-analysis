@@ -18,6 +18,7 @@ import numpy as np
 from eht_axion import provenance
 from eht_axion.analysis.likelihood import MODES, calculate_observed
 from eht_axion.analysis.observations import ObservationData
+from eht_axion.analysis.results import read_results
 from eht_axion.analysis.templates import load_templates
 from eht_axion.evpa import circular_difference
 from eht_axion.experiment import DEFAULT_PATH, read_experiment
@@ -44,23 +45,20 @@ def main(argv=None):
     if args.output_root.exists():
         raise FileExistsError(f'New output root required: {args.output_root}')
     provenance.verify_stage(args.source)
-    provenance.require_declared_outputs(args.source, [args.source/'report.json'])
-    source_report = json.loads((args.source/'report.json').read_text())
+    files = [args.source/'report.json', args.source/'results.npz']
+    provenance.require_declared_outputs(args.source, files)
+    source_report, source = read_results(args.source, ('observations',))
     config = json.loads(json.dumps(read_experiment(args.config)))
     if config != source_report['scientific_profile']:
         raise ValueError('The source limits were produced from a different experiment')
     draws = config['eht_imaging']['uncertainty_draws']
     half = draws // 2
-    inputs = [provenance.manifest_path(args.source), args.source/'report.json']
-    products = {}
-    for dim in ('1d', '2d'):
-        root = args.templates/'templates'/dim
-        provenance.verify_stage(root)
-        provenance.require_declared_outputs(root, [root/'templates.npz'])
-        products[dim] = load_templates(root/'templates.npz', dim)
-        path = args.source/f'observations-{dim}.npz'
-        provenance.require_declared_outputs(args.source, [path])
-        inputs += [provenance.manifest_path(root), root/'templates.npz', path]
+    root = args.templates/'templates'
+    provenance.verify_stage(root)
+    provenance.require_declared_outputs(root, [root/'templates.npz'])
+    products = {dim: load_templates(root/'templates.npz', dim) for dim in ('1d', '2d')}
+    inputs = [provenance.manifest_path(args.source), *files,
+              provenance.manifest_path(root), root/'templates.npz']
     identity = dict(source=str(args.source), fixed_observed_centers=True, fixed_selection=True,
                     covariance_halves=[list(range(half)), list(range(half, draws))],
                     covariance_regularization='none', scope='finite MC sensitivity, not new error model')
@@ -68,9 +66,9 @@ def main(argv=None):
                                 identity, inputs) as out:
         results, table = {}, []
         for dim in ('1d', '2d'):
-            with np.load(args.source/f'observations-{dim}.npz') as z:
-                samples, means = z['evpa_samples_radians'], z['means']
-                differences, selected = z['pair_differences'], z['selected_indices']
+            z = source['observations'][dim]
+            samples, means = z['evpa_samples_radians'], z['means']
+            differences, selected = z['pair_differences'], z['selected_indices']
             if samples.shape[:2] != (4, draws):
                 raise ValueError('Expected saved four-day selected samples for every draw')
             alpha, amp, phase, _ = products[dim]

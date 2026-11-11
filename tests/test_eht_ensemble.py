@@ -30,7 +30,7 @@ def test_global_diagnostics_paper_vii_definitions():
     assert beta == pytest.approx(.2 * np.exp(2j * .3))
 
 
-def test_written_summary_contract(tmp_path):
+def test_map_evpa_and_global_values():
     east = -(np.arange(8) - 3.5) * 1.875
     north = (np.arange(8) - 3.5) * 1.875
     samples = np.zeros((3, 8, 8, 4))
@@ -38,16 +38,13 @@ def test_written_summary_contract(tmp_path):
     samples[..., 1] = np.cos(2 * np.arange(3)[:, None, None] * .02)
     samples[..., 2] = np.sin(2 * np.arange(3)[:, None, None] * .02)
     samples[1, 0, 0, 0] = 0.  # nonpositive I: EVPA undefined
-    en.summarize(samples, east, north, tmp_path)
-    assert {p.name for p in tmp_path.iterdir()} == {'evpa.npy', 'global.npz'}
-    chi = np.load(tmp_path / 'evpa.npy', mmap_mode='r')
+    chi = en.map_evpa(samples)
     assert chi.shape == (3, 8, 8)
     assert np.isnan(chi[1, 0, 0])
     np.testing.assert_allclose(chi[2, 3, 3], .04, atol=1e-15)
-    with np.load(tmp_path / 'global.npz', allow_pickle=False) as z:
-        assert list(z['columns']) == list(en.GLOBAL_COLUMNS)
-        assert z['values'].shape == (3, 6)
-        np.testing.assert_allclose(z['values'][0, 1:3], .5)  # uniform field, |P|/I = 1/2
+    values = en.global_values(samples, east, north)
+    assert values.shape == (3, 6)
+    np.testing.assert_allclose(values[0, 1:3], .5)  # uniform field, |P|/I = 1/2
 
 
 def test_evpa_spin2_convention():

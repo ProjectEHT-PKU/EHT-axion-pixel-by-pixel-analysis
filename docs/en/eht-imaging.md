@@ -66,7 +66,7 @@ All subsequent stages hold $I$ fixed to `final-fixedI.fits` and solve exclusivel
 3. Solves for $P$ with `ehtim` `Imager` (`pol='P'`, `transform=['mcv']`, `data_term={'pvis': 1.0, 'm': 1.0}`, `reg_term={'hw': 100.0, 'ptv': 1.0}`, `norm_reg=True`, `ttype='direct'`, `maxit=500`, `stop=1e-8`; `shift_objective_constant=True` adds the constant $w_{\mathrm{pvis}} + w_m + h_w\ln 2$ without changing the minimizer).
 4. Refits D terms on `solve_sites` (`AZ`, `LM`, `PV`) against the **uncorrected** `fsys`-augmented base visibilities and the new $P$ image using `fit_forward_d`: a private two-line adaptation of `ehtim.calibrating.pol_cal_new.leakage_cal_new` (`pol_fit=['RL', 'LR']`, `ttype='direct'`) that sets the D-term Gaussian prior and its gradient identically to zero.
 
-After round 50, one final `final-P-only` solve aligns `final-raw-IQU.fits` and `final-blurred-IQU.fits` ($19\,\mu\mathrm{as}$ blur) with `final-dterms.json`.
+The Q/U images (raw and blurred) and D terms of all 50 rounds are written once to `rounds.npz` (`I` is the fixed $I$ of every round and `V = 0`). After round 50, one final `final-P-only` solve aligns `final-raw-IQU.fits` and `final-blurred-IQU.fits` ($19\,\mu\mathrm{as}$ blur) with `final-dterms.json`.
 
 ### Convex refinement (`scripts/eht/refine.py` and `eht_axion/eht/convex.py`)
 
@@ -80,7 +80,7 @@ where $h(m) = \frac{1}{2}\bigl[(1+m)\ln(1+m) + (1-m)\ln(1-m)\bigr]$, $F = \sum_x
 
 `solve_problem` minimizes $J(P)$ in reduced variables $x = P / I$ via diagonally preconditioned primal–dual hybrid gradient (PDHG, step-size safety factor $\theta = 0.99 < 1$, safeguarded Newton–bisection radial entropy prox) and evaluates a feasible Fenchel–Rockafellar dual lower bound every `check_every` (`500`) iterations. A solution is **numerically certified** when $\text{best\_primal} - \text{best\_lower} \le \text{gap\_atol}$ (`1e-6`; floating-point duality gap, not interval arithmetic).
 
-`scripts/eht/refine.py` (stage `eht:refine`) starts from the fiducial `final-raw-IQU.fits` and `final-dterms.json`, runs `outer_rounds = 100` alternations of certified PDHG $P$ solves (`maxiter = 20000`, `time_limit = 300` s) and forward `L-BFGS-B` D refits (`eht_imaging.refine.d_optimizer`, logged to `D-optimizer-records.json`), followed by a 101st `final-P` solve aligned with the last D terms.
+`scripts/eht/refine.py` (stage `eht:refine`) starts from the fiducial `final-raw-IQU.fits` and `final-dterms.json`, runs `outer_rounds = 100` alternations of certified PDHG $P$ solves (`maxiter = 20000`, `time_limit = 300` s) and forward `L-BFGS-B` D refits (`eht_imaging.refine.d_optimizer`, logged to `D-optimizer-records.json`), followed by a 101st $P$ solve aligned with the last D terms, which is the delivered `final-*` image; rounds 1–100 are in `rounds.npz`.
 
 ### D-term Monte Carlo and ensemble summary
 
@@ -89,10 +89,9 @@ where $h(m) = \frac{1}{2}\bigl[(1+m)\ln(1+m) + (1-m)\ln(1-m)\bigr]$, $F = \sum_x
    - Computes the 4-day mean and $2 \times 2$ $(\operatorname{Re} D, \operatorname{Im} D)$ sample covariance (`covariance_ddof = 1`) per hand (`R`, `L`) and station in `solve_sites` (`d_distribution`).
    - Draws `uncertainty_draws = 1000` D-term sets per day using `SeedSequence([20210405, day])`: bivariate normal for `AZ`, `LM`, `PV`, and independent zero-mean normal with per-component SD `residual_d_sigma = 0.01` for `AA`, `AP`, `SM`, `JC` (`sample_dterms`). Thermal visibility noise is not resampled and D terms are not refitted per draw.
    - Solves the exact convex $P$ problem cold-started from $P = 0.05\,I$ (`initial_p_fraction`) with `gap_atol = 1e-6`, `maxiter = 50000`, `time_limit = 600` s; uncertified draws receive one retry (`retry_maxiter = 200000`, `retry_time_limit = 1800` s). Writes `best-raw-IQU.fits`, `best-blurred-IQU.fits` ($19\,\mu\mathrm{as}$ blur), `certificate.json`, and `taskreceipt.json` per draw, and `finish.json` once all $4000$ draws are certified.
-3. **Ensemble summary (`scripts/eht/summarize.py`)**: verifies `batch.json`, `finish.json`, and all $4000$ `taskreceipt.json` and `certificate.json` files, then publishes stage `eht:ensemble` containing `axes.npz` (`east_uas`, `north_uas`), `report.json`, and per-day `day-<day>/{stokes.npy, evpa.npy, global.npz}`:
-   - `stokes.npy`: float64 `(1000, 64, 64, 4)` (`[draw, y, x, IQUV]` in native FITS orientation);
-   - `evpa.npy`: float64 `(1000, 64, 64)` EVPA in $[0, \pi)\,\mathrm{rad}$ (`NaN` where $I \le 0$ or $Q = U = 0$);
-   - `global.npz`: Paper VII Sec. 5.3 whole-field diagnostics (`total_I`, `m_net`, `m_resolved`, `evpa_rad`, `beta2_real`, `beta2_imag`) computed over the $19\,\mu\mathrm{as}$-blurred images for comparison with Paper VII (used by `paper.py`, not by `limits.py`).
+3. **Ensemble summary (`scripts/eht/summarize.py`)**: verifies `batch.json`, `finish.json`, and all $4000$ `taskreceipt.json` and `certificate.json` files, then publishes stage `eht:ensemble` containing `axes.npz` (`east_uas`, `north_uas`), `report.json`, `stokes.npy` and `global.npz`:
+   - `stokes.npy`: float64 `(4, 1000, 64, 64, 4)` (`[day, draw, y, x, IQUV]` in native FITS orientation); `limits.py` derives the per-pixel EVPA in $[0, \pi)\,\mathrm{rad}$ from it (`map_evpa`, `NaN` where $I \le 0$ or $Q = U = 0$);
+   - `global.npz`: `values` `(4, 1000, 6)`, `days`, `columns`: Paper VII Sec. 5.3 whole-field diagnostics (`total_I`, `m_net`, `m_resolved`, `evpa_rad`, `beta2_real`, `beta2_imag`) computed over the $19\,\mu\mathrm{as}$-blurred images for comparison with Paper VII (used by `paper.py`, not by `limits.py`).
 
 ## Known deviations from EHT Paper VII
 

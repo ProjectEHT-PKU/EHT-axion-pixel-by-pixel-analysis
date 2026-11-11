@@ -9,6 +9,8 @@ from eht_axion.analysis.observations import (
 )
 from eht_axion.analysis.likelihood import calculate_observed
 from scripts.analysis import limits as driver
+from eht_axion.analysis.results import read_results
+import json
 
 
 def samples():
@@ -149,17 +151,13 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     row, col = np.indices((64, 64))
     # Nonuniform east/north feature: omitted transpose produces a different angle.
     native_chi = .002 * row + .004 * col
-    for day in driver.DAYS:
-        maps = np.ones((64, 64, 4))
-        maps[..., 1] = np.cos(2 * native_chi)
-        maps[..., 2] = np.sin(2 * native_chi)
-        directory = ensemble / f'day-{day}'
-        directory.mkdir(parents=True)
-        arrays[directory / 'stokes.npy'] = np.broadcast_to(maps, (1000, 64, 64, 4))
-        arrays[directory / 'evpa.npy'] = np.broadcast_to(native_chi, (1000, 64, 64))
+    maps = np.ones((64, 64, 4))
+    maps[..., 1] = np.cos(2 * native_chi)
+    maps[..., 2] = np.sin(2 * native_chi)
+    arrays[ensemble / 'stokes.npy'] = np.broadcast_to(maps, (len(driver.DAYS), 1000, 64, 64, 4))
     report = dict(schema='eht-ensemble', days=[str(d) for d in driver.DAYS], draws_per_day=1000,
         angle_convention='EVPA radians modulo pi, east of north',
-        map_order='draw,y,x,IQUV; native FITS E decreases along x, N increases along y')
+        map_order='day,draw,y,x,IQUV; native FITS E decreases along x, N increases along y')
     (ensemble / 'report.json').write_text(json.dumps(report))
     records = {ensemble: dict(stage='eht:ensemble', config=dict(draw_count=4000))}
     original_load = np.load
@@ -227,7 +225,6 @@ def test_options_bind_actual_physical_scale_and_new_background():
 
 @pytest.mark.parametrize('dimension', ['1d', '2d'])
 def test_selected_background_exact_feature_domain(tmp_path, monkeypatch, dimension):
-    import json
 
     config = driver.read_experiment()
     values = np.array([[0., 0.], [.01, .02], [.02, .03], [.05, .07], [.08, .12]])
@@ -248,13 +245,11 @@ def test_selected_background_exact_feature_domain(tmp_path, monkeypatch, dimensi
             out[104] = .5 * np.arctan2(frame[30, 40, 2], frame[30, 40, 1])
             return out
         monkeypatch.setattr(pol, 'integrate_stokes', integrated)
-    sigma = driver.selected_background(tmp_path, dimension, selected, config,
+    sigma, meta = driver.selected_background(dimension, selected, config,
         dict(stokes=str(path), cadence_hours=8.))
     expected = values[3:] - values[:-3]
-    assert sigma == pytest.approx(expected.std(ddof=0))
-    with np.load(tmp_path / f'background-selected-{dimension}.npz') as z:
-        np.testing.assert_allclose(z['differences'], expected, atol=1e-14)
-    meta = json.loads((tmp_path / f'background-selected-{dimension}.json').read_text())
+    assert sigma == pytest.approx(expected.std(ddof=0)) and meta['sigma_radians'] == sigma
+    np.testing.assert_allclose(meta['differences'], expected, atol=1e-14)
     assert meta['lag'] == 3 and meta['lag_hours'] == 24.
     assert 'source_unmasked_sigma' not in meta
     assert meta['sqrt2_correction'] is False
@@ -278,7 +273,8 @@ def test_save_all_six_cases_and_zero_data_control(tmp_path, monkeypatch):
 
     monkeypatch.setattr(driver, 'calculate_observed', calculate)
     monkeypatch.setattr(driver, 'plot_results', lambda *args: None)
-    monkeypatch.setattr(driver, 'selected_background', lambda out, dim, selected, config, source: source['s'])
+    monkeypatch.setattr(driver, 'selected_background',
+                        lambda dim, selected, config, source: (source['s'], dict(sigma_radians=source['s'])))
     report = driver.save_results(tmp_path, products, prepared, config,
                                   {'1d': dict(s=.02), '2d': dict(s=.03)}, {'resultant_min': .7})
     assert len(calls) == 12
@@ -286,6 +282,16 @@ def test_save_all_six_cases_and_zero_data_control(tmp_path, monkeypatch):
     assert len(report['results']) == 12
     assert report['response_model_variance_included'] is False
     assert len((tmp_path / 'limits.csv').read_text().splitlines()) == 97
+    assert {p.name for p in tmp_path.iterdir()} == {'limits.csv', 'report.json', 'results.npz'}
+    stored, records = read_results(tmp_path, ('observations', 'background', 'cases'))
+    assert stored['results'] == json.loads(json.dumps(report['results']))
+    assert set(records['cases']) == set(report['results'])
+    assert records['background']['2d'] == dict(sigma_radians=.03)
+    case = records['cases']['observed-cor-1d']
+    np.testing.assert_array_equal(case['couplings'], [.01, 1.])
+    assert case['log_likelihood'].shape == (8, 2) and case['log10_c95'].shape == (8,)
+    assert records['observations']['1d']['selection'] == {'synthetic': True}
+    assert records['observations']['1d']['evpa_samples_radians'].shape == (4, 4, 2)
     for i in range(0, 12, 2):
         dim, mode, obs, options = calls[i]
         zero_dim, zero_mode, zero_data, zero_options = calls[i + 1]

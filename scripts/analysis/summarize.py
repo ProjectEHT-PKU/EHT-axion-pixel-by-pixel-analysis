@@ -21,6 +21,7 @@ from eht_axion.environment import add_data_root_option, data_root, fill_defaults
 import numpy as np
 
 from eht_axion import provenance
+from eht_axion.analysis.results import read_results
 from eht_axion.analysis.likelihood import MODES
 
 
@@ -85,10 +86,11 @@ def plot_limits(out, report):
 def fit_evidence(source):
     """Saved joint-grid best fits of every observed case and alpha; no refit."""
     rows, diagnostics = [], {}
+    _, records = read_results(source, ("cases",))
     for dim in ("1d", "2d"):
         for mode in MODES:
             key = f"observed-{mode}-{dim}"
-            diagnostic = json.loads((source / (key + ".json")).read_text())
+            diagnostic = records["cases"][key]
             if len(diagnostic["fits"]) != len(diagnostic["alphas"]):
                 raise ValueError(f"{key}: one saved fit per alpha required")
             for alpha, fit in zip(diagnostic["alphas"], diagnostic["fits"]):
@@ -96,7 +98,7 @@ def fit_evidence(source):
                     {
                         "dimension": dim,
                         "mode": mode,
-                        "alpha": alpha,
+                        "alpha": float(alpha),
                         "components": 2 * len(diagnostic["selected_indices"]),
                         "chi2_zero_coupling": fit["data_quadratic"],
                         "chi2_best": fit["joint_grid_chi2"],
@@ -227,12 +229,7 @@ def run(args):
         records[name] = record
         paths = [source / "report.json"]
         if name == "primary":
-            paths += [
-                source / f"observed-{mode}-{dim}.json"
-                for dim in ("1d", "2d")
-                for mode in MODES
-            ]
-            paths += [source / f"observations-{dim}.json" for dim in ("1d", "2d")]
+            paths.append(source / "results.npz")
         provenance.require_declared_outputs(source, paths)
         consumed += paths
         reports[name] = json.loads(paths[0].read_text())
@@ -293,12 +290,7 @@ def run(args):
                 }
                 for k, v in diagnostics.items()
             },
-            observations={
-                dim: json.loads(
-                    (sources["primary"] / f"observations-{dim}.json").read_text()
-                )
-                for dim in ("1d", "2d")
-            },
+            observations=primary["observations"],
         )
         (out / "report.json").write_text(
             json.dumps(evidence, indent=2, allow_nan=False) + "\n"

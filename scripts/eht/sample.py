@@ -343,14 +343,6 @@ def controller(args, out):
     else:
         atomic(p, draws)
     tasks = enumerate_tasks(draws)
-    taskbytes = b''.join(encoded(t) + b'\n' for t in tasks)
-    taskfile = out / 'tasks.jsonl'
-    if taskfile.exists():
-        if taskfile.read_bytes() != taskbytes:
-            raise ValueError('task list mismatch')
-    else:
-        with taskfile.open('xb') as f:
-            f.write(taskbytes)
     pending, done, exhausted = deque(), {}, []
     for t in tasks:
         completed, numerical, errors = scan_task(out, t)
@@ -401,7 +393,6 @@ def controller(args, out):
                 ordinal = 1 + max([int(p.name.split('-')[1]) for p in parent.glob('attempt-*')] or [0])
                 directory = parent / f'attempt-{ordinal:04d}'
                 directory.mkdir()  # Interrupted attempts remain untouched forever.
-                atomic(directory / 'attempt.json', dict(task=t, numerical_attempt=number))
                 future = pool.submit(run_attempt, sources, t, directory, config, number, science)
                 active[future] = t
                 submitted += 1
@@ -426,8 +417,6 @@ def controller(args, out):
                     pending.append((t, numerical + 1))
                 else:
                     exhausted.append(t['id'])
-    atomic(out / 'state.json', dict(certified=len(done), total=len(tasks),
-                                   active=0, pending=len(pending), exhausted=exhausted))
     if len(done) == len(tasks):
         finish = dict(schema='eht-sample-finish',
                       numerically_certified=len(done), scientifically_certified=False,
@@ -437,7 +426,11 @@ def controller(args, out):
                 raise ValueError('finish receipt mismatch')
         else:
             atomic(out / 'finish.json', finish)
+        # state.json is the progress of a running batch; a finished batch has finish.json.
+        (out / 'state.json').unlink(missing_ok=True)
         return 0
+    atomic(out / 'state.json', dict(certified=len(done), total=len(tasks),
+                                   active=0, pending=len(pending), exhausted=exhausted))
     return 0 if args.task_limit is not None and not exhausted else 2
 
 

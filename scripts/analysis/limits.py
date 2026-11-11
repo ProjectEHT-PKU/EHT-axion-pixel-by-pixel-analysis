@@ -25,7 +25,9 @@ from eht_axion.analysis.likelihood import MODES, LimitOptions, calculate_observe
 from eht_axion.analysis.observations import (
     DAYS, branch_risk, build_observations, covariance_diagnostics,
 )
+from eht_axion.analysis.results import write_results
 from eht_axion.analysis.templates import load_templates
+from eht_axion.eht.ensemble import map_evpa
 from eht_axion.experiment import (
     ANGULAR_BINS, DEFAULT_PATH, analysis_geometry, physical_scale, read_experiment,
 )
@@ -75,14 +77,14 @@ def validate_templates(root, config):
         record = verify_stage(root / 'response' / label)
         if {k: v for k, v in record['config'].items() if k != 'snapshot_labels'} != geometry['aperturefit']:
             raise ValueError('Theory aperture differs from selected geometry')
-    products, inputs = {}, []
+    directory = root / 'templates'
+    record = verify_stage(directory)
+    if record['stage'] != 'analysis:templates':
+        raise ValueError('Unexpected theory template stage')
+    path = directory / 'templates.npz'
+    require_declared_outputs(directory, [path])
+    products, inputs = {}, [manifest_path(directory), path]
     for dim in ('1d', '2d'):
-        directory = root / 'templates' / dim
-        record = verify_stage(directory)
-        if record['stage'] != 'analysis:templates':
-            raise ValueError('Unexpected theory template stage')
-        path = directory / 'templates.npz'
-        require_declared_outputs(directory, [path])
         values = load_templates(path, dim)
         if not np.array_equal(values[0], config['shared']['alphas']):
             raise ValueError('Theory alpha grid differs from configuration')
@@ -90,31 +92,30 @@ def validate_templates(root, config):
         if values[3].shape != expected:
             raise ValueError('Template spatial grid differs from configuration')
         products[dim] = values
-        inputs += [manifest_path(directory), path]
     return products, inputs
 
 
 def save_results(out, products, prepared, config, sigmas, identity):
     """Run all six dimension/mode cases, each with the zero-data control (same C, d = 0)."""
     results, table = {}, []
+    sections = dict(observations={}, background={}, cases={})
     for dim in ('1d', '2d'):
         alpha, amp, phase, _ = products[dim]
         selected, samples, coordinates, selection = prepared[dim]
         observed, zero_data, diagnostics = build_observations(
             samples, selected, resultant_min=identity['resultant_min'])
         positions = diagnostics['retained_initial_positions']
-        np.savez(out / f'observations-{dim}.npz', selected_indices=observed.selected_indices,
-                 coordinates=np.asarray(coordinates)[positions], means=observed.means,
-                 standard_deviations=observed.standard_deviations, covariances=observed.covariances,
-                 pair_differences=observed.pair_differences, pair_covariances=observed.pair_covariances,
-                 zero_data_pair_differences=zero_data.pair_differences, resultant=diagnostics['resultant'],
-                 sample_counts=diagnostics['sample_counts'],
-                 local_branch_mean_minus_circular_radians=
-                 diagnostics['local_branch_mean_minus_circular_radians'],
-                 evpa_samples_radians=np.stack(samples)[:, :, positions])
-        (out / f'observations-{dim}.json').write_text(json.dumps(
-            dict(diagnostics, selection=selection), indent=2, allow_nan=False) + '\n')
-        sigmas[dim] = selected_background(out, dim, observed.selected_indices, config, sigmas[dim])
+        sections['observations'][dim] = dict(
+            diagnostics, selection=selection, selected_indices=observed.selected_indices,
+            coordinates=np.asarray(coordinates)[positions], means=np.asarray(observed.means),
+            standard_deviations=np.asarray(observed.standard_deviations),
+            covariances=np.asarray(observed.covariances),
+            pair_differences=observed.pair_differences,
+            pair_covariances=np.asarray(observed.pair_covariances),
+            zero_data_pair_differences=zero_data.pair_differences,
+            evpa_samples_radians=np.stack(samples)[:, :, positions])
+        sigmas[dim], sections['background'][dim] = selected_background(
+            dim, observed.selected_indices, config, sigmas[dim])
         options = options_from_config(config, sigmas[dim])
         for mode in MODES:
             for label, data in (('observed', observed), ('zero-data', zero_data)):
@@ -128,10 +129,7 @@ def save_results(out, products, prepared, config, sigmas, identity):
                     diagnostic['branch_risk'] = branch_risk(data.pair_differences, effective_covariances)
                 diagnostic['observed_mean_definition'] = diagnostics['mean_definition']
                 key = f'{label}-{mode}-{dim}'
-                np.savez(out / f'{key}.npz', alphas=a, log10_c95=cuts, c95=10**cuts,
-                         couplings=diagnostic['couplings'], log_likelihood=diagnostic['log_likelihood'],
-                         posterior_density=diagnostic['posterior_density'], cdf=diagnostic['cdf'])
-                (out / f'{key}.json').write_text(json.dumps(diagnostic, indent=2, allow_nan=False)+'\n')
+                sections['cases'][key] = dict(diagnostic, log10_c95=cuts)
                 results[key] = dict(alphas=a.tolist(), c95=(10**cuts).tolist(),
                                     log10_c95=cuts.tolist(), features=len(observed.selected_indices))
                 table.extend(dict(data=label, mode=mode, dimension=dim, alpha=float(x),
@@ -154,7 +152,7 @@ def save_results(out, products, prepared, config, sigmas, identity):
                             'Finite prior/grid conditional credible bounds, not certified exclusions.',
                             'cor_fixed_background adds a fixed scalar GRMHD background variance, '
                             'not a response-model variance.'])
-    (out / 'report.json').write_text(json.dumps(report, indent=2, allow_nan=False)+'\n')
+    write_results(out, report, sections)
     return report
 
 
@@ -178,7 +176,7 @@ def plot_results(out, results):
     plt.close(fig)
 
 
-def selected_background(out, dimension, selected, config, source):
+def selected_background(dimension, selected, config, source):
     """Pool lagged no-axion differences on exactly the final likelihood features.
 
     1D integrates the unchanged theory aperture before selecting angular bins;
@@ -215,16 +213,12 @@ def selected_background(out, dimension, selected, config, source):
     differences = circular_difference(values[lag:], values[:-lag])
     center = float(differences.mean())
     sigma = float(np.sqrt(np.mean((differences - center)**2)))
-    np.savez(out / f'background-selected-{dimension}.npz', selected_indices=selected,
-             differences=differences, sigma_radians=sigma, mean_radians=center,
-             spatial_covariance=np.cov(differences, rowvar=False, ddof=0))
-    metadata = dict(source, dimension=dimension, lag=lag, sigma_radians=sigma, mean_radians=center,
-                    lag_hours=lag * source['cadence_hours'], selected_indices=selected.tolist(),
-                    method='pooled centered population MLE; fixed scalar pair-difference variance',
-                    cross_feature_covariance_used=False, sqrt2_correction=False)
-    (out / f'background-selected-{dimension}.json').write_text(
-        json.dumps(metadata, indent=2, allow_nan=False) + '\n')
-    return sigma
+    record = dict(source, dimension=dimension, lag=lag, sigma_radians=sigma, mean_radians=center,
+                  lag_hours=lag * source['cadence_hours'], selected_indices=np.asarray(selected),
+                  method='pooled centered population MLE; fixed scalar pair-difference variance',
+                  cross_feature_covariance_used=False, sqrt2_correction=False,
+                  differences=differences, spatial_covariance=np.cov(differences, rowvar=False, ddof=0))
+    return sigma, record
 
 
 def theory_aperture_operator(config):
@@ -276,13 +270,12 @@ def prepare_limit_inputs(ensemble, templates, config, products):
             or record['config'].get('draw_count') != draws * len(DAYS)
             or report.get('angle_convention') != 'EVPA radians modulo pi, east of north'
             or report.get('map_order') !=
-            'draw,y,x,IQUV; native FITS E decreases along x, N increases along y'):
+            'day,draw,y,x,IQUV; native FITS E decreases along x, N increases along y'):
         raise ValueError('Complete audited fixed-D ensemble contract required')
     axes_path = ensemble / 'axes.npz'
     require_declared_outputs(ensemble, [axes_path])
     with np.load(axes_path, allow_pickle=False) as z:
         east_axis, north_axis = z['east_uas'], z['north_uas']
-    days = {str(d): dict(stokes=f'day-{d}/stokes.npy', evpa_2d=f'day-{d}/evpa.npy') for d in DAYS}
     geometry = analysis_geometry(config)
     # Native maps are [y, x] with E decreasing along x; templates are [x, y] on (-E, N).
     n = config['shared']['image']['shape']
@@ -296,17 +289,15 @@ def prepare_limit_inputs(ensemble, templates, config, products):
     if (not np.allclose(east, -np.broadcast_to(grid[:, None], (n, n)), atol=1e-12, rtol=0)
             or not np.allclose(north, np.broadcast_to(grid[None, :], (n, n)), atol=1e-12, rtol=0)):
         raise ValueError('Ensemble sky axes differ from the shared sky grid (-E,N)')
-    inputs = [manifest_path(ensemble), report_path, axes_path]
+    stokes_path = ensemble / 'stokes.npy'
+    require_declared_outputs(ensemble, [stokes_path])
+    inputs = [manifest_path(ensemble), report_path, axes_path, stokes_path]
+    ensemble_maps = np.load(stokes_path, mmap_mode='r', allow_pickle=False)
+    if ensemble_maps.shape != (len(DAYS), draws, n, n, 4):
+        raise ValueError('Ensemble Stokes sample shape mismatch')
     data, masks, angular_masks = [], [], []
     operator = theory_aperture_operator(config)
-    for day in DAYS:
-        entry = days[str(day)]
-        paths = [ensemble / entry[key] for key in ('stokes', 'evpa_2d')]
-        require_declared_outputs(ensemble, paths)
-        inputs.extend(paths)
-        maps = np.load(paths[0], mmap_mode='r', allow_pickle=False)
-        if maps.ndim != 4 or maps.shape[1:] != (n, n, 4) or len(maps) < 2:
-            raise ValueError('Ensemble Stokes sample shape mismatch')
+    for maps in ensemble_maps:
         aperture, sector_intensity, sector_polarized = matched_aperture_samples(maps, operator)
         # Draw-mean sector statistics; both thresholds always apply
         # (polarization_fraction 0 selects by brightness only).
@@ -315,9 +306,7 @@ def prepare_limit_inputs(ensemble, templates, config, products):
             raise ValueError('Nonfinite sector brightness (a sector without positive intensity)')
         angular_masks.append((intensity_1d >= features['intensity_fraction'] * intensity_1d.max())
                              & (polarized_1d >= features['polarization_fraction'] * polarized_1d.max()))
-        evpa_maps = np.load(paths[1], mmap_mode='r', allow_pickle=False)
-        if evpa_maps.shape != maps.shape[:-1]:
-            raise ValueError('Ensemble map EVPA shape mismatch')
+        evpa_maps = map_evpa(np.asarray(maps))
         mean = np.mean(maps, axis=0).transpose(1, 0, 2)
         if not np.isfinite(mean).all():
             raise ValueError('Nonfinite ensemble mean Stokes')

@@ -283,26 +283,44 @@ def _moments_update(count, mean, m2, values):
     return new_count, new_mean, new_m2
 
 
-def summarize_fits(fits_by_alpha: Mapping[float, object], output_dir) -> dict[str, Path]:
+def summarize_fits(fits_by_dimension: Mapping[str, Mapping[float, object]], output_dir) -> dict[str, Path]:
     """Gaussian MLE time distributions; circularly lift phases before fitting.
 
-    Supply one dimension at a time: {alpha: response-*.npz}. Labels do not enter
-    statistics. templates.npz arrays have shape (alpha, spatial...). A location
-    needs at least two finite snapshots. No pickle, normality gate, or
-    histogram-fit rejection is used.
+    ``fits_by_dimension`` is {"1d": {alpha: response-1d.npz}, "2d": {alpha: response-2d.npz}}.
+    templates.npz holds "<dimension>/<name>" arrays of shape (alpha, spatial...). Labels do
+    not enter statistics. A location needs at least two finite snapshots. No pickle,
+    normality gate, or histogram-fit rejection is used.
     """
+    if not fits_by_dimension:
+        raise ValueError("at least one dimension is required")
+    series = {dim: [_FitSeries(fits[a], ndim=(3, 4), stokes=False) for a in sorted(fits)]
+              for dim, fits in fits_by_dimension.items()}
+    result = _outputs(output_dir, {"templates": "templates.npz", "metadata": "summary.json"},
+                      [s.path for dim in series for s in series[dim]])
+    arrays, metadata = {}, {}
+    for dim, fits in fits_by_dimension.items():
+        alphas, products, spatial = _summarize_dimension(fits, series[dim])
+        arrays.update({f"{dim}/{name}": value for name, value in products.items()})
+        metadata[dim] = dict(alphas=alphas, inputs=[s.describe() for s in series[dim]],
+                             spatial_shape=list(spatial))
+    np.savez(result["templates"], **arrays)
+    _metadata(result["metadata"], stage="summarize", dimensions=metadata,
+              minimum_samples=_MINIMUM_SAMPLES,
+              method="Gaussian MLE, ddof=0; phases lifted about circular mean", units="rad",
+              normality_gate=False)
+    return result
+
+
+def _summarize_dimension(fits_by_alpha, series_list):
     minimum_samples = _MINIMUM_SAMPLES
     if not fits_by_alpha:
         raise ValueError("at least one alpha is required")
     alphas = sorted(fits_by_alpha)
     if not np.all(np.isfinite(alphas)):
         raise ValueError("alphas must be finite numeric values")
-    series_list = [_FitSeries(fits_by_alpha[a], ndim=(3, 4), stokes=False) for a in alphas]
     spatial = series_list[0].shape[1:-1]
     if any(s.shape[-1] != 3 or s.shape[1:-1] != spatial for s in series_list):
         raise ValueError("fit products must have matching spatial shape and 3 columns")
-    result = _outputs(output_dir, {"templates": "templates.npz", "metadata": "summary.json"},
-                      [s.path for s in series_list])
     products = {name: np.full((len(alphas),) + spatial, np.nan) for name in (
         "amplitude_mean", "amplitude_std", "phase_mean", "phase_std",
     )}
@@ -331,19 +349,15 @@ def summarize_fits(fits_by_alpha: Mapping[float, object], output_dir) -> dict[st
         products["phase_mean"][a] = np.where(good, _wrap(center + mean, 2 * np.pi), np.nan)
         products["phase_std"][a] = np.where(good, np.sqrt(m2 / np.maximum(count, 1)), np.nan)
         counts["phase_count"][a] = count
-    np.savez(result["templates"], alphas=np.asarray(alphas, dtype=np.float64), **products, **counts)
-    _metadata(result["metadata"], stage="summarize", alphas=alphas,
-              inputs=[s.describe() for s in series_list], minimum_samples=minimum_samples,
-              method="Gaussian MLE, ddof=0; phases lifted about circular mean", units="rad",
-              normality_gate=False, spatial_shape=list(spatial))
-    return result
+    return alphas, dict(alphas=np.asarray(alphas, dtype=np.float64), **products, **counts), spatial
 
 
 def load_templates(path, dimension):
+    """(alphas, amplitude, phase, valid) of one dimension of templates.npz."""
     with np.load(path, allow_pickle=False) as z:
-        alphas = z["alphas"].copy()
+        alphas = z[f"{dimension}/alphas"].copy()
         keys = ["amplitude_mean", "amplitude_std", "phase_mean", "phase_std"]
-        values = [z[k].copy() for k in keys]
+        values = [z[f"{dimension}/{k}"].copy() for k in keys]
     if dimension not in {"1d", "2d"} or alphas.ndim != 1 or not len(alphas):
         raise ValueError("Invalid template dimension/alpha grid")
     if not np.isfinite(alphas).all() or np.any(np.diff(alphas) <= 0):
@@ -377,8 +391,9 @@ class RunLayout:
     def response(self, alpha):
         return self.root / "response" / alpha_label(alpha)
 
-    def templates(self, dimension):
-        return self.root / "templates" / dimension
+    @property
+    def templates(self):
+        return self.root / "templates"
 
     @property
     def background_processed(self):

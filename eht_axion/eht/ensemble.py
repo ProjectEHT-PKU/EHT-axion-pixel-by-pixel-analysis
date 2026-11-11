@@ -4,14 +4,12 @@ I,Q,U,V are never flipped or sign-converted; EVPA is east of north (radians,
 modulo pi). No RAPTOR mapping, beam deconvolution or re-centring (the Paper VII
 Sec. 5.2 alignment is a zero shift here).
 
-Per day the stage writes the per-draw Stokes maps (by scripts/eht/summarize.py), the per-draw
-EVPA maps and the whole-field image-averaged quantities of Paper VII Sec. 5.3 (m_net,
-<|m|>, EVPA, beta_2) for comparison with the paper. Sector apertures, means,
-covariances and day differences are computed by the analysis.
+scripts/eht/summarize.py writes the per-draw Stokes maps of the four days and the whole-field
+image-averaged quantities of Paper VII Sec. 5.3 (m_net, <|m|>, EVPA, beta_2) for comparison
+with the paper. Per-pixel EVPA maps (map_evpa), sector apertures, means, covariances and day
+differences are computed by the analysis.
 """
 from __future__ import annotations
-
-from pathlib import Path
 
 import numpy as np
 
@@ -127,15 +125,13 @@ def global_diagnostics(image, east, north):
             float(evpa(net.real, net.imag)), beta.real, beta.imag]
 
 
-def summarize(samples, east, north, directory):
-    """Write evpa.npy and global.npz for one day (pickle-free)."""
-    directory = Path(directory)
-    chi = np.lib.format.open_memmap(directory / 'evpa.npy', mode='w+', dtype='float64',
-                                   shape=samples.shape[:-1])
-    diagnostics = np.empty((len(samples), len(GLOBAL_COLUMNS)))
-    for k, image in enumerate(samples):
-        chi[k] = evpa(image[..., 1], image[..., 2])
-        chi[k][image[..., 0] <= 0] = np.nan
-        diagnostics[k] = global_diagnostics(image, east, north)
-    chi.flush()
-    np.savez(directory / 'global.npz', values=diagnostics, columns=np.array(GLOBAL_COLUMNS))
+def map_evpa(samples):
+    """Per-pixel EVPA (radians in [0, pi)) of (..., y, x, IQUV) images; NaN where I <= 0 or P = 0."""
+    chi = evpa(samples[..., 1], samples[..., 2])
+    chi[samples[..., 0] <= 0] = np.nan
+    return chi
+
+
+def global_values(samples, east, north):
+    """GLOBAL_COLUMNS of every image of a (draws, y, x, IQUV) day ensemble."""
+    return np.array([global_diagnostics(image, east, north) for image in samples], dtype=np.float64)

@@ -69,7 +69,8 @@ pixi run --locked lint
 | `eht_axion/raptor/options.py` | `RAPTOR` 脚本共用的命令行/dotenv 解析器 | `options` |
 | `eht_axion/eht/calibration.py` | 原生圆偏振 HOPS 载入、`fsys`、逆琼斯 D 改正、零先验前向 D 拟合与四天 D 抽样 | `load_native`、`add_fsys`、`make_imaging_obs`、`apply_fixed_d`、`fit_forward_d`、`d_distribution`、`sample_dterms` |
 | `eht_axion/eht/convex.py` | 带对偶间隙（duality gap）证书的固定 $I$/固定 $D$ 精确凸优化原始–对偶混合梯度（PDHG）$P$ 求解器 | `exact_cartesian_problem`、`solve_problem`、`CartesianProblem` |
-| `eht_axion/eht/ensemble.py` | 严格四扩展单元（4-HDU）Stokes FITS 读取器、Paper VII 全局诊断量与逐日系综汇总写出器 | `load_stokes_fits`、`global_diagnostics`、`summarize` |
+| `eht_axion/eht/ensemble.py` | 严格四扩展单元（4-HDU）Stokes FITS 读取器、Paper VII 全局诊断量与逐像素 EVPA 图 | `load_stokes_fits`、`global_diagnostics`、`global_values`、`map_evpa` |
+| `eht_axion/analysis/results.py` | 上限类阶段的结果文件：数组存入 `results.npz`，其余存入 `report.json` | `write_results`、`read_results` |
 | `eht_axion/analysis/templates.py` | 高斯模糊与天空旋转重采样、16 相位离散傅里叶拟合、快照极大似然汇总及模板读取 | `preprocess_frame`、`preprocess_cube`、`fit_phase_dft`、`fit_processed`、`summarize_fits`、`load_templates`、`RunLayout` |
 | `eht_axion/analysis/aperture.py` | 用于 1D 扇区 EVPA 和扇区亮度的压缩稀疏行（CSR）双线性求积算子 | `aperture_operator`、`integrate_stokes`、`sector_brightness` |
 | `eht_axion/analysis/model.py` | 轴子云振幅标度 $b(\alpha)$、$\alpha$ 节点圆插值及双历元日对 EVPA 信号模板 | `cloud_amplitude_scaling`、`interpolate_fit_parameters`、`evpa_templates` |

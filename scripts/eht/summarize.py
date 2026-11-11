@@ -8,8 +8,8 @@ MC is the output root of scripts/eht/sample.py; its batch must be finished and m
 made with the science values of the current experiment.yaml. Draw count and sky grid
 come from experiment.yaml. Only the blurred images (blurred with
 shared.image.blur_fwhm_uas, like the simulated images) are summarized.
-Outputs: day-D/{stokes.npy,evpa.npy,global.npz},
-axes.npz, report.json (conventions, registration, scope).
+Outputs: stokes.npy (day, draw, y, x, IQUV), global.npz (values: day, draw, column; days;
+columns), axes.npz, report.json (conventions, registration, scope).
 """
 
 from pathlib import Path
@@ -57,19 +57,20 @@ def verify_batch(root, settings, science):
         raise ValueError('incomplete or inconsistent Monte Carlo batch (batch.json / finish.json)')
     if batch.get('science') != json.loads(json.dumps(science)):
         raise ValueError('Monte Carlo batch was made with different experiment values')
+    from scripts.eht.sample import enumerate_tasks
+
     draws = read_json(results / 'all-draws.json')
-    taskpath = results / 'tasks.jsonl'
-    tasks = [json.loads(line) for line in taskpath.read_text().splitlines()]
+    tasks = enumerate_tasks(draws)
     expected = {f'{d}-{k:04d}' for d in en.DAYS for k in range(count)}
     if (len(tasks) != count * len(en.DAYS) or {t['id'] for t in tasks} != expected
             or set(finish['receipts']) != expected):
         raise ValueError(f'not exactly {count} unique draws/day')
-    paths = [results / 'batch.json', results / 'finish.json', results / 'all-draws.json', taskpath]
+    paths = [results / 'batch.json', results / 'finish.json', results / 'all-draws.json']
     selected = {d: {} for d in en.DAYS}
     for task in tasks:
         d, k = task['day'], task['draw']
         if (d not in en.DAYS or not isinstance(k, int) or not 0 <= k < count
-                or task['id'] != f'{d}-{k:04d}' or task['dterms'] != draws[d]['draws'][k]):
+                or task['id'] != f'{d}-{k:04d}'):
             raise ValueError('draw/task mismatch')
         directory = contained(results, finish['receipts'][task['id']])
         receipt = read_json(directory / 'taskreceipt.json')
@@ -91,11 +92,9 @@ def run(selected, out, settings):
     draws, n = settings['draws'], settings['shape']
     pixel = settings['fov_uas'] / n
     reference = None
-    for d in en.DAYS:
-        directory = out / ('day-' + d)
-        directory.mkdir(parents=True)
-        samples = np.lib.format.open_memmap(directory / 'stokes.npy', mode='w+',
-                                           dtype='float64', shape=(draws, n, n, 4))
+    samples = np.lib.format.open_memmap(out / 'stokes.npy', mode='w+', dtype='float64',
+                                       shape=(len(en.DAYS), draws, n, n, 4))
+    for i, d in enumerate(en.DAYS):
         for k in range(draws):
             loaded = load_stokes_fits(selected[d][k]['blurred'])
             east, north = loaded['east_uas'], loaded['north_uas']
@@ -110,20 +109,20 @@ def run(selected, out, settings):
             elif (not np.array_equal(east, reference[0]) or not np.array_equal(north, reference[1])
                   or geometry[2:] != reference[2:]):
                 raise ValueError('inconsistent FITS axes/frequency/units')
-            samples[k] = loaded['stokes']
-        samples.flush()
-        # The Paper VII Sec. 5.2 alignment is a zero shift here: images used as reconstructed.
-        en.summarize(samples, *reference[:2], directory)
+            samples[i, k] = loaded['stokes']
         print(f'SUMMARIZED day-{d}', flush=True)
-        del samples
+    samples.flush()
+    # The Paper VII Sec. 5.2 alignment is a zero shift here: images used as reconstructed.
+    values = np.array([en.global_values(samples[i], *reference[:2]) for i in range(len(en.DAYS))])
+    np.savez(out / 'global.npz', values=values, days=np.array(en.DAYS), columns=np.array(en.GLOBAL_COLUMNS))
+    del samples
     report = dict(schema='eht-ensemble', days=list(en.DAYS), draws_per_day=draws,
-                  map_order='draw,y,x,IQUV; native FITS E decreases along x, N increases along y',
+                  map_order='day,draw,y,x,IQUV; native FITS E decreases along x, N increases along y',
                   angle_convention='EVPA radians modulo pi, east of north',
                   registration='none: the Paper VII Sec. 5.2 alignment is a zero shift; '
                                'images used as reconstructed',
                   resolution='blurred products of scripts/eht/sample.py (shared.image.blur_fwhm_uas); '
                              'no blur applied here',
-                  evpa_mask='EVPA NaN where I <= 0 or Q+iU = 0',
                   scope='conditional fixed-I D-term MC only; no thermal bootstrap, response variance, '
                         'covariance-estimation uncertainty or scientific acceptance certification',
                   beta2='Paper VII eq. 14 with rho_min 0 and rho_max the full field: '

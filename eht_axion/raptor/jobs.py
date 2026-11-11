@@ -569,28 +569,13 @@ def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, bas
         with provenance.stage_directory(destination, "raptor:job", config, inputs) as temporary:
             registry.check()
             if temporary is None:
-                # A generic complete manifest alone is insufficient.
-                provenance.require_declared_outputs(destination, [destination / "success.json",
-                                                             destination / "output.json"])
-                success = json.loads((destination / "success.json").read_text())
-                if (success.get("returncode") != 0
-                        or success.get("timed_out") is not False
-                        or success.get("output_validated") is not True):
-                    raise ValueError("Cached job lacks a successful process receipt")
+                # The manifest (same config and inputs) plus valid outputs make a finished job.
                 validated = validate_job_output(destination, task)
                 provenance.require_declared_outputs(destination, [destination / validated["hdf5"],
                                                              destination / validated["spectrum"],
-                                                             destination / "model.in",
-                                                             destination / "grid_mks.in",
-                                                             destination / "task.json"])
+                                                             destination / "model.in"])
                 if (destination / "model.in").read_text() != serialize_parameters(task["parameters"]):
                     raise ValueError("Cached job model.in differs from task")
-                if json.loads((destination / "task.json").read_text()) != config:
-                    raise ValueError("Cached task receipt differs from task config")
-                if (destination / "grid_mks.in").read_bytes() != grid.read_bytes():
-                    raise ValueError("Cached job grid differs from declared build grid")
-                if json.loads((destination / "output.json").read_text()) != validated:
-                    raise ValueError("Cached output validation metadata differs")
                 result.update(status="cached")
             else:
                 attempt_parent.mkdir(parents=True, exist_ok=True)
@@ -606,8 +591,8 @@ def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, bas
                 _json(attempt / "input.json", receipt)
                 execution_token = _EXECUTION.set((registry, receipt))
                 try:
-                    _json(temporary / "task.json", config)
                     (temporary / "model.in").write_text(serialize_parameters(task["parameters"]))
+                    # RAPTOR reads the grid from its working directory; it is not a product.
                     shutil.copyfile(grid, temporary / "grid_mks.in")
                     registry.check()
                     code, timed_out = _execute(command, temporary, env, attempt / "stdout.log",
@@ -618,10 +603,8 @@ def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, bas
                         raise RuntimeError(f"RAPTOR timed out after {timeout_seconds} seconds")
                     if code != 0:
                         raise RuntimeError(f"RAPTOR exited with returncode {code}")
-                    validated = validate_job_output(temporary, task)
-                    _json(temporary / "output.json", validated)
-                    _json(temporary / "success.json", {"returncode": 0, "timed_out": False,
-                                                       "output_validated": True})
+                    validate_job_output(temporary, task)
+                    (temporary / "grid_mks.in").unlink()
                     shutil.copyfile(attempt / "stdout.log", temporary / "stdout.log")
                     shutil.copyfile(attempt / "stderr.log", temporary / "stderr.log")
                     registry.check()

@@ -24,11 +24,6 @@ def _job_files(run_root, task, build_inputs):
     _, expected, raw_inputs = _prepare_task(task)
     if record["stage"] != "raptor:job" or any(record["config"].get(k) != v for k, v in expected.items()):
         raise ValueError("Completed job belongs to a different generation task")
-    require_declared_outputs(directory, [directory / "success.json", directory / "output.json"])
-    success = json.loads((directory / "success.json").read_text())
-    if (success.get("returncode") != 0
-            or success.get("timed_out") is not False or success.get("output_validated") is not True):
-        raise ValueError("Job lacks a successful validated execution receipt")
     if {Path(p).resolve() for p in record["inputs"]} != {
         Path(p).resolve() for p in build_inputs + raw_inputs
     }:

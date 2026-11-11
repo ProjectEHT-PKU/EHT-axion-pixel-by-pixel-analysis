@@ -69,7 +69,8 @@ Several test modules enforce repository-wide invariants rather than single-funct
 | `eht_axion/raptor/options.py` | Shared CLI/dotenv parser of the `RAPTOR` scripts | `options` |
 | `eht_axion/eht/calibration.py` | Native circular HOPS loading, `fsys`, inverse Jones D application, zero-prior forward D fit, and 4-day D sampling | `load_native`, `add_fsys`, `make_imaging_obs`, `apply_fixed_d`, `fit_forward_d`, `d_distribution`, `sample_dterms` |
 | `eht_axion/eht/convex.py` | Exact convex fixed-$I$/fixed-$D$ PDHG $P$ solver with duality-gap certification | `exact_cartesian_problem`, `solve_problem`, `CartesianProblem` |
-| `eht_axion/eht/ensemble.py` | Strict 4-HDU Stokes FITS reader, Paper VII global diagnostics, and daily ensemble writer | `load_stokes_fits`, `global_diagnostics`, `summarize` |
+| `eht_axion/eht/ensemble.py` | Strict 4-HDU Stokes FITS reader, Paper VII global diagnostics, and per-pixel EVPA maps | `load_stokes_fits`, `global_diagnostics`, `global_values`, `map_evpa` |
+| `eht_axion/analysis/results.py` | Limit-stage result files: arrays in `results.npz`, everything else in `report.json` | `write_results`, `read_results` |
 | `eht_axion/analysis/templates.py` | Gaussian blur + sky rotation resampling, 16-phase DFT fit, snapshot MLE summary, and template loader | `preprocess_frame`, `preprocess_cube`, `fit_phase_dft`, `fit_processed`, `summarize_fits`, `load_templates`, `RunLayout` |
 | `eht_axion/analysis/aperture.py` | Sparse CSR bilinear quadrature operator for 1D sector EVPA and brightness | `aperture_operator`, `integrate_stokes`, `sector_brightness` |
 | `eht_axion/analysis/model.py` | Cloud amplitude $b(\alpha)$, circular $\alpha$ interpolation, and two-pair EVPA signal templates | `cloud_amplitude_scaling`, `interpolate_fit_parameters`, `evpa_templates` |

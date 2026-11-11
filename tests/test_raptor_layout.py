@@ -32,5 +32,5 @@ def test_run_layout_directories(tmp_path):
     layout = RunLayout(tmp_path)
     assert layout.processed(0.1) == tmp_path / "processed/alpha-0.10"
     assert layout.response(0.44) == tmp_path / "response/alpha-0.44"
-    assert layout.templates("2d") == tmp_path / "templates/2d"
+    assert layout.templates == tmp_path / "templates"
     assert layout.background_processed == tmp_path / "background"

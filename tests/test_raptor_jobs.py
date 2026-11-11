@@ -11,7 +11,8 @@ import time
 import pytest
 
 from eht_axion import provenance
-from eht_axion.raptor.jobs import PARAMETER_UNITS, run_jobs, serialize_parameters
+from eht_axion.raptor.jobs import PARAMETER_UNITS, _prepare_task, run_jobs, serialize_parameters
+from eht_axion.raptor.outputs import validate_job_output
 from eht_axion.raptor.outputs import CORE_CONSTANTS
 from test_raptor_outputs import make_task, write_products
 
@@ -45,7 +46,7 @@ Path("environment.json").write_text(json.dumps({{k: os.environ[k] for k in
     ["OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"]}}))
 assert Path("grid_mks.in").read_text() == "private grid\\n"
 assert Path(sys.argv[2]).read_bytes()
-task_id = json.loads(Path("task.json").read_text())["id"]
+task_id = Path.cwd().name.split(".building-")[0]  # stage directory jobs/<task id>.building-*
 Path("binding-environment.json").write_text(json.dumps({{k: os.environ.get(k) for k in
     ["OMP_PROC_BIND", "OMP_PLACES", "GOMP_CPU_AFFINITY"]}}))
 Path("actual-affinity.json").write_text(json.dumps(sorted(os.sched_getaffinity(0))))
@@ -158,7 +159,11 @@ def test_plan_explicit_units_and_response_outputslot(setup):
     assert result["counts"]["complete"] == 1
     directory = setup["run"] / "jobs/response-0"
     assert (directory / "output/img_data_1.h5").is_file()
-    metadata = json.loads((directory / "output.json").read_text())
+    assert not (directory / "output.json").exists() and not (directory / "grid_mks.in").exists()
+    prepared = _prepare_task(task)[0]
+    prepared.update(core_constants=CORE_CONSTANTS,
+                    core_constants_source=str(setup["build"] / "definitions.h"))
+    metadata = validate_job_output(directory, prepared)
     assert metadata["state_slot"] == 1
     assert metadata["physical_phase_index"] == 0
     assert str(setup["table"]) in provenance.verify_stage(directory)["inputs"]
@@ -434,7 +439,7 @@ def test_bounded_rolling_overlap_private_states_and_worker_count_resume(setup, m
         manifest = provenance.verify_stage(destination)
         assert manifest["config"]["id"] == entry["id"]
         assert "workers" not in manifest["config"]
-        assert json.loads((destination / "task.json").read_text()) == manifest["config"]
+        assert not (destination / "task.json").exists()
         receipt = json.loads((Path(entry["attempt"]) / "result.json").read_text())
         assert receipt["task_id"] == entry["id"]
         assert receipt["pid"] == receipt["process_group"] == entry["pid"]

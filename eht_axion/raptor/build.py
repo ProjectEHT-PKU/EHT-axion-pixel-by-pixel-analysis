@@ -78,30 +78,10 @@ def _clean_source(root, source):
     return commit
 
 
-def _tracked_source(root, commit):
-    records = []
-    for entry in _git(root, "ls-tree", "-rz", "--full-tree", commit).split(b"\0"):
-        if not entry:
-            continue
-        metadata, name = entry.split(b"\t", 1)
-        mode, kind, oid = metadata.decode().split()
-        path = Path(os.fsdecode(name))
-        if mode not in {"100644", "100755"} or kind != "blob":
-            raise ValueError(f"Unsupported tracked source (symlink/submodule): {path}")
-        if path.is_absolute() or ".." in path.parts or ".git" in path.parts:
-            raise ValueError(f"Unsafe tracked source path: {path}")
-        data = _git(root, "cat-file", "blob", oid)
-        records.append((path, mode, data))
-    required = {"setup.sh", "run/makefile", "src/main.c", "model/bhac/definitions.h"}
-    if not required <= {str(path) for path, _, _ in records}:
-        raise ValueError("Incomplete RAPTOR source tree")
-    return records
-
-
 def _toolchain():
     env = os.environ.copy()
     # Do not let a caller's make search paths, injected makefiles, or header paths
-    # redirect the official source list outside the private snapshot.
+    # redirect the official source list outside the pinned checkout.
     for name in ("VPATH", "CPATH", "C_INCLUDE_PATH", "CPLUS_INCLUDE_PATH", "OBJC_INCLUDE_PATH",
                  "MAKEFLAGS", "MFLAGS", "GNUMAKEFLAGS", "MAKEFILES", "RAPTOR", "CDPATH"):
         env.pop(name, None)
@@ -177,8 +157,8 @@ def build_raptor(source_root: Path, destination: Path, settings: dict, source: d
     Inputs in the manifest never refer to temporary build paths. The RAPTOR source is
     identified by raptor.source (repository and commit; clean checkout at that commit with
     a remote pointing to that repository);
-    the private source snapshot copied from that commit is a declared stage output. The
-    commands run in the temporary stage directory.
+    setup.sh of that checkout runs in the temporary stage directory, which receives every
+    generated file; the checkout must still be clean afterwards.
     """
     settings = _settings(settings)
     source_root = Path(source_root).resolve(strict=True)
@@ -190,22 +170,18 @@ def build_raptor(source_root: Path, destination: Path, settings: dict, source: d
     if not isinstance(source, dict) or set(source) != {"repository", "commit"}:
         raise ValueError("raptor.source requires exactly repository and commit")
     commit = _clean_source(source_root, source)
-    records = _tracked_source(source_root, commit)
+    if not all((source_root / name).is_file() for name in ("setup.sh", "run/makefile", "src/main.c",
+                                                           "model/bhac/definitions.h")):
+        raise ValueError("Incomplete RAPTOR source tree")
     env, compiler, toolchain = _toolchain()
     config = {"settings": settings, "source_repository": source["repository"], "source_commit": commit,
               "toolchain": toolchain}
     with stage_directory(destination, "raptor:build", config) as work:
         if work is None:
             return destination
-        snapshot = work / "source"
-        for path, mode, data in records:
-            target = snapshot / path
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(data)
-            target.chmod(0o755 if mode == "100755" else 0o644)
-        env["RAPTOR"] = str(snapshot)
+        env["RAPTOR"] = str(source_root)
         env["PWD"] = str(work)
-        command = [toolchain["tools"]["bash"], str(snapshot / "setup.sh"), *_arguments(settings)]
+        command = [toolchain["tools"]["bash"], str(source_root / "setup.sh"), *_arguments(settings)]
         commands = [command]
         with (work / "compile.log").open("w") as log:
             log.write("COMMAND " + shlex.join(command) + "\n")
@@ -260,7 +236,6 @@ def build_raptor(source_root: Path, destination: Path, settings: dict, source: d
         receipt = {
             "source_repository": source["repository"], "source_commit": commit,
             "source_root": str(source_root),
-            "source_snapshot": str(destination / "source"),
             "settings": settings, "actual_macros": actual, "toolchain": toolchain,
             "binary": str(destination / "RAPTOR"),
             "compiler_flags_file": str(destination / "compiler-flags.txt"),

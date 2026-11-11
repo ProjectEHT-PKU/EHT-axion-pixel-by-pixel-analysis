@@ -11,6 +11,7 @@ import pytest
 from eht_axion.analysis import paper_figures as figures
 from scripts.analysis import paper
 from eht_axion import provenance
+from eht_axion.analysis.results import write_results
 from eht_axion.experiment import read_experiment
 
 MODES = ("std", "cor", "cor_fixed_background")
@@ -120,7 +121,7 @@ def data_root(tmp_path):
         "1d": np.array([74, 84, 94, 144, 154]),
         "2d": np.array([5 * 64 + 10, 30 * 64 + 30, 30 * 64 + 31]),
     }
-    limits, results = {}, {}
+    sections, results = dict(observations={}, background={}, cases={}), {}
     for d, idx in selected.items():
         k = len(idx)
         base = 0.01 * (np.eye(k) + 0.3)
@@ -129,21 +130,21 @@ def data_root(tmp_path):
             if d == "1d"
             else np.column_stack((idx // 64, idx % 64)) * 1.875
         )
-        limits[f"observations-{d}.npz"] = arrays(
+        sections["observations"][d] = dict(
             selected_indices=idx,
             coordinates=coordinates,
             pair_covariances=np.stack((base, 2 * base)),
             pair_differences=0.05 * rng.standard_normal((2, k)),
+            pair_condition_numbers=[7.4e7, 1.1e6],
         )
-        limits[f"observations-{d}.json"] = text({"pair_condition_numbers": [7.4e7, 1.1e6]})
         differences = 0.03 * rng.standard_normal((138, k))
-        limits[f"background-selected-{d}.npz"] = arrays(
+        sections["background"][d] = dict(
             selected_indices=idx,
             differences=differences,
-            sigma_radians=differences.std(),
-            mean_radians=differences.mean(),
+            sigma_radians=float(differences.std()),
+            mean_radians=float(differences.mean()),
+            lag_hours=26.68,
         )
-        limits[f"background-selected-{d}.json"] = text({"lag_hours": 26.68})
         for m in MODES:
             fits = [
                 dict(
@@ -153,7 +154,7 @@ def data_root(tmp_path):
                 )
                 for j in range(len(alphas))
             ]
-            limits[f"observed-{m}-{d}.json"] = text(
+            sections["cases"][f"observed-{m}-{d}"] = (
                 dict(
                     alphas=alphas,
                     fits=fits,
@@ -168,8 +169,11 @@ def data_root(tmp_path):
             for data in ("observed", "zero-data"):
                 c95 = list(np.geomspace(100, 0.1, len(alphas)) * (1.5 if data == "observed" else 1))
                 results[f"{data}-{m}-{d}"] = dict(alphas=alphas, c95=c95, log10_c95=list(np.log10(c95)))
-    limits["report.json"] = text(dict(scientific_profile=config, results=results))
-    stage(root / "analysis/limits", "analysis:limits", limits)
+    stage(root / "analysis/limits", "analysis:limits", {
+        "report.json": lambda path: write_results(
+            path.parent, dict(scientific_profile=config, results=results), sections),
+        "results.npz": lambda path: None,
+    })
     shifted = {
         key: dict(value, log10_c95=list(np.asarray(value["log10_c95"]) + 1e-3))
         for key, value in results.items()
@@ -219,20 +223,16 @@ def data_root(tmp_path):
             )
         },
     )
+    template_arrays = {}
     for d, shape in (("1d", (360,)), ("2d", (n, n))):
-        stage(
-            templates / f"templates/{d}",
-            "analysis:templates",
-            {
-                "templates.npz": arrays(
-                    alphas=np.asarray(alphas),
-                    amplitude_mean=0.04 + 0.01 * rng.random((len(alphas),) + shape),
-                    amplitude_std=0.005 * rng.random((len(alphas),) + shape) + 1e-4,
-                )
-            },
-        )
+        template_arrays.update({
+            f"{d}/alphas": np.asarray(alphas),
+            f"{d}/amplitude_mean": 0.04 + 0.01 * rng.random((len(alphas),) + shape),
+            f"{d}/amplitude_std": 0.005 * rng.random((len(alphas),) + shape) + 1e-4,
+        })
+    stage(templates / "templates", "analysis:templates", {"templates.npz": arrays(**template_arrays)})
     stage(templates / "background", "analysis:background", {"stokes.npy": array(stokes(rng, (6, 1, n, n)))})
-    days = {}
+    days = []
     for day in (95, 96, 100, 101):
         values = np.column_stack(
             (
@@ -244,17 +244,18 @@ def data_root(tmp_path):
                 np.full(10, 0.01),
             )
         )
-        days[f"day-{day}/global.npz"] = arrays(
-            values=values,
-            columns=np.array(["total_I", "m_net", "m_resolved", "evpa_rad", "beta2_real", "beta2_imag"]),
-        )
+        days.append(values)
     coordinates = (np.arange(n) - (n - 1) / 2) * 120 / n
     stage(
         root / "eht/ensemble",
         "eht:ensemble",
         dict(
-            days,
             **{
+                "global.npz": arrays(
+                    values=np.array(days), days=np.array(["95", "96", "100", "101"]),
+                    columns=np.array(
+                        ["total_I", "m_net", "m_resolved", "evpa_rad", "beta2_real", "beta2_imag"]),
+                ),
                 "axes.npz": arrays(east_uas=-coordinates, north_uas=coordinates),
                 "report.json": text(dict(bunit="JY/PIXEL", frequency_hz=227.0707e9)),
             },

@@ -20,19 +20,20 @@ import numpy as np
 from eht_axion import provenance
 from eht_axion.analysis.likelihood import MODES, calculate_observed
 from eht_axion.analysis.observations import ObservationData
+from eht_axion.analysis.results import read_results, write_results
 from eht_axion.analysis.templates import load_templates
 from eht_axion.experiment import DEFAULT_PATH, read_experiment
 from scripts.analysis.limits import options_from_config, plot_results
 from eht_axion.environment import add_data_root_option, fill_defaults
 
 
-def load_observation(path):
-    with np.load(path, allow_pickle=False) as z:
-        means = tuple(z['means'])
-        std = tuple(z['standard_deviations'])
-        cov = tuple(z['covariances'])
-        differences, pairs = z['pair_differences'], tuple(z['pair_covariances'])
-        selected = z['selected_indices']
+def load_observation(record):
+    """Observed and zero-data ObservationData of one observations record of a limits stage."""
+    means = tuple(record['means'])
+    std = tuple(record['standard_deviations'])
+    cov = tuple(record['covariances'])
+    differences, pairs = record['pair_differences'], tuple(record['pair_covariances'])
+    selected = record['selected_indices']
     observed = ObservationData(means, std, cov, differences, pairs, selected)
     zero_data = ObservationData(means, std, cov, np.zeros_like(differences), pairs, selected)
     return observed, zero_data
@@ -59,24 +60,22 @@ def run(args):
                if v != source_config['analysis']['inference'][k]}
     if not changed:
         raise ValueError('No grid/prior override differs from the source')
-    reportpath = args.source/'report.json'
-    obsfiles = [args.source/f'observations-{d}.npz' for d in ('1d', '2d')]
-    provenance.require_declared_outputs(args.source, [reportpath, *obsfiles])
-    source_report = json.loads(reportpath.read_text())
-    products, inputs = {}, [provenance.manifest_path(args.source), reportpath, *obsfiles]
-    for dim in ('1d', '2d'):
-        root = args.templates/'templates'/dim
-        provenance.verify_stage(root)
-        provenance.require_declared_outputs(root, [root/'templates.npz'])
-        products[dim] = load_templates(root/'templates.npz', dim)
-        inputs += [provenance.manifest_path(root), root/'templates.npz']
+    files = [args.source/'report.json', args.source/'results.npz']
+    provenance.require_declared_outputs(args.source, files)
+    source_report, source = read_results(args.source, ('observations',))
+    root = args.templates/'templates'
+    provenance.verify_stage(root)
+    provenance.require_declared_outputs(root, [root/'templates.npz'])
+    products = {dim: load_templates(root/'templates.npz', dim) for dim in ('1d', '2d')}
+    inputs = [provenance.manifest_path(args.source), *files,
+              provenance.manifest_path(root), root/'templates.npz']
     identity = dict(changed=changed, source=str(args.source),
         same_selected_observations=True, same_covariance=True)
     with provenance.stage_directory(args.output_root, 'analysis:check-grid',
                                 identity, inputs) as out:
-        results, rows = {}, []
+        results, rows, cases = {}, [], {}
         for dim in ('1d', '2d'):
-            observed, zero_data = load_observation(args.source/f'observations-{dim}.npz')
+            observed, zero_data = load_observation(source['observations'][dim])
             alpha, amp, phase, _ = products[dim]
             # Numerical check: only the declared grid/prior knobs differ; physical model fixed.
             options = options_from_config(config, source_report['background_sigma_radians'][dim])
@@ -85,10 +84,7 @@ def run(args):
                     a, cuts, diagnostic = calculate_observed(data, amp, phase, alphas=alpha,
                         dimension=dim, mode=mode, options=options)
                     key = f'{label}-{mode}-{dim}'
-                    np.savez(out/(key+'.npz'), alphas=a, log10_c95=cuts, c95=10**cuts,
-                        couplings=diagnostic['couplings'], cdf=diagnostic['cdf'],
-                        posterior_density=diagnostic['posterior_density'])
-                    (out/(key+'.json')).write_text(json.dumps(diagnostic, indent=2, allow_nan=False)+'\n')
+                    cases[key] = dict(diagnostic, log10_c95=cuts)
                     baseline = np.asarray(source_report['results'][key]['log10_c95'])
                     results[key] = dict(alphas=a.tolist(), c95=(10**cuts).tolist(),
                         log10_c95=cuts.tolist(),
@@ -102,9 +98,9 @@ def run(args):
             writer.writeheader()
             writer.writerows(rows)
         plot_results(out, results)
-        (out/'report.json').write_text(json.dumps(dict(identity, results=results,
+        write_results(out, dict(identity, results=results,
             max_delta_dex=max(abs(v) for r in results.values() for v in r['delta_log10_c95'])),
-            indent=2, allow_nan=False)+'\n')
+            dict(cases=cases))
 
 
 def main(argv=None):

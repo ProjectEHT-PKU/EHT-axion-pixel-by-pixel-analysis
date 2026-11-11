@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """EHT imaging: Paper IV/VII polarimetric imaging (stages I and fiducial), one day per root.
 
-The D-term Monte Carlo ensemble is made by scripts/eht/sample.py from the exported
-bundle (scripts/eht/export_bundle.py); the fiducial D terms are refined by scripts/eht/refine.py.
+The fiducial D terms are refined by scripts/eht/refine.py; the D-term Monte Carlo ensemble
+is made by scripts/eht/sample.py from the I and refine stages.
 
 Scientific parameters: experiment.yaml (eht_imaging + shared.image); the uvfits file of
 each day is verified against its SHA-256 in eht_imaging.inputs. Machine-local locations
@@ -160,7 +160,6 @@ def run_i(plan, core, eh, out):
     native, native_meta = core.load_native(plan['raw'], c['feed_rotation'], scan_average=True,
                                            fixed_sites=c['fixed_sites'], solve_sites=c['solve_sites'])
     text = Path(c['official_script']).read_text()
-    (out / 'official-I-original.py').write_text(text)
     executable = out / 'official-I-120-direct.py'
     executable.write_text(adapt_official(text, c['fov_uas']))
     with patch.object(sys, 'argv', [str(executable), '-i', plan['raw'], '-o', str(out / I_PRODUCTS[0])]):
@@ -314,16 +313,53 @@ def d_dictionary(dterms):
     return result
 
 
+def blur(image, c, eh):
+    b = c['blur_fwhm_uas'] * eh.RADPERUAS
+    return image.blur_circ(b, b)
+
+
 def save_image(image, prefix, c, eh):
     image.save_fits(str(prefix) + '-raw-IQU.fits')
-    b = c['blur_fwhm_uas'] * eh.RADPERUAS
-    blurred = image.blur_circ(b, b)
+    blurred = blur(image, c, eh)
     blurred.save_fits(str(prefix) + '-blurred-IQU.fits')
     return blurred
 
 
+class Rounds:
+    """The Q/U images (raw and blurred) and D terms of every round, written once as rounds.npz.
+
+    I is the fixed I of every round and V is zero, so neither is repeated. Images are in the
+    row order of the FITS products (ehtim save_fits: y flipped); D terms are
+    [round, site, hand (R, L), (real, imag)] for the sites in ``sites``.
+    """
+
+    def __init__(self, sites):
+        self.sites, self.raw, self.blurred, self.dterms = list(sites), [], [], []
+
+    @staticmethod
+    def _qu(image):
+        import numpy as np
+
+        shape = (image.ydim, image.xdim)
+        return np.stack([np.reshape(image.qvec, shape)[::-1, :], np.reshape(image.uvec, shape)[::-1, :]])
+
+    def add(self, image, dterms, c, eh):
+        self.raw.append(self._qu(image))
+        self.blurred.append(self._qu(blur(image, c, eh)))
+        dterms = d_dictionary(dterms)
+        self.dterms.append([dterms[s] for s in self.sites])
+
+    def save(self, path):
+        import numpy as np
+
+        np.savez(path, sites=np.array(self.sites), raw_qu=np.array(self.raw, dtype=np.float64),
+                 blurred_qu=np.array(self.blurred, dtype=np.float64),
+                 dterms=np.array(self.dterms, dtype=np.float64))
+
+
 def run_fiducial(base, fixed, c, core, eh, out):
     image, dterms, steps = initial_image(fixed, c), {}, []
+    rounds = Rounds(c['solve_sites'])
     for r in range(1, c['rounds'] + 1):
         init = restart(image, fixed, c, eh) if r in c['restart_rounds'] else image.copy()
         noisy_base = core.add_fsys(base.copy(), c['fsys'])
@@ -333,14 +369,14 @@ def run_fiducial(base, fixed, c, core, eh, out):
         solved = core.fit_forward_d(noisy_base.copy(), image, sites=c['solve_sites'], optimizer_options=None)
         dterms = d_dictionary({str(row['site']): [row['dr'], row['dl']]
                               for row in solved.tarr if str(row['site']) in c['solve_sites']})
-        dump(out / f'round-{r:02d}-dterms.json', dterms)
-        save_image(image, out / f'round-{r:02d}', c, eh)
+        rounds.add(image, dterms, c, eh)
         steps.append(dict(round=r, blur_restart=r in c['restart_rounds'], optimizers=optimizers))
     # Align the delivered P image with the last solved D, with no further D fit.
     image, optimizers = image_p(core.make_imaging_obs(
         core.apply_fixed_d(core.add_fsys(base.copy(), c['fsys']), dterms)), fixed, image, c, eh)
     save_image(image, out / 'final', c, eh)
     dump(out / 'final-dterms.json', dterms)
+    rounds.save(out / 'rounds.npz')
     dump(out / 'steps.json', steps + [dict(stage='final-P-only', optimizers=optimizers)])
     dump(out / 'termination.json', dict(rounds=c['rounds'], reason='fixed round budget',
          scientifically_converged=False,
@@ -366,7 +402,6 @@ def main(argv=None):
                                 [Path(p) for p in plan['inputs']]) as out:
         if out is None:
             raise FileExistsError('new stage/day root required')
-        dump(out / 'plan.json', plan)
         if args.stage == 'I':
             run_i(plan, core, eh, out)
         else:

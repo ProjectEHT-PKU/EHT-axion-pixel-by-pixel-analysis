@@ -108,7 +108,7 @@ def convert_hdf5(
                 _real_dtype(data.dtype)
                 if data.shape not in expected:
                     raise ValueError(f"dataset {name!r} shape {data.shape}, expected {expected}")
-    result = _outputs(output_dir, {"stokes": "stokes.npy", "metadata": "convert.json"}, paths)
+    result = _outputs(output_dir, {"stokes": "stokes.npy"}, paths)
     shape = leading + image_shape + (4,)
     output = open_memmap(result["stokes"], mode="w+", dtype=np.float64, shape=shape)
     frames = output.reshape((len(paths),) + image_shape + (4,))
@@ -122,8 +122,4 @@ def convert_hdf5(
                     )
     output.flush()
     del frames, output
-    _metadata(result["metadata"], stage="convert", inputs=[str(p) for p in paths],
-              datasets=dict(datasets), shape=list(shape), dtype="float64",
-              block_origins=origins.tolist(),
-              pixel_shape=pixel_shape, pixel_order="C", stokes_axis=list("IQUV"))
     return result

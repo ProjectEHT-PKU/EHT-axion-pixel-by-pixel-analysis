@@ -36,6 +36,7 @@ from eht_axion.environment import (INPUT_LAYOUT, add_data_root_option, add_input
 from eht_axion import provenance
 from eht_axion.analysis.likelihood import MODES
 from eht_axion.analysis.model import cloud_amplitude_scaling
+from eht_axion.analysis.results import read_results
 from eht_axion.analysis.templates import RunLayout, _integrate
 from eht_axion.eht.ensemble import global_diagnostics
 from eht_axion.experiment import DEFAULT_PATH, EHT_DAYS, physical_scale, read_experiment
@@ -310,14 +311,14 @@ def add_scales(numbers, config, times_tg, lag_hours, pairs):
         "NumLagHours",
         sig(lag_hours, 3),
         lag_hours,
-        "analysis/limits background-selected-1d.json lag_hours",
+        "analysis/limits report.json background 1d lag_hours",
         "background lag in hours",
     )
     numbers.add(
         "NumBackgroundPairs",
         str(pairs),
         pairs,
-        "analysis/limits background-selected-1d.npz differences",
+        "analysis/limits results.npz background/1d/differences",
         "lagged snapshot pairs of the background",
     )
     period = 2 * np.pi * ORBIT_RADIUS_RG**1.5 * tg / 24
@@ -494,7 +495,7 @@ def add_model_vs_reconstruction(numbers, flux, recon_flux, model_m, model_beta, 
         "NumReconFluxJy",
         f"{recon_flux:.2f}",
         recon_flux,
-        "eht/ensemble day-*/global.npz total_I",
+        "eht/ensemble global.npz total_I",
         "mean total flux of the reconstructions (Jy)",
     )
     excess = 100 * (flux.mean() / recon_flux - 1)
@@ -530,7 +531,7 @@ def add_model_vs_reconstruction(numbers, flux, recon_flux, model_m, model_beta, 
             name,
             f"{100 * value:.1f}",
             100 * value,
-            "eht/ensemble day-*/global.npz m_resolved",
+            "eht/ensemble global.npz m_resolved",
             "per-day mean resolved polarization fraction of the reconstructions, extreme day (percent)",
         )
     ratio = model_m.mean() / np.mean(recon_m)
@@ -553,7 +554,7 @@ def add_model_vs_reconstruction(numbers, flux, recon_flux, model_m, model_beta, 
             name,
             sig(value, 2),
             value,
-            "eht/ensemble day-*/global.npz beta2_real, beta2_imag",
+            "eht/ensemble global.npz beta2_real, beta2_imag",
             "per-day mean |beta_2| of the reconstructions, extreme day",
         )
 
@@ -573,14 +574,14 @@ def add_observations(numbers, obs, info, background, config, branch_minimum):
             f"Num{word_dim}",
             str(n),
             n,
-            f"analysis/limits observations-{dim}.npz selected_indices",
+            f"analysis/limits results.npz observations/{dim}/selected_indices",
             f"selected {word_dim.lower()}",
         )
         numbers.add(
             f"Num{word_dim[:-1]}Components",
             str(2 * n),
             2 * n,
-            f"observations-{dim}.npz",
+            f"results.npz observations/{dim}",
             f"length of the {dim} data vector (two pairs)",
         )
         sigma, correlation = dterm_statistics(obs[dim])
@@ -590,7 +591,7 @@ def add_observations(numbers, obs, info, background, config, branch_minimum):
                 f"NumDtermSigma{word_dim}{label}Deg",
                 f"{value:.1f}",
                 value,
-                f"observations-{dim}.npz pair_covariances",
+                f"results.npz observations/{dim}/pair_covariances",
                 f"{label.lower()} marginal D-term sigma of the {dim} day differences (deg)",
             )
         iu = np.triu_indices(n, 1)
@@ -600,7 +601,7 @@ def add_observations(numbers, obs, info, background, config, branch_minimum):
                 f"NumDtermCorr{word_dim}{label}",
                 f"{value:.2f}",
                 value,
-                f"observations-{dim}.npz pair_covariances",
+                f"results.npz observations/{dim}/pair_covariances",
                 f"median |correlation| between {dim} features, {label.lower()} over the two pairs",
             )
         if dim == "2d":
@@ -614,7 +615,7 @@ def add_observations(numbers, obs, info, background, config, branch_minimum):
                     f"NumDtermCorrClosePixels{label}",
                     f"{value:.1f}",
                     value,
-                    "observations-2d.npz pair_covariances, coordinates",
+                    "results.npz observations/2d/pair_covariances, coordinates",
                     f"median |correlation| of pixels closer than {CLOSE_SEPARATION_UAS:g} uas, "
                     f"{label.lower()} over pairs",
                 )
@@ -625,7 +626,7 @@ def add_observations(numbers, obs, info, background, config, branch_minimum):
                     f"NumConditionSectorsPair{word(k + 1)}",
                     sci(value, 2),
                     value,
-                    "observations-1d.json pair_condition_numbers",
+                    "results.npz observations/1d/pair_condition_numbers",
                     f"condition number of the sector pair-{k + 1} covariance (math mode)",
                 )
         else:
@@ -634,7 +635,7 @@ def add_observations(numbers, obs, info, background, config, branch_minimum):
                 "NumConditionPixelsOrder",
                 order(value),
                 value,
-                "observations-2d.json pair_condition_numbers",
+                "results.npz observations/2d/pair_condition_numbers",
                 "order of magnitude of the pixel pair condition numbers (math mode)",
             )
         largest = np.rad2deg(np.abs(obs[dim]["pair_differences"]).max())
@@ -642,7 +643,7 @@ def add_observations(numbers, obs, info, background, config, branch_minimum):
             f"NumMaxAbsDiff{word_dim}Deg",
             f"{largest:.0f}",
             largest,
-            f"observations-{dim}.npz pair_differences",
+            f"results.npz observations/{dim}/pair_differences",
             f"largest absolute observed {dim} day difference (deg)",
         )
         sigma_bg, mean_bg = (float(np.rad2deg(background[dim][k])) for k in ("sigma_radians", "mean_radians"))
@@ -650,28 +651,28 @@ def add_observations(numbers, obs, info, background, config, branch_minimum):
             f"NumSigmaBg{word_dim}Deg",
             f"{sigma_bg:.2f}",
             sigma_bg,
-            f"background-selected-{dim}.npz sigma_radians",
+            f"report.json background {dim} sigma_radians",
             f"GRMHD background sigma, {dim} (deg)",
         )
         numbers.add(
             f"NumMeanBg{word_dim}Deg",
             f"{mean_bg:.2f}",
             mean_bg,
-            f"background-selected-{dim}.npz mean_radians",
+            f"report.json background {dim} mean_radians",
             f"GRMHD background mean, {dim} (deg)",
         )
     numbers.add(
         "NumSectorAngles",
         angle_runs(obs["1d"]["selected_indices"], spacing),
         [int(a) for a in obs["1d"]["selected_indices"]],
-        "observations-1d.npz selected_indices",
+        "results.npz observations/1d/selected_indices",
         "position angles of the selected sectors (text with inline math)",
     )
     numbers.add(
         "NumMinBranchDistanceSigma",
         f"{branch_minimum:.1f}",
         branch_minimum,
-        "observed-*.json branch_risk distance_to_seam_in_sigma",
+        "report.json cases observed-* branch_risk distance_to_seam_in_sigma",
         "smallest distance of an observed difference from the +-90 deg branch cut (marginal sigma)",
     )
 
@@ -735,12 +736,12 @@ def add_limits(numbers, results):
                 )
 
 
-def chi2_rows(limits_dir):
+def chi2_rows(cases):
     """Saved joint-grid fits at PAPER_ALPHA: {(dim, mode): (components, chi2 at c=0, best chi2)}."""
     rows = {}
     for dim in DIMENSIONS:
         for mode in MODES:
-            saved = read_json(limits_dir / f"observed-{mode}-{dim}.json")
+            saved = cases[f"observed-{mode}-{dim}"]
             index = int(np.flatnonzero(np.isclose(saved["alphas"], PAPER_ALPHA))[0])
             fit = saved["fits"][index]
             rows[(dim, mode)] = (
@@ -755,7 +756,7 @@ def add_chi2(numbers, rows):
     gains = {}
     for (dim, mode), (_n, zero, best) in rows.items():
         name = f"{DIMENSIONS[dim]}{MODE_WORDS[mode]}"
-        source = f"analysis/limits observed-{mode}-{dim}.json fits at alpha={PAPER_ALPHA:.2f}"
+        source = f"analysis/limits report.json cases observed-{mode}-{dim} fits at alpha={PAPER_ALPHA:.2f}"
         numbers.add(
             f"NumChiZero{name}",
             f"{zero:.1f}",
@@ -952,15 +953,8 @@ def run(args):
     limits = args.limits.resolve()
     environment = resolve_environment(args)
     axion_source = raptor_axion_source(args, config, environment)
-    files = ["report.json"] + [
-        f"{p}-{d}.{e}"
-        for p in ("observations", "background-selected")
-        for d in DIMENSIONS
-        for e in ("npz", "json")
-    ]
-    files += [f"observed-{m}-{d}.json" for d in DIMENSIONS for m in MODES]
-    inputs.stage(limits, "analysis:limits", files)
-    report = read_json(limits / "report.json")
+    inputs.stage(limits, "analysis:limits", ["report.json", "results.npz"])
+    report, records = read_results(limits, ("observations", "background", "cases"))
     if report["scientific_profile"] != config:
         raise ValueError("The limits were produced from a different experiment.yaml")
     reports = {}
@@ -978,14 +972,13 @@ def run(args):
     layout = RunLayout(args.templates.resolve())
     inputs.stage(layout.processed(PAPER_ALPHA), "analysis:preprocess", ["stokes.npy"])
     inputs.stage(layout.response(PAPER_ALPHA), "analysis:fit", ["response-2d.npz"])
-    for dim in DIMENSIONS:
-        inputs.stage(layout.templates(dim), "analysis:templates", ["templates.npz"])
+    inputs.stage(layout.templates, "analysis:templates", ["templates.npz"])
     inputs.stage(layout.background_processed, "analysis:background", ["stokes.npy"])
     ensemble = args.ensemble.resolve()
     inputs.stage(
         ensemble,
         "eht:ensemble",
-        ["report.json", "axes.npz"] + [f"day-{day}/global.npz" for day in EHT_DAYS],
+        ["report.json", "axes.npz", "global.npz"],
     )
     background_cube = delivered_cube(
         args.raptor_input_root.resolve(), None, config["raptor"]["background"]["resolution"]
@@ -994,13 +987,12 @@ def run(args):
     plan = read_json(inputs.file(args.raptor_plan))
     tables = radial_tables(args, plan, inputs, environment)
 
-    obs = {d: npz(limits / f"observations-{d}.npz") for d in DIMENSIONS}
-    info = {d: read_json(limits / f"observations-{d}.json") for d in DIMENSIONS}
-    background = {d: npz(limits / f"background-selected-{d}.npz") for d in DIMENSIONS}
-    background_info = read_json(limits / "background-selected-1d.json")
-    observed = {(m, d): read_json(limits / f"observed-{m}-{d}.json") for d in DIMENSIONS for m in MODES}
+    obs = info = records["observations"]
+    background = records["background"]
+    background_info = background["1d"]
+    observed = {(m, d): records["cases"][f"observed-{m}-{d}"] for d in DIMENSIONS for m in MODES}
     features = {d: len(obs[d]["selected_indices"]) for d in DIMENSIONS}
-    rows = chi2_rows(limits)
+    rows = chi2_rows(records["cases"])
 
     scale = physical_scale(config)
     rg_radians = np.deg2rad(scale.angular_rg_uas / 3.6e9)
@@ -1028,11 +1020,11 @@ def run(args):
     processed = np.load(layout.processed(PAPER_ALPHA) / "stokes.npy", mmap_mode="r", allow_pickle=False)
     frame = np.asarray(processed[index, 0])
     amplitude_deg = np.rad2deg(response["amplitude"][index] * per_c)
-    templates = {d: npz(layout.templates(d) / "templates.npz") for d in DIMENSIONS}
-    j = {d: int(np.flatnonzero(np.isclose(templates[d]["alphas"], PAPER_ALPHA))[0]) for d in DIMENSIONS}
-    sector_mean = np.rad2deg(templates["1d"]["amplitude_mean"][j["1d"]] * per_c)
+    templates = npz(layout.templates / "templates.npz")
+    j = {d: int(np.flatnonzero(np.isclose(templates[f"{d}/alphas"], PAPER_ALPHA))[0]) for d in DIMENSIONS}
+    sector_mean = np.rad2deg(templates["1d/amplitude_mean"][j["1d"]] * per_c)
     sector_fraction = (
-        templates["1d"]["amplitude_std"][j["1d"]] / templates["1d"]["amplitude_mean"][j["1d"]]
+        templates["1d/amplitude_std"][j["1d"]] / templates["1d/amplitude_mean"][j["1d"]]
     )
     add_signal(numbers, amplitude_deg, sector_mean, sector_fraction)
 
@@ -1050,17 +1042,16 @@ def run(args):
         )
         model_m.append(values[2])
         model_beta.append(abs(complex(values[4], values[5])))
-    recon = {day: npz(ensemble / f"day-{day}" / "global.npz") for day in EHT_DAYS}
-    column = {day: list(recon[day]["columns"]) for day in EHT_DAYS}
-    recon_m = [recon[d]["values"][:, column[d].index("m_resolved")].mean() for d in EHT_DAYS]
+    recon = npz(ensemble / "global.npz")
+    if [int(d) for d in recon["days"]] != list(EHT_DAYS):
+        raise ValueError("EHT ensemble days differ from the experiment")
+    column = list(recon["columns"])
+    recon_m = [values[:, column.index("m_resolved")].mean() for values in recon["values"]]
     recon_beta = [
-        np.abs(
-            recon[d]["values"][:, column[d].index("beta2_real")]
-            + 1j * recon[d]["values"][:, column[d].index("beta2_imag")]
-        ).mean()
-        for d in EHT_DAYS
+        np.abs(values[:, column.index("beta2_real")] + 1j * values[:, column.index("beta2_imag")]).mean()
+        for values in recon["values"]
     ]
-    recon_flux = np.mean([recon[d]["values"][:, column[d].index("total_I")].mean() for d in EHT_DAYS])
+    recon_flux = np.mean([values[:, column.index("total_I")].mean() for values in recon["values"]])
     add_model_vs_reconstruction(
         numbers, flux, recon_flux, np.asarray(model_m), np.asarray(model_beta), recon_m, recon_beta
     )
@@ -1135,9 +1126,9 @@ def run(args):
             figures.two_photon(figure_dir, TWO_EMITTER["left_ratio"], TWO_EMITTER["right_phi_degrees"])
             fov = config["shared"]["image"]["fov_uas"]
             figures.signal_maps(figure_dir, frame, amplitude_deg, response["phase"][index], fov, TICKS)
-            mean = templates["2d"]["amplitude_mean"][j["2d"]]
-            fraction = templates["2d"]["amplitude_std"][j["2d"]] / mean
-            spread = np.rad2deg(templates["1d"]["amplitude_std"][j["1d"]] * per_c)
+            mean = templates["2d/amplitude_mean"][j["2d"]]
+            fraction = templates["2d/amplitude_std"][j["2d"]] / mean
+            spread = np.rad2deg(templates["1d/amplitude_std"][j["1d"]] * per_c)
             figures.template_maps(
                 figure_dir, np.rad2deg(mean * per_c), fraction, sector_mean, spread, fov
             )

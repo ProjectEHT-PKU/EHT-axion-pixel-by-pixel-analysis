@@ -66,7 +66,7 @@ pixi run -e eht-summary eht-summarize
 3. 使用 `ehtim` `Imager` 求解 $P$（`pol='P'`、`transform=['mcv']`、`data_term={'pvis': 1.0, 'm': 1.0}`、`reg_term={'hw': 100.0, 'ptv': 1.0}`、`norm_reg=True`、`ttype='direct'`、`maxit=500`、`stop=1e-8`；`shift_objective_constant=True` 为目标函数加上常数 $w_{\mathrm{pvis}} + w_m + h_w\ln 2$，不改变极小点）。
 4. 针对**未做 D 改正**但已加 `fsys` 的基础可见度数据和新得到的 $P$ 图像，调用 `fit_forward_d` 重新拟合 `solve_sites`（`AZ`、`LM`、`PV`）的 D 项：该函数是对 `ehtim.calibrating.pol_cal_new.leakage_cal_new`（`pol_fit=['RL', 'LR']`、`ttype='direct'`）的私有两行适配，将 D 项高斯先验及其梯度显式置零。
 
-第 50 轮结束后，执行最后一次 `final-P-only` 求解，使交付的 `final-raw-IQU.fits` 和 `final-blurred-IQU.fits`（$19\,\mu\mathrm{as}$ 模糊）与 `final-dterms.json` 严格对应。
+全部 50 轮的 Q/U 图像（原始与模糊）和 D 项一次性写入 `rounds.npz`（每轮的 `I` 都是固定 $I$，`V = 0`，不重复存储）。第 50 轮结束后，执行最后一次 `final-P-only` 求解，使交付的 `final-raw-IQU.fits` 和 `final-blurred-IQU.fits`（$19\,\mu\mathrm{as}$ 模糊）与 `final-dterms.json` 严格对应。
 
 ### 凸优化精化（`scripts/eht/refine.py` 与 `eht_axion/eht/convex.py`）
 
@@ -80,7 +80,7 @@ $$
 
 `solve_problem` 在约化变量 $x = P / I$ 上采用对角预条件的原始–对偶混合梯度法（primal–dual hybrid gradient, PDHG，步长安全系数 $\theta = 0.99 < 1$，径向熵邻近算子采用带保护区间的牛顿–二分法精确求解），并每隔 `check_every`（`500`）步计算一次可行的 Fenchel–Rockafellar 对偶下界。当最佳原始目标值与最佳对偶下界之差满足 $\text{best\_primal} - \text{best\_lower} \le \text{gap\_atol}$（`1e-6`）时，返回的解即获得**数值对偶间隙（duality gap）证书**（浮点证书，非区间算术证明）。
 
-`scripts/eht/refine.py`（阶段 `eht:refine`）以基准阶段的 `final-raw-IQU.fits` 和 `final-dterms.json` 为起点，执行 `outer_rounds = 100` 轮带证书的 PDHG $P$ 求解（`maxiter = 20000`、`time_limit = 300` s）与前向 `L-BFGS-B` D 项重拟合（参数 `eht_imaging.refine.d_optimizer`，逐次记录于 `D-optimizer-records.json`），最后执行第 101 次 `final-P` 求解以对齐最终 D 项。
+`scripts/eht/refine.py`（阶段 `eht:refine`）以基准阶段的 `final-raw-IQU.fits` 和 `final-dterms.json` 为起点，执行 `outer_rounds = 100` 轮带证书的 PDHG $P$ 求解（`maxiter = 20000`、`time_limit = 300` s）与前向 `L-BFGS-B` D 项重拟合（参数 `eht_imaging.refine.d_optimizer`，逐次记录于 `D-optimizer-records.json`），最后执行第 101 次 $P$ 求解以对齐最终 D 项，其结果即交付的 `final-*` 图像；第 1–100 轮保存在 `rounds.npz`。
 
 ### D 项蒙特卡罗与系综汇总
 
@@ -89,10 +89,9 @@ $$
    - 对 `solve_sites` 中的每个台站和每种圆偏振旋向（`R`、`L`），由四天精化解计算 $(\operatorname{Re} D, \operatorname{Im} D)$ 的均值与 $2 \times 2$ 样本协方差（`covariance_ddof = 1`，见 `d_distribution`）。
    - 每天以随机数种子 `SeedSequence([20210405, day])` 抽取 `uncertainty_draws = 1000` 组 D 项（`sample_dterms`）：`AZ`、`LM`、`PV` 服从二元正态分布；预改正台站 `AA`、`AP`、`SM`、`JC` 在每个实部和虚部分量上独立抽取标准差为 `residual_d_sigma = 0.01` 的零均值正态残差。不重抽样热噪声，也不对每次抽样重拟合 D 项。
    - 每次抽样从冷启动初值 $P = 0.05\,I$（`initial_p_fraction`）出发求解精确凸优化 $P$ 问题（`gap_atol = 1e-6`、`maxiter = 50000`、`time_limit = 600` s）；若第一次尝试未获证书，则自动以 `retry_maxiter = 200000`、`retry_time_limit = 1800` s 重试一次。每次抽样写出 `best-raw-IQU.fits`、`best-blurred-IQU.fits`（$19\,\mu\mathrm{as}$ 模糊）、`certificate.json` 和 `taskreceipt.json`；仅当全部 $4000$ 次抽样均获得证书时才写出 `finish.json`。
-3. **系综汇总（`scripts/eht/summarize.py`）**：逐一核对 `batch.json`、`finish.json`、以及全部 $4000$ 份 `taskreceipt.json` 与 `certificate.json`，发布阶段 `eht:ensemble`，生成 `axes.npz`（`east_uas`、`north_uas`）、`report.json` 及逐日目录 `day-<day>/{stokes.npy, evpa.npy, global.npz}`：
-   - `stokes.npy`：float64 `(1000, 64, 64, 4)`（原生 FITS 方向下的 `[draw, y, x, IQUV]`）；
-   - `evpa.npy`：float64 `(1000, 64, 64)`，取 $[0, \pi)\,\mathrm{rad}$ 内的电矢量位置角（EVPA；$I \le 0$ 或 $Q = U = 0$ 处为 `NaN`）；
-   - `global.npz`：在 $19\,\mu\mathrm{as}$ 模糊图像上按全视场像素求和计算的 Paper VII 第 5.3 节全局诊断量（`total_I`、`m_net`、`m_resolved`、`evpa_rad`、`beta2_real`、`beta2_imag`），用于与 Paper VII 对比（由 `paper.py` 读取，`limits.py` 不使用）。
+3. **系综汇总（`scripts/eht/summarize.py`）**：逐一核对 `batch.json`、`finish.json`、以及全部 $4000$ 份 `taskreceipt.json` 与 `certificate.json`，发布阶段 `eht:ensemble`，生成 `axes.npz`（`east_uas`、`north_uas`）、`report.json`、`stokes.npy` 和 `global.npz`：
+   - `stokes.npy`：float64 `(4, 1000, 64, 64, 4)`（原生 FITS 方向下的 `[day, draw, y, x, IQUV]`）；`limits.py` 由它计算 $[0, \pi)\,\mathrm{rad}$ 内的逐像素电矢量位置角（EVPA，`map_evpa`；$I \le 0$ 或 $Q = U = 0$ 处为 `NaN`）；
+   - `global.npz`：`values` `(4, 1000, 6)`、`days`、`columns`，在 $19\,\mu\mathrm{as}$ 模糊图像上按全视场像素求和计算的 Paper VII 第 5.3 节全局诊断量（`total_I`、`m_net`、`m_resolved`、`evpa_rad`、`beta2_real`、`beta2_imag`），用于与 Paper VII 对比（由 `paper.py` 读取，`limits.py` 不使用）。
 
 ## 与 EHT Paper VII 的已知差异
 

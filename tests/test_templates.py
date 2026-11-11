@@ -261,19 +261,19 @@ def test_summary_multi_alpha_named_arrays_and_circular_phase(tmp_path, spatial):
     first = response(tmp_path / "a.npz", fits, np.arange(4))
     second = response(tmp_path / "b.npz", fits, np.arange(4))
     before = {p: digest(p) for p in (first, second)}
-    result = stages.summarize_fits({0.3: first, 0.1: second}, tmp_path / "summary")
+    result = stages.summarize_fits({"1d": {0.3: first, 0.1: second}}, tmp_path / "summary")
     assert result["metadata"].name == "summary.json"
     with np.load(result["templates"], allow_pickle=False) as templates:
         for name in ("alphas", "amplitude_mean", "amplitude_std", "phase_mean", "phase_std"):
-            assert name in templates
-            assert templates[name].dtype == np.float64
-        np.testing.assert_array_equal(templates["alphas"], [0.1, 0.3])
-        assert templates["amplitude_mean"].shape == (2,) + spatial
-        np.testing.assert_allclose(templates["amplitude_mean"], 2.5)
-        np.testing.assert_allclose(templates["amplitude_std"], np.std(amplitudes))
-        np.testing.assert_allclose(np.abs(templates["phase_mean"]), np.pi)
-        np.testing.assert_allclose(templates["phase_std"], np.sqrt(0.025))
-        np.testing.assert_array_equal(templates["phase_count"], 4)
+            assert f"1d/{name}" in templates
+            assert templates[f"1d/{name}"].dtype == np.float64
+        np.testing.assert_array_equal(templates["1d/alphas"], [0.1, 0.3])
+        assert templates["1d/amplitude_mean"].shape == (2,) + spatial
+        np.testing.assert_allclose(templates["1d/amplitude_mean"], 2.5)
+        np.testing.assert_allclose(templates["1d/amplitude_std"], np.std(amplitudes))
+        np.testing.assert_allclose(np.abs(templates["1d/phase_mean"]), np.pi)
+        np.testing.assert_allclose(templates["1d/phase_std"], np.sqrt(0.025))
+        np.testing.assert_array_equal(templates["1d/phase_count"], 4)
     assert {p: digest(p) for p in before} == before
 
 
@@ -296,20 +296,20 @@ def test_summary_rejects_malformed_responses(tmp_path, problem):
     if problem == "npy":  # Bare 3-column arrays are not response files.
         path = save(tmp_path / "bad.npy", np.ones((3, 4, 3)))
     with pytest.raises(ValueError):
-        stages.summarize_fits({0.3: path}, tmp_path / "summary")
+        stages.summarize_fits({"1d": {0.3: path}}, tmp_path / "summary")
     assert not (tmp_path / "summary").exists()
 
 
 def test_summary_missing_samples(tmp_path):
     fits = np.ones((3, 2, 3))
     fits[:2, 0, :2] = np.nan
-    result = stages.summarize_fits({0.2: response(tmp_path / "r.npz", fits, [1, 2, 3])},
+    result = stages.summarize_fits({"2d": {0.2: response(tmp_path / "r.npz", fits, [1, 2, 3])}},
                                    tmp_path / "summary")
     with np.load(result["templates"]) as data:
-        assert np.isnan(data["amplitude_mean"][0, 0])
-        assert np.isnan(data["phase_std"][0, 0])
-        assert data["amplitude_count"][0, 0] == 1
-        assert data["amplitude_mean"][0, 1] == 1
+        assert np.isnan(data["2d/amplitude_mean"][0, 0])
+        assert np.isnan(data["2d/phase_std"][0, 0])
+        assert data["2d/amplitude_count"][0, 0] == 1
+        assert data["2d/amplitude_mean"][0, 1] == 1
 
 
 def test_validation_paths_and_dtype(tmp_path):

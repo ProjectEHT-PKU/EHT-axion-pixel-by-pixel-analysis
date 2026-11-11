@@ -124,7 +124,7 @@ def fixture(tmp_path, monkeypatch):
     return source, tmp_path / 'build', commit
 
 
-def test_build_contract_arguments_snapshot_and_stable_receipt(fixture, monkeypatch):
+def test_build_contract_arguments_and_stable_receipt(fixture, monkeypatch):
     source, destination, commit = fixture
     for name in ('VPATH', 'CPATH', 'MAKEFLAGS', 'MAKEFILES'):
         monkeypatch.setenv(name, '/external/poison')
@@ -142,8 +142,7 @@ def test_build_contract_arguments_snapshot_and_stable_receipt(fixture, monkeypat
     assert receipt['actual_macros']['SIGMA_CUT'] == '1.0'
     assert receipt['tables_are_build_dependencies'] is False
     assert '-lhdf5' in receipt['toolchain']['hdf5_expansion']
-    assert not (destination / 'source/.git').exists()
-    assert not (destination / 'source/raw.dat').exists()
+    assert not (destination / 'source').exists()
     assert (destination / 'grid_mks.in').read_text() == 'grid fixture\n'
     assert 'source_files' not in receipt and record['config']['source_commit'] == commit['commit']
     assert receipt['binary'] == str(destination / 'RAPTOR')
@@ -156,7 +155,7 @@ def test_build_contract_arguments_snapshot_and_stable_receipt(fixture, monkeypat
     assert all(not call['contaminated'] for call in calls)
     macro_call = next(call for call in calls if '-dM' in call['args'])
     assert '-I' + receipt['command_cwd'] in macro_call['args']
-    assert '-I' + receipt['command_cwd'] + '/source/src' in macro_call['args']
+    assert '-I' + str(source) + '/src' in macro_call['args']
     assert '-O2' in macro_call['args']
     assert 'main.c' not in macro_call['args']
     assert '-c' not in macro_call['args']
@@ -165,7 +164,7 @@ def test_build_contract_arguments_snapshot_and_stable_receipt(fixture, monkeypat
     assert 'SIGMA_CUT (2)' in (source / 'model/bhac/definitions.h').read_text()
 
 
-def test_cache_and_corrupt_snapshot(fixture):
+def test_cache_hit_keeps_the_build(fixture):
     source, destination, commit = fixture
     build_raptor(source, destination, BUILD, commit)
     before = (destination / 'RAPTOR').stat().st_mtime_ns
@@ -234,15 +233,10 @@ def test_mismatch_macro_does_not_publish(fixture, monkeypatch):
     assert not destination.exists()
 
 
-def test_rejects_source_symlink_and_unsafe_destination(fixture):
+def test_rejects_destination_inside_source(fixture):
     source, destination, commit = fixture
     with pytest.raises(ValueError, match='outside'):
         build_raptor(source, source / 'build', BUILD, commit)
-    (source / 'escape').symlink_to('/etc/passwd')
-    git(source, 'add', 'escape')
-    git(source, 'commit', '-qm', 'unsafe symlink')
-    with pytest.raises(ValueError, match='symlink/submodule'):
-        build_raptor(source, destination, BUILD, dict(commit, commit=git(source, 'rev-parse', 'HEAD')))
 
 
 def test_output_symlink_never_written(fixture):

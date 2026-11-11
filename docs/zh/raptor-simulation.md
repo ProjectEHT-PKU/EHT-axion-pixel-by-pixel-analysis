@@ -46,7 +46,7 @@ pixi run -e raptor-build raptor-generate --convert-only
 `build_raptor`（`eht_axion/raptor/build.py`）在 `raptor/build/` 发布阶段 `raptor:build`：
 
 1. 校验 `--source-root` 为处于 `raptor.source.commit` 的洁净 Git 仓库，且至少有一个远程地址规范化后等于 `raptor.source.repository`。
-2. 提取受版本控制的源码字节（`git ls-tree` / `git cat-file`）到 `build/source/`，清理外部 `make` 和头文件环境变量（`VPATH`、`CPATH`、`MAKEFLAGS`、`RAPTOR` 等），并解析编译器 `h5cc`（`HDF5_CC`）。
+2. 让 `RAPTOR` 直接指向该工作副本（不拷贝源码；`setup.sh` 与 `make` 只写入阶段目录，编译后工作副本必须仍然洁净），清理外部 `make` 和头文件环境变量（`VPATH`、`CPATH`、`MAKEFLAGS`、`RAPTOR` 等），并解析编译器 `h5cc`（`HDF5_CC`）。
 3. 按 `raptor.build` 派生的参数（`--code`、`--metric`、`--int`、`--grid`、`--rad`、`--sf`、`--bflip`、`--sigma-cut`、`--uniform`、`--thetae-min`、`--thetae-max`）运行官方 `setup.sh`。
 4. 通过 `make -nB all` 记录编译器命令行（`compiler-flags.txt`），通过 `h5cc ... -dM -E` 导出生效的预处理器宏（`macros.txt`），并断言 `metric`、`int_method`、`AMR`、`SMR`、`POL`、`SFC`、`BPOL`、`SIGMA_CUT`、`UNIF`、`THETAE_MIN` 和 `THETAE_MAX` 与 `raptor.build` 一致。
 5. 写出 `receipt.json`，记录工具链信息、生效宏取值以及 `RAPTOR` 可执行文件的路径（每个下游作业都将其声明为输入）。
@@ -74,19 +74,19 @@ pixi run -e raptor-build raptor-generate --convert-only
 
 **调度与 CPU 亲和性（`eht_axion/raptor/affinity.py`）：** 第 `i` 个任务确定性地分配给工作槽位 `i % workers`。`allocate_cpu_sets` 为每个工作进程分配互不相交的 `threads` 个 CPU（`physical` 依据 `/sys/devices/system/cpu/*/topology` 在每个物理核 `(socket, core)` 上只选一个逻辑 CPU；`logical` 使用任意允许的逻辑 CPU；`none` 不做绑定）。启用绑定时，进程通过 `taskset --cpu-list ...` 启动并设置 `OMP_PROC_BIND=close`、`OMP_PLACES=cores`，这些绑定参数会写入 `raptor:job` 的阶段配置，保证断点续跑时缓存身份完全一致。
 
-**执行、续跑与失败现场保留：** 每次实际执行都会创建 `raptor/attempts/<task_id>/attempt-*/`（记录 `input.json`、`stdout.log`、`stderr.log`、`result.json`），并在临时阶段目录中调用 `RAPTOR model.in <snapshot> <output_slot>`。若 `RAPTOR` 非零退出、超时或被中断（`SIGINT`/`SIGTERM` 会终止所有活跃进程组），未完成的临时工作目录会被复制到 `attempts/<task_id>/attempt-*/work/`，不会发布为完成阶段。重新运行时，已存在的 `jobs/<task_id>/` 仅在其阶段清单（manifest）记录的配置与输入相同，且 `success.json`、`output.json`、`model.in`、`task.json` 和 `grid_mks.in` 均与任务一致时才会被复用。
+**执行、续跑与失败现场保留：** 每次实际执行都会创建 `raptor/attempts/<task_id>/attempt-*/`（记录 `input.json`、`stdout.log`、`stderr.log`、`result.json`），并在临时阶段目录中调用 `RAPTOR model.in <snapshot> <output_slot>`。若 `RAPTOR` 非零退出、超时或被中断（`SIGINT`/`SIGTERM` 会终止所有活跃进程组），未完成的临时工作目录会被复制到 `attempts/<task_id>/attempt-*/work/`，不会发布为完成阶段。重新运行时，已存在的 `jobs/<task_id>/` 仅在其阶段清单（manifest）记录的配置与输入相同、输出通过 `validate_job_output` 且 `model.in` 与任务一致时才会被复用。作业阶段只保留 `model.in`、`output/`、`stdout.log` 和 `stderr.log`；任务配置就是阶段清单的 `config`，为 `RAPTOR` 拷入工作目录的编译网格 `grid_mks.in` 在发布前删除。
 
 **单作业输出校验（`eht_axion/raptor/outputs.py` 中的 `validate_job_output`）：**
 - 检查 `output/img_data_<slot>.h5` 仅包含内部硬链接数据集 `{I,Q,U,V,tau,tauF}<freq:e>`、`alpha` 和 `beta`，每个数据集均为有限值且形状为 `((N/10)^2, 100)`（按 x 优先排列的 $10 \times 10$ 像素块）；
 - 核对每个块的相机坐标 `alpha`、`beta` 与预期像素中心（单位 $r_g$）一致；
 - 核对单行谱文件 `output/spectrum_<slot>_<inclination:.2f>.dat`（`frequency` 及以 $\mathrm{Jy}$ 为单位的 $I, Q, U, V$）与 $\sum \text{HDF5}_{IQUV}\,\Delta\Omega$ 在相对容差 $10^{-10}$ 内一致，其中像素立体角 $\Delta\Omega = (\Delta x\,\Delta y)(r_g / D)^2$ 使用从 `build/definitions.h` 解析出的字面常数 `GGRAV`、`MSUN`、`SPEED_OF_LIGHT` 和 `KPCTOCM`；
-- 在 `output.json` 中记录 $I < 0$ 或 $\sqrt{Q^2 + U^2 + V^2} > I$ 的像素数作为诊断信息，不做数据过滤。
+- 统计 $I < 0$ 或 $\sqrt{Q^2 + U^2 + V^2} > I$ 的像素数作为诊断信息（由 `validate_job_output` 返回，不单独存盘），不做数据过滤。
 
 ## Stokes 数据立方转换与交付
 
-`convert_hdf5`（`eht_axion/raptor/convert.py`）将矩形 `time × state`（时间 × 状态）网格上的作业 HDF5 分块拼接为形状 `(T, S, N, N, 4)` 的 float64 数组（`[time, state, x, y, IQUV]`，单位 $\mathrm{Jy\,sr^{-1}}$），并写出 `convert.json`。
+`convert_hdf5`（`eht_axion/raptor/convert.py`）将矩形 `time × state`（时间 × 状态）网格上的作业 HDF5 分块拼接为形状 `(T, S, N, N, 4)` 的 float64 数组（`[time, state, x, y, IQUV]`，单位 $\mathrm{Jy\,sr^{-1}}$）；读入的作业 HDF5 文件即交付阶段清单的输入。
 
-`deliver_stokes`（`eht_axion/raptor/delivery.py`）把每个计划任务对应到 `raptor/jobs/` 下唯一的已完成作业阶段，检查其记录的编译与输入以及 `success.json`，并在 `raptor/delivered/` 下发布 `raptor:delivery` 阶段：
+`deliver_stokes`（`eht_axion/raptor/delivery.py`）把每个计划任务对应到 `raptor/jobs/` 下唯一的已完成作业阶段，检查其记录的编译与输入，并在 `raptor/delivered/` 下发布 `raptor:delivery` 阶段：
 - `res-100/alpha-<alpha:.2f>/stokes.npy`，形状为 `(141, 17, 100, 100, 4)`（共 8 个阶段：状态 `0` 为无轴子基线，状态 `k+1` 对应轴子相位 $k\pi/8$）；
 - `res-400/background/stokes.npy`，形状为 `(141, 1, 400, 400, 4)`（仅无轴子态）。
 

@@ -1,6 +1,7 @@
 """Small saved-product summary tests: no raw lineage or inference required."""
 
-import json
+
+from eht_axion.analysis.results import write_results
 from types import SimpleNamespace
 
 import numpy as np
@@ -51,6 +52,7 @@ def test_comparisons_dense_reference_and_selection():
 
 
 def test_plots_and_saved_fit_extraction(tmp_path):
+    cases = {}
     for dim in ("1d", "2d"):
         for mode in MODES:
             diagnostic = {
@@ -69,9 +71,8 @@ def test_plots_and_saved_fit_extraction(tmp_path):
                     for chi2 in (0.09, 0.08)
                 ],
             }
-            (tmp_path / f"observed-{mode}-{dim}.json").write_text(
-                json.dumps(diagnostic)
-            )
+            cases[f"observed-{mode}-{dim}"] = diagnostic
+    write_results(tmp_path, {}, dict(cases=cases))
     rows, diagnostics = fit_evidence(tmp_path)
     assert len(rows) == 12  # every case and every alpha, no fixed alpha
     assert [r["alpha"] for r in rows[:2]] == [0.1, 0.3]

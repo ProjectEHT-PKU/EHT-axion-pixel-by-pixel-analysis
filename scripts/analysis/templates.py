@@ -62,13 +62,12 @@ def run(config_path, raptor_root, output_root):
                              stage_inputs(layout.processed(alpha))) as out:
             if out is not None:
                 fit_processed(layout.processed(alpha), out, **fit)
-    for dim in ("1d", "2d"):
-        fits = {a: layout.response(a) / f"response-{dim}.npz" for a in alphas}
-        inputs = [p for a in alphas for p in (manifest_path(layout.response(a)), fits[a])]
-        with stage_directory(layout.templates(dim), "analysis:templates",
-                             {"dimension": dim, "method": "mle"}, inputs) as out:
-            if out is not None:
-                summarize_fits(fits, out)
+    fits = {dim: {a: layout.response(a) / f"response-{dim}.npz" for a in alphas} for dim in ("1d", "2d")}
+    inputs = [p for a in alphas for p in (manifest_path(layout.response(a)), fits["1d"][a], fits["2d"][a])]
+    with stage_directory(layout.templates, "analysis:templates",
+                         {"dimensions": ["1d", "2d"], "method": "mle"}, inputs) as out:
+        if out is not None:
+            summarize_fits(fits, out)
 
     cube = delivered_cube(raptor_root, None, background_resolution)
     inputs, _ = generated_inputs(cube, config, alpha=None, resolution=background_resolution)
