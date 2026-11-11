@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 from scripts.analysis.summarize import (
     MODES,
-    comparisons,
     fit_evidence,
     plot_fits,
     plot_limits,
@@ -33,22 +32,6 @@ def toy_report():
             for dim in ("1d", "2d")
         }
     }
-
-
-def test_comparisons_dense_reference_and_selection():
-    base = toy_report()
-    test = toy_report()
-    for row in test["results"].values():
-        row["log10_c95"] = [1.004, 0.004]
-        row["features"] = 3
-    rows = comparisons(base, test)
-    assert len(rows) == 24
-    assert max(abs(r["delta_dex"]) for r in rows) == pytest.approx(0.004)
-    assert rows[0]["ratio"] == pytest.approx(10**0.004)
-    assert rows[0]["features_test"] == 3  # changed selections are reported, not hidden
-    test["results"]["observed-std-1d"]["alphas"] = [0.2, 0.3]
-    with pytest.raises(ValueError, match="Alpha"):
-        comparisons(base, test)
 
 
 def test_plots_and_saved_fit_extraction(tmp_path):
@@ -83,18 +66,15 @@ def test_plots_and_saved_fit_extraction(tmp_path):
     assert figures == ["fits-alpha-0.10.png", "fits-alpha-0.30.png"]
     for name in ("limits.png", *figures):
         assert (tmp_path / name).stat().st_size > 1000
-    comparison = {"grid_vs_primary": [{"delta_dex": 0.002}, {"delta_dex": -0.003}]}
-    text = "\n".join(results_text(toy_report(), comparison, rows, None, figures))
+    text = "\n".join(results_text(toy_report(), rows, figures))
     assert "90% posterior quantiles" in text and "95%" not in text  # configured credibility
-    assert "max |delta log10 c95| = 0.003 dex" in text
+    assert "Numerical checks" not in text
     assert "| 1d | std | 0.30 | 4 | 0.100 | 0.080 | 0.2 |" in text
 
 
 def test_pending_source_fails_without_creating_summary(tmp_path):
     args = SimpleNamespace(
-        **{key: tmp_path / key for key in ("limits", "gridcheck", "priorcheck", "output_root")},
-        covcheck=None,
-    )
+        **{key: tmp_path / key for key in ("limits", "output_root")})
     with pytest.raises((FileNotFoundError, ValueError)):
         run(args)
     assert not args.output_root.exists()

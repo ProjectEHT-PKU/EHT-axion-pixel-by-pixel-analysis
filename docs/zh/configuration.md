@@ -114,7 +114,7 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | `stop` | `1.0e-08` | – | `fiducial` 阶段 `ehtim` 优化器收敛容差 | `reconstruct.py` |
 | `shift_objective_constant` | `true` | – | 向 `ehtim` $P$ 目标函数加上常数 $w_{\mathrm{pvis}} + w_m + h_w\ln 2$（极小点不变） | `reconstruct.py` |
 | `uv_min` | `100000000.0` | $\lambda$ | 最短基线长度截断（$100\,\mathrm{M}\lambda$），在共享增益校准前及全部 $P$ 成像中剔除同址零基线 | `reconstruct.py`、`refine.py`、`sample.py` |
-| `uncertainty_draws` | `1000` | 次/天 | 每天的 D 项蒙特卡罗抽样次数（四天共 $4000$ 次） | `sample.py`、`eht/summarize.py`、`limits.py`、`check_covariance.py` |
+| `uncertainty_draws` | `1000` | 次/天 | 每天的 D 项蒙特卡罗抽样次数（四天共 $4000$ 次） | `sample.py`、`eht/summarize.py`、`limits.py` |
 | `seed` | `20210405` | – | 基础非负整数随机数种子；第 $d$ 天使用 `SeedSequence([seed, day])` | `sample.py` |
 | `covariance_ddof` | `1` | – | 四天 $(\operatorname{Re} D, \operatorname{Im} D)$ 样本协方差的自由度修正（delta degrees of freedom，$\in [0, 3]$） | `d_distribution`、`sample.py` |
 | `residual_d_sigma` | `0.01` | – | `fixed_sites` 在每个实部/虚部分量（$\operatorname{Re}$、$\operatorname{Im}$）上的零均值高斯标准差 | `sample_dterms`、`sample.py` |
@@ -150,10 +150,10 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | `cloud.pivot_alpha` | `0.05` | – | $b(\alpha)$ 的参考点 $\alpha$（$> 0$） | `cloud_amplitude_scaling` |
 | `cloud.exponent` | `1.75` | – | $b(\alpha)$ 的幂律指数 | `cloud_amplitude_scaling` |
 | `background.lag_frames` | `3` | 帧 | 无轴子 EVPA 差分的滞后帧数 $L \ge 1$（$3\,t_g = 26.68\,\mathrm{h}$） | `selected_background`、`paper.py` |
-| `inference.phase_count` | `64` | 格点 | $[0, 2\pi)$ 上用于对 $\phi_0$ 相位边缘化（phase marginalization）的均匀离散网格数 $N_\phi \ge 2$ | `evpa_templates`（可由 `check_grid.py` `--phase-count` 覆盖） |
-| `inference.coupling_points` | `120` | 格点 | `[coupling_min, coupling_max]` 上 $c$ 的对数间隔网格点数（$\ge 2$） | `calculate_observed`（可由 `check_grid.py` `--coupling-points` 覆盖） |
+| `inference.phase_count` | `64` | 格点 | $[0, 2\pi)$ 上用于对 $\phi_0$ 相位边缘化（phase marginalization）的均匀离散网格数 $N_\phi \ge 2$ | `evpa_templates` |
+| `inference.coupling_points` | `120` | 格点 | `[coupling_min, coupling_max]` 上 $c$ 的对数间隔网格点数（$\ge 2$） | `calculate_observed` |
 | `inference.coupling_min` | `0.0072992700729927005` | – | $c$ 的先验下界 $c_{\min} = 1/137 > 0$ | `calculate_observed` |
-| `inference.coupling_max` | `1000.0` | – | $c$ 的先验上界 $c_{\max} > c_{\min}$ | `calculate_observed`（可由 `check_grid.py` `--coupling-max` 覆盖） |
+| `inference.coupling_max` | `1000.0` | – | $c$ 的先验上界 $c_{\max} > c_{\min}$ | `calculate_observed` |
 | `inference.prior` | `log-uniform` | – | $c$ 的先验密度：`log-uniform`（对数均匀先验，$\pi(c) \propto 1/c$）或 `uniform`（均匀先验） | `normalized_posterior_cdf` |
 | `inference.credibility` | `0.95` | – | 定义可信上限（credible upper limit）$c_{95}$ 的后验分位数（$\in (0, 1)$） | `posterior_upper_limit`、`RESULTS.md` |
 | `inference.exposure_hours` | `6.0` | $\mathrm{h}$ | $\operatorname{sinc}(\omega T / 2)$ 中的矩形曝光时长 $T \ge 0$ | `evpa_templates` |

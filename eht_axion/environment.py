@@ -107,9 +107,6 @@ LAYOUT = {
     "eht.ensemble": "eht/ensemble",
     "analysis.expected_signal": "analysis/expected-signal",
     "analysis.limits": "analysis/limits",
-    "analysis.check_grid": "analysis/check-grid",
-    "analysis.check_prior": "analysis/check-prior",
-    "analysis.check_covariance": "analysis/check-covariance",
     "analysis.summary": "analysis/summary",
     "analysis.paper": "analysis/paper",
 }

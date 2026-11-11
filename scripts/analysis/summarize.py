@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Analysis: summary tables/figures of the limits and their checks.
+"""Analysis: summary tables/figures of the limits.
 
-Inputs are completed small stages only (limits of scripts/analysis/limits.py, the grid and
-prior checks of scripts/analysis/check_grid.py, optionally the covariance check); raw
-inputs are never reopened and their provenance is inherited, not re-certified.
+The only input is the completed limits stage of scripts/analysis/limits.py; raw inputs are
+never reopened and their provenance is inherited, not re-certified.
 """
 
 from __future__ import annotations
@@ -17,38 +16,12 @@ import argparse
 import csv
 import json
 
-from eht_axion.environment import add_data_root_option, data_root, fill_defaults, layout_path
+from eht_axion.environment import add_data_root_option, fill_defaults
 import numpy as np
 
 from eht_axion import provenance
 from eht_axion.analysis.results import read_results
 from eht_axion.analysis.likelihood import MODES
-
-
-def comparisons(primary, other):
-    """Compare identical alpha/case grids, without attributing changed selections."""
-    rows = []
-    if set(primary["results"]) != set(other["results"]):
-        raise ValueError("Case grids differ")
-    for key, base in primary["results"].items():
-        test = other["results"][key]
-        if not np.array_equal(base["alphas"], test["alphas"]):
-            raise ValueError("Alpha grids differ")
-        delta = np.asarray(test["log10_c95"]) - np.asarray(base["log10_c95"])
-        if not np.isfinite(delta).all():
-            raise ValueError("Nonfinite limits")
-        for alpha, value in zip(base["alphas"], delta):
-            rows.append(
-                {
-                    "case": key,
-                    "alpha": alpha,
-                    "delta_dex": float(value),
-                    "ratio": float(10**value),
-                    "features_reference": base["features"],
-                    "features_test": test["features"],
-                }
-            )
-    return rows
 
 
 def plot_limits(out, report):
@@ -164,7 +137,7 @@ def write_csv(path, rows):
         writer.writerows(rows)
 
 
-def results_text(primary, comparisons_all, fits, covcheck, figures):
+def results_text(primary, fits, figures):
     """RESULTS.md: the configured credibility and the numbers of this run; no fixed judgements."""
     credibility = primary["credibility"]
     lines = [
@@ -184,11 +157,6 @@ def results_text(primary, comparisons_all, fits, covcheck, figures):
     lines += ["", "## GRMHD background", ""]
     lines += [f"- {dim}: sigma_bg = {sigma:.6g} rad ({np.rad2deg(sigma):.4g} deg)"
               for dim, sigma in primary["background_sigma_radians"].items()]
-    lines += ["", "## Numerical checks", ""]
-    for label, rows in comparisons_all.items():
-        lines.append(f"- {label}: max |delta log10 c95| = {max(abs(r['delta_dex']) for r in rows):.6g} dex")
-    if covcheck is not None:
-        lines.append(f"- covariance halves: max |delta log10 c95| = {covcheck['max_abs_delta_dex']:.6g} dex")
     lines += [
         "",
         "## Saved joint-grid best fits",
@@ -212,38 +180,13 @@ def run(args):
     destination = args.output_root.resolve()
     if destination.exists():
         raise FileExistsError("Use a new summary output root")
-    sources = {"primary": args.limits.resolve()}
-    sources.update({name: getattr(args, name).resolve() for name in ("gridcheck", "priorcheck")})
-    if getattr(args, "covcheck", None) is not None:
-        sources["covcheck"] = args.covcheck.resolve()
-    reports, consumed, records = {}, [], {}
-    for name, source in sources.items():
-        record = provenance.verify_stage(source)
-        expected = (
-            "analysis:check-grid"
-            if name in ("gridcheck", "priorcheck")
-            else "analysis:limits"
-        )
-        if name != "covcheck" and record["stage"] != expected:
-            raise ValueError(f"Unexpected {name} stage")
-        records[name] = record
-        paths = [source / "report.json"]
-        if name == "primary":
-            paths.append(source / "results.npz")
-        provenance.require_declared_outputs(source, paths)
-        consumed += paths
-        reports[name] = json.loads(paths[0].read_text())
-    primary = reports["primary"]
-    comparisons_all = {}
-    for label, reference, test in (
-        ("grid_vs_primary", "primary", "gridcheck"),
-        ("prior_vs_dense_grid", "gridcheck", "priorcheck"),
-    ):
-        comparisons_all[label] = comparisons(reports[reference], reports[test])
-    # Grid and prior changes must not silently include a reselection.
-    for label in ("grid_vs_primary", "prior_vs_dense_grid"):
-        if any(r["features_reference"] != r["features_test"] for r in comparisons_all[label]):
-            raise ValueError("Numerical check changed selection size")
+    source = args.limits.resolve()
+    sources = {"primary": source}
+    if provenance.verify_stage(source)["stage"] != "analysis:limits":
+        raise ValueError("Unexpected limits stage")
+    consumed = [source / "report.json", source / "results.npz"]
+    provenance.require_declared_outputs(source, consumed)
+    primary = json.loads(consumed[0].read_text())
     fits, diagnostics = fit_evidence(sources["primary"])
     limits = []
     for key, result in primary["results"].items():
@@ -257,7 +200,7 @@ def run(args):
                     "features": result["features"],
                 }
             )
-    consumed += [provenance.manifest_path(source) for source in sources.values()]
+    consumed.append(provenance.manifest_path(source))
     identity = {
         "schema": "analysis-summary",
         "sources": {k: str(v) for k, v in sources.items()},
@@ -268,16 +211,12 @@ def run(args):
     ) as out:
         write_csv(out / "limits.csv", limits)
         write_csv(out / "fit-chi2.csv", fits)
-        for label, rows in comparisons_all.items():
-            write_csv(out / (label + ".csv"), rows)
         evidence = dict(
             identity,
             credibility=primary["credibility"],
             results=primary["results"],
-            comparisons=comparisons_all,
             fit_chi2=fits,
             background_sigma_radians=primary["background_sigma_radians"],
-            covariance_check=reports.get("covcheck"),
             diagnostics={
                 k: {
                     field: v[field]
@@ -297,7 +236,7 @@ def run(args):
         )
         plot_limits(out, primary)
         figures = plot_fits(out, diagnostics)
-        lines = results_text(primary, comparisons_all, fits, reports.get("covcheck"), figures)
+        lines = results_text(primary, fits, figures)
         (out / "RESULTS.md").write_text("\n".join(lines) + "\n")
     return destination
 
@@ -306,23 +245,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limits", type=Path,
                         help="scripts/analysis/limits.py output root (default: analysis/limits)")
-    parser.add_argument("--gridcheck", type=Path, help="default: analysis/check-grid")
-    parser.add_argument("--priorcheck", type=Path, help="default: analysis/check-prior")
     parser.add_argument("--output-root", type=Path, help="new directory (default: analysis/summary)")
-    parser.add_argument(
-        "--covcheck",
-        type=Path,
-        help="Completed covariance sensitivity stage; optional without a data root "
-             "(default with a data root: analysis/check-covariance)",
-    )
     add_data_root_option(parser)
     args = parser.parse_args(argv)
-    defaults = {"limits": ("analysis.limits", {}), "gridcheck": ("analysis.check_grid", {}),
-                "priorcheck": ("analysis.check_prior", {}), "output_root": ("analysis.summary", {})}
-    root = data_root(args)
-    if args.covcheck is None and root is not None:
-        args.covcheck = layout_path(root, "analysis.check_covariance")
-    fill_defaults(parser, args, defaults)
+    fill_defaults(parser, args, {"limits": ("analysis.limits", {}), "output_root": ("analysis.summary", {})})
     run(args)
 
 

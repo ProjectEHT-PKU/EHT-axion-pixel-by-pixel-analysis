@@ -11,9 +11,6 @@
 ```bash
 pixi run analysis-expected-signal
 pixi run analysis-limits
-pixi run analysis-check-grid --check grid --phase-count 128 --coupling-points 240
-pixi run analysis-check-grid --check prior --phase-count 128 --coupling-points 260 --coupling-max 10000
-pixi run analysis-check-covariance
 pixi run analysis-summarize
 pixi run analysis-paper
 ```
@@ -23,19 +20,11 @@ pixi run analysis-paper
 ```bash
 pixi run analysis-expected-signal --raptor-images IMAGES --output-root EXPECTED
 pixi run analysis-limits --expected-signal EXPECTED --ensemble ENSEMBLE --output-root LIMITS
-pixi run analysis-check-grid --source LIMITS --expected-signal EXPECTED --output-root GRID \
-    --phase-count 128 --coupling-points 240
-pixi run analysis-check-grid --source LIMITS --expected-signal EXPECTED --output-root PRIOR \
-    --phase-count 128 --coupling-points 260 --coupling-max 10000
-pixi run analysis-check-covariance --source LIMITS --expected-signal EXPECTED --output-root COV
-pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR \
-    --covcheck COV --output-root SUMMARY
-pixi run analysis-paper --limits LIMITS --gridcheck GRID --priorcheck PRIOR --covcheck COV \
+pixi run analysis-summarize --limits LIMITS --output-root SUMMARY
+pixi run analysis-paper --limits LIMITS \
     --expected-signal EXPECTED --ensemble ENSEMBLE --raptor-images IMAGES \
     --raptor-plan plan.json --raptor-source-root RAPTOR --output-root PAPER
 ```
-
-当未设置 `--data-root` / `EHT_DATA_ROOT` 时，`scripts/analysis/summarize.py` 的 `--covcheck` 为可选参数；设置了数据根目录时，`summarize.py` 默认将 `--covcheck` 设为 `$EHT_DATA_ROOT/analysis/check-covariance`。
 
 ## 预期信号（`scripts/analysis/expected_signal.py`）
 
@@ -143,11 +132,9 @@ $$
 
 `normalized_posterior_cdf`（`eht_axion/analysis/posterior.py`）将似然 $L(c)$ 乘以先验密度 $\pi(c) \propto 1/c$（`log-uniform` 对数均匀先验；`uniform` 则为常数），对 $c$ 采用梯形法则数值积分归一化后验密度；`posterior_upper_limit` 在 `credibility = 0.95` 处对该分段线性后验密度的累积分布函数（cumulative distribution function, CDF）求解析逆，得到 95 % 可信上限 $c_{95}$。每种维度与协方差组合都同时在真实观测差值（`observed`）和**零数据对照**（zero-data control，固定相同特征与协方差并令 $d_1 = d_2 = 0$，标记为 `zero-data`）上运行。
 
-## 敏感性检验、结果汇总与论文输出
+## 结果汇总与论文输出
 
-- **网格与先验检验（`scripts/analysis/check_grid.py`）**：直接读取 `analysis:limits` 保存的观测量（`results.npz` 的 `observations` 部分），用命令行覆盖的 `--phase-count`、`--coupling-points` 和/或 `--coupling-max` 重新计算全部上限（阶段 `analysis:check-grid`），报告相对于源阶段的 $\Delta\log_{10} c_{95}$，不重新筛选特征。
-- **半样本协方差检验（`scripts/analysis/check_covariance.py`）**：将每天的 1000 次抽样拆分为前一半 `first500` 与后一半 `last500`，围绕固定的全系综圆均值 $\bar{\chi}_d$ 重新计算 $C_d$，并报告六种观测情形下的 $\Delta\log_{10} c_{95}$（阶段 `analysis:check-covariance`）。
-- **汇总报告（`scripts/analysis/summarize.py`）**：校验 `limits`、`gridcheck`、`priorcheck` 及可选的 `covcheck`，确认各检验未改变特征数量，写出 `limits.csv`、`grid_vs_primary.csv`、`prior_vs_dense_grid.csv`、`fit-chi2.csv`（记录 $c=0$ 与联合网格最佳拟合点处的 $\chi^2$）、`limits.png`、`fits-alpha-<α>.png`、`report.json` 以及完全由数据驱动生成的 `RESULTS.md`（阶段 `analysis:summary`）。
+- **汇总报告（`scripts/analysis/summarize.py`）**：校验 `limits`，写出 `limits.csv`、`fit-chi2.csv`（记录 $c=0$ 与联合网格最佳拟合点处的 $\chi^2$）、`limits.png`、`fits-alpha-<α>.png`、`report.json` 以及完全由数据驱动生成的 `RESULTS.md`（阶段 `analysis:summary`）。
 - **论文输出（`scripts/analysis/paper.py`）**：在不做任何重新拟合的前提下，将论文所需的全部流水线资产汇总到阶段 `analysis:paper`：
   - `figures/`：8 幅确定性矢量 PDF 图（`radial_function`、`two_photon`、`signal_maps`、`template_maps`、`background`、`observational_uncertainty`、`data_vs_model`、`limits`）；
   - `numbers.tex` 与 `numbers.json`（模式 `analysis-paper-numbers`）：不含阿拉伯数字的 `\newcommand{\Num...}{...}` LaTeX 宏定义，以及对应的未舍入原值和数据来源；

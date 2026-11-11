@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Analysis: everything the paper uses from the pipeline, in one directory (stage analysis:paper).
 
-Reads finished products only (limits, the three checks, the expected signal, the EHT ensemble,
+Reads finished products only (limits, the expected signal, the EHT ensemble,
 the RAPTOR image cubes, the RAPTOR plan), the radial tables of the plan
 and src/axion.c of the pinned RAPTOR checkout (raptor.source), and writes:
 
@@ -24,7 +24,6 @@ import sys
 sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / "eht_axion").is_dir())))
 
 import argparse
-import csv
 import json
 import os
 import re
@@ -789,79 +788,6 @@ def add_chi2(numbers, rows):
     )
 
 
-def add_checks(numbers, grid_report, prior_report, covariance_rows):
-    grid = grid_report["max_delta_dex"]
-    numbers.add(
-        "NumGridCheckMaxDex",
-        sig(grid, 2),
-        grid,
-        "analysis/check-grid report.json max_delta_dex",
-        "largest |delta log10 c95| of the dense-grid check",
-    )
-    numbers.add(
-        "NumGridCheckMaxPercent",
-        f"{percent_change(grid):.1f}",
-        percent_change(grid),
-        "check-grid report.json max_delta_dex",
-        "the same as a change of c95 (percent)",
-    )
-    prior = max(
-        abs(a - b)
-        for key in grid_report["results"]
-        for a, b in zip(prior_report["results"][key]["log10_c95"], grid_report["results"][key]["log10_c95"])
-    )
-    numbers.add(
-        "NumPriorCheckMaxDex",
-        sig(prior, 1),
-        prior,
-        "check-prior vs check-grid report.json log10_c95",
-        "largest |delta log10 c95| of the wider prior relative to the dense grid",
-    )
-    largest = {}
-    for row in covariance_rows:
-        key = (row["dimension"], row["mode"])
-        largest[key] = max(largest.get(key, 0.0), abs(float(row["delta_dex"])))
-    for (dim, mode), dex in sorted(largest.items()):
-        name = f"NumCovCheck{DIMENSIONS[dim]}{MODE_WORDS[mode]}"
-        numbers.add(
-            name + "Percent",
-            f"{percent_change(dex):.1f}",
-            percent_change(dex),
-            "analysis/check-covariance covariance-sensitivity.csv delta_dex",
-            f"largest change of c95 with half the draws, {mode}, {dim} (percent)",
-        )
-        numbers.add(
-            name + "PercentApprox",
-            f"{percent_change(dex):.0f}",
-            percent_change(dex),
-            "covariance-sensitivity.csv delta_dex",
-            f"the same, rounded, {mode}, {dim}",
-        )
-    std = max(largest[(dim, "std")] for dim in DIMENSIONS)
-    numbers.add(
-        "NumCovCheckStdMaxDex",
-        sig(std, 2),
-        std,
-        "covariance-sensitivity.csv delta_dex (std)",
-        "largest |delta log10 c95| of the diagonal model with half the draws",
-    )
-    numbers.add(
-        "NumCovCheckStdMaxPercent",
-        f"{percent_change(std):.1f}",
-        percent_change(std),
-        "covariance-sensitivity.csv delta_dex (std)",
-        "the same as a change of c95 (percent)",
-    )
-    baseline = max(largest[(dim, "cor_fixed_background")] for dim in DIMENSIONS)
-    numbers.add(
-        "NumCovCheckCorBgMaxPercentApprox",
-        f"{percent_change(baseline):.0f}",
-        percent_change(baseline),
-        "covariance-sensitivity.csv delta_dex (cor_fixed_background)",
-        "largest change of the baseline c95 with half the draws, rounded (percent)",
-    )
-
-
 def add_two_emitter(numbers, figures):
     p = TWO_EMITTER
     errors = []
@@ -972,18 +898,6 @@ def run(args):
     report, records = read_results(limits, ("observations", "background", "cases"))
     if report["scientific_profile"] != config:
         raise ValueError("The limits were produced from a different experiment.yaml")
-    reports = {}
-    for name, path, stage in (
-        ("grid", args.gridcheck, "analysis:check-grid"),
-        ("prior", args.priorcheck, "analysis:check-grid"),
-    ):
-        inputs.stage(path, stage, ["report.json"])
-        reports[name] = read_json(Path(path) / "report.json")
-    inputs.stage(
-        args.covcheck, "analysis:check-covariance", ["covariance-sensitivity.csv", "report.json"]
-    )
-    with (Path(args.covcheck) / "covariance-sensitivity.csv").open(newline="") as stream:
-        covariance_rows = list(csv.DictReader(stream))
     expected = args.expected_signal.resolve()
     inputs.stage(expected, "analysis:expected-signal", ["expected.npz", "background.npy"])
     paper_cube = image_cube(
@@ -1084,7 +998,6 @@ def run(args):
     add_observations(numbers, obs, info, background, config, branch)
     add_limits(numbers, report["results"])
     add_chi2(numbers, rows)
-    add_checks(numbers, reports["grid"], reports["prior"], covariance_rows)
     add_two_emitter(numbers, figures)
 
     # Unmasked background: every sector / pixel with a defined EVPA in all frames.
@@ -1101,9 +1014,6 @@ def run(args):
         schema="analysis-paper",
         sources=dict(
             limits=str(limits),
-            gridcheck=str(Path(args.gridcheck).resolve()),
-            priorcheck=str(Path(args.priorcheck).resolve()),
-            covcheck=str(Path(args.covcheck).resolve()),
             expected_signal=str(expected),
             ensemble=str(ensemble),
             raptor_images=str(args.raptor_images.resolve()),
@@ -1201,9 +1111,6 @@ def main(argv=None):
     p.add_argument("--config", type=Path, default=DEFAULT_PATH, help="default: configs/experiment.yaml")
     for name, default in (
         ("limits", "analysis/limits"),
-        ("gridcheck", "analysis/check-grid"),
-        ("priorcheck", "analysis/check-prior"),
-        ("covcheck", "analysis/check-covariance"),
         ("expected-signal", "analysis/expected-signal"),
         ("ensemble", "eht/ensemble"),
         ("raptor-images", "raptor/images"),
@@ -1231,9 +1138,6 @@ def main(argv=None):
         args,
         {
             "limits": ("analysis.limits", {}),
-            "gridcheck": ("analysis.check_grid", {}),
-            "priorcheck": ("analysis.check_prior", {}),
-            "covcheck": ("analysis.check_covariance", {}),
             "expected_signal": ("analysis.expected_signal", {}),
             "ensemble": ("eht.ensemble", {}),
             "raptor_images": ("raptor.images", {}),

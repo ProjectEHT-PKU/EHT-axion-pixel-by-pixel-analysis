@@ -56,18 +56,15 @@ pixi run --locked lint                                        # Ruff check only
 
 ### Run the analysis chain on existing products
 
-Once `$EHT_DATA_ROOT/raptor/images` and `$EHT_DATA_ROOT/eht/ensemble` exist, run the complete analysis and numerical sensitivity checks in the `default` environment:
+Once `$EHT_DATA_ROOT/raptor/images` and `$EHT_DATA_ROOT/eht/ensemble` exist, run the complete analysis in the `default` environment:
 
 ```bash
 pixi run analysis-expected-signal
 pixi run analysis-limits
-pixi run analysis-check-grid --check grid --phase-count 128 --coupling-points 240
-pixi run analysis-check-grid --check prior --phase-count 128 --coupling-points 260 --coupling-max 10000
-pixi run analysis-check-covariance
 pixi run analysis-summarize
 ```
 
-Each command publishes a new stage directory under `$EHT_DATA_ROOT/analysis/` (`expected-signal/`, `limits/`, `check-grid/`, `check-prior/`, `check-covariance/`, and `summary/`, including `limits/limits.csv` and `summary/RESULTS.md`) and refuses to overwrite an existing output directory.
+Each command publishes a new stage directory under `$EHT_DATA_ROOT/analysis/` (`expected-signal/`, `limits/`, and `summary/`, including `limits/limits.csv` and `summary/RESULTS.md`) and refuses to overwrite an existing output directory.
 
 To generate the publication figures, LaTeX macros (`numbers.tex`, `numbers.json`), and tables (`table-limits.tex`, `table-chi2.tex`) in `$EHT_DATA_ROOT/analysis/paper/` — which additionally reads `$EHT_DATA_ROOT/raptor/plan.json`, `src/axion.c` of the `RAPTOR` checkout at `$EHT_RAPTOR_SOURCE_ROOT`, and the radial-profile CSVs in `$EHT_INPUT_ROOT/radial/` — run:
 
@@ -83,6 +80,6 @@ pixi run analysis-paper
 | [Configuration](configuration.md) | Complete key-by-key reference for `configs/experiment.yaml`, validation and derived views, and the three path roots and execution settings of `.env` |
 | [RAPTOR simulation](raptor-simulation.md) | Pinned `RAPTOR` build, BHAC snapshot and radial-table validation, task IDs, job runner, CPU affinity, and image cubes |
 | [EHT imaging](eht-imaging.md) | EHT Paper VII polarimetric imaging reproduction, convex PDHG refinement, D-term Monte Carlo, ensemble summary, and deviations from Paper VII |
-| [Analysis](analysis.md) | Image preprocessing, sector aperture operator, expected signal, feature selection, covariance modes, Bayesian likelihood/posterior, checks, and paper outputs |
+| [Analysis](analysis.md) | Image preprocessing, sector aperture operator, expected signal, feature selection, covariance modes, Bayesian likelihood/posterior, and paper outputs |
 | [Data layout and provenance](data-layout.md) | Default `$EHT_DATA_ROOT` tree, read-only `$EHT_INPUT_ROOT` input layout, per-stage file/array specifications, atomic `stage_directory` manifests, and non-manifest receipts |
 | [Development](development.md) | Pixi environments and tasks, test suite and linter, module/script map, architectural invariants, and guides for extending parameters or stages |

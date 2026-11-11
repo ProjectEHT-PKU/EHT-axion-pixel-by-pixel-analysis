@@ -20,7 +20,7 @@ All four Pixi environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_
 | `raptor-build`, `raptor-generate` | `-e raptor-build` | `scripts/raptor/{build,generate}.py` |
 | `eht-reconstruct`, `eht-refine`, `eht-sample` | `-e eht-imaging` | `scripts/eht/{reconstruct,refine,sample}.py` |
 | `eht-summarize` | `-e eht-summary` (or `-e eht-imaging`) | `scripts/eht/summarize.py` |
-| `analysis-expected-signal`, `analysis-limits`, `analysis-check-grid`, `analysis-check-covariance`, `analysis-summarize`, `analysis-paper` | `default` | `scripts/analysis/{expected_signal,limits,check_grid,check_covariance,summarize,paper}.py` |
+| `analysis-expected-signal`, `analysis-limits`, `analysis-summarize`, `analysis-paper` | `default` | `scripts/analysis/{expected_signal,limits,summarize,paper}.py` |
 | `test` | `default` or `-e eht-imaging` | `python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=."` |
 | `lint` | `default` | `ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts` |
 | `check` | `default` | Runs `test` and `lint` |

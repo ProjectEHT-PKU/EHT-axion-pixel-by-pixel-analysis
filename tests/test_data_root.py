@@ -117,7 +117,7 @@ def capture(monkeypatch, module, name="run"):
 
 
 def test_analysis_scripts_default_roots(project, monkeypatch):
-    from scripts.analysis import check_covariance, check_grid, expected_signal, limits, summarize
+    from scripts.analysis import expected_signal, limits, summarize
 
     calls = capture(monkeypatch, expected_signal)
     expected_signal.main(["--data-root", "/d"])
@@ -129,29 +129,10 @@ def test_analysis_scripts_default_roots(project, monkeypatch):
     assert (args.ensemble, args.expected_signal, args.output_root) == (
         Path("/d/eht/ensemble"), Path("/d/analysis/expected-signal"), Path("/new"))
 
-    calls = capture(monkeypatch, check_grid)
-    check_grid.main(["--data-root", "/d", "--check", "prior", "--coupling-max", "1e4"])
-    args = calls[0][0][0]
-    assert (args.source, args.output_root) == (Path("/d/analysis/limits"), Path("/d/analysis/check-prior"))
-    with pytest.raises(SystemExit):
-        check_grid.main(["--data-root", "/d"])
-
-    monkeypatch.setattr(check_covariance.provenance, "verify_stage",
-                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("roots filled in")))
-    with pytest.raises(RuntimeError, match="roots filled in"):
-        check_covariance.main(["--data-root", str(project / "d")])
-    (project / "d" / "analysis" / "check-covariance").mkdir(parents=True)
-    with pytest.raises(FileExistsError):
-        check_covariance.main(["--data-root", str(project / "d")])
-
     calls = capture(monkeypatch, summarize)
     summarize.main(["--data-root", "/d"])
     args = calls[0][0][0]
-    assert (args.limits, args.gridcheck, args.priorcheck, args.covcheck, args.output_root) == (
-        Path("/d/analysis/limits"), Path("/d/analysis/check-grid"), Path("/d/analysis/check-prior"),
-        Path("/d/analysis/check-covariance"), Path("/d/analysis/summary"))
-    summarize.main(["--limits", "a", "--gridcheck", "b", "--priorcheck", "c", "--output-root", "e"])
-    assert calls[1][0][0].covcheck is None
+    assert (args.limits, args.output_root) == (Path("/d/analysis/limits"), Path("/d/analysis/summary"))
 
 
 def test_eht_scripts_default_roots(project, monkeypatch):

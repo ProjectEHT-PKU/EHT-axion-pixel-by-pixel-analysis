@@ -11,7 +11,7 @@ The M87\* EHT axion pipeline tests for birefringent electric-vector position ang
 | `RAPTOR` simulation | `scripts/raptor/build.py`, `scripts/raptor/generate.py` | `raptor-build` (`linux-64`) | float64 Stokes image cubes (`raptor/images/res-100/alpha-*/stokes.npy`, `res-400/background/stokes.npy`) |
 | EHT imaging | `scripts/eht/reconstruct.py`, `scripts/eht/refine.py`, `scripts/eht/sample.py` | `eht-imaging` | Fixed-$I$ images, refined fiducial D terms, and $4 \times 1000$ certified polarimetric FITS draws |
 | EHT ensemble summary | `scripts/eht/summarize.py` | `eht-summary` | Per-day Stokes/EVPA arrays and Paper VII diagnostics (`eht/ensemble/`) |
-| Analysis | `scripts/analysis/expected_signal.py`, `scripts/analysis/limits.py`, `scripts/analysis/check_grid.py`, `scripts/analysis/check_covariance.py`, `scripts/analysis/summarize.py`, `scripts/analysis/paper.py` | `default` | Expected axion signal, upper limits $c_{95}(\alpha)$, sensitivity checks, `RESULTS.md`, and paper figures/macros/tables |
+| Analysis | `scripts/analysis/expected_signal.py`, `scripts/analysis/limits.py`, `scripts/analysis/summarize.py`, `scripts/analysis/paper.py` | `default` | Expected axion signal, upper limits $c_{95}(\alpha)$, `RESULTS.md`, and paper figures/macros/tables |
 
 ```mermaid
 flowchart LR
@@ -28,11 +28,7 @@ flowchart LR
   end
   subgraph AN["Analysis"]
     AT["analysis/expected_signal.py"] --> AL["analysis/limits.py"]
-    AL --> AG["analysis/check_grid.py"]
-    AL --> AC["analysis/check_covariance.py"]
     AL --> AS["analysis/summarize.py"]
-    AG --> AS
-    AC --> AS
     AT --> AP["analysis/paper.py"]
     AL --> AP
     AG --> AP
@@ -56,7 +52,7 @@ Arrows mean "reads the verified output of". `scripts/raptor/generate.py` runs th
    - runs 50 rounds of fiducial linear-polarization ($P = Q + iU$) imaging and forward D-term (instrumental leakage) fitting for `AZ`, `LM`, and `PV`;
    - refines each day's fiducial D terms with 100 outer rounds of an exact convex PDHG $P$ solver (certified by a floating-point duality gap) and `L-BFGS-B` forward D refits;
    - samples 1000 D-term realizations per day from the four-day refined scatter (plus zero-mean 1 % residuals on pre-corrected stations `AA`, `AP`, `SM`, `JC`) and solves one certified exact $P$ image per draw.
-3. **Analysis** ([Analysis](analysis.md)). Simulated Stokes cubes are blurred with the shared $19\,\mu\mathrm{as}$ matching Gaussian, rotated onto the sky ($108^\circ$), and resampled onto the $64 \times 64$, $120\,\mu\mathrm{as}$ EHT sky grid. A 16-phase discrete Fourier transform extracts the first-harmonic EVPA response amplitude $A$ and phase $\phi$ per pixel (2D) and per intensity-weighted $10^\circ$ sector aperture (1D), whose mean and scatter over the snapshots are the expected signal. High-SNR concentrated features are selected on the EHT ensemble without inspecting day-to-day differences. From the two consecutive-day EVPA differences ($96 - 95$ and $101 - 100$) and three covariance models (`std`, `cor`, `cor_fixed_background`), a Gaussian likelihood marginalized over a shared axion phase $\phi_0$ and combined with a log-uniform prior yields the 95 % credible upper limit $c_{95}(\alpha)$, alongside a zero-data control and grid, prior, and split-ensemble covariance checks.
+3. **Analysis** ([Analysis](analysis.md)). Simulated Stokes cubes are blurred with the shared $19\,\mu\mathrm{as}$ matching Gaussian, rotated onto the sky ($108^\circ$), and resampled onto the $64 \times 64$, $120\,\mu\mathrm{as}$ EHT sky grid. A 16-phase discrete Fourier transform extracts the first-harmonic EVPA response amplitude $A$ and phase $\phi$ per pixel (2D) and per intensity-weighted $10^\circ$ sector aperture (1D), whose mean and scatter over the snapshots are the expected signal. High-SNR concentrated features are selected on the EHT ensemble without inspecting day-to-day differences. From the two consecutive-day EVPA differences ($96 - 95$ and $101 - 100$) and three covariance models (`std`, `cor`, `cor_fixed_background`), a Gaussian likelihood marginalized over a shared axion phase $\phi_0$ and combined with a log-uniform prior yields the 95 % credible upper limit $c_{95}(\alpha)$, alongside a zero-data control.
 
 ## Physical and polarimetric conventions
 

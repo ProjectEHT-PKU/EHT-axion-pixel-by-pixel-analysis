@@ -24,14 +24,11 @@
   analysis/
     expected-signal/             analysis/expected_signal.py (reads raptor/images)
     limits/                      analysis/limits.py
-    check-grid/                  analysis/check_grid.py --check grid
-    check-prior/                 analysis/check_grid.py --check prior
-    check-covariance/            analysis/check_covariance.py
     summary/                     analysis/summarize.py
     paper/                       analysis/paper.py
 ```
 
-显式传入 `--...-root` 选项会覆盖默认路径；`scripts/analysis/check_grid.py` 在未指定 `--output-root` 时要求传入 `--check grid` 或 `--check prior`。
+显式传入 `--...-root` 选项会覆盖默认路径。
 
 ## 输入目录布局
 
@@ -128,14 +125,8 @@ LIMITS/                          stage analysis:limits
                                  cases/observed-cor-1d/log_likelihood
   limits.csv                     columns: data, mode, dimension, alpha, log10_c95, c95
   observed-vs-zero-data.png
-GRID/, PRIOR/                    stage analysis:check-grid
-  report.json, results.npz       section cases/<data>-<mode>-<dim>; results with delta_log10_c95
-  limits.csv (+ delta_log10_c95), observed-vs-zero-data.png
-COV/                             stage analysis:check-covariance
-  covariance-sensitivity.csv     columns: half, mode, dimension, alpha, c95, delta_dex
-  report.json
 SUMMARY/                         stage analysis:summary
-  limits.csv, fit-chi2.csv, grid_vs_primary.csv, prior_vs_dense_grid.csv
+  limits.csv, fit-chi2.csv
   limits.png, fits-alpha-<α>.png (8 files), report.json, RESULTS.md
 PAPER/                           stage analysis:paper
   figures/<name>.pdf             radial_function, two_photon, signal_maps, template_maps, background,
@@ -183,8 +174,6 @@ PAPER/                           stage analysis:paper
 | `eht:ensemble` | `scripts/eht/summarize.py` |
 | `analysis:expected-signal` | `scripts/analysis/expected_signal.py` |
 | `analysis:limits` | `scripts/analysis/limits.py` |
-| `analysis:check-grid` | `scripts/analysis/check_grid.py` |
-| `analysis:check-covariance` | `scripts/analysis/check_covariance.py` |
 | `analysis:summary` | `scripts/analysis/summarize.py` |
 | `analysis:paper` | `scripts/analysis/paper.py` |
 

@@ -11,9 +11,6 @@ With `EHT_DATA_ROOT` set in `.env` (or `--data-root`), all input and output path
 ```bash
 pixi run analysis-expected-signal
 pixi run analysis-limits
-pixi run analysis-check-grid --check grid --phase-count 128 --coupling-points 240
-pixi run analysis-check-grid --check prior --phase-count 128 --coupling-points 260 --coupling-max 10000
-pixi run analysis-check-covariance
 pixi run analysis-summarize
 pixi run analysis-paper
 ```
@@ -23,19 +20,11 @@ Explicit directory flags override any layout default:
 ```bash
 pixi run analysis-expected-signal --raptor-images IMAGES --output-root EXPECTED
 pixi run analysis-limits --expected-signal EXPECTED --ensemble ENSEMBLE --output-root LIMITS
-pixi run analysis-check-grid --source LIMITS --expected-signal EXPECTED --output-root GRID \
-    --phase-count 128 --coupling-points 240
-pixi run analysis-check-grid --source LIMITS --expected-signal EXPECTED --output-root PRIOR \
-    --phase-count 128 --coupling-points 260 --coupling-max 10000
-pixi run analysis-check-covariance --source LIMITS --expected-signal EXPECTED --output-root COV
-pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR \
-    --covcheck COV --output-root SUMMARY
-pixi run analysis-paper --limits LIMITS --gridcheck GRID --priorcheck PRIOR --covcheck COV \
+pixi run analysis-summarize --limits LIMITS --output-root SUMMARY
+pixi run analysis-paper --limits LIMITS \
     --expected-signal EXPECTED --ensemble ENSEMBLE --raptor-images IMAGES \
     --raptor-plan plan.json --raptor-source-root RAPTOR --output-root PAPER
 ```
-
-When `--data-root` / `EHT_DATA_ROOT` is not set, `--covcheck` is optional in `scripts/analysis/summarize.py`; with a data root, `summarize.py` defaults `--covcheck` to `$EHT_DATA_ROOT/analysis/check-covariance`.
 
 ## Expected signal (`scripts/analysis/expected_signal.py`)
 
@@ -143,11 +132,9 @@ $$
 
 `normalized_posterior_cdf` (`eht_axion/analysis/posterior.py`) multiplies $L(c)$ by $\pi(c) \propto 1/c$ (`log-uniform`, or constant for `uniform`), integrates with the trapezoidal rule in $c$, and `posterior_upper_limit` inverts the cumulative distribution of that piecewise-linear density analytically at `credibility = 0.95` to obtain $c_{95}$. Every dimension/mode pair is evaluated both on the observed differences (`observed`) and on a **zero-data control** ($d_1 = d_2 = 0$ with identical features and covariances, `zero-data`).
 
-## Sensitivity checks, summary, and paper outputs
+## Summary and paper outputs
 
-- **Grid and prior checks (`scripts/analysis/check_grid.py`)**: re-evaluates the saved observations (`results.npz` section `observations`) of `analysis:limits` with overridden `--phase-count`, `--coupling-points`, and/or `--coupling-max` (stage `analysis:check-grid`, reporting $\Delta\log_{10} c_{95}$ against the source stage without re-selecting features).
-- **Split-ensemble covariance check (`scripts/analysis/check_covariance.py`)**: splits each day's 1000 draws into `first500` and `last500`, recomputes $C_d$ around the fixed full-ensemble circular means $\bar{\chi}_d$, and reports $\Delta\log_{10} c_{95}$ across all six observed cases (`analysis:check-covariance`).
-- **Summary (`scripts/analysis/summarize.py`)**: verifies `limits`, `gridcheck`, `priorcheck`, and optional `covcheck`, asserts unchanged feature counts across checks, and writes `limits.csv`, `grid_vs_primary.csv`, `prior_vs_dense_grid.csv`, `fit-chi2.csv` ($\chi^2$ at $c=0$ and at the joint-grid best fit), `limits.png`, `fits-alpha-<α>.png`, `report.json`, and a purely data-driven `RESULTS.md` (`analysis:summary`).
+- **Summary (`scripts/analysis/summarize.py`)**: verifies `limits` and writes `limits.csv`, `fit-chi2.csv` ($\chi^2$ at $c=0$ and at the joint-grid best fit), `limits.png`, `fits-alpha-<α>.png`, `report.json`, and a purely data-driven `RESULTS.md` (`analysis:summary`).
 - **Paper outputs (`scripts/analysis/paper.py`)**: collects all manuscript assets into stage `analysis:paper` without refitting anything:
   - `figures/`: eight deterministic vector PDFs (`radial_function`, `two_photon`, `signal_maps`, `template_maps`, `background`, `observational_uncertainty`, `data_vs_model`, `limits`);
   - `numbers.tex` and `numbers.json` (`analysis-paper-numbers`): digit-free `\newcommand{\Num...}{...}` macros paired with unrounded values and exact data sources;

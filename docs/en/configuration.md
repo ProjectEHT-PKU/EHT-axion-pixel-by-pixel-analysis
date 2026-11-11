@@ -114,7 +114,7 @@ Note that the compact zero-baseline flux density (`zbl = 0.60` Jy) of the total-
 | `stop` | `1.0e-08` | – | `ehtim` optimizer convergence tolerance in `fiducial` | `reconstruct.py` |
 | `shift_objective_constant` | `true` | – | Add constant $w_{\mathrm{pvis}} + w_m + h_w\ln 2$ to `ehtim` $P$ objective (minimizer unchanged) | `reconstruct.py` |
 | `uv_min` | `100000000.0` | $\lambda$ | Minimum baseline length ($100\,\mathrm{M}\lambda$) excluding intra-site zero baselines before shared-gain calibration and in all $P$ imaging | `reconstruct.py`, `refine.py`, `sample.py` |
-| `uncertainty_draws` | `1000` | draws/day | D-term Monte Carlo realizations per day ($4000$ total) | `sample.py`, `eht/summarize.py`, `limits.py`, `check_covariance.py` |
+| `uncertainty_draws` | `1000` | draws/day | D-term Monte Carlo realizations per day ($4000$ total) | `sample.py`, `eht/summarize.py`, `limits.py` |
 | `seed` | `20210405` | – | Base integer RNG seed ($\ge 0$); day $d$ uses `SeedSequence([seed, day])` | `sample.py` |
 | `covariance_ddof` | `1` | – | Delta degrees of freedom ($\in [0, 3]$) for the 4-day $(\operatorname{Re} D, \operatorname{Im} D)$ covariance | `d_distribution`, `sample.py` |
 | `residual_d_sigma` | `0.01` | – | Per-component ($\operatorname{Re}$, $\operatorname{Im}$) zero-mean Gaussian SD for `fixed_sites` | `sample_dterms`, `sample.py` |
@@ -150,10 +150,10 @@ Note that the compact zero-baseline flux density (`zbl = 0.60` Jy) of the total-
 | `cloud.pivot_alpha` | `0.05` | – | Pivot $\alpha$ in $b(\alpha)$ ($> 0$) | `cloud_amplitude_scaling` |
 | `cloud.exponent` | `1.75` | – | Power-law exponent in $b(\alpha)$ | `cloud_amplitude_scaling` |
 | `background.lag_frames` | `3` | frames | Frame lag $L \ge 1$ for axion-off EVPA differences ($3\,t_g = 26.68\,\mathrm{h}$) | `selected_background`, `paper.py` |
-| `inference.phase_count` | `64` | grid points | Uniform discrete grid size $N_\phi \ge 2$ on $[0, 2\pi)$ for marginalizing $\phi_0$ | `evpa_templates` (`check_grid.py` `--phase-count` override) |
-| `inference.coupling_points` | `120` | grid points | Log-spaced grid size $\ge 2$ on `[coupling_min, coupling_max]` | `calculate_observed` (`check_grid.py` `--coupling-points` override) |
+| `inference.phase_count` | `64` | grid points | Uniform discrete grid size $N_\phi \ge 2$ on $[0, 2\pi)$ for marginalizing $\phi_0$ | `evpa_templates` |
+| `inference.coupling_points` | `120` | grid points | Log-spaced grid size $\ge 2$ on `[coupling_min, coupling_max]` | `calculate_observed` |
 | `inference.coupling_min` | `0.0072992700729927005` | – | Lower prior bound $c_{\min} = 1/137 > 0$ | `calculate_observed` |
-| `inference.coupling_max` | `1000.0` | – | Upper prior bound $c_{\max} > c_{\min}$ | `calculate_observed` (`check_grid.py` `--coupling-max` override) |
+| `inference.coupling_max` | `1000.0` | – | Upper prior bound $c_{\max} > c_{\min}$ | `calculate_observed` |
 | `inference.prior` | `log-uniform` | – | Prior density on $c$: `log-uniform` ($\pi(c) \propto 1/c$) or `uniform` | `normalized_posterior_cdf` |
 | `inference.credibility` | `0.95` | – | Credible quantile $\in (0, 1)$ defining $c_{95}$ | `posterior_upper_limit`, `RESULTS.md` |
 | `inference.exposure_hours` | `6.0` | $\mathrm{h}$ | Rectangular exposure duration $T \ge 0$ in $\operatorname{sinc}(\omega T / 2)$ | `evpa_templates` |

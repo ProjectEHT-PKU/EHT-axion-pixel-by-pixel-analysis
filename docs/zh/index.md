@@ -56,18 +56,15 @@ pixi run --locked lint                                        # Ruff check only
 
 ### 在已有数据产品上运行分析链
 
-当 `$EHT_DATA_ROOT/raptor/images` 与 `$EHT_DATA_ROOT/eht/ensemble` 就绪后，可在 `default` 环境中运行完整的统计推断与数值敏感性检验链：
+当 `$EHT_DATA_ROOT/raptor/images` 与 `$EHT_DATA_ROOT/eht/ensemble` 就绪后，可在 `default` 环境中运行完整的统计推断：
 
 ```bash
 pixi run analysis-expected-signal
 pixi run analysis-limits
-pixi run analysis-check-grid --check grid --phase-count 128 --coupling-points 240
-pixi run analysis-check-grid --check prior --phase-count 128 --coupling-points 260 --coupling-max 10000
-pixi run analysis-check-covariance
 pixi run analysis-summarize
 ```
 
-每条命令都会在 `$EHT_DATA_ROOT/analysis/` 下发布一个新的阶段目录（`expected-signal/`、`limits/`、`check-grid/`、`check-prior/`、`check-covariance/` 和 `summary/`，其中包含 `limits/limits.csv` 和 `summary/RESULTS.md`），并拒绝覆盖任何已存在的输出目录。
+每条命令都会在 `$EHT_DATA_ROOT/analysis/` 下发布一个新的阶段目录（`expected-signal/`、`limits/` 和 `summary/`，其中包含 `limits/limits.csv` 和 `summary/RESULTS.md`），并拒绝覆盖任何已存在的输出目录。
 
 若还需在 `$EHT_DATA_ROOT/analysis/paper/` 中生成论文插图、LaTeX 数值宏（`numbers.tex`、`numbers.json`）及表格（`table-limits.tex`、`table-chi2.tex`）——该步骤额外读取 `$EHT_DATA_ROOT/raptor/plan.json`、位于 `$EHT_RAPTOR_SOURCE_ROOT` 的 `RAPTOR` 工作副本中的 `src/axion.c`，以及 `$EHT_INPUT_ROOT/radial/` 中的径向轮廓 CSV 表——请运行：
 
@@ -83,6 +80,6 @@ pixi run analysis-paper
 | [配置参考](configuration.md) | `configs/experiment.yaml` 全部键的逐项说明、校验规则与派生设置，以及 `.env` 中的三个路径根目录与执行设置 |
 | [RAPTOR 模拟](raptor-simulation.md) | 固定版本 `RAPTOR` 编译、BHAC 快照与径向表校验、任务标识符、作业调度、CPU 亲和性与图像数据立方 |
 | [EHT 成像](eht-imaging.md) | EHT Paper VII 偏振成像复现、凸优化 PDHG 精化、D 项蒙特卡罗、系综汇总，以及与 Paper VII 的已知差异 |
-| [分析](analysis.md) | 图像预处理、扇形孔径算子、预期信号、特征选择、协方差模型、贝叶斯似然与后验上限、敏感性检验及论文输出 |
+| [分析](analysis.md) | 图像预处理、扇形孔径算子、预期信号、特征选择、协方差模型、贝叶斯似然与后验上限及论文输出 |
 | [数据布局与溯源机制](data-layout.md) | 默认 `$EHT_DATA_ROOT` 目录树、只读 `$EHT_INPUT_ROOT` 输入目录布局、各阶段文件与数组规范、原子化 `stage_directory` 清单与非清单回执 |
 | [开发指南](development.md) | Pixi 环境与任务、测试套件与代码检查、模块与脚本索引、架构不变量，以及新增参数或分析阶段的扩展指南 |

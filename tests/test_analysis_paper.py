@@ -1,6 +1,5 @@
 """scripts/analysis/paper.py: number formatting, tables, figures, one end-to-end run on synthetic data."""
 
-import csv
 import json
 from pathlib import Path
 import re
@@ -174,38 +173,6 @@ def data_root(tmp_path):
             path.parent, dict(scientific_profile=config, results=results), sections),
         "results.npz": lambda path: None,
     })
-    shifted = {
-        key: dict(value, log10_c95=list(np.asarray(value["log10_c95"]) + 1e-3))
-        for key, value in results.items()
-    }
-    stage(
-        root / "analysis/check-grid",
-        "analysis:check-grid",
-        {"report.json": text(dict(results=shifted, max_delta_dex=1e-3))},
-    )
-    stage(
-        root / "analysis/check-prior",
-        "analysis:check-grid",
-        {"report.json": text(dict(results=results, max_delta_dex=0.0))},
-    )
-
-    def covariance_csv(path):
-        with path.open("w", newline="") as stream:
-            writer = csv.DictWriter(
-                stream, fieldnames=["half", "mode", "dimension", "alpha", "c95", "delta_dex"]
-            )
-            writer.writeheader()
-            for d in ("1d", "2d"):
-                for m in MODES:
-                    writer.writerow(
-                        dict(half="first500", mode=m, dimension=d, alpha=0.1, c95=1.0, delta_dex=-0.05)
-                    )
-
-    stage(
-        root / "analysis/check-covariance",
-        "analysis:check-covariance",
-        {"covariance-sensitivity.csv": covariance_csv, "report.json": text({})},
-    )
     expected = {}
     for d, shape in (("1d", (360,)), ("2d", (n, n))):
         expected.update({
@@ -317,7 +284,8 @@ def test_run_writes_one_complete_paper_directory(data_root, pinned_checkout):
     assert lookup["NumConditionSectorsPairOne"] == r"7.4\times10^{7}"
     assert lookup["NumObsFrequencyGHz"] == "227.07" and lookup["NumReconPolMaxPercent"] == "6.5"
     assert lookup["NumRatioCorBgSectorsMin"] == "1.5" and lookup["NumChiGainMax"] == "5.0"
-    assert lookup["NumCovCheckCorBgMaxPercentApprox"] == "12" and lookup["NumWindowAtTwentyRg"] == "0.97"
+    assert lookup["NumWindowAtTwentyRg"] == "0.97"
+    assert not any(name.startswith(("NumGridCheck", "NumPriorCheck", "NumCovCheck")) for name in lookup)
     assert lookup["NumSnapshots"] == "141" and lookup["NumSpanTg"] == "140"
     assert lookup["NumCloudBAlphaThirty"] == "0.69"
     assert values["NumWindowRadiusRg"]["source"] == paper.AXION_SOURCE
