@@ -41,7 +41,7 @@ from eht_axion.eht.ensemble import global_diagnostics
 from eht_axion.experiment import DEFAULT_PATH, EHT_DAYS, physical_scale, read_experiment
 from eht_axion.physics import HBAR_EV_S, omega
 from eht_axion.raptor.build import _clean_source
-from eht_axion.raptor.layout import input_raptor_files
+from eht_axion.raptor.layout import delivered_cube
 
 PAPER_ALPHA = 0.30  # alpha of the response maps, templates figure, chi^2 table and fit figure
 PAPER_SNAPSHOT_LABEL = 2300  # GRMHD label of the response-map figure
@@ -987,11 +987,10 @@ def run(args):
         "eht:ensemble",
         ["report.json", "axes.npz"] + [f"day-{day}/global.npz" for day in EHT_DAYS],
     )
-    shards = input_raptor_files(
+    background_cube = delivered_cube(
         args.raptor_input_root.resolve(), None, config["raptor"]["background"]["resolution"]
     )
-    for shard in shards:
-        inputs.stage(shard.parent, "raptor:delivery", [shard.name, "generated.json"])
+    inputs.stage(background_cube.parent, "raptor:delivery", [background_cube.name, "generated.json"])
     plan = read_json(inputs.file(args.raptor_plan))
     tables = radial_tables(args, plan, inputs, environment)
 
@@ -1003,17 +1002,13 @@ def run(args):
     features = {d: len(obs[d]["selected_indices"]) for d in DIMENSIONS}
     rows = chi2_rows(limits)
 
-    times = []
-    flux = []
     scale = physical_scale(config)
     rg_radians = np.deg2rad(scale.angular_rg_uas / 3.6e9)
     n400 = config["raptor"]["background"]["resolution"]
     solid_angle = (config["raptor"]["camera_fov_rg"] / n400 * rg_radians) ** 2
-    for shard in shards:
-        times += read_json(shard.parent / "generated.json")["times_tg"]
-        cube = np.load(shard, mmap_mode="r", allow_pickle=False)
-        flux += list(np.asarray(cube[:, 0, ..., 0]).sum(axis=(1, 2)) * solid_angle)
-    flux = np.asarray(flux)
+    times = read_json(background_cube.parent / "generated.json")["times_tg"]
+    cube = np.load(background_cube, mmap_mode="r", allow_pickle=False)
+    flux = np.asarray(cube[:, 0, ..., 0]).sum(axis=(1, 2)) * solid_angle
 
     add_scales(numbers, config, times, background_info["lag_hours"], len(background["1d"]["differences"]))
     profiles = radial_profiles(config, tables)

@@ -1,4 +1,4 @@
-"""Delivery: RAPTOR job HDF5 -> Stokes cubes (delivered/res-*/{alpha-*,background}/), and checks of
+"""Delivery: RAPTOR job HDF5 -> Stokes cubes (delivered/res-*/{alpha-*,background}/stokes.npy), and checks of
 delivered cubes against this experiment (generated_inputs, input_cadence_hours, validate_processed_source)."""
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def _identity(config, *, alpha, resolution, labels, times):
 def deliver_stokes(plan, run_root):
     """Publish the Stokes cubes of the completed jobs of run_root into run_root/delivered.
 
-    run_root holds build/, jobs/<task id>/ and delivered/res-<n>/{alpha-<a>,background/tA-tB}/.
+    run_root holds build/, jobs/<task id>/ and delivered/res-<n>/{alpha-<a>,background}/stokes.npy.
     """
     root = Path(run_root).resolve()
     config = plan["config"]
@@ -91,13 +91,11 @@ def deliver_stokes(plan, run_root):
     background_res = config["raptor"]["background"]["resolution"]
     snap = config["raptor"]["snapshots"]
     labels = list(range(snap["start"], snap["stop"] + 1, snap["step"]))
-    # Response products are one cube per alpha; background products are
-    # shards of at most 10 snapshots on the inclusive label grid.
-    groups = [(a, response_res, labels) for a in config["shared"]["alphas"]]
-    groups += [(None, background_res, labels[i:i + 10]) for i in range(0, len(labels), 10)]
-    for alpha, resolution, group_labels in groups:
+    # One cube per alpha and one axion-off background cube, each over all snapshots.
+    groups = [(a, response_res) for a in config["shared"]["alphas"]] + [(None, background_res)]
+    for alpha, resolution in groups:
         grid, inputs, times = [], [], []
-        for label in group_labels:
+        for label in labels:
             baseline = lookup[("baseline", resolution, label, None, 0)]
             selected = [baseline]
             if alpha is not None:
@@ -110,66 +108,50 @@ def deliver_stokes(plan, run_root):
                 inputs += [receipt, hdf]
             grid.append(row)
             times.append(baseline["time_tg"])
-        base = product_directory(root / "delivered", alpha, resolution)
-        if alpha is None:
-            destination = base / f"t{group_labels[0]}-t{group_labels[-1]}"
-            filename = f"stokes-t{group_labels[0]}-t{group_labels[-1]}.npy"
-        else:
-            destination, filename = base, "stokes.npy"
-        identity = _identity(config, alpha=alpha, resolution=resolution, labels=group_labels,
-                             times=times)
+        destination = product_directory(root / "delivered", alpha, resolution)
+        identity = _identity(config, alpha=alpha, resolution=resolution, labels=labels, times=times)
         with stage_directory(destination, "raptor:delivery", identity,
                              list(dict.fromkeys(inputs))) as temp:
             if temp is not None:
                 frequency = config["raptor"]["plasma"]["frequency_hz"]
-                result = convert_hdf5(grid, temp, **_mapping(resolution, frequency))
-                if filename != "stokes.npy":
-                    result["stokes"].rename(temp / filename)
+                convert_hdf5(grid, temp, **_mapping(resolution, frequency))
                 (temp / "generated.json").write_text(json.dumps(identity, indent=2) + "\n")
-        outputs.append(destination / filename)
+        outputs.append(destination / "stokes.npy")
     return outputs
 
 
-def generated_inputs(paths, config, *, alpha, resolution):
-    """Verify delivered RAPTOR products against this experiment; return inputs and labels.
+def generated_inputs(path, config, *, alpha, resolution):
+    """Check a delivered RAPTOR cube against this experiment; return its inputs and labels.
 
-    ``alpha`` is None for the axion-off background products.
-
-    Each product must be a complete raptor:delivery stage whose generated.json
-    equals the identity this experiment would deliver (ray-tracing settings,
-    alpha, resolution); the labels must cover raptor.snapshots exactly.
+    ``alpha`` is None for the axion-off background. The cube must be a complete
+    raptor:delivery stage whose generated.json equals what this experiment would deliver
+    (ray-tracing settings, alpha, resolution) over exactly the raptor.snapshots labels.
     """
-    paths = [Path(p) for p in paths]
-    inputs, labels = list(paths), []
-    for path in paths:
-        directory = path.parent
-        verify_stage(directory)
-        metadata = directory / "generated.json"
-        require_declared_outputs(directory, [path, metadata])
-        record = json.loads(metadata.read_text())
-        expected = _identity(config, alpha=alpha, resolution=resolution,
-                             labels=record.get("snapshot_labels"), times=record.get("times_tg"))
-        if record != expected:
-            raise ValueError(f"Generated RAPTOR identity differs from this experiment: {metadata}")
-        a = np.load(path, mmap_mode="r", allow_pickle=False)
-        if a.shape != (len(record["snapshot_labels"]), record["state_count"], resolution, resolution, 4):
-            raise ValueError("Generated RAPTOR shape/identity mismatch")
-        del a
-        labels += record["snapshot_labels"]
-        inputs += [manifest_path(directory), metadata]
+    path = Path(path)
+    directory = path.parent
+    verify_stage(directory)
+    metadata = directory / "generated.json"
+    require_declared_outputs(directory, [path, metadata])
+    record = json.loads(metadata.read_text())
+    expected = _identity(config, alpha=alpha, resolution=resolution,
+                         labels=record.get("snapshot_labels"), times=record.get("times_tg"))
+    if record != expected:
+        raise ValueError(f"Generated RAPTOR identity differs from this experiment: {metadata}")
+    a = np.load(path, mmap_mode="r", allow_pickle=False)
+    if a.shape != (len(record["snapshot_labels"]), record["state_count"], resolution, resolution, 4):
+        raise ValueError("Generated RAPTOR shape/identity mismatch")
+    del a
     snap = config["raptor"]["snapshots"]
-    if labels != list(range(snap["start"], snap["stop"] + 1, snap["step"])):
+    if record["snapshot_labels"] != list(range(snap["start"], snap["stop"] + 1, snap["step"])):
         raise ValueError("Generated labels differ from raptor.snapshots")
-    return list(dict.fromkeys(inputs)), labels
+    return [path, manifest_path(directory), metadata], record["snapshot_labels"]
 
 
-def input_cadence_hours(paths, config):
+def input_cadence_hours(path, config):
     """Frame spacing in hours from the recorded GRMHD footer times (must be uniform)."""
     from ..experiment import physical_scale
 
-    times = []
-    for path in paths:
-        times.extend(json.loads((Path(path).parent / "generated.json").read_text())["times_tg"])
+    times = json.loads((Path(path).parent / "generated.json").read_text())["times_tg"]
     delta = np.diff(np.asarray(times, dtype=float))
     if (not len(delta) or not np.isfinite(delta).all() or np.any(delta <= 0)
             or not np.allclose(delta, delta[0], rtol=1e-12, atol=0)):
@@ -178,11 +160,11 @@ def input_cadence_hours(paths, config):
 
 
 def validate_processed_source(manifest, config, *, alpha, resolution):
-    """Recheck that a preprocess stage consumed exactly the delivered products."""
+    """Recheck that a preprocess stage consumed exactly the delivered cube."""
     raw = [Path(p) for p in manifest["inputs"] if Path(p).suffix == ".npy"]
-    if not raw:
-        raise ValueError("Preprocess stage declares no raw Stokes input")
-    required, _ = generated_inputs(raw, config, alpha=alpha, resolution=resolution)
+    if len(raw) != 1:
+        raise ValueError("Preprocess stage must declare exactly one delivered Stokes cube")
+    required, _ = generated_inputs(raw[0], config, alpha=alpha, resolution=resolution)
     actual = {Path(p).resolve() for p in manifest["inputs"]}
     if actual != {p.resolve() for p in required}:
         raise ValueError("Preprocess source lineage omits generated identity or contains foreign inputs")

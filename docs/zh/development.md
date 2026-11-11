@@ -65,7 +65,7 @@ pixi run --locked lint
 | `eht_axion/raptor/outputs.py` | 单作业 HDF5 像素块/坐标及积分流量谱校验 | `validate_job_output`、`read_core_constants`、`hdf_mapping` |
 | `eht_axion/raptor/convert.py` | 将分块作业 HDF5 拼接为 float64 `(T, S, H, W, 4)` `stokes.npy` | `convert_hdf5` |
 | `eht_axion/raptor/delivery.py` | 数据立方交付及下游实验配置身份核对 | `deliver_stokes`、`generated_inputs`、`input_cadence_hours`、`validate_processed_source` |
-| `eht_axion/raptor/layout.py` | 已交付产品的目录命名规则（`alpha-<α>/` 与 `background/` 分片） | `alpha_label`、`product_directory`、`input_raptor_files` |
+| `eht_axion/raptor/layout.py` | 已交付产品的目录命名规则（`alpha-<α>/`、`background/`） | `alpha_label`、`product_directory`、`delivered_cube` |
 | `eht_axion/raptor/options.py` | `RAPTOR` 脚本共用的命令行/dotenv 解析器 | `options` |
 | `eht_axion/eht/calibration.py` | 原生圆偏振 HOPS 载入、`fsys`、逆琼斯 D 改正、零先验前向 D 拟合与四天 D 抽样 | `load_native`、`add_fsys`、`make_imaging_obs`、`apply_fixed_d`、`fit_forward_d`、`d_distribution`、`sample_dterms` |
 | `eht_axion/eht/convex.py` | 带对偶间隙（duality gap）证书的固定 $I$/固定 $D$ 精确凸优化原始–对偶混合梯度（PDHG）$P$ 求解器 | `exact_cartesian_problem`、`solve_problem`、`CartesianProblem` |

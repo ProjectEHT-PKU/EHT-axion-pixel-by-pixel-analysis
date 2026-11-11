@@ -88,7 +88,7 @@ pixi run -e raptor-build raptor-generate --convert-only
 
 `deliver_stokes`（`eht_axion/raptor/delivery.py`）把每个计划任务对应到 `raptor/jobs/` 下唯一的已完成作业阶段，检查其记录的编译与输入以及 `success.json`，并在 `raptor/delivered/` 下发布 `raptor:delivery` 阶段：
 - `res-100/alpha-<alpha:.2f>/stokes.npy`，形状为 `(141, 17, 100, 100, 4)`（共 8 个阶段：状态 `0` 为无轴子基线，状态 `k+1` 对应轴子相位 $k\pi/8$）；
-- `res-400/background/t<A>-t<B>/stokes-t<A>-t<B>.npy`，按最多 10 个连续快照分片（共 15 个阶段：`t1600-t1690` … `t3000-t3000`），形状为 `(T, 1, 400, 400, 4)`。
+- `res-400/background/stokes.npy`，形状为 `(141, 1, 400, 400, 4)`（仅无轴子态）。
 
 每个交付阶段同时写出 `generated.json`（模式 `raptor-generated`，记录 `ray_tracing_config`、`alpha`、`resolution`、`snapshot_labels`、BHAC 尾部时间 `times_tg`、`state_count`、`omega`、坐标轴与单位）。下游分析阶段通过 `generated_inputs` 强制核对 `generated.json` 与当前 `configs/experiment.yaml` 完全一致。
 

@@ -65,7 +65,7 @@ Several test modules enforce repository-wide invariants rather than single-funct
 | `eht_axion/raptor/outputs.py` | Single-job HDF5 block/coordinate and integrated-spectrum validation | `validate_job_output`, `read_core_constants`, `hdf_mapping` |
 | `eht_axion/raptor/convert.py` | Tiled job HDF5 assembly into float64 `(T, S, H, W, 4)` `stokes.npy` | `convert_hdf5` |
 | `eht_axion/raptor/delivery.py` | Cube delivery and downstream experiment-identity checks | `deliver_stokes`, `generated_inputs`, `input_cadence_hours`, `validate_processed_source` |
-| `eht_axion/raptor/layout.py` | Delivered product directory naming (`alpha-<α>/` and `background/` shards) | `alpha_label`, `product_directory`, `input_raptor_files` |
+| `eht_axion/raptor/layout.py` | Delivered product directory naming (`alpha-<α>/`, `background/`) | `alpha_label`, `product_directory`, `delivered_cube` |
 | `eht_axion/raptor/options.py` | Shared CLI/dotenv parser of the `RAPTOR` scripts | `options` |
 | `eht_axion/eht/calibration.py` | Native circular HOPS loading, `fsys`, inverse Jones D application, zero-prior forward D fit, and 4-day D sampling | `load_native`, `add_fsys`, `make_imaging_obs`, `apply_fixed_d`, `fit_forward_d`, `d_distribution`, `sample_dterms` |
 | `eht_axion/eht/convex.py` | Exact convex fixed-$I$/fixed-$D$ PDHG $P$ solver with duality-gap certification | `exact_cartesian_problem`, `solve_problem`, `CartesianProblem` |

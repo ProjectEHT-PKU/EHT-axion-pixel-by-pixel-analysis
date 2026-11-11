@@ -1,6 +1,6 @@
 """Analysis: response templates and the GRMHD background from delivered RAPTOR data.
 
-Reads the delivered Stokes cubes (scripts/raptor/merge.py or scripts/raptor/generate.py)
+Reads the delivered Stokes cubes (scripts/raptor/generate.py)
 and writes, into a NEW output root, one verified stage per step:
 
   processed/alpha-*      analysis:preprocess   blur, rotate, resample to the sky grid
@@ -27,7 +27,7 @@ from eht_axion.provenance import (
     manifest_path, reject_directory_symlinks, stage_directory, verify_stage,
 )
 from eht_axion.raptor.delivery import generated_inputs
-from eht_axion.raptor.layout import input_raptor_files
+from eht_axion.raptor.layout import delivered_cube
 
 
 def stage_inputs(directory):
@@ -52,11 +52,11 @@ def run(config_path, raptor_root, output_root):
     response_resolution = config["raptor"]["response"]["resolution"]
     background_resolution = config["raptor"]["background"]["resolution"]
     for alpha in alphas:
-        cubes = input_raptor_files(raptor_root, alpha, response_resolution)
-        inputs, labels = generated_inputs(cubes, config, alpha=alpha, resolution=response_resolution)
+        cube = delivered_cube(raptor_root, alpha, response_resolution)
+        inputs, labels = generated_inputs(cube, config, alpha=alpha, resolution=response_resolution)
         with stage_directory(layout.processed(alpha), "analysis:preprocess", preprocess, inputs) as out:
             if out is not None:
-                preprocess_cube(cubes, out, **preprocess)
+                preprocess_cube(cube, out, **preprocess)
         fit = dict(aperture, snapshot_labels=labels)
         with stage_directory(layout.response(alpha), "analysis:fit", fit,
                              stage_inputs(layout.processed(alpha))) as out:
@@ -70,13 +70,13 @@ def run(config_path, raptor_root, output_root):
             if out is not None:
                 summarize_fits(fits, out)
 
-    cubes = input_raptor_files(raptor_root, None, background_resolution)
-    inputs, _ = generated_inputs(cubes, config, alpha=None, resolution=background_resolution)
+    cube = delivered_cube(raptor_root, None, background_resolution)
+    inputs, _ = generated_inputs(cube, config, alpha=None, resolution=background_resolution)
     params = dict(preprocess, state_indices=[0])
     with stage_directory(layout.background_processed, "analysis:background",
                          params, inputs) as out:
         if out is not None:
-            preprocess_cube(cubes, out, **params)
+            preprocess_cube(cube, out, **params)
     summary = dict(experiment=str(Path(config_path).resolve()), raptor_input_root=str(raptor_root),
                    output_root=str(output_root), geometry=geometry)
     print(json.dumps(summary, indent=2), flush=True)

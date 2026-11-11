@@ -30,37 +30,23 @@ _MINIMUM_SAMPLES = 2  # a standard deviation needs at least two snapshots
 
 
 class _Series:
-    """Logical time series over explicitly ordered shards; never concatenate."""
+    """One (T, ...) time series read through mmap, one image at a time."""
 
-    def __init__(self, inputs, *, ndim=(4, 5), stokes=True):
-        if isinstance(inputs, (str, Path)):
-            inputs = [inputs]
-        self.paths = [Path(p) for p in inputs]
-        if not self.paths:
-            raise ValueError("at least one input shard is required")
-        if len({p.resolve() for p in self.paths}) != len(self.paths):
-            raise ValueError("duplicate input shards")
-        self.arrays = []
-        for path in self.paths:
-            array = self._load(path)
-            _real_dtype(array.dtype)
-            self.arrays.append(array)
-        first = self.arrays[0]
-        for array in self.arrays:
-            _real_dtype(array.dtype)
-            if array.ndim not in ndim or array.shape[0] == 0:
-                raise ValueError(f"invalid input time-series shape: {array.shape}")
-            if array.shape[1:] != first.shape[1:] or array.dtype != first.dtype:
-                raise ValueError("shards must have identical non-time shape and dtype")
-            if stokes and (
-                array.shape[-1] != 4 or array.shape[-2] != array.shape[-3]
-                or array.shape[-2] < 2
-                or (array.ndim == 5 and array.shape[1] == 0)
-            ):
-                raise ValueError("Stokes input must be (T,[S,]N,N,4), N >= 2")
-        self.ends = np.cumsum([a.shape[0] for a in self.arrays])
-        self.shape = (int(self.ends[-1]),) + first.shape[1:]
-        self.dtype = first.dtype
+    def __init__(self, path, *, ndim=(4, 5), stokes=True):
+        self.path = Path(path)
+        array = self._load(self.path)
+        _real_dtype(array.dtype)
+        if array.ndim not in ndim or array.shape[0] == 0:
+            raise ValueError(f"invalid input time-series shape: {array.shape}")
+        if stokes and (
+            array.shape[-1] != 4 or array.shape[-2] != array.shape[-3]
+            or array.shape[-2] < 2
+            or (array.ndim == 5 and array.shape[1] == 0)
+        ):
+            raise ValueError("Stokes input must be (T,[S,]N,N,4), N >= 2")
+        self.array = array
+        self.shape = array.shape
+        self.dtype = array.dtype
 
     def _load(self, path):
         if path.suffix != ".npy":
@@ -68,13 +54,10 @@ class _Series:
         return np.load(path, mmap_mode="r", allow_pickle=False)
 
     def frame(self, index):
-        shard = int(np.searchsorted(self.ends, index, side="right"))
-        start = 0 if shard == 0 else int(self.ends[shard - 1])
-        return self.arrays[shard][index - start]
+        return self.array[index]
 
     def describe(self):
-        return {"inputs": [str(p) for p in self.paths], "shape": list(self.shape),
-                "input_dtype": str(self.dtype), "shard_order": "explicit caller order"}
+        return {"input": str(self.path), "shape": list(self.shape), "input_dtype": str(self.dtype)}
 
 
 def _snapshot_labels(labels, length):
@@ -146,14 +129,14 @@ def preprocess_frame(
 
 
 def preprocess_cube(
-    inputs, output_dir, *, sigma: float, init_fov: float, final_fov: float,
+    path, output_dir, *, sigma: float, init_fov: float, final_fov: float,
     rotation_angle: float, final_shape: int, state_indices=None,
 ) -> dict[str, Path]:
-    """Preprocess delivered (T,S,N,N,4) cubes one image at a time into float64 stokes.npy.
+    """Preprocess a delivered (T,S,N,N,4) cube one image at a time into float64 stokes.npy.
 
     ``state_indices`` selects states (all if None) and retains the state axis.
     """
-    series = _Series(inputs, ndim=(5,))
+    series = _Series(path, ndim=(5,))
     # Validate geometry before creating products, using only a tiny dummy frame.
     params = dict(sigma=sigma, init_fov=init_fov, final_fov=final_fov,
                   rotation_angle=rotation_angle, final_shape=final_shape)
@@ -168,7 +151,7 @@ def preprocess_cube(
     states = list(range(series.shape[1])) if state_indices is None else state_indices
     shape = (series.shape[0], len(states), final_shape, final_shape, 4)
     result = _outputs(output_dir, {"stokes": "stokes.npy", "metadata": "processing.json"},
-                      series.paths)
+                      [series.path])
     output = open_memmap(result["stokes"], mode="w+", dtype=np.float64, shape=shape)
     for t in range(series.shape[0]):
         for destination_state, source_state in enumerate(states):
@@ -266,7 +249,7 @@ def fit_processed(
     n = series.shape[-2]
     operator = _operator(n, fov, radial_max, window_degrees, angular_bins)
     result = _outputs(output_dir, {"fits_2d": "response-2d.npz", "fits_1d": "response-1d.npz",
-                                  "metadata": "response.json"}, series.paths)
+                                  "metadata": "response.json"}, [series.path])
     two = np.empty((series.shape[0], n, n, 3))
     one = np.empty((series.shape[0], angular_bins, 3))
     for t in range(series.shape[0]):
@@ -319,7 +302,7 @@ def summarize_fits(fits_by_alpha: Mapping[float, object], output_dir) -> dict[st
     if any(s.shape[-1] != 3 or s.shape[1:-1] != spatial for s in series_list):
         raise ValueError("fit products must have matching spatial shape and 3 columns")
     result = _outputs(output_dir, {"templates": "templates.npz", "metadata": "summary.json"},
-                      [p for s in series_list for p in s.paths])
+                      [s.path for s in series_list])
     products = {name: np.full((len(alphas),) + spatial, np.nan) for name in (
         "amplitude_mean", "amplitude_std", "phase_mean", "phase_std",
     )}

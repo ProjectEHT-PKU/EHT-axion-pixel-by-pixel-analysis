@@ -8,7 +8,7 @@ import pytest
 
 from eht_axion.experiment import read_experiment
 from eht_axion.provenance import stage_directory, verify_stage
-from eht_axion.raptor.layout import input_raptor_files
+from eht_axion.raptor.layout import delivered_cube
 from eht_axion.raptor.delivery import deliver_stokes, generated_inputs, input_cadence_hours
 from test_raptor_outputs import write_products
 
@@ -81,16 +81,15 @@ def test_delivery_shapes_axes_labels_and_ancestry(delivered):
     assert len(products) == 2
     for alpha, resolution, shape in ((.2, 100, (2, 17, 100, 100, 4)),
                                      (None, 400, (2, 1, 400, 400, 4))):
-        paths = input_raptor_files(run / "delivered", alpha, resolution)
-        assert len(paths) == 1
-        array = np.load(paths[0], mmap_mode="r")
+        path = delivered_cube(run / "delivered", alpha, resolution)
+        array = np.load(path, mmap_mode="r")
         assert array.shape == shape
         expected = (1 + np.arange(resolution)[:, None]*2 + np.arange(resolution)[None, :]*3)*1e20
         np.testing.assert_array_equal(array[0, 0, ..., 0], expected)
-        inputs, labels = generated_inputs(paths, config, alpha=alpha, resolution=resolution)
+        inputs, labels = generated_inputs(path, config, alpha=alpha, resolution=resolution)
         assert labels == [1600, 1610]
-        assert paths[0].parent / "manifest.json" in inputs
-        record = verify_stage(paths[0].parent)
+        assert path.parent / "manifest.json" in inputs
+        record = verify_stage(path.parent)
         assert all(".building-" not in e for e in record["inputs"])
         assert len([e for e in record["inputs"] if e.endswith("manifest.json")]) == shape[0]*shape[1]
 
@@ -100,7 +99,7 @@ def test_generated_physics_cannot_be_silently_changed(delivered, key, value):
     config, run, _ = delivered
     changed = deepcopy(config)
     changed["shared"][key] = value
-    paths = input_raptor_files(run / "delivered", .2, 100)
+    paths = delivered_cube(run / "delivered", .2, 100)
     with pytest.raises(ValueError, match="identity differs"):
         generated_inputs(paths, changed, alpha=.2, resolution=100)
 
@@ -110,7 +109,7 @@ def test_analysis_ignores_sky_grid_but_not_ray_tracing_changes(delivered):
     changed = deepcopy(config)
     changed["shared"]["image"]["fov_uas"] = 100.0
     changed["analysis"]["inference"]["phase_count"] = 32
-    paths = input_raptor_files(run / "delivered", .2, 100)
+    paths = delivered_cube(run / "delivered", .2, 100)
     assert generated_inputs(paths, changed, alpha=.2, resolution=100)[1] == [1600, 1610]
     changed["raptor"]["plasma"]["mass_unit_g"] = 4e25
     with pytest.raises(ValueError, match="identity differs"):
@@ -139,7 +138,7 @@ def test_generated_data_reaches_templates_and_background(delivered, tmp_path):
     assert bg["config"]["state_indices"] == [0]
     assert np.load(output / "background/stokes.npy", mmap_mode="r").shape == (2, 1, 8, 8, 4)
     assert not (output / "background-unmasked").exists()
-    delivered = [Path(e) for e in bg["inputs"] if e.endswith(".npy")]
+    (delivered,) = [Path(e) for e in bg["inputs"] if e.endswith(".npy")]
     assert input_cadence_hours(delivered, profile) > 0
     with pytest.raises(FileExistsError):
         run_templates(path, run / "delivered", output)
@@ -153,7 +152,7 @@ def test_missing_metadata_is_rejected(delivered):
     metadata.unlink()
     try:
         with pytest.raises(ValueError, match="Missing stage output"):
-            generated_inputs([path], config, alpha=.2, resolution=100)
+            generated_inputs(path, config, alpha=.2, resolution=100)
     finally:
         metadata.write_bytes(content)
 
@@ -174,4 +173,4 @@ def test_undelivered_cube_is_rejected(tmp_path):
     cube = tmp_path / "stokes.npy"
     np.save(cube, np.zeros((2, 17, 100, 100, 4)))
     with pytest.raises(ValueError, match="no manifest"):
-        generated_inputs([cube], read_experiment(), alpha=.2, resolution=100)
+        generated_inputs(cube, read_experiment(), alpha=.2, resolution=100)

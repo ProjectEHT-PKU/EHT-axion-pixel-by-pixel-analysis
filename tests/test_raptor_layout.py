@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from eht_axion.analysis.templates import RunLayout
-from eht_axion.raptor.layout import alpha_label, input_raptor_files, product_directory
+from eht_axion.raptor.layout import alpha_label, delivered_cube, product_directory
 
 
 def test_alpha_identity_format():
@@ -18,28 +18,14 @@ def cube(path, times=1):
     return path
 
 
-def test_response_whole_cube_and_background_shards(tmp_path):
+def test_delivered_cube_paths(tmp_path):
     whole = cube(tmp_path / "res-100/alpha-0.20/stokes.npy")
-    assert input_raptor_files(tmp_path, 0.2, 100) == [whole]
-    base = tmp_path / "res-400/background"
-    assert product_directory(tmp_path, None, 400) == base
-    late = cube(base / "t1700-t1790/stokes-t1700-t1790.npy")
-    early = cube(base / "t1600-t1690/stokes-t1600-t1690.npy")
-    assert input_raptor_files(tmp_path, None, 400) == [early, late]
-
-
-def test_missing_ambiguous_and_misnamed_products(tmp_path):
+    assert delivered_cube(tmp_path, 0.2, 100) == whole
+    assert product_directory(tmp_path, None, 400) == tmp_path / "res-400/background"
+    background = cube(tmp_path / "res-400/background/stokes.npy")
+    assert delivered_cube(tmp_path, None, 400) == background
     with pytest.raises(FileNotFoundError):
-        input_raptor_files(tmp_path, 0.3, 400)
-    base = tmp_path / "res-400/alpha-0.30"
-    cube(base / "stokes.npy")
-    cube(base / "t1600-t1690/stokes-t1600-t1690.npy")
-    with pytest.raises(ValueError, match="Ambiguous"):
-        input_raptor_files(tmp_path, 0.3, 400)
-    (base / "stokes.npy").unlink()
-    cube(base / "t1700-t1790/stokes-t1700-t1780.npy")
-    with pytest.raises(ValueError, match="shard name"):
-        input_raptor_files(tmp_path, 0.3, 400)
+        delivered_cube(tmp_path, 0.3, 400)
 
 
 def test_run_layout_directories(tmp_path):

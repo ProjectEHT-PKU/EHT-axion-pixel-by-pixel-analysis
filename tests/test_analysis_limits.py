@@ -169,7 +169,7 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     processed.mkdir(parents=True)
     np.save(processed / 'stokes.npy', np.ones((5, 1, 64, 64, 4)))
     geometry = driver.analysis_geometry(config)
-    delivered = tmp_path / 'raptor/res-400/background/t1600-t1690/stokes-t1600-t1690.npy'
+    delivered = tmp_path / 'raptor/delivered/res-400/background/stokes.npy'
     records[processed] = dict(stage='analysis:background',
                              config=dict(geometry['image_preprocess'], state_indices=[0]),
                              inputs=[str(delivered), str(delivered.parent / 'x.json')])
@@ -178,7 +178,7 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
                         lambda record, config, **kw: checked.append((record['stage'], kw['alpha'],
                                                                      kw['resolution'])))
     monkeypatch.setattr(driver, 'input_cadence_hours',
-                        lambda paths, config: cadences.append(paths) or 8.)
+                        lambda path, config: cadences.append(path) or 8.)
     for path in records:
         (path / 'manifest.json').write_text('{}')
     monkeypatch.setattr(driver, 'verify_stage', lambda path, **kw: records[path])
@@ -190,7 +190,7 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     prepared, _, _, sigmas, background_inputs = driver.prepare_limit_inputs(
         ensemble, theory, config, products)
     assert checked == [('analysis:background', None, 400)]
-    assert cadences == [[delivered]]
+    assert cadences == [delivered]
     assert sigmas == {dim: dict(stokes=str(processed / 'stokes.npy'), cadence_hours=8.)
                       for dim in ('1d', '2d')}
     assert delivered.parent / 'generated.json' in background_inputs

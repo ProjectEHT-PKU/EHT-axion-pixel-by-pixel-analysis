@@ -382,10 +382,9 @@ def prepare_limit_inputs(ensemble, templates, config, products):
     # Frame spacing from the GRMHD snapshot times recorded with the delivered cubes.
     validate_processed_source(processed_record, config, alpha=None,
                               resolution=config['raptor']['background']['resolution'])
-    delivered = [Path(p) for p in processed_record['inputs'] if Path(p).suffix == '.npy']
+    (delivered,) = [Path(p) for p in processed_record['inputs'] if Path(p).suffix == '.npy']
     cadence = input_cadence_hours(delivered, config)
-    background_inputs = [manifest_path(processed), stokes_path,
-                         *(path.parent / 'generated.json' for path in delivered)]
+    background_inputs = [manifest_path(processed), stokes_path, delivered.parent / 'generated.json']
     sigmas = {dim: dict(stokes=str(stokes_path), cadence_hours=cadence) for dim in ('1d', '2d')}
     return prepared, inputs, dict(stage=record['stage'], centering=CENTERING,
         background_selection='pooled scalar on final selected features, no response variance'), \

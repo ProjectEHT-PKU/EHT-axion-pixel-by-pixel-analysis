@@ -260,12 +260,11 @@ def data_root(tmp_path):
             },
         ),
     )
-    shard = root / "raptor/delivered/res-400/background/t1600-t3000"
     stage(
-        shard,
+        root / "raptor/delivered/res-400/background",
         "raptor:delivery",
         {
-            "stokes-t1600-t3000.npy": array(np.ones((141, 1, 2, 2, 4)) * 1e9),
+            "stokes.npy": array(np.ones((141, 1, 2, 2, 4)) * 1e9),
             "generated.json": text({"times_tg": list(np.arange(15010.0, 15151.0))}),
         },
     )

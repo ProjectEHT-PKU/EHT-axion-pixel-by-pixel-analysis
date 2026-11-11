@@ -74,8 +74,8 @@ raptor/
     res-100/alpha-<α>/           stage raptor:delivery (8 directories, alpha-0.10 .. alpha-0.44)
       stokes.npy                 float64 (141, 17, 100, 100, 4) in Jy/sr
       generated.json, convert.json
-    res-400/background/t<A>-t<B>/   stage raptor:delivery (15 shards, <= 10 snapshots each)
-      stokes-t<A>-t<B>.npy       float64 (T <= 10, 1, 400, 400, 4) in Jy/sr
+    res-400/background/          stage raptor:delivery
+      stokes.npy                 float64 (141, 1, 400, 400, 4) in Jy/sr
       generated.json, convert.json
 ```
 

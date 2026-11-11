@@ -88,7 +88,7 @@ Before launching jobs, `scripts/raptor/generate.py` and `run_jobs` (`eht_axion/r
 
 `deliver_stokes` (`eht_axion/raptor/delivery.py`) maps every planned task to its completed job stage in `raptor/jobs/`, checks each job's recorded build and inputs and its `success.json`, and publishes `raptor:delivery` stages under `raptor/delivered/`:
 - `res-100/alpha-<alpha:.2f>/stokes.npy` of shape `(141, 17, 100, 100, 4)` (8 stages: state `0` axion-off baseline, state `k+1` phase $k\pi/8$);
-- `res-400/background/t<A>-t<B>/stokes-t<A>-t<B>.npy` in contiguous shards of at most 10 snapshots (15 stages: `t1600-t1690` … `t3000-t3000`), shape `(T, 1, 400, 400, 4)`.
+- `res-400/background/stokes.npy` of shape `(141, 1, 400, 400, 4)` (axion-off only).
 
 Each delivery stage also writes `generated.json` (schema `raptor-generated`, storing `ray_tracing_config`, `alpha`, `resolution`, `snapshot_labels`, BHAC footer `times_tg`, `state_count`, `omega`, axes, and units). Downstream analysis stages call `generated_inputs` to enforce exact agreement between `generated.json` and `configs/experiment.yaml`.
 

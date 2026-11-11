@@ -104,38 +104,30 @@ def test_preprocess_rotation_crop_coordinates():
     np.testing.assert_allclose(output[..., 0], yy - 10 * xx, atol=1e-14)
 
 
-def test_preprocess_shards_memmap_and_paths(tmp_path, monkeypatch):
+def test_preprocess_memmap_and_paths(tmp_path, monkeypatch):
     cube = phase_cube(times=5)
     whole = save(tmp_path / "whole.npy", cube)
-    shards = [save(tmp_path / "late-name.npy", cube[:2]),
-              save(tmp_path / "early-name.npy", cube[2:])]
-    before = {p: digest(p) for p in [whole, *shards]}
     original_load = np.load
     loads = []
 
     def checked_load(path, **kwargs):
         array = original_load(path, **kwargs)
-        if Path(path) in before:
+        if Path(path) == whole:
             assert kwargs == {"mmap_mode": "r", "allow_pickle": False}
-            assert isinstance(array, np.memmap)
-            assert not array.flags.writeable
+            assert isinstance(array, np.memmap) and not array.flags.writeable
             loads.append(Path(path))
         return array
 
     monkeypatch.setattr(np, "load", checked_load)
     params = dict(sigma=0.1, init_fov=3, final_fov=2, rotation_angle=0.3, final_shape=2)
-    one = stages.preprocess_cube(whole, tmp_path / "a", **params)
-    many = stages.preprocess_cube(shards, tmp_path / "new" / "b", **params)
-    first, second = original_load(one["stokes"]), original_load(many["stokes"])
-    assert first.shape == (5, 17, 2, 2, 4)
-    assert first.dtype == np.float64
-    np.testing.assert_array_equal(first, second)
-    assert set(loads) == set(before)
-    assert {p: digest(p) for p in before} == before
-    metadata = json.loads(many["metadata"].read_text())
-    assert metadata["inputs"] == [str(p) for p in shards]
-    assert many["stokes"] == tmp_path / "new" / "b" / "stokes.npy"
-    assert many["metadata"].name == "processing.json"
+    one = stages.preprocess_cube(whole, tmp_path / "new" / "a", **params)
+    first = original_load(one["stokes"])
+    assert first.shape == (5, 17, 2, 2, 4) and first.dtype == np.float64
+    assert loads == [whole]
+    metadata = json.loads(one["metadata"].read_text())
+    assert metadata["input"] == str(whole)
+    assert one["stokes"] == tmp_path / "new" / "a" / "stokes.npy"
+    assert one["metadata"].name == "processing.json"
 
 
 @pytest.mark.parametrize("phase", [-3.0, -0.4, 0.7, 3.0])
@@ -320,7 +312,7 @@ def test_summary_missing_samples(tmp_path):
         assert data["amplitude_mean"][0, 1] == 1
 
 
-def test_validation_paths_dtype_and_shards(tmp_path):
+def test_validation_paths_and_dtype(tmp_path):
     cube = phase_cube(times=2)
     kwargs = dict(sigma=0, init_fov=3, final_fov=2, rotation_angle=0, final_shape=2)
     path = save(tmp_path / "stokes.npy", cube)
@@ -335,11 +327,6 @@ def test_validation_paths_dtype_and_shards(tmp_path):
     with pytest.raises(ValueError, match="real numeric"):
         stages.preprocess_cube(save(tmp_path / "complex.npy", cube.astype(complex)), tmp_path / "bad",
                                **kwargs)
-    wrong = save(tmp_path / "wrong.npy", cube.astype("float32"))
-    with pytest.raises(ValueError, match="identical"):
-        stages.preprocess_cube([path, wrong], tmp_path / "bad", **kwargs)
-    with pytest.raises(ValueError, match="duplicate"):
-        stages.preprocess_cube([path, path], tmp_path / "bad", **kwargs)
     with pytest.raises(ValueError, match="sigma"):
         stages.preprocess_cube(path, tmp_path / "bad", **{**kwargs, "sigma": -1})
     assert digest(path) == before
