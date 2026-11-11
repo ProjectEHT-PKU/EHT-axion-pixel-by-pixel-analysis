@@ -468,7 +468,7 @@ def add_signal(numbers, amplitude_deg, sector_mean_deg, sector_fraction):
             f"NumSectorTemplate{label}Deg",
             sig(value, 2),
             value,
-            "analysis/templates templates/1d/templates.npz amplitude_mean",
+            "analysis/templates templates/templates.npz 1d/amplitude_mean",
             f"{label.lower()} sector template amplitude per unit c (deg)",
         )
     for label, f in (("Min", np.min), ("Median", np.median), ("Max", np.max)):
@@ -477,7 +477,7 @@ def add_signal(numbers, amplitude_deg, sector_mean_deg, sector_fraction):
             f"NumSectorTemplateScatter{label}Percent",
             f"{value:.0f}",
             value,
-            "templates/1d/templates.npz amplitude_std / amplitude_mean",
+            "templates/templates.npz 1d/amplitude_std / 1d/amplitude_mean",
             f"{label.lower()} fractional snapshot scatter of the sector template (percent)",
         )
 
