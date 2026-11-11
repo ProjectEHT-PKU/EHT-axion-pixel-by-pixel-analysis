@@ -172,7 +172,7 @@ class Numbers:
         return "\n".join(lines) + "\n"
 
     def json(self):
-        return dict(schema="analysis-paper-numbers-v1", numbers=self.items)
+        return dict(schema="analysis-paper-numbers", numbers=self.items)
 
 
 # ----------------------------------------------------------------------------- inputs
@@ -1101,7 +1101,7 @@ def run(args):
 
         consumed = sorted(set(inputs.consumed))
         identity = dict(
-            schema="analysis-paper-v1",
+            schema="analysis-paper",
             sources=dict(
                 limits=str(limits),
                 gridcheck=str(Path(args.gridcheck).resolve()),

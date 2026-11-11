@@ -169,7 +169,7 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 
 `eht_axion/environment.py` 将 `.env` 严格作为键值数据解析：
 
-- **不执行 Shell 代码、不做变量展开**：不展开 `$VAR` 或 `$(...)`；任何语法错误、未知变量名（包括已废弃的单文件路径变量）、缺少 `=value` 或重复键都会抛出 `ValueError`。
+- **不执行 Shell 代码、不做变量展开**：不展开 `$VAR` 或 `$(...)`；任何语法错误、未知变量名、缺少 `=value` 或重复键都会抛出 `ValueError`。
 - **不在调用者当前工作目录中搜索**：默认 dotenv 文件固定为仓库根目录下的 `ROOT / ".env"`。`--env-file PATH` 用另一个文件替换它；`--no-env-file` 禁用 dotenv 读取。
 - **优先级顺序**：`CLI option > exported environment (os.environ) > .env`。显式的单文件选项（`--run-root`、`--fluid-root`、`--radial-low`、`--radial-high`、`--uvfits-dir`、`--feed-rotation-file`、`--official-script` 或任一阶段的 `--...-root`）优先于由对应根目录派生的默认路径。
 - **相对路径基准**：写在 `.env` 中的相对路径统一以仓库根目录为基准；命令行传入的相对路径（以及 shell 导出的值）以调用者的当前工作目录为基准解析。

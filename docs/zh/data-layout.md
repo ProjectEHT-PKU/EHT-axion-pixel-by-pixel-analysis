@@ -189,12 +189,11 @@ PAPER/                           stage analysis:paper
 | 字段 | 内容说明 |
 |---|---|
 | `stage` | 固定的阶段标识符 `<part>:<step>`（见下表） |
-| `schema` | `1`（`SCHEMA_VERSION`） |
 | `config` | 决定本阶段的 JSON 序列化参数字典 |
 | `inputs` | 每个外部或上游消费文件的 `{path, size, sha256}` 列表 |
 | `implementation` | `{"git_commit": "<40-hex HEAD>"}` |
 | `runtime` | Python 版本与实现、操作系统/硬件架构，以及 `numpy`、`scipy`、`h5py`、`matplotlib`、`PyYAML` 的版本号 |
-| `complete` | `true` |
+| `complete` | `true`；`stage` 为非空字符串且 `complete: true` 的 `manifest.json` 即标识一个已完成阶段 |
 | `outputs` | 每个输出文件的 `{path, size, sha256}` 列表（对 `.npy` 额外记录 `shape`/`dtype`，对 `.npz` 记录各命名数组的形状和数据类型；均通过 `allow_pickle=False` 的只读内存映射 `mmap` 读取） |
 | `elapsed_seconds` | 阶段主体的墙钟运行秒数 |
 
@@ -214,7 +213,7 @@ PAPER/                           stage analysis:paper
 | `analysis:summary` | `scripts/analysis/summarize.py` |
 | `analysis:paper` | `scripts/analysis/paper.py` |
 
-阶段清单之外的辅助 JSON 记录使用带版本号的模式字符串：`raptor-generated-v2`、`raptor-merge-v2`、`eht-bundle-v2`、`eht-sample-batch-v2`、`eht-sample-task-v2`、`eht-sample-finish-v2`、`eht-ensemble-v2`、`analysis-limits-v2`、`analysis-summary-v2`、`analysis-paper-v1` 和 `analysis-paper-numbers-v1`。
+阶段清单之外的辅助 JSON 记录用 `schema`（或 `layout`）字符串标明记录类型：`raptor-generated`、`raptor-merge`、`eht-bundle`、`eht-sample-batch`、`eht-sample-task`、`eht-sample-finish`、`eht-ensemble`、`analysis-limits`、`analysis-summary`、`analysis-paper` 和 `analysis-paper-numbers`。
 
 ### 非清单类回执记录
 

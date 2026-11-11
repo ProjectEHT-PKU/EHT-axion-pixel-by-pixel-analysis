@@ -75,7 +75,7 @@ pixi run -e raptor-build raptor-merge --plan /path/to/plan.json \
 
 每个任务携带全部 19 个 `model.in` 参数（以 $M_\odot$ 为单位的 `MBH`、以 $\mathrm{kpc}$ 为单位的 `DISTANCE`、以 $\mathrm{g}$ 为单位的 `M_UNIT`、`R_LOW`、`R_HIGH`、以 $\mathrm{deg}$ 为单位的 `INCLINATION`、`IMG_WIDTH`、`IMG_HEIGHT`、以 $r_g$ 为单位的 `CAM_SIZE_X` 与 `CAM_SIZE_Y`、`FREQS_PER_DEC = 1`、以 $\mathrm{Hz}$ 为单位的 `FREQ_MIN`、`STEPSIZE`、`AXION_ALPHA`、`AXION_OMEGA`、`AXION_NORM`、`AXION_PHASE`、`AXION_TABLE`、`MAX_LEVEL = 1`）。
 
-**任务标识符（`task_identity`）：** 规范化 JSON 文档的 SHA-256，包含 `schema_version`（`2`）、快照文件名及尾部元数据、除 `AXION_TABLE` 外的 19 个 `model.in` 取值、径向表的 `{spin, sha256}`（`baseline` 为 `null`）、`raptor.grid` 和 `raptor.build`。天空网格、EHT 成像和分析参数均不进入任务标识符，因此修改下游设置永远不会使已完成的光线追踪作业失效。
+**任务标识符（`task_identity`）：** 规范化 JSON 文档的 SHA-256，包含快照文件名及尾部元数据、除 `AXION_TABLE` 外的 19 个 `model.in` 取值、径向表的 `{spin, sha256}`（`baseline` 为 `null`）、`raptor.grid` 和 `raptor.build`。天空网格、EHT 成像和分析参数均不进入任务标识符，因此修改下游设置永远不会使已完成的光线追踪作业失效。
 
 ## 作业执行、CPU 亲和性与输出校验
 
@@ -102,6 +102,6 @@ pixi run -e raptor-build raptor-merge --plan /path/to/plan.json \
 - `res-100/alpha-<alpha:.2f>/stokes.npy`，形状为 `(141, 17, 100, 100, 4)`（共 8 个阶段：状态 `0` 为无轴子基线，状态 `k+1` 对应轴子相位 $k\pi/8$）；
 - `res-400/background/t<A>-t<B>/stokes-t<A>-t<B>.npy`，按最多 10 个连续快照分片（共 15 个阶段：`t1600-t1690` … `t3000-t3000`），形状为 `(T, 1, 400, 400, 4)`。
 
-每个交付阶段同时写出 `generated.json`（模式 `raptor-generated-v2`，记录 `ray_tracing_config`、`alpha`、`resolution`、`snapshot_labels`、BHAC 尾部时间 `times_tg`、`state_count`、`omega`、坐标轴与单位）和 `sources.json`（任务到源作业根目录的映射）。下游分析阶段通过 `generated_inputs` 强制核对 `generated.json` 与当前 `configs/experiment.yaml` 完全一致。
+每个交付阶段同时写出 `generated.json`（模式 `raptor-generated`，记录 `ray_tracing_config`、`alpha`、`resolution`、`snapshot_labels`、BHAC 尾部时间 `times_tg`、`state_count`、`omega`、坐标轴与单位）和 `sources.json`（任务到源作业根目录的映射）。下游分析阶段通过 `generated_inputs` 强制核对 `generated.json` 与当前 `configs/experiment.yaml` 完全一致。
 
-当作业分散在多台主机或多个运行目录中完成时，`scripts/raptor/merge.py` 通过 `deliver_stokes` 将各作业根目录合并交付到互不相交的新目录 `--output-root`（默认 `$EHT_DATA_ROOT/raptor/delivered/`），并写出 `inventory/index.json`（阶段 `raptor:merge`，布局 `raptor-merge-v2`），不修改任何源作业目录。
+当作业分散在多台主机或多个运行目录中完成时，`scripts/raptor/merge.py` 通过 `deliver_stokes` 将各作业根目录合并交付到互不相交的新目录 `--output-root`（默认 `$EHT_DATA_ROOT/raptor/delivered/`），并写出 `inventory/index.json`（阶段 `raptor:merge`，布局 `raptor-merge`），不修改任何源作业目录。

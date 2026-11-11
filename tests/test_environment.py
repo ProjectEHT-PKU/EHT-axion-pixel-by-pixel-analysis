@@ -29,7 +29,6 @@ def request(**kwargs):
 def test_single_dotenv_with_three_roots_anchored_to_the_project(project):
     (project / ".env").write_text("EHT_RAPTOR_SOURCE_ROOT=../raptor\nEHT_INPUT_ROOT=inputs\n"
                                   "EHT_DATA_ROOT=/data\nEHT_RAPTOR_THREADS=1\n")
-    (project / ".env.raptor").write_text("EHT_RAPTOR_THREADS=4\n")  # no longer read
     values = environment.resolve_environment(request())
     assert values["EHT_RAPTOR_THREADS"] == "1"
     assert values["EHT_RAPTOR_SOURCE_ROOT"] == str(project / "../raptor")
@@ -38,10 +37,8 @@ def test_single_dotenv_with_three_roots_anchored_to_the_project(project):
     assert environment.PATH_KEYS == {"EHT_RAPTOR_SOURCE_ROOT", "EHT_INPUT_ROOT", "EHT_DATA_ROOT"}
 
 
-@pytest.mark.parametrize("key", ["EHT_RAPTOR_RUN_ROOT", "EHT_GRMHD_ROOT", "EHT_RADIAL_LOW", "EHT_RADIAL_HIGH",
-                                 "EHT_IMAGING_INPUT_ROOT", "EHT_IMAGING_INPUT_RECEIPT",
-                                 "EHT_IMAGING_FEED_ROTATION", "EHT_IMAGING_OFFICIAL_SCRIPT"])
-def test_obsolete_location_keys_are_rejected(project, key):
+@pytest.mark.parametrize("key", ["EHT_UNKNOWN_PATH", "FOO_BAR", "RANDOM_KEY"])
+def test_unknown_dotenv_keys_are_rejected(project, key):
     (project / ".env").write_text(f"{key}=/somewhere\n")
     with pytest.raises(ValueError, match="Unknown dotenv key"):
         environment.resolve_environment(request())

@@ -3,7 +3,7 @@
 The build is produced by the core-owned setup/make Python entry point. This
 module only consumes its immutable, declared products. Failed attempts remain
 outside the stage temporary directory. Resume requires both verified lineage
-and the success/schema receipts, never mere directory or HDF5 existence.
+and the success receipts, never mere directory or HDF5 existence.
 """
 from __future__ import annotations
 
@@ -544,7 +544,7 @@ def _run_jobs(plan, build_dir, run_root, *, max_jobs, workers, threads, cpu_affi
         executor.shutdown(wait=True, cancel_futures=True)
     counts = {status: sum(r["status"] == status for r in results)
               for status in ("complete", "cached", "failed")}
-    return {"schema": 1, "run_root": str(run_root), "build_dir": str(build_dir), "jobs": results,
+    return {"run_root": str(run_root), "build_dir": str(build_dir), "jobs": results,
             "counts": counts, "selected_tasks": len(prepared), "planned_tasks": len(plan["tasks"]),
             "workers": workers, "threads": threads, "cpu_affinity": cpu_affinity,
             "cpu_sets": cpu_sets, "cpu_list": cpu_list,
@@ -563,7 +563,7 @@ def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, bas
     task.update(core_constants=constants, core_constants_source=str(header))
     inputs = base_inputs + task_inputs
     closure = base_closure + list(provenance.source_closure(task_inputs))
-    config.update(threads=threads, output_adapter_schema=1)
+    config.update(threads=threads)
     if cpu_affinity != "none":
         # Worker count is scheduling only; CPU mask/binding can affect floating
         # point execution and is conservatively part of the job cache identity.
@@ -584,7 +584,7 @@ def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, bas
                 provenance.require_declared_outputs(destination, [destination / "success.json",
                                                              destination / "output.json"])
                 success = json.loads((destination / "success.json").read_text())
-                if (success.get("schema") != 1 or success.get("returncode") != 0
+                if (success.get("returncode") != 0
                         or success.get("timed_out") is not False
                         or success.get("output_validated") is not True):
                     raise ValueError("Cached job lacks a successful process receipt")
@@ -608,7 +608,7 @@ def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, bas
                 attempt_parent.mkdir(parents=True, exist_ok=True)
                 attempt = Path(tempfile.mkdtemp(prefix="attempt-", dir=attempt_parent))
                 command = prefix + [str(binary), "model.in", task["source_path"], str(task["output_slot"])]
-                receipt = {"schema": 1, "task_id": task["id"], "command": command,
+                receipt = {"task_id": task["id"], "command": command,
                            "started_unix": time.time(), "threads": threads, "worker_slot": slot,
                            "cpu_affinity": cpu_affinity, "cpu_set": cpu_set, "actual_cpu_set": None,
                            "omp_proc_bind": env.get("OMP_PROC_BIND"),
@@ -633,7 +633,7 @@ def _run_job(prepared, build_dir, run_root, binary, grid, header, constants, bas
                         raise RuntimeError(f"RAPTOR exited with returncode {code}")
                     validated = validate_job_output(temporary, task)
                     _json(temporary / "output.json", validated)
-                    _json(temporary / "success.json", {"schema": 1, "returncode": 0, "timed_out": False,
+                    _json(temporary / "success.json", {"returncode": 0, "timed_out": False,
                                                        "output_validated": True})
                     shutil.copyfile(attempt / "stdout.log", temporary / "stdout.log")
                     shutil.copyfile(attempt / "stderr.log", temporary / "stderr.log")

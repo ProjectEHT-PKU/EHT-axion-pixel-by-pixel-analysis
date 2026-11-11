@@ -184,17 +184,16 @@ PAPER/                           stage analysis:paper
 - Writes outputs into a sibling temporary directory `<destination>.building-*`, hashes all produced regular files (no symlinks, non-empty), writes `manifest.json` last, and atomically renames the directory to `<destination>`. On exception, the temporary directory and lock are removed.
 - **Immutability vs. resume**: result scripts (`reconstruct.py`, `refine.py`, `export_bundle.py`, `eht/summarize.py`, and all `scripts/analysis/*.py`) refuse an existing `--output-root`. Resumable steps (`raptor/build.py`, `raptor/generate.py`, `raptor/merge.py`) reuse an existing stage directory only if it passes verification and records identical `(stage, config, inputs)`; `git_commit` is omitted from that cache comparison so a long `RAPTOR` run can resume across commits that do not alter its tasks.
 
-### `manifest.json` schema and stage identifiers
+### `manifest.json` fields and stage identifiers
 
 | Field | Contents |
 |---|---|
 | `stage` | Fixed stage identifier `<part>:<step>` (table below) |
-| `schema` | `1` (`SCHEMA_VERSION`) |
 | `config` | JSON-serialized parameter dictionary governing this stage |
 | `inputs` | List of `{path, size, sha256}` for every consumed external or upstream file |
 | `implementation` | `{"git_commit": "<40-hex HEAD>"}` |
 | `runtime` | Python version/implementation, OS/machine, and versions of `numpy`, `scipy`, `h5py`, `matplotlib`, `PyYAML` |
-| `complete` | `true` |
+| `complete` | `true`; a `manifest.json` with a non-empty string `stage` and `complete: true` is what identifies a completed stage |
 | `outputs` | List of `{path, size, sha256}` (plus `shape`/`dtype` for `.npy` and per-array shapes/dtypes for `.npz`, inspected via `mmap` with `allow_pickle=False`) |
 | `elapsed_seconds` | Wall-clock execution time of the stage body |
 
@@ -214,7 +213,7 @@ PAPER/                           stage analysis:paper
 | `analysis:summary` | `scripts/analysis/summarize.py` |
 | `analysis:paper` | `scripts/analysis/paper.py` |
 
-Auxiliary JSON records carry explicit versioned schema tags: `raptor-generated-v2`, `raptor-merge-v2`, `eht-bundle-v2`, `eht-sample-batch-v2`, `eht-sample-task-v2`, `eht-sample-finish-v2`, `eht-ensemble-v2`, `analysis-limits-v2`, `analysis-summary-v2`, `analysis-paper-v1`, and `analysis-paper-numbers-v1`.
+Auxiliary JSON records name their record type in a `schema` (or `layout`) string: `raptor-generated`, `raptor-merge`, `eht-bundle`, `eht-sample-batch`, `eht-sample-task`, `eht-sample-finish`, `eht-ensemble`, `analysis-limits`, `analysis-summary`, `analysis-paper`, and `analysis-paper-numbers`.
 
 ### Non-manifest receipts
 

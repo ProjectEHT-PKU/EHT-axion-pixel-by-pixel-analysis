@@ -157,7 +157,7 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
         directory.mkdir(parents=True)
         arrays[directory / 'stokes.npy'] = np.broadcast_to(maps, (1000, 64, 64, 4))
         arrays[directory / 'evpa.npy'] = np.broadcast_to(native_chi, (1000, 64, 64))
-    report = dict(schema='eht-ensemble-v2', days=[str(d) for d in driver.DAYS], draws_per_day=1000,
+    report = dict(schema='eht-ensemble', days=[str(d) for d in driver.DAYS], draws_per_day=1000,
         angle_convention='EVPA radians modulo pi, east of north',
         map_order='draw,y,x,IQUV; native FITS E decreases along x, N increases along y')
     (ensemble / 'report.json').write_text(json.dumps(report))

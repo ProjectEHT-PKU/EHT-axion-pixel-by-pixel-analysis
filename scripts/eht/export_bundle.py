@@ -35,7 +35,7 @@ DAYS = experiment.EHT_DAYS
 I_FILES = {'final-fixedI.fits': 'fixedI.fits', 'clean-gaincal-pol.uvfits': 'gaincal-pol.uvfits'}
 D_FILES = ('final-dterms.json', 'termination.json', 'steps.json')
 D_LINEAGE = ('manifest.json', 'plan.json', 'termination.json', 'steps.json')
-SCHEMA = 'eht-bundle-v2'
+SCHEMA = 'eht-bundle'
 
 
 def _by_day(roots, stage, config):

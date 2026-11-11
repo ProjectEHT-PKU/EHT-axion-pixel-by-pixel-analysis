@@ -26,7 +26,7 @@ def _job_files(run_root, task, build_inputs, verified=None):
         raise ValueError("Completed job belongs to a different generation task")
     require_declared_outputs(directory, [directory / "success.json", directory / "output.json"])
     success = json.loads((directory / "success.json").read_text())
-    if (success.get("schema") != 1 or success.get("returncode") != 0
+    if (success.get("returncode") != 0
             or success.get("timed_out") is not False or success.get("output_validated") is not True):
         raise ValueError("Job lacks a successful validated execution receipt")
     if {Path(e["path"]).resolve() for e in record["inputs"]} != {
@@ -57,7 +57,7 @@ def _identity(config, *, alpha, resolution, labels, times):
     config = ray_tracing_config(config)
     principal_n = config["shared"]["principal_n"]
     return dict(
-        schema="raptor-generated-v2", ray_tracing=config, alpha=alpha, resolution=resolution,
+        schema="raptor-generated", ray_tracing=config, alpha=alpha, resolution=resolution,
         snapshot_labels=labels, times_tg=times,
         state_count=1 if alpha is None else PHASE_COUNT + 1,
         omega=None if alpha is None else omega(alpha, principal_n),

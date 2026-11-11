@@ -24,7 +24,6 @@ from ..experiment import ray_tracing_config, validate_ray_tracing
 from .. import physics
 from .layout import alpha_label
 
-SCHEMA_VERSION = 2
 # The core applies AXION_PHASE * pi/8: 16 phases cover one period (state k+1 = phase k).
 PHASE_COUNT = 16
 # model/bhac/model.c: EOF-40 is eight 32-bit ints then a double; immediately
@@ -174,7 +173,6 @@ def task_identity(snapshot, parameters, table, config):
     values = {name: item["value"] if isinstance(item, dict) else item for name, item in parameters.items()}
     values.pop("AXION_TABLE")
     return _digest({
-        "schema_version": SCHEMA_VERSION,
         "snapshot": {"name": snapshot["snapshot_name"], "metadata": snapshot["metadata"]},
         "parameters": values,
         "table": None if table is None else {"spin": table["spin"], "sha256": table["sha256"]},
@@ -280,7 +278,7 @@ def plan_generation(config: dict, fluid_root: Path, radial_paths: dict[str, Path
     from .build import _arguments, _settings
 
     return {
-        "schema_version": SCHEMA_VERSION, "config_sha256": config_sha, "config": config,
+        "config_sha256": config_sha, "config": config,
         "build_path": build, "hash_inputs": hash_inputs,
         "verification": "input_hashes_only" if hash_inputs else "unverified",
         "snapshots": snapshots, "radial_tables": tables, "tasks": tasks,

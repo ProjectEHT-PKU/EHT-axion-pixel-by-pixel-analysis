@@ -169,7 +169,7 @@ Every machine-local location derives from exactly three path roots, set in one g
 
 `eht_axion/environment.py` parses `.env` strictly as key–value data:
 
-- **No shell execution or interpolation**: `$VAR` and `$(...)` are not expanded; syntax errors, unknown variable names (including the retired per-file location variables), missing `=value`, or duplicate keys raise `ValueError`.
+- **No shell execution or interpolation**: `$VAR` and `$(...)` are not expanded; syntax errors, unknown variable names, missing `=value`, or duplicate keys raise `ValueError`.
 - **No working-directory search**: the default dotenv file is always `ROOT / ".env"` in the repository root. `--env-file PATH` replaces it with another file; `--no-env-file` disables dotenv loading.
 - **Precedence**: `CLI option > exported environment (os.environ) > .env`. An explicit per-file option (`--run-root`, `--fluid-root`, `--radial-low`, `--radial-high`, `--uvfits-dir`, `--feed-rotation-file`, `--official-script`, or any `--...-root` of a stage) overrides the default derived from its root.
 - **Path anchoring**: relative path values inside `.env` are anchored to the repository root. Relative CLI paths (and exported values) are resolved against the caller's working directory.

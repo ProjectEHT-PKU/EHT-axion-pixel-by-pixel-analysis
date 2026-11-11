@@ -152,7 +152,7 @@ def validate_job_output(directory: Path, task: dict) -> dict:
     tolerance = 1e-10 * max(float(np.max(np.abs(integrated))), np.finfo(float).tiny)
     if not np.allclose(rows[0, 1:], integrated, rtol=1e-10, atol=tolerance):
         raise ValueError("Spectrum flux mismatch with HDF5 Jy/sr times angular pixel area")
-    return {"schema": 1, "validated": True, "hdf5": hdf_relative, "spectrum": spec_relative,
+    return {"validated": True, "hdf5": hdf_relative, "spectrum": spec_relative,
             "mapping": mapping, "datasets": names, "hdf_shape": list(shape),
             "axes": ["x/alpha", "y/beta", "Stokes"], "stokes": list("IQUV"),
             "block_order": "x-major; block=x*B+y", "pixel_order": "x-major; pixel=x*10+y",

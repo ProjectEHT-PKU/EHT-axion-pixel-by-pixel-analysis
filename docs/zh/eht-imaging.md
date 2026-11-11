@@ -88,7 +88,7 @@ $$
 
 ### 打包导出、D 项蒙特卡罗与系综汇总
 
-1. **打包导出（`scripts/eht/export_bundle.py`）**：递归校验四个 `eht:i` 阶段和四个 `eht:refine` 阶段的完整来源链，确认每天均满足 `all_P_numerically_certified == True`，将以只读权限（`0444`）复制的 `<day>/fixedI.fits`、`<day>/gaincal-pol.uvfits`、`<day>/fiducial-dterms.json`、`lineage/<day>/*` 和 `feed-rotation.json` 连同 `bundle.json`（模式 `eht-bundle-v2`）导出到打包目录。
+1. **打包导出（`scripts/eht/export_bundle.py`）**：递归校验四个 `eht:i` 阶段和四个 `eht:refine` 阶段的完整来源链，确认每天均满足 `all_P_numerically_certified == True`，将以只读权限（`0444`）复制的 `<day>/fixedI.fits`、`<day>/gaincal-pol.uvfits`、`<day>/fiducial-dterms.json`、`lineage/<day>/*` 和 `feed-rotation.json` 连同 `bundle.json`（模式 `eht-bundle`）导出到打包目录。
 2. **D 项蒙特卡罗（`scripts/eht/sample.py`）**：
    - 对 `solve_sites` 中的每个台站和每种圆偏振旋向（`R`、`L`），由四天精化解计算 $(\operatorname{Re} D, \operatorname{Im} D)$ 的均值与 $2 \times 2$ 样本协方差（`covariance_ddof = 1`，见 `d_distribution`）。
    - 每天以随机数种子 `SeedSequence([20210405, day])` 抽取 `uncertainty_draws = 1000` 组 D 项（`sample_dterms`）：`AZ`、`LM`、`PV` 服从二元正态分布；预改正台站 `AA`、`AP`、`SM`、`JC` 在每个实部和虚部分量上独立抽取标准差为 `residual_d_sigma = 0.01` 的零均值正态残差。不重抽样热噪声，也不对每次抽样重拟合 D 项。

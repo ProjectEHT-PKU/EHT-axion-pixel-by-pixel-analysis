@@ -62,7 +62,7 @@ def _write_job(root, task, build_inputs, *, extra_inputs=(), omit_binary=False):
         (temporary / "model.in").write_text(serialize_parameters(prepared["parameters"]))
         shutil.copyfile(build_inputs[-2], temporary / "grid_mks.in")
         (temporary / "success.json").write_text(json.dumps({
-            "schema": 1, "returncode": 0, "timed_out": False, "output_validated": True}))
+            "returncode": 0, "timed_out": False, "output_validated": True}))
         (temporary / "output.json").write_text(json.dumps(validate_job_output(temporary, prepared)))
 
 

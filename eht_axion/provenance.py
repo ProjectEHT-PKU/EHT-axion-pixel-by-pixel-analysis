@@ -22,7 +22,6 @@ import threading
 import time
 from pathlib import Path
 
-SCHEMA_VERSION = 1
 _VERIFICATION = ContextVar("content_verification_session", default=None)
 _STAGE_TEMPORARIES = ContextVar("active_stage_temporaries", default=())
 
@@ -168,10 +167,16 @@ def manifest_path(directory):
     return path
 
 
+def is_stage_manifest(record):
+    """A stage manifest names its stage and is marked complete (written last by stage_directory)."""
+    return (isinstance(record, dict) and isinstance(record.get("stage"), str) and bool(record["stage"])
+            and record.get("complete") is True)
+
+
 def complete_manifest(directory):
     path = manifest_path(directory)
     manifest = json.loads(path.read_text())
-    if manifest.get("schema") != SCHEMA_VERSION or not manifest.get("complete"):
+    if not is_stage_manifest(manifest):
         raise ValueError(f"Invalid stage manifest: {path}")
     return manifest
 
@@ -195,7 +200,7 @@ def verify_stage(directory, *, recursive=False, _seen=None):
                     upstream = json.loads(path.read_text())
                 except (ValueError, OSError):
                     upstream = {}
-                if upstream.get("complete") and upstream.get("schema") == SCHEMA_VERSION:
+                if is_stage_manifest(upstream):
                     verify_stage(path.parent, recursive=True, _seen=seen)
     if not manifest.get("outputs"):
         raise ValueError(f"Empty stage: {directory}")
@@ -238,7 +243,7 @@ def source_closure(paths):
         yield path
         if path.name == "manifest.json":
             record = json.loads(path.read_text())
-            if record.get("complete") and record.get("schema") == SCHEMA_VERSION:
+            if is_stage_manifest(record):
                 pending.extend(entry["path"] for entry in record["inputs"])
                 pending.extend(path.parent / entry["path"] for entry in record["outputs"])
 
@@ -279,7 +284,7 @@ def verify_input_stages(paths):
         path = Path(value)
         if path.name == "manifest.json":
             record = json.loads(path.read_text())
-            if record.get("complete") and record.get("schema") == SCHEMA_VERSION:
+            if is_stage_manifest(record):
                 verify_stage(path.parent, recursive=True, _seen=seen)
 
 
@@ -350,7 +355,6 @@ def stage_directory(destination, stage, config, input_paths=(), *, verify_lineag
             raise ValueError(f"Stage {stage} produced no files")
         manifest = dict(
             stage=stage,
-            schema=SCHEMA_VERSION,
             config=config,
             inputs=inputs,
             implementation=code,

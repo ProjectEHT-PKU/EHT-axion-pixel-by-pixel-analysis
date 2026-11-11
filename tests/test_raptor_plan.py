@@ -50,7 +50,6 @@ def test_task_contract_and_physical_time(inputs, tmp_path):
     build = tmp_path / "future-build"
     plan = plan_generation(config, fluid, tables, build)
     assert not build.exists()
-    assert plan["schema_version"] == 2
     assert set(plan["config"]) == {"shared", "raptor"}
     assert plan["verification"] == "unverified"
     assert plan["hash_inputs"] is False

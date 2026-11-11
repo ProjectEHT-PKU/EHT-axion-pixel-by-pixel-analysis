@@ -75,7 +75,7 @@ For each of the 141 snapshots, the plan emits 130 tasks ($18\,330$ total):
 
 Each task specifies the 19 `model.in` parameters (`MBH` in $M_\odot$, `DISTANCE` in $\mathrm{kpc}$, `M_UNIT` in $\mathrm{g}$, `R_LOW`, `R_HIGH`, `INCLINATION` in $\mathrm{deg}$, `IMG_WIDTH`, `IMG_HEIGHT`, `CAM_SIZE_X`, `CAM_SIZE_Y` in $r_g$, `FREQS_PER_DEC = 1`, `FREQ_MIN` in $\mathrm{Hz}$, `STEPSIZE`, `AXION_ALPHA`, `AXION_OMEGA`, `AXION_NORM`, `AXION_PHASE`, `AXION_TABLE`, `MAX_LEVEL = 1`).
 
-**Task identifier (`task_identity`):** the SHA-256 of a canonical JSON object containing `schema_version` (`2`), snapshot filename and footer metadata, the 19 `model.in` values minus `AXION_TABLE`, `{spin, sha256}` of the radial table (`null` for `baseline`), `raptor.grid`, and `raptor.build`. Sky-grid, EHT imaging, and analysis parameters are excluded, so modifying downstream settings never invalidates ray-traced jobs.
+**Task identifier (`task_identity`):** the SHA-256 of a canonical JSON object containing the snapshot filename and footer metadata, the 19 `model.in` values minus `AXION_TABLE`, `{spin, sha256}` of the radial table (`null` for `baseline`), `raptor.grid`, and `raptor.build`. Sky-grid, EHT imaging, and analysis parameters are excluded, so modifying downstream settings never invalidates ray-traced jobs.
 
 ## Job execution, CPU affinity, and output validation
 
@@ -102,6 +102,6 @@ Before launching jobs, `scripts/raptor/generate.py` and `run_jobs` (`eht_axion/r
 - `res-100/alpha-<alpha:.2f>/stokes.npy` of shape `(141, 17, 100, 100, 4)` (8 stages: state `0` axion-off baseline, state `k+1` phase $k\pi/8$);
 - `res-400/background/t<A>-t<B>/stokes-t<A>-t<B>.npy` in contiguous shards of at most 10 snapshots (15 stages: `t1600-t1690` … `t3000-t3000`), shape `(T, 1, 400, 400, 4)`.
 
-Each delivery stage also writes `generated.json` (schema `raptor-generated-v2`, storing `ray_tracing_config`, `alpha`, `resolution`, `snapshot_labels`, BHAC footer `times_tg`, `state_count`, `omega`, axes, and units) and `sources.json` (task-to-job-root mapping). Downstream analysis stages call `generated_inputs` to enforce exact agreement between `generated.json` and `configs/experiment.yaml`.
+Each delivery stage also writes `generated.json` (schema `raptor-generated`, storing `ray_tracing_config`, `alpha`, `resolution`, `snapshot_labels`, BHAC footer `times_tg`, `state_count`, `omega`, axes, and units) and `sources.json` (task-to-job-root mapping). Downstream analysis stages call `generated_inputs` to enforce exact agreement between `generated.json` and `configs/experiment.yaml`.
 
-When jobs were split across multiple hosts or run directories, `scripts/raptor/merge.py` runs `deliver_stokes` into a disjoint `--output-root` (`$EHT_DATA_ROOT/raptor/delivered/`) and records `inventory/index.json` (stage `raptor:merge`, layout `raptor-merge-v2`) without modifying any source job directory.
+When jobs were split across multiple hosts or run directories, `scripts/raptor/merge.py` runs `deliver_stokes` into a disjoint `--output-root` (`$EHT_DATA_ROOT/raptor/delivered/`) and records `inventory/index.json` (stage `raptor:merge`, layout `raptor-merge`) without modifying any source job directory.

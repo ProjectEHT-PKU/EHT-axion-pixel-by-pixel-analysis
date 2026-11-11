@@ -264,7 +264,7 @@ def run(args):
     # those stages are made and is not re-hashed here.
     consumed += [provenance.manifest_path(source) for source in sources.values()]
     identity = {
-        "schema": "analysis-summary-v2",
+        "schema": "analysis-summary",
         "sources": {k: str(v) for k, v in sources.items()},
         "verification": (
             "completed small stage outputs only; raw lineage inherited, not rehashed"

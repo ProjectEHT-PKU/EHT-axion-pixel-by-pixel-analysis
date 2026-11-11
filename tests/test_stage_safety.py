@@ -38,16 +38,16 @@ def test_lowlevel_rejects_dangling_file_link(tmp_path):
 
 def test_existing_stage_reused_only_for_equal_config_and_inputs(tmp_path):
     raw = tmp_path / "raw.txt"
-    raw.write_text("v1")
+    raw.write_text("initial")
     target = tmp_path / "stage"
     with provenance.stage_directory(target, "test", {"k": 1}, [raw]) as t:
-        (t / "x.txt").write_text("v1")
+        (t / "x.txt").write_text("initial")
     with provenance.stage_directory(target, "test", {"k": 1}, [raw]) as t:
         assert t is None
     with pytest.raises(ValueError, match="A different stage exists"):
         with provenance.stage_directory(target, "test", {"k": 2}, [raw]):
             pass
-    raw.write_text("v2")
+    raw.write_text("modified")
     with pytest.raises(ValueError, match="Stale upstream lineage"):
         with provenance.stage_directory(target, "test", {"k": 1}, [raw]):
             pass
@@ -69,11 +69,11 @@ def test_existing_target_cannot_contain_recursive_raw_source(tmp_path):
 
 def test_stale_manifest_input_refused_before_child_write(tmp_path):
     raw = tmp_path / "raw.txt"
-    raw.write_text("v1")
+    raw.write_text("initial")
     parent = tmp_path / "parent"
     with provenance.stage_directory(parent, "test", {}, [raw]) as t:
         (t / "value.txt").write_text("p")
-    raw.write_text("v2")
+    raw.write_text("modified")
     child = tmp_path / "child"
     with pytest.raises(ValueError, match="Stale upstream lineage"):
         with provenance.stage_directory(child, "test", {}, [parent / "manifest.json"]):
@@ -83,11 +83,13 @@ def test_stale_manifest_input_refused_before_child_write(tmp_path):
 
 def test_runtime_is_recorded_and_outputs_verified(tmp_path):
     raw = tmp_path / "raw.txt"
-    raw.write_text("v1")
+    raw.write_text("initial")
     out = tmp_path / "stage"
     with provenance.stage_directory(out, "test", {}, [raw]) as t:
         (t / "value.txt").write_text("derived")
     record = json.loads((out / "manifest.json").read_text())
+    assert list(record) == ["stage", "config", "inputs", "implementation", "runtime", "complete",
+                            "outputs", "elapsed_seconds"]
     assert record["runtime"]["packages"]["numpy"]
     assert record["implementation"] == {"git_commit": "0" * 40}
     assert record["inputs"][0]["path"] == str(raw)

@@ -71,7 +71,7 @@ def verify_bundle(root, science):
     root = Path(root).resolve()
     raw = (root / 'bundle.json').read_bytes()
     b = json.loads(raw)
-    if (b.get('schema') != 'eht-bundle-v2' or set(b['days']) != set(DAYS)
+    if (b.get('schema') != 'eht-bundle' or set(b['days']) != set(DAYS)
             or b.get('covariance_ddof') != science['covariance_ddof']
             or b.get('residual_component_sigma') != science['residual_component_sigma']
             or b.get('fsys') != science['fsys']
@@ -244,7 +244,7 @@ def run_attempt(root, bundle, task, directory, config, identity, numerical_attem
         except Exception:
             traceback.print_exc()
     outputs = {p.name: sha(p) for p in sorted(directory.iterdir()) if p.is_file()}
-    receipt = dict(schema='eht-sample-task-v2', identity=identity, task=task,
+    receipt = dict(schema='eht-sample-task', identity=identity, task=task,
                    status=status, numerical_attempt=numerical_attempt,
                    seconds=time.monotonic()-started, outputs=outputs,
                    scientifically_certified=False)
@@ -313,7 +313,7 @@ def controller(args, out):
     configure_threads(args.threads)
     config = dict(draws_per_day=science['draws_per_day'], seed=science['seed'], **science['monte_carlo'],
                   threads=args.threads)
-    plan = dict(schema='eht-sample-batch-v2', snapshot=snapshot,
+    plan = dict(schema='eht-sample-batch', snapshot=snapshot,
                 code=code_identity(), config=config, science=science)
     identity = hashlib.sha256(encoded(plan)).hexdigest()
     plan['identity'] = identity
@@ -421,7 +421,7 @@ def controller(args, out):
     atomic(out / 'state.json', dict(identity=identity, certified=len(done), total=len(tasks),
                                    active=0, pending=len(pending), exhausted=exhausted))
     if len(done) == len(tasks):
-        finish = dict(schema='eht-sample-finish-v2', identity=identity,
+        finish = dict(schema='eht-sample-finish', identity=identity,
                       numerically_certified=len(done), scientifically_certified=False,
                       receipts={k: dict(directory=v, sha256=sha(out / v / 'taskreceipt.json'))
                                 for k, v in sorted(done.items())})

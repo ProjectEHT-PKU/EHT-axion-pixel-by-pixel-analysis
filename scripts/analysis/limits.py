@@ -271,7 +271,7 @@ def prepare_limit_inputs(ensemble, templates, config, products, *, verified):
     require_declared_outputs(ensemble, [report_path])
     report = json.loads(report_path.read_text())
     draws = config['eht_imaging']['uncertainty_draws']
-    if (report.get('schema') != 'eht-ensemble-v2'
+    if (report.get('schema') != 'eht-ensemble'
             or report.get('days') != [str(d) for d in DAYS] or report.get('draws_per_day') != draws
             or record['config'].get('draw_count') != draws * len(DAYS)
             or report.get('angle_convention') != 'EVPA radians modulo pi, east of north'
@@ -402,7 +402,7 @@ def run(args):
         products, inputs = validate_templates(args.templates.resolve(), config, seen)
         prepared, source_inputs, source_identity, sigmas, background_inputs = prepare_limit_inputs(
             args.ensemble.resolve(), args.templates.resolve(), config, products, verified=seen)
-        identity = dict(schema='analysis-limits-v2',
+        identity = dict(schema='analysis-limits',
                         scientific_profile=config,
                         resultant_min=features['resultant_min'], centering=CENTERING,
                         pixel_stride=features['pixel_stride'],

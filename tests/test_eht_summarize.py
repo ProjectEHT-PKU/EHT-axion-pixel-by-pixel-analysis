@@ -30,7 +30,7 @@ def sample_root(tmp_path, count=2):
     draws = {d: {'draws': [{'AA': {'R': [0., 0.], 'L': [0., 0.]}} for _ in range(count)]} for d in s.en.DAYS}
     (results / 'all-draws.json').write_text(json.dumps(draws))
     tasks, receipts = [], {}
-    identity_plan = {'schema': 'eht-sample-batch-v2', 'science': SCIENCE}
+    identity_plan = {'schema': 'eht-sample-batch', 'science': SCIENCE}
     encoded = json.dumps(identity_plan, sort_keys=True, separators=(',', ':')).encode()
     identity = hashlib.sha256(encoded).hexdigest()
     for d in s.en.DAYS:
@@ -46,13 +46,13 @@ def sample_root(tmp_path, count=2):
             names = ('best-raw-IQU.fits', 'best-blurred-IQU.fits', 'certificate.json')
             outputs = {n: sha(directory / n) for n in names}
             (directory / 'taskreceipt.json').write_text(json.dumps(dict(
-                task=task, identity=identity, status='certified', schema='eht-sample-task-v2',
+                task=task, identity=identity, status='certified', schema='eht-sample-task',
                 outputs=outputs)))
             receipts[task['id']] = dict(directory=str(directory.relative_to(results)),
                                         sha256=sha(directory / 'taskreceipt.json'))
     (results / 'tasks.jsonl').write_text(''.join(json.dumps(t) + '\n' for t in tasks))
     (results / 'batch.json').write_text(json.dumps(dict(identity_plan, identity=identity)))
-    finish = dict(identity=identity, schema='eht-sample-finish-v2', numerically_certified=4 * count,
+    finish = dict(identity=identity, schema='eht-sample-finish', numerically_certified=4 * count,
                   receipts=receipts)
     (results / 'finish.json').write_text(json.dumps(finish))
     return results

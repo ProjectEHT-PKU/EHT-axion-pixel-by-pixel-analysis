@@ -67,8 +67,8 @@ def verify_batch(root, settings, science):
     unsigned = dict(batch)
     unsigned.pop('identity', None)
     encoded = json.dumps(unsigned, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
-    if (batch.get('schema') != 'eht-sample-batch-v2' or hashlib.sha256(encoded).hexdigest() != identity
-            or finish.get('schema') != 'eht-sample-finish-v2' or finish.get('identity') != identity
+    if (batch.get('schema') != 'eht-sample-batch' or hashlib.sha256(encoded).hexdigest() != identity
+            or finish.get('schema') != 'eht-sample-finish' or finish.get('identity') != identity
             or finish.get('numerically_certified') != count * len(en.DAYS)):
         raise ValueError('incomplete or inconsistent Monte Carlo batch (batch.json / finish.json)')
     if batch.get('science') != json.loads(json.dumps(science)):
@@ -92,7 +92,7 @@ def verify_batch(root, settings, science):
         directory = contained(results, entry['directory'])
         receipt = checked(directory / 'taskreceipt.json', entry['sha256'])
         if (receipt['task'] != task or receipt['identity'] != identity
-                or receipt['status'] != 'certified' or receipt['schema'] != 'eht-sample-task-v2'):
+                or receipt['status'] != 'certified' or receipt['schema'] != 'eht-sample-task'):
             raise ValueError('selected receipt identity/status mismatch')
         products = {}
         for kind, name in [('blurred', 'best-blurred-IQU.fits'),
@@ -139,7 +139,7 @@ def run(selected, out, settings):
         en.summarize(samples, *reference[:2], directory)
         print(f'SUMMARIZED day-{d}', flush=True)
         del samples
-    report = dict(schema='eht-ensemble-v2', days=list(en.DAYS), draws_per_day=draws,
+    report = dict(schema='eht-ensemble', days=list(en.DAYS), draws_per_day=draws,
                   map_order='draw,y,x,IQUV; native FITS E decreases along x, N increases along y',
                   angle_convention='EVPA radians modulo pi, east of north',
                   registration='none: the Paper VII Sec. 5.2 alignment is a zero shift; '

@@ -70,7 +70,7 @@ def delivered(tmp_path_factory):
                              base_inputs + inputs) as temp:
             write_products(temp, prepared["parameters"], prepared["output_slot"])
             (temp / "success.json").write_text(json.dumps({
-                "schema": 1, "returncode": 0, "timed_out": False, "output_validated": True}))
+                "returncode": 0, "timed_out": False, "output_validated": True}))
             (temp / "output.json").write_text(json.dumps(validate_job_output(temp, prepared)))
     products = deliver_stokes(plan, run)
     return config, run, products

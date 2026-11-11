@@ -59,7 +59,9 @@ def test_plan_no_optional_import_no_writes(plan_args, monkeypatch):
     assert plan['ehtim_version'] == '1.3.2'
     assert all(len(r['sha256']) == 64 for r in plan['inputs'])
     assert plan['parameters']['input_root'] == str(plan_args.uvfits_dir)
-    assert 'input_receipt' not in plan['parameters']
+    locations = {k: plan['parameters'][k] for k in w.experiment.EHT_LOCATIONS}
+    expected = w.experiment.eht_imaging_parameters(w.experiment.read_experiment(plan_args.config), locations)
+    assert plan['parameters'] == expected  # the three locations and the science values only
     assert (plan['parameters']['npix'], plan['parameters']['fov_uas']) == (64, 120.0)
     assert plan['blur'] == 'additional 19uas I/Q/U kernel, NOT an effective PSF'
 

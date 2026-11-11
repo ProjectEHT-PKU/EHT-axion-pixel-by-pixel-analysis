@@ -90,8 +90,8 @@ def test_eht_imaging_parameters_flat_set_with_shared_grid(config):
     assert "refine" not in parameters and "monte_carlo" not in parameters
     with pytest.raises(ValueError, match="locations"):
         eht_imaging_parameters(config, {})
-    with pytest.raises(ValueError, match="locations"):  # the input receipt is no longer a location
-        eht_imaging_parameters(config, dict(LOCATIONS, input_receipt="/data/receipt.json"))
+    with pytest.raises(ValueError, match="locations"):
+        eht_imaging_parameters(config, dict(LOCATIONS, extra_location="/data/extra"))
 
 
 def test_duplicate_keys_rejected(tmp_path):

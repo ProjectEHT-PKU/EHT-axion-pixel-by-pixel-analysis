@@ -88,7 +88,7 @@ where $h(m) = \frac{1}{2}\bigl[(1+m)\ln(1+m) + (1-m)\ln(1-m)\bigr]$, $F = \sum_x
 
 ### Bundle export, D-term Monte Carlo, and ensemble summary
 
-1. **Bundle export (`scripts/eht/export_bundle.py`)**: verifies full lineage of all four `eht:i` and four `eht:refine` stages, checks `all_P_numerically_certified == True` on every day, and copies read-only (`0444`) `<day>/fixedI.fits`, `<day>/gaincal-pol.uvfits`, `<day>/fiducial-dterms.json`, `lineage/<day>/*`, and `feed-rotation.json` with `bundle.json` (schema `eht-bundle-v2`).
+1. **Bundle export (`scripts/eht/export_bundle.py`)**: verifies full lineage of all four `eht:i` and four `eht:refine` stages, checks `all_P_numerically_certified == True` on every day, and copies read-only (`0444`) `<day>/fixedI.fits`, `<day>/gaincal-pol.uvfits`, `<day>/fiducial-dterms.json`, `lineage/<day>/*`, and `feed-rotation.json` with `bundle.json` (schema `eht-bundle`).
 2. **D-term Monte Carlo (`scripts/eht/sample.py`)**:
    - Computes the 4-day mean and $2 \times 2$ $(\operatorname{Re} D, \operatorname{Im} D)$ sample covariance (`covariance_ddof = 1`) per hand (`R`, `L`) and station in `solve_sites` (`d_distribution`).
    - Draws `uncertainty_draws = 1000` D-term sets per day using `SeedSequence([20210405, day])`: bivariate normal for `AZ`, `LM`, `PV`, and independent zero-mean normal with per-component SD `residual_d_sigma = 0.01` for `AA`, `AP`, `SM`, `JC` (`sample_dterms`). Thermal visibility noise is not resampled and D terms are not refitted per draw.
