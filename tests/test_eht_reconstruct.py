@@ -15,8 +15,8 @@ from scripts.eht import reconstruct as w
 ROOT = Path(__file__).resolve().parents[1]
 
 
-LOCATIONS = dict(input_root='/data/uvfits', input_receipt='/data/receipt.json',
-                 feed_rotation_file='/data/feed.json', official_script='/data/official.py')
+LOCATIONS = dict(input_root='/data/uvfits', feed_rotation_file='/data/feed.json',
+                 official_script='/data/official.py')
 
 
 @pytest.fixture
@@ -27,14 +27,11 @@ def config():
 
 @pytest.fixture
 def plan_args(tmp_path, monkeypatch):
-    """Fully local synthetic receipts; no GRMHD inputs and no optional package import."""
+    """Fully local synthetic inputs; no GRMHD inputs and no optional package import."""
     experiment = w.experiment.read_experiment()
     raw = tmp_path / experiment['eht_imaging']['inputs'][95][0]
     raw.write_bytes(b'synthetic circular UVFITS placeholder')
     experiment['eht_imaging']['inputs'][95][1] = w.provenance.sha256(raw)
-    receipt = tmp_path / 'receipt.json'
-    receipt.write_text(json.dumps(dict(complete=True, files=[dict(path=str(raw),
-        size=raw.stat().st_size, sha256=experiment['eht_imaging']['inputs'][95][1])])) )
     feed, official = tmp_path / 'feed.json', tmp_path / 'official.py'
     feed.write_text('{}')
     official.write_text("ttype     = 'nfft'\nfov       = 128*eh.RADPERUAS\n")
@@ -42,10 +39,10 @@ def plan_args(tmp_path, monkeypatch):
     path.write_text(yaml.safe_dump(experiment))
     dist = SimpleNamespace(version='1.3.2', files=[], locate_file=lambda f: f)
     monkeypatch.setattr(w.metadata, 'distribution', lambda name: dist)
-    return w.parser().parse_args(['--config', str(path), '--stage', 'I', '--day', '95',
-                                  '--input-root', str(tmp_path), '--input-receipt', str(receipt),
-                                  '--feed-rotation-file', str(feed), '--official-script', str(official),
-                                  '--no-env-file', '--output-root', str(tmp_path / 'new'), '--plan'])
+    return w.parse(['--config', str(path), '--stage', 'I', '--day', '95',
+                    '--uvfits-dir', str(tmp_path), '--feed-rotation-file', str(feed),
+                    '--official-script', str(official),
+                    '--no-env-file', '--output-root', str(tmp_path / 'new'), '--plan'])
 
 
 def test_plan_no_optional_import_no_writes(plan_args, monkeypatch):
@@ -57,28 +54,46 @@ def test_plan_no_optional_import_no_writes(plan_args, monkeypatch):
     assert not plan_args.output_root.exists()
     paths = {Path(r['path']) for r in plan['inputs']}
     assert not any(p.is_relative_to(ROOT) for p in paths)  # the repository is pinned by its commit
-    assert plan_args.input_root / 'SR2_M87_2017_095_lo_hops_zbl-dtcal+selfcal.uvfits' in paths or paths
+    assert paths == {plan_args.uvfits_dir / 'SR2_M87_2017_095_lo_hops_zbl-dtcal+selfcal.uvfits',
+                     plan_args.feed_rotation_file, plan_args.official_script}
     assert plan['ehtim_version'] == '1.3.2'
     assert all(len(r['sha256']) == 64 for r in plan['inputs'])
-    assert plan['parameters']['input_root'] == str(plan_args.input_root)
+    assert plan['parameters']['input_root'] == str(plan_args.uvfits_dir)
+    assert 'input_receipt' not in plan['parameters']
     assert (plan['parameters']['npix'], plan['parameters']['fov_uas']) == (64, 120.0)
     assert plan['blur'] == 'additional 19uas I/Q/U kernel, NOT an effective PSF'
 
 
-def test_locations_are_required_absolute_paths(plan_args):
+def test_locations_required_and_relative_paths_resolved(plan_args, monkeypatch):
     plan_args.official_script = None
     with pytest.raises(ValueError, match='official_script'):
         w.build_plan(plan_args)
-    plan_args.official_script = Path('relative.py')
-    with pytest.raises(ValueError, match='absolute'):
-        w.build_plan(plan_args)
+    monkeypatch.chdir(plan_args.uvfits_dir)
+    plan_args.official_script = Path('official.py')
+    plan = w.build_plan(plan_args)
+    assert plan['parameters']['official_script'] == str(plan_args.uvfits_dir / 'official.py')
 
 
-def test_cli_review_and_stage_contract(plan_args):
-    plan_args.plan = False
-    with pytest.raises(ValueError, match='review-file'):
-        w.build_plan(plan_args)
-    plan_args.plan = True
+def test_input_root_layout_defaults(tmp_path, plan_args):
+    eht = tmp_path / 'inputs' / 'eht'
+    eht.mkdir(parents=True)
+    for name in ('feed.json', 'official.py', w.experiment.read_experiment()['eht_imaging']['inputs'][95][0]):
+        source = plan_args.uvfits_dir / name
+        renamed = {'feed.json': 'feed-rotation.json', 'official.py': 'eht-imaging_pipeline.py'}
+        target = eht / renamed.get(name, name)
+        target.write_bytes(source.read_bytes())
+    args = w.parse(['--config', str(plan_args.config), '--stage', 'I', '--day', '95', '--no-env-file',
+                    '--input-root', str(tmp_path / 'inputs'), '--output-root', str(tmp_path / 'new'),
+                    '--plan'])
+    plan = w.build_plan(args)
+    assert {k: plan['parameters'][k] for k in w.experiment.EHT_LOCATIONS} == dict(
+        input_root=str(eht), feed_rotation_file=str(eht / 'feed-rotation.json'),
+        official_script=str(eht / 'eht-imaging_pipeline.py'))
+
+
+def test_cli_stage_contract(plan_args):
+    with pytest.raises(SystemExit):  # the external review file is no longer an option
+        w.parser().parse_args(['--stage', 'I', '--day', '95', '--review-file', 'x'])
     plan_args.stage = 'fiducial'
     with pytest.raises(ValueError, match='i-root'):
         w.build_plan(plan_args)

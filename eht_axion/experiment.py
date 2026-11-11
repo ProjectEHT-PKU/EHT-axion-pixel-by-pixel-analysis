@@ -70,8 +70,9 @@ ANGULAR_BINS = 360
 # Solver settings of scripts/eht/refine.py / scripts/eht/sample.py: recorded in their own plans,
 # not in the flat parameter set of the imaging stages.
 EHT_SOLVER_SECTIONS = ("refine", "monte_carlo")
-# Machine-local eht-imaging locations; recorded in the imaging plan, never in YAML.
-EHT_LOCATIONS = ("input_root", "input_receipt", "feed_rotation_file", "official_script")
+# Machine-local eht-imaging locations; recorded in the imaging plan, never in YAML. input_root is
+# the directory of the eht_imaging.inputs uvfits files (default: eht/ below EHT_INPUT_ROOT).
+EHT_LOCATIONS = ("input_root", "feed_rotation_file", "official_script")
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
@@ -450,7 +451,7 @@ def eht_imaging_parameters(config, locations):
 
 
 _EHT_PARAMETER_ORDER = (
-    "input_root", "input_receipt", "feed_rotation_file", "official_script", "inputs", "npix", "fov_uas",
+    "input_root", "feed_rotation_file", "official_script", "inputs", "npix", "fov_uas",
     "gain_tol", "fsys", "solve_sites", "fixed_sites", "p_data", "p_reg", "norm_reg", "initial_m",
     "initial_evpa_deg", "rounds", "restart_rounds", "restart_blur_uas", "restart_domain_epsilon",
     "maxit", "stop", "shift_objective_constant", "uv_min", "blur_fwhm_uas", "uncertainty_draws",

@@ -1,14 +1,23 @@
-"""Command-line options of the RAPTOR scripts: CLI > exports > project .env.raptor > project .env."""
+"""Command-line options of the RAPTOR scripts: CLI > exported environment > project .env.
+
+Three roots (eht_axion/environment.py): ``--source-root`` / ``EHT_RAPTOR_SOURCE_ROOT`` (the
+RAPTOR checkout), ``--input-root`` / ``EHT_INPUT_ROOT`` (snapshots and radial tables; generate
+only) and ``--data-root`` / ``EHT_DATA_ROOT`` (default run root raptor/runs/main).
+"""
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
 
-from ..environment import (DATA_ROOT_KEY, ROOT, add_data_root_option, data_root, layout_path,
-                           resolve_environment)
+from ..environment import (DATA_ROOT_KEY, INPUT_ROOT_KEY, RAPTOR_SOURCE_ROOT_KEY, ROOT,
+                           add_data_root_option, add_input_root_option, data_root, input_path,
+                           input_root, layout_path, raptor_source_root, resolve_environment)
 from ..experiment import DEFAULT_PATH, read_experiment
 from ..provenance import reject_directory_symlinks
+
+# generate.py inputs: option attribute -> INPUT_LAYOUT key below the input root
+INPUTS = {"fluid_root": "grmhd", "radial_low": "radial.low", "radial_high": "radial.high"}
 
 
 def options(kind, argv=None):
@@ -16,13 +25,15 @@ def options(kind, argv=None):
         description=f"{kind}: official RAPTOR build and Python task orchestration")
     parser.add_argument("--config", type=Path, default=DEFAULT_PATH,
                         help="Experiment parameter file (default: configs/experiment.yaml)")
-    paths = {"source_root": "EHT_RAPTOR_SOURCE_ROOT",
-             "run_root": "EHT_RAPTOR_RUN_ROOT", "fluid_root": "EHT_GRMHD_ROOT",
-             "radial_low": "EHT_RADIAL_LOW", "radial_high": "EHT_RADIAL_HIGH"}
-    for key, env in paths.items():
-        parser.add_argument("--" + key.replace("_", "-"), type=Path,
-                            help=f"Overrides ${env}; relative paths use current working directory")
+    parser.add_argument("--source-root", "--raptor-source-root", dest="source_root", type=Path,
+                        help=f"RAPTOR Git checkout; overrides ${RAPTOR_SOURCE_ROOT_KEY}")
+    parser.add_argument("--run-root", type=Path,
+                        help="Run container (default: raptor/runs/main below --data-root)")
     if kind == "generate":
+        add_input_root_option(parser)
+        for key, layout in INPUTS.items():
+            parser.add_argument("--" + key.replace("_", "-"), type=Path,
+                                help=f"default: {layout} layout entry below --input-root")
         parser.add_argument("--plan", action="store_true", help="Validate and list tasks; never launch C")
         parser.add_argument("--plan-output", type=Path,
                             help="With --plan: also write the frozen plan JSON "
@@ -40,20 +51,28 @@ def options(kind, argv=None):
     add_data_root_option(parser)
     args = parser.parse_args(argv)
     try:
-        environment = resolve_environment(args, raptor=True)
+        environment = resolve_environment(args)
+        args.source_root = raptor_source_root(args, environment)
+        if args.run_root is None:
+            root = data_root(args, environment)
+            if root is not None:
+                args.run_root = layout_path(root, "raptor.run")
+        if kind == "generate":
+            missing = [key for key in INPUTS if getattr(args, key) is None]
+            root = input_root(args, environment) if missing else None
+            for key in missing:
+                if root is not None:
+                    setattr(args, key, input_path(root, INPUTS[key]))
     except (ValueError, OSError) as error:
         parser.error(str(error))
-    for key, env in paths.items():
-        if getattr(args, key) is None and environment.get(env):
-            setattr(args, key, Path(environment[env]))
-    if args.run_root is None:
-        root = data_root(args, environment)
-        if root is not None:
-            args.run_root = layout_path(root, "raptor.run")
     if args.source_root is None:
-        parser.error(f"Provide --source-root or ${paths['source_root']}")
+        parser.error(f"Provide --source-root or ${RAPTOR_SOURCE_ROOT_KEY}")
     if args.run_root is None:
-        parser.error(f"Provide --run-root, ${paths['run_root']}, or --data-root / ${DATA_ROOT_KEY}")
+        parser.error(f"Provide --run-root, or --data-root / ${DATA_ROOT_KEY}")
+    if kind == "generate":
+        missing = ", ".join("--" + key.replace("_", "-") for key in INPUTS if getattr(args, key) is None)
+        if missing:
+            parser.error(f"Provide {missing}, or --input-root / ${INPUT_ROOT_KEY}")
     try:
         reject_directory_symlinks(args.run_root)
         args.run_root = args.run_root.resolve()
@@ -61,10 +80,10 @@ def options(kind, argv=None):
         args.config = args.config.resolve(strict=True)
         config = read_experiment(args.config)
         protected = [ROOT, args.source_root]
-        for name in ("fluid_root", "radial_low", "radial_high"):
-            path = getattr(args, name)
-            if path is not None:
-                path = path.resolve(strict=True)
+        if kind == "generate":
+            # Snapshots and radial tables only matter to generate; build never reads them.
+            for name in INPUTS:
+                path = getattr(args, name).resolve(strict=True)
                 setattr(args, name, path)
                 protected.append(path if path.is_dir() else path.parent)
         for source in protected:
@@ -76,9 +95,6 @@ def options(kind, argv=None):
         if kind == "generate":
             if args.plan and args.convert_only:
                 raise ValueError("--plan and --convert-only are exclusive")
-            for key in ("fluid_root", "radial_low", "radial_high"):
-                if getattr(args, key) is None:
-                    raise ValueError(f"Provide --{key.replace('_', '-')} or ${paths[key]}")
             if args.threads is None:
                 args.threads = int(environment.get("EHT_RAPTOR_THREADS", "2"))
             if args.workers is None:

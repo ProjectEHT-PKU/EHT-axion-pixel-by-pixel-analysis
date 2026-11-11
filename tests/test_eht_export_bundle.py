@@ -17,8 +17,8 @@ def stages(tmp_path, config, *, certified=True, days=w.DAYS, feed=None):
     if feed is None:
         feed = tmp_path / 'feed-rotation.json'
         feed.write_text('{"table": []}')
-    locations = dict(input_root='/data/uvfits', input_receipt='/data/receipt.json',
-                     feed_rotation_file=str(feed), official_script='/data/official.py')
+    locations = dict(input_root='/data/uvfits', feed_rotation_file=str(feed),
+                     official_script='/data/official.py')
     parameters = experiment.eht_imaging_parameters(config, locations)
     i_roots, d_roots = [], []
     for day in days:

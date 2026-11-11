@@ -2,7 +2,8 @@
 """Analysis: everything the paper uses from the pipeline, in one directory (stage analysis:paper).
 
 Reads finished products only (limits, the three checks, templates, the EHT ensemble,
-the delivered axion-off background cubes, the RAPTOR plan and build) and writes:
+the delivered axion-off background cubes, the RAPTOR plan), the radial tables of the plan
+and src/axion.c of the pinned RAPTOR checkout (raptor.source), and writes:
 
   figures/*.pdf      vector figures
   numbers.tex        one \\newcommand per number quoted in the paper, with its source
@@ -30,8 +31,8 @@ import re
 
 import numpy as np
 
-from eht_axion.environment import add_data_root_option, fill_defaults
-from eht_axion.environment import resolve_environment
+from eht_axion.environment import (INPUT_LAYOUT, add_data_root_option, add_input_root_option, fill_defaults,
+                                   input_path, input_root, raptor_source_root, resolve_environment)
 from eht_axion import provenance
 from eht_axion.analysis.likelihood import MODES
 from eht_axion.analysis.model import cloud_amplitude_scaling
@@ -39,6 +40,7 @@ from eht_axion.analysis.templates import RunLayout, _integrate
 from eht_axion.eht.ensemble import global_diagnostics
 from eht_axion.experiment import DEFAULT_PATH, EHT_DAYS, physical_scale, read_experiment
 from eht_axion.physics import HBAR_EV_S, omega
+from eht_axion.raptor.build import _clean_source
 from eht_axion.raptor.layout import input_raptor_files
 
 PAPER_ALPHA = 0.30  # alpha of the response maps, templates figure, chi^2 table and fit figure
@@ -83,6 +85,7 @@ _ONES = (
     "Nineteen",
 )
 _TENS = ("", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety")
+AXION_SOURCE = "src/axion.c of the RAPTOR commit raptor.source (configs/experiment.yaml)"
 _WINDOW = re.compile(r"window\s*=\s*exp\(\s*-\s*pow\(\s*r\s*/\s*([0-9.]+)\s*,\s*([0-9.]+)\s*\)\s*\)\s*;")
 
 
@@ -204,20 +207,39 @@ def read_json(path):
     return json.loads(Path(path).read_text())
 
 
-def radial_tables(args, plan, inputs):
-    """Radial-table paths: --radial-* > EHT_RADIAL_* > raptor/plan.json; SHA-256 must equal the plan."""
-    environment = resolve_environment(args)
+def radial_tables(args, plan, inputs, environment):
+    """Radial-table paths: --radial-* > input root (INPUT_LAYOUT) > raptor/plan.json.
+
+    The SHA-256 of each table must equal the one recorded in the plan.
+    """
+    root = input_root(args, environment)
     tables = {}
-    for key, option, env in (
-        ("low", args.radial_low, "EHT_RADIAL_LOW"),
-        ("high", args.radial_high, "EHT_RADIAL_HIGH"),
-    ):
+    for key, option in (("low", args.radial_low), ("high", args.radial_high)):
         record = plan["radial_tables"][key]
-        path = option or (Path(environment[env]) if environment.get(env) else Path(record["path"]))
+        if option is not None:
+            path = option
+        elif root is not None:
+            path = input_path(root, f"radial.{key}")
+        else:
+            path = Path(record["path"])
         if provenance.sha256(path) != record["sha256"]:
             raise ValueError(f"Radial table {path} differs from the one recorded in the RAPTOR plan")
         tables[key] = (np.loadtxt(inputs.file(path), delimiter=","), record["spin"])
     return tables
+
+
+def raptor_axion_source(args, config, environment):
+    """src/axion.c of the RAPTOR checkout: clean, HEAD = raptor.source.commit, remote = repository.
+
+    The pinned commit identifies the file (code, not a data input), so it is not hashed or
+    recorded as a stage input.
+    """
+    root = raptor_source_root(args, environment)
+    if root is None:
+        raise ValueError("Provide --raptor-source-root or $EHT_RAPTOR_SOURCE_ROOT (pinned RAPTOR checkout)")
+    root = Path(root).resolve(strict=True)
+    _clean_source(root, config["raptor"]["source"])
+    return root / "src" / "axion.c"
 
 
 def window_constants(axion_source):
@@ -404,14 +426,14 @@ def add_radial(numbers, profiles, window):
         "NumWindowRadiusRg",
         f"{radius:g}",
         radius,
-        "raptor/runs/main/build/source/src/axion.c",
+        AXION_SOURCE,
         "field window radius r_w of W(r)=exp[-(r/r_w)^n] (r_g)",
     )
     numbers.add(
         "NumWindowExponent",
         f"{exponent:g}",
         exponent,
-        "raptor/runs/main/build/source/src/axion.c",
+        AXION_SOURCE,
         "field window exponent n",
     )
     value = np.exp(-((WINDOW_SAMPLE_RG / radius) ** exponent))
@@ -928,6 +950,8 @@ def run(args):
     config = json.loads(json.dumps(read_experiment(args.config)))
     inputs, numbers = Inputs(), Numbers()
     limits = args.limits.resolve()
+    environment = resolve_environment(args)
+    axion_source = raptor_axion_source(args, config, environment)
     with provenance.verification_session():
         files = ["report.json"] + [
             f"{p}-{d}.{e}"
@@ -969,10 +993,8 @@ def run(args):
         )
         for shard in shards:
             inputs.stage(shard.parent, "raptor:delivery", [shard.name, "generated.json"])
-        build = args.raptor_run_root.resolve() / "build"
-        (axion_source,) = inputs.stage(build, "raptor:build", ["source/src/axion.c"])
         plan = read_json(inputs.file(args.raptor_plan))
-        tables = radial_tables(args, plan, inputs)
+        tables = radial_tables(args, plan, inputs, environment)
 
         obs = {d: npz(limits / f"observations-{d}.npz") for d in DIMENSIONS}
         info = {d: read_json(limits / f"observations-{d}.json") for d in DIMENSIONS}
@@ -1089,7 +1111,6 @@ def run(args):
                 ensemble=str(ensemble),
                 raptor_input_root=str(args.raptor_input_root.resolve()),
                 raptor_plan=str(Path(args.raptor_plan).resolve()),
-                raptor_build=str(build),
             ),
             presentation=dict(
                 paper_alpha=PAPER_ALPHA,
@@ -1191,16 +1212,22 @@ def main(argv=None):
         ("ensemble", "eht/ensemble"),
         ("raptor-input-root", "raptor/delivered/data"),
         ("raptor-plan", "raptor/plan.json"),
-        ("raptor-run-root", "raptor/runs/main"),
         ("output-root", "analysis/paper"),
     ):
         p.add_argument("--" + name, type=Path, help=f"default: {default}")
     p.add_argument(
-        "--radial-low", type=Path, help="overrides $EHT_RADIAL_LOW and the path in the RAPTOR plan"
+        "--raptor-source-root",
+        dest="source_root",
+        type=Path,
+        help="RAPTOR checkout at raptor.source (src/axion.c); overrides $EHT_RAPTOR_SOURCE_ROOT",
     )
-    p.add_argument(
-        "--radial-high", type=Path, help="overrides $EHT_RADIAL_HIGH and the path in the RAPTOR plan"
-    )
+    for key in ("low", "high"):
+        p.add_argument(
+            f"--radial-{key}",
+            type=Path,
+            help=f"default: {INPUT_LAYOUT['radial.' + key]} below --input-root, else the RAPTOR plan path",
+        )
+    add_input_root_option(p)
     add_data_root_option(p)
     args = p.parse_args(argv)
     fill_defaults(
@@ -1215,7 +1242,6 @@ def main(argv=None):
             "ensemble": ("eht.ensemble", {}),
             "raptor_input_root": ("raptor.data", {}),
             "raptor_plan": ("raptor.plan", {}),
-            "raptor_run_root": ("raptor.run", {}),
             "output_root": ("analysis.paper", {}),
         },
     )

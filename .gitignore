@@ -25,7 +25,6 @@ dist/
 .env
 .env.*
 !.env.example
-!.env.raptor.example
 
 # Local notes, not part of the repository.
 reports/

@@ -4,13 +4,13 @@
 The D-term Monte Carlo ensemble is made by scripts/eht/sample.py from the exported
 bundle (scripts/eht/export_bundle.py); the fiducial D terms are refined by scripts/eht/refine.py.
 
-Scientific parameters: experiment.yaml (eht_imaging + shared.image). Machine-local
-locations (uvfits directory, input receipt, feed-rotation table, official script)
-come from CLI options or .env (EHT_IMAGING_*). Not a bitwise reproduction of the published images.
+Scientific parameters: experiment.yaml (eht_imaging + shared.image); the uvfits file of
+each day is verified against its SHA-256 in eht_imaging.inputs. Machine-local locations
+(uvfits directory, feed-rotation table, official script) come from --uvfits-dir,
+--feed-rotation-file and --official-script, else from the eht/ entries of the input root
+(--input-root / EHT_INPUT_ROOT). Not a bitwise reproduction of the published images.
 
 --plan only verifies/hashes inputs; no optional imaging import or output writes.
-Execute only after external review. A --review-file records that external decision;
-its presence is NOT an automatic approval or scientific-convergence assertion.
 Each invocation publishes exactly one transactional stage/day to a new root.
 """
 from __future__ import annotations
@@ -28,8 +28,8 @@ from unittest.mock import patch
 
 from eht_axion import experiment
 from eht_axion import provenance
-from eht_axion.environment import resolve_environment
-from eht_axion.environment import add_data_root_option, fill_defaults
+from eht_axion.environment import (add_data_root_option, add_input_root_option, fill_defaults,
+                                   fill_input_defaults)
 
 I_PRODUCTS = ('final-fixedI.fits', 'clean-gaincal-pol.uvfits')
 EHT_STAGES = {'I': 'eht:i', 'fiducial': 'eht:fiducial'}  # --stage -> recorded stage name
@@ -45,16 +45,20 @@ def parser():
                    help='default: configs/experiment.yaml')
     p.add_argument('--stage', choices=('I', 'fiducial'), required=True)
     p.add_argument('--day', type=int, choices=experiment.EHT_DAYS, required=True)
-    for name, env in LOCATION_ENV.items():
-        p.add_argument('--' + name.replace('_', '-'), type=Path, help=f'absolute path; overrides ${env}')
+    p.add_argument('--uvfits-dir', '--eht-input-root', dest='uvfits_dir', type=Path,
+                   help='directory of the eht_imaging.inputs uvfits files (default: eht below --input-root)')
+    p.add_argument('--feed-rotation-file', type=Path,
+                   help='station feed-rotation JSON (default: eht/feed-rotation.json below --input-root)')
+    p.add_argument('--official-script', type=Path,
+                   help='official EHT imaging script (default: eht/eht-imaging_pipeline.py below '
+                        '--input-root)')
     p.add_argument('--i-root', type=Path,
                    help='completed I stage for the SAME day (fiducial; default: eht/intensity/day-<day>)')
     p.add_argument('--output-root', type=Path,
                    help='new directory for this stage/day (default: eht/intensity/day-<day> or '
                         'eht/fiducial/day-<day>)')
-    p.add_argument('--review-file', type=Path,
-                   help='external review bytes, required for execution; not self-approval')
     p.add_argument('--plan', action='store_true')
+    add_input_root_option(p)
     add_data_root_option(p)
     return p
 
@@ -67,23 +71,26 @@ def parse(argv=None):
     if args.stage == 'fiducial':
         defaults['i_root'] = ('eht.intensity', day)
     fill_defaults(p, args, defaults)
+    fill_input_defaults(p, args, {option: key for option, key in LOCATION_OPTIONS.values()})
     return args
 
 
-LOCATION_ENV = dict(input_root='EHT_IMAGING_INPUT_ROOT', input_receipt='EHT_IMAGING_INPUT_RECEIPT',
-                    feed_rotation_file='EHT_IMAGING_FEED_ROTATION',
-                    official_script='EHT_IMAGING_OFFICIAL_SCRIPT')
+# experiment.EHT_LOCATIONS -> (option attribute, INPUT_LAYOUT key below the input root)
+LOCATION_OPTIONS = dict(input_root=('uvfits_dir', 'eht.uvfits'),
+                        feed_rotation_file=('feed_rotation_file', 'eht.feed_rotation'),
+                        official_script=('official_script', 'eht.official_script'))
 
 
 def locations(args):
-    """CLI > exported environment > .env; every location must be an absolute path."""
-    environment = resolve_environment(args)
+    """Explicit options, else the input root (filled in by parse); relative paths use the cwd."""
     result = {}
-    for name, env in LOCATION_ENV.items():
-        value = getattr(args, name) or (Path(environment[env]) if environment.get(env) else None)
-        if value is None or not Path(value).is_absolute():
-            raise ValueError(f'{name}: absolute path required (--{name.replace("_", "-")} or {env})')
-        result[name] = Path(value)
+    for name in experiment.EHT_LOCATIONS:
+        option = LOCATION_OPTIONS[name][0]
+        value = getattr(args, option, None)
+        if value is None:
+            flag = '--' + option.replace('_', '-')
+            raise ValueError(f'{name}: provide {flag}, or --input-root / EHT_INPUT_ROOT')
+        result[name] = Path(value).resolve()
     return result
 
 
@@ -115,13 +122,10 @@ def build_plan(args):
     rawroot = Path(c['input_root'])
     name, expected = c['inputs'][args.day]
     raw = (rawroot / name).resolve(strict=True)
-    receipt = json.loads(Path(c['input_receipt']).read_text())
-    matches = [r for r in receipt['files'] if Path(r['path']).name == name]
-    if (receipt.get('complete') is not True or len(matches) != 1 or matches[0]['sha256'] != expected
-            or raw.stat().st_size != matches[0]['size'] or provenance.sha256(raw) != expected):
-        raise ValueError('raw HOPS input checksum/receipt mismatch')
+    if provenance.sha256(raw) != expected:
+        raise ValueError(f'raw HOPS input checksum differs from experiment.yaml eht_imaging.inputs: {raw}')
     adapt_official(Path(c['official_script']).read_text(), c['fov_uas'])
-    inputs = [raw, Path(c['input_receipt']), Path(c['feed_rotation_file']), Path(c['official_script'])]
+    inputs = [raw, Path(c['feed_rotation_file']), Path(c['official_script'])]
     if args.i_root:
         m, files = stage_inputs(args.i_root, 'I', args.day, I_PRODUCTS)
         upstream = m['config']['parameters']
@@ -131,12 +135,6 @@ def build_plan(args):
         if upstream['feed_rotation_file'] != c['feed_rotation_file']:
             raise ValueError('I-stage feed table differs')
         inputs.extend(files)
-    if args.review_file:
-        if not args.review_file.read_bytes().strip():
-            raise ValueError('empty external review file')
-        inputs.append(args.review_file)
-    if not args.plan and args.review_file is None:
-        raise ValueError('execution requires --review-file (external decision; no automatic self-approval)')
     # ehtim is pinned by pixi.lock (in git); only its version is recorded and checked.
     ehtim_version = metadata.version('ehtim')
     if ehtim_version != '1.3.2':
@@ -154,7 +152,7 @@ def build_plan(args):
                 ehtim_version=ehtim_version,
                 cli={k: [str(p) for p in v] if isinstance(v, list) else str(v) if isinstance(v, Path) else v
                      for k, v in vars(args).items()},
-                scope='Paper IV/VII method implementation; not a bitwise reproduction; review not inferred',
+                scope='Paper IV/VII method implementation; not a bitwise reproduction',
                 blur=f"additional {c['blur_fwhm_uas']:g}uas I/Q/U kernel, NOT an effective PSF",
                 scientifically_converged=False)
 

@@ -24,7 +24,7 @@ shared:  # values used by more than one part
                                  # NOT an effective PSF
 
 raptor:  # simulation input: what determines the ray-traced Stokes images
-  source:                        # the RAPTOR code; the local checkout path comes from .env.raptor / CLI
+  source:                        # the RAPTOR code; the local checkout is EHT_RAPTOR_SOURCE_ROOT (.env / CLI)
     repository: github.com/projecteht-pku/raptor   # host/owner/name; a git remote must point here
     commit: 20056006820b6536c96de790dd5fdaad5ada4eae  # the checkout must be clean at exactly this commit
   camera_fov_rg: 46.2261         # camera width in gravitational radii
@@ -54,7 +54,7 @@ raptor:  # simulation input: what determines the ray-traced Stokes images
     reference_norm: 0.1          # axion field normalisation; templates are per this norm
   background:                    # axion-off (state 0) images used for the GRMHD background
     resolution: 400
-  radial_tables:                 # radial-profile CSVs (paths given at run time) and their spin
+  radial_tables:                 # radial-profile CSVs (radial/ below EHT_INPUT_ROOT) and their spin
     low: {spin: 0.9375}
     high: {spin: 0.99}           # intentionally differs from raptor.fluid_spin
   alpha_table:                   # which radial table each alpha uses
@@ -74,8 +74,8 @@ raptor:  # simulation input: what determines the ray-traced Stokes images
 
 eht_imaging:  # observation input: Paper IV/VII method (fixed I, D-term solution, D-term Monte Carlo)
   # Data identity: official HOPS low-band uvfits per day, [file name, sha256].
-  # The directory, input receipt, feed-rotation table and official script are given
-  # per machine (.env or CLI), see README.
+  # The uvfits directory, feed-rotation table and official script are eht/ below
+  # EHT_INPUT_ROOT (.env or CLI), see docs/en/configuration.md.
   inputs:
     95: [SR2_M87_2017_095_lo_hops_zbl-dtcal+selfcal.uvfits, a749309931dbaa506b7a1575e1eef49af97b3ea62ded1fa717efadbaa2fdd5b4]
     96: [SR2_M87_2017_096_lo_hops_zbl-dtcal+selfcal.uvfits, 2376a3300ce49e458efc3f4403d98dce62cdd9b045f982f0ed73efd199ef6947]

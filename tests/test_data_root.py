@@ -45,6 +45,47 @@ def test_layout_is_the_documented_default_layout(language):
         assert expected in documented, key
 
 
+def documented_input_layout(path):
+    """Paths of the text tree in the 'Input layout' section, relative to <input root>."""
+    text = path.read_text(encoding="utf-8")
+    block = re.search(r"```text\n<input root>/\n(.*?)```", text, re.S)[1]
+    stack, paths = [], set()
+    for line in block.splitlines():
+        name = line.strip().split()[0]
+        depth = (len(line) - len(line.lstrip())) // 2 - 1
+        stack[depth:] = [name.rstrip("/")]
+        paths.add("/".join(stack))
+    return paths
+
+
+@pytest.mark.parametrize("language", ["en", "zh"])
+def test_input_layout_is_the_documented_input_layout(language):
+    documented = documented_input_layout(ROOT / "docs" / language / "data-layout.md")
+    for key, relative in env.INPUT_LAYOUT.items():
+        assert relative in documented, key
+
+
+def test_input_root_precedence(project, monkeypatch):
+    parser = ArgumentParser()
+    parser.add_argument("--fluid-root", type=Path)
+    env.add_input_root_option(parser)
+    env.add_data_root_option(parser)
+
+    def fill(argv):
+        args = parser.parse_args(argv)
+        env.fill_input_defaults(parser, args, {"fluid_root": "grmhd"})
+        return args.fluid_root
+    assert fill(["--fluid-root", "x", "--input-root", "/i"]) == Path("x")
+    assert fill(["--input-root", "/i"]) == Path("/i/grmhd")
+    (project / ".env").write_text("EHT_INPUT_ROOT=inputs\n")
+    assert fill([]) == project / "inputs/grmhd"
+    monkeypatch.setenv("EHT_INPUT_ROOT", "/exported")
+    assert fill([]) == Path("/exported/grmhd")
+    monkeypatch.delenv("EHT_INPUT_ROOT")
+    with pytest.raises(SystemExit):
+        fill(["--no-env-file"])
+
+
 def parse(argv, defaults, environment=None):
     parser = ArgumentParser()
     parser.add_argument("--limits", type=Path)
@@ -118,11 +159,18 @@ def test_analysis_scripts_default_roots(project, monkeypatch):
 def test_eht_scripts_default_roots(project, monkeypatch):
     from scripts.eht import export_bundle, reconstruct, refine
 
-    args = reconstruct.parse(["--stage", "fiducial", "--day", "96", "--data-root", "/d"])
+    args = reconstruct.parse(["--stage", "fiducial", "--day", "96", "--data-root", "/d",
+                              "--input-root", "/i"])
     assert (args.i_root, args.output_root) == (Path("/d/eht/intensity/day-96"),
                                                Path("/d/eht/fiducial/day-96"))
-    args = reconstruct.parse(["--stage", "I", "--day", "95", "--data-root", "/d"])
+    assert (args.uvfits_dir, args.feed_rotation_file, args.official_script) == (
+        Path("/i/eht"), Path("/i/eht/feed-rotation.json"), Path("/i/eht/eht-imaging_pipeline.py"))
+    args = reconstruct.parse(["--stage", "I", "--day", "95", "--data-root", "/d", "--input-root", "/i",
+                              "--feed-rotation-file", "feed.json"])
     assert (args.i_root, args.output_root) == (None, Path("/d/eht/intensity/day-95"))
+    assert reconstruct.locations(args)["feed_rotation_file"] == Path("feed.json").resolve()
+    with pytest.raises(SystemExit):  # no input root and no explicit locations
+        reconstruct.parse(["--stage", "I", "--day", "95", "--data-root", "/d", "--no-env-file"])
     args = refine.parse(["--day", "100", "--data-root", "/d"])
     assert (args.source_root, args.i_root, args.output_root) == (
         Path("/d/eht/fiducial/day-100"), Path("/d/eht/intensity/day-100"), Path("/d/eht/refine/day-100"))
@@ -157,9 +205,14 @@ def test_raptor_scripts_default_roots(project, monkeypatch, tmp_path):
     monkeypatch.setattr(raptor_options, "ROOT", ROOT)
     args = raptor_options.options("build", ["--source-root", str(core), "--data-root", str(tmp_path / "d")])
     assert args.run_root == (tmp_path / "d" / "raptor" / "runs" / "main").resolve()
-    (project / ".env.raptor").write_text(f"EHT_RAPTOR_RUN_ROOT={tmp_path / 'explicit'}\n")
-    args = raptor_options.options("build", ["--source-root", str(core), "--data-root", str(tmp_path / "d")])
-    assert args.run_root == (tmp_path / "explicit").resolve()
+    (project / ".env").write_text(f"EHT_DATA_ROOT={tmp_path / 'dotenv'}\n")
+    args = raptor_options.options("build", ["--raptor-source-root", str(core),
+                                            "--data-root", str(tmp_path / "d")])
+    assert args.run_root == (tmp_path / "d" / "raptor" / "runs" / "main").resolve()
+    args = raptor_options.options("build", ["--source-root", str(core), "--run-root", str(tmp_path / "x")])
+    assert args.run_root == (tmp_path / "x").resolve()
+    args = raptor_options.options("build", ["--source-root", str(core)])
+    assert args.run_root == (tmp_path / "dotenv" / "raptor" / "runs" / "main").resolve()
 
     data = tmp_path / "m"
     for name in ("main", "background"):
