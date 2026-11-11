@@ -1,1 +1,1 @@
-"""RAPTOR simulation: build, task planning, job execution and delivery of Stokes cubes."""
+"""RAPTOR simulation: build, task planning, job execution and the Stokes image cubes."""

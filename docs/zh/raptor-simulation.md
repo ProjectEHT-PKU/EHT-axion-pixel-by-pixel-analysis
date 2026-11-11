@@ -2,7 +2,7 @@
 
 [← 返回文档索引](index.md)
 
-`RAPTOR` 模拟流水线编译固定版本的偏振广义相对论光线追踪（ray tracing）核心程序 `RAPTOR`，校验广义相对论磁流体力学（general-relativistic magnetohydrodynamics, GRMHD）BHAC 快照和轴子径向轮廓表，以有界并发和可选 CPU 绑定方式运行 $18\,330$ 个光线追踪作业，逐一校验 HDF5 与谱文件，并为下游分析交付 float64 精度的斯托克斯（Stokes）数据立方。本部分不依赖任何 EHT 成像产出。
+`RAPTOR` 模拟流水线编译固定版本的偏振广义相对论光线追踪（ray tracing）核心程序 `RAPTOR`，校验广义相对论磁流体力学（general-relativistic magnetohydrodynamics, GRMHD）BHAC 快照和轴子径向轮廓表，以有界并发和可选 CPU 绑定方式运行 $18\,330$ 个光线追踪作业，逐一校验 HDF5 与谱文件，并为下游分析写出 float64 精度的斯托克斯（Stokes）数据立方。本部分不依赖任何 EHT 成像产出。
 
 ## 前置条件与输入数据
 
@@ -13,7 +13,7 @@
 - **径向轮廓表**（`--radial-low`、`--radial-high`，默认 `$EHT_INPUT_ROOT/radial/result_a=0.9375_l1m1.txt` 与 `$EHT_INPUT_ROOT/radial/result_a=0.99_l1m1.txt`）：分别对应 `low`（`spin = 0.9375`）与 `high`（`spin = 0.99`）的两张无表头三列 CSV 文件 $(\alpha, r, R)$，路径同样不超过 255 个 UTF-8 字节且不含空白字符。
 - **实验参数文件**（`--config`，默认 `configs/experiment.yaml`）：读取 `shared` 物理标量及 `raptor` 节。
 
-所有 `RAPTOR` 产物位于数据根目录下的 `raptor/`（`plan.json`、`build/`、`jobs/`、`delivered/`）；它不得与本仓库根目录、`RAPTOR` 源码目录、快照目录或径向表目录重叠，也不得位于任何已有阶段目录之内。
+所有 `RAPTOR` 产物位于数据根目录下的 `raptor/`（`plan.json`、`build/`、`jobs/`、`images/`）；它不得与本仓库根目录、`RAPTOR` 源码目录、快照目录或径向表目录重叠，也不得位于任何已有阶段目录之内。
 
 ## 运行方法
 
@@ -26,15 +26,15 @@ pixi run -e raptor-build raptor-build
 # 2. Validate inputs and list the tasks without launching C processes or writing files
 pixi run -e raptor-build raptor-generate --plan
 
-# 3. Write raptor/plan.json, execute the ray-tracing jobs (resumable) and deliver the Stokes cubes
+# 3. Write raptor/plan.json, execute the ray-tracing jobs (resumable) and write the Stokes image cubes
 pixi run -e raptor-build raptor-generate
 
-# Deliver the cubes of already completed jobs without launching RAPTOR:
+# Write the image cubes of already completed jobs without launching RAPTOR:
 pixi run -e raptor-build raptor-generate --convert-only
 ```
 
 **`scripts/raptor/generate.py` 的执行选项：**
-- `--max-jobs N`：仅运行计划中的前 `N` 个任务（仍有未完成任务时跳过数据立方交付）。
+- `--max-jobs N`：仅运行计划中的前 `N` 个任务（仍有未完成任务时不写图像数据立方）。
 - `--workers W`（`EHT_RAPTOR_WORKERS`，默认 `1`）与 `--threads T`（`EHT_RAPTOR_THREADS`，默认 `2`）：并发运行的 `RAPTOR` 进程数及每个进程的 OpenMP 线程数。
 - `--cpu-affinity {none,physical,logical}`（`EHT_RAPTOR_CPU_AFFINITY`，回退值 `none`）与 `--cpu-list RANGE`（`EHT_RAPTOR_CPU_LIST`，如 `0-47`）：使用 `taskset` 对工作进程做 CPU 亲和性（CPU affinity）绑定。
 - `--timeout-seconds SEC`（`EHT_RAPTOR_TIMEOUT_SECONDS`）：单个进程的墙钟超时限制。
@@ -82,13 +82,13 @@ pixi run -e raptor-build raptor-generate --convert-only
 - 核对单行谱文件 `output/spectrum_<slot>_<inclination:.2f>.dat`（`frequency` 及以 $\mathrm{Jy}$ 为单位的 $I, Q, U, V$）与 $\sum \text{HDF5}_{IQUV}\,\Delta\Omega$ 在相对容差 $10^{-10}$ 内一致，其中像素立体角 $\Delta\Omega = (\Delta x\,\Delta y)(r_g / D)^2$ 使用从 `build/definitions.h` 解析出的字面常数 `GGRAV`、`MSUN`、`SPEED_OF_LIGHT` 和 `KPCTOCM`；
 - 统计 $I < 0$ 或 $\sqrt{Q^2 + U^2 + V^2} > I$ 的像素数作为诊断信息（由 `validate_job_output` 返回，不单独存盘），不做数据过滤。
 
-## Stokes 数据立方转换与交付
+## Stokes 图像数据立方
 
-`convert_hdf5`（`eht_axion/raptor/convert.py`）将矩形 `time × state`（时间 × 状态）网格上的作业 HDF5 分块拼接为形状 `(T, S, N, N, 4)` 的 float64 数组（`[time, state, x, y, IQUV]`，单位 $\mathrm{Jy\,sr^{-1}}$）；读入的作业 HDF5 文件即交付阶段清单的输入。
+`convert_hdf5`（`eht_axion/raptor/convert.py`）将矩形 `time × state`（时间 × 状态）网格上的作业 HDF5 分块拼接为形状 `(T, S, N, N, 4)` 的 float64 数组（`[time, state, x, y, IQUV]`，单位 $\mathrm{Jy\,sr^{-1}}$）；读入的作业 HDF5 文件即图像阶段清单的输入。
 
-`deliver_stokes`（`eht_axion/raptor/delivery.py`）把每个计划任务对应到 `raptor/jobs/` 下唯一的已完成作业阶段，检查其记录的编译与输入，并在 `raptor/delivered/` 下发布 `raptor:delivery` 阶段：
+`write_images`（`eht_axion/raptor/images.py`）把每个计划任务对应到 `raptor/jobs/` 下唯一的已完成作业阶段，检查其记录的编译与输入，并在 `raptor/images/` 下发布 `raptor:images` 阶段：
 - `res-100/alpha-<alpha:.2f>/stokes.npy`，形状为 `(141, 17, 100, 100, 4)`（共 8 个阶段：状态 `0` 为无轴子基线，状态 `k+1` 对应轴子相位 $k\pi/8$）；
 - `res-400/background/stokes.npy`，形状为 `(141, 1, 400, 400, 4)`（仅无轴子态）。
 
-每个交付阶段同时写出 `generated.json`（模式 `raptor-generated`，记录 `ray_tracing_config`、`alpha`、`resolution`、`snapshot_labels`、BHAC 尾部时间 `times_tg`、`state_count`、`omega`、坐标轴与单位）。下游分析阶段通过 `generated_inputs` 强制核对 `generated.json` 与当前 `configs/experiment.yaml` 完全一致。
+每个图像阶段同时写出 `generated.json`（模式 `raptor-generated`，记录 `ray_tracing_config`、`alpha`、`resolution`、`snapshot_labels`、BHAC 尾部时间 `times_tg`、`state_count`、`omega`、坐标轴与单位）。下游分析阶段通过 `generated_inputs` 强制核对 `generated.json` 与当前 `configs/experiment.yaml` 完全一致。
 

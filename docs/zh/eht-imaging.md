@@ -66,7 +66,7 @@ pixi run -e eht-summary eht-summarize
 3. 使用 `ehtim` `Imager` 求解 $P$（`pol='P'`、`transform=['mcv']`、`data_term={'pvis': 1.0, 'm': 1.0}`、`reg_term={'hw': 100.0, 'ptv': 1.0}`、`norm_reg=True`、`ttype='direct'`、`maxit=500`、`stop=1e-8`；`shift_objective_constant=True` 为目标函数加上常数 $w_{\mathrm{pvis}} + w_m + h_w\ln 2$，不改变极小点）。
 4. 针对**未做 D 改正**但已加 `fsys` 的基础可见度数据和新得到的 $P$ 图像，调用 `fit_forward_d` 重新拟合 `solve_sites`（`AZ`、`LM`、`PV`）的 D 项：该函数是对 `ehtim.calibrating.pol_cal_new.leakage_cal_new`（`pol_fit=['RL', 'LR']`、`ttype='direct'`）的私有两行适配，将 D 项高斯先验及其梯度显式置零。
 
-全部 50 轮的 Q/U 图像（原始与模糊）和 D 项一次性写入 `rounds.npz`（每轮的 `I` 都是固定 $I$，`V = 0`，不重复存储）。第 50 轮结束后，执行最后一次 `final-P-only` 求解，使交付的 `final-raw-IQU.fits` 和 `final-blurred-IQU.fits`（$19\,\mu\mathrm{as}$ 模糊）与 `final-dterms.json` 严格对应。
+全部 50 轮的 Q/U 图像（原始与模糊）和 D 项一次性写入 `rounds.npz`（每轮的 `I` 都是固定 $I$，`V = 0`，不重复存储）。第 50 轮结束后，执行最后一次 `final-P-only` 求解，使最终的 `final-raw-IQU.fits` 和 `final-blurred-IQU.fits`（$19\,\mu\mathrm{as}$ 模糊）与 `final-dterms.json` 严格对应。
 
 ### 凸优化精化（`scripts/eht/refine.py` 与 `eht_axion/eht/convex.py`）
 
@@ -80,7 +80,7 @@ $$
 
 `solve_problem` 在约化变量 $x = P / I$ 上采用对角预条件的原始–对偶混合梯度法（primal–dual hybrid gradient, PDHG，步长安全系数 $\theta = 0.99 < 1$，径向熵邻近算子采用带保护区间的牛顿–二分法精确求解），并每隔 `check_every`（`500`）步计算一次可行的 Fenchel–Rockafellar 对偶下界。当最佳原始目标值与最佳对偶下界之差满足 $\text{best\_primal} - \text{best\_lower} \le \text{gap\_atol}$（`1e-6`）时，返回的解即获得**数值对偶间隙（duality gap）证书**（浮点证书，非区间算术证明）。
 
-`scripts/eht/refine.py`（阶段 `eht:refine`）以基准阶段的 `final-raw-IQU.fits` 和 `final-dterms.json` 为起点，执行 `outer_rounds = 100` 轮带证书的 PDHG $P$ 求解（`maxiter = 20000`、`time_limit = 300` s）与前向 `L-BFGS-B` D 项重拟合（参数 `eht_imaging.refine.d_optimizer`，逐次记录于 `D-optimizer-records.json`），最后执行第 101 次 $P$ 求解以对齐最终 D 项，其结果即交付的 `final-*` 图像；第 1–100 轮保存在 `rounds.npz`。
+`scripts/eht/refine.py`（阶段 `eht:refine`）以基准阶段的 `final-raw-IQU.fits` 和 `final-dterms.json` 为起点，执行 `outer_rounds = 100` 轮带证书的 PDHG $P$ 求解（`maxiter = 20000`、`time_limit = 300` s）与前向 `L-BFGS-B` D 项重拟合（参数 `eht_imaging.refine.d_optimizer`，逐次记录于 `D-optimizer-records.json`），最后执行第 101 次 $P$ 求解以对齐最终 D 项，其结果即最终的 `final-*` 图像；第 1–100 轮保存在 `rounds.npz`。
 
 ### D 项蒙特卡罗与系综汇总
 

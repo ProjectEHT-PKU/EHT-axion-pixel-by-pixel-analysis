@@ -163,18 +163,13 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     original_load = np.load
     monkeypatch.setattr(driver.np, 'load',
                         lambda p, **kw: arrays[p] if p in arrays else original_load(p, **kw))
-    processed = theory / 'background'
-    processed.mkdir(parents=True)
-    np.save(processed / 'stokes.npy', np.ones((5, 1, 64, 64, 4)))
-    geometry = driver.analysis_geometry(config)
-    delivered = tmp_path / 'raptor/delivered/res-400/background/stokes.npy'
-    records[processed] = dict(stage='analysis:background',
-                             config=dict(geometry['image_preprocess'], state_indices=[0]),
-                             inputs=[str(delivered), str(delivered.parent / 'x.json')])
-    checked, cadences = [], []
-    monkeypatch.setattr(driver, 'validate_processed_source',
-                        lambda record, config, **kw: checked.append((record['stage'], kw['alpha'],
-                                                                     kw['resolution'])))
+    theory.mkdir(parents=True)
+    np.save(theory / 'background.npy', np.ones((5, 1, 64, 64, 4)))
+    delivered = tmp_path / 'raptor/images/res-400/background/stokes.npy'
+    records[theory] = dict(stage='analysis:expected-signal',
+                           inputs=[str(tmp_path / 'raptor/images/res-100/alpha-0.10/stokes.npy'),
+                                   str(delivered), str(delivered.parent / 'generated.json')])
+    cadences = []
     monkeypatch.setattr(driver, 'input_cadence_hours',
                         lambda path, config: cadences.append(path) or 8.)
     for path in records:
@@ -187,16 +182,15 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
                 '2d': (None, None, None, valid2d)}
     prepared, _, _, sigmas, background_inputs = driver.prepare_limit_inputs(
         ensemble, theory, config, products)
-    assert checked == [('analysis:background', None, 400)]
     assert cadences == [delivered]
-    assert sigmas == {dim: dict(stokes=str(processed / 'stokes.npy'), cadence_hours=8.)
+    assert sigmas == {dim: dict(stokes=str(theory / 'background.npy'), cadence_hours=8.)
                       for dim in ('1d', '2d')}
     assert delivered.parent / 'generated.json' in background_inputs
     selected, daily, coords, _ = prepared['2d']
     np.testing.assert_array_equal(selected, [20 * 64 + 35])
     np.testing.assert_allclose(daily[0], .002 * 35 + .004 * 20)
     np.testing.assert_allclose(coords, [[-grid[20], grid[35]]])
-    from eht_axion.analysis.templates import _integrate
+    from eht_axion.analysis.expected_signal import _integrate
     expected = _integrate(maps.transpose(1, 0, 2), driver.theory_aperture_operator(config))
     indices = prepared['1d'][0]
     # Uniform I and |P|: every sector passes both brightness thresholds; only the sector rule acts.
@@ -237,7 +231,7 @@ def test_selected_background_exact_feature_domain(tmp_path, monkeypatch, dimensi
     selected = np.array([20 * 64 + 35, 30 * 64 + 40])
     if dimension == '1d':
         selected = np.array([4, 14])
-        import eht_axion.analysis.templates as pol
+        import eht_axion.analysis.expected_signal as pol
         monkeypatch.setattr(driver, 'theory_aperture_operator', lambda config: None)
         def integrated(frame, operator):
             out = np.zeros(360)

@@ -1,6 +1,6 @@
 """Analysis: limits on c from the EHT ensembles, with the zero-data control.
 
-Inputs: the templates root of scripts/analysis/templates.py and the fixed-D EHT ensemble
+Inputs: the expected signal of scripts/analysis/expected_signal.py and the fixed-D EHT ensemble
 summary of scripts/eht/summarize.py. Feature selection, cloud model, background and the
 inference grid/prior come from experiment.yaml (section analysis). The EHT images
 are used as reconstructed (the Paper VII Sec. 5.2 alignment is a zero shift here).
@@ -26,16 +26,15 @@ from eht_axion.analysis.observations import (
     DAYS, branch_risk, build_observations, covariance_diagnostics,
 )
 from eht_axion.analysis.results import write_results
-from eht_axion.analysis.templates import load_templates
+from eht_axion.analysis.expected_signal import load_expected_signal
 from eht_axion.eht.ensemble import map_evpa
 from eht_axion.experiment import (
     ANGULAR_BINS, DEFAULT_PATH, analysis_geometry, physical_scale, read_experiment,
 )
 from eht_axion.provenance import (
-    manifest_path, require_declared_outputs, stage_directory, verify_stage,
+    describe_inputs, manifest_path, require_declared_outputs, stage_directory, verify_stage,
 )
-from eht_axion.raptor.delivery import input_cadence_hours, validate_processed_source
-from eht_axion.raptor.layout import alpha_label
+from eht_axion.raptor.images import input_cadence_hours
 
 
 # Paper VII Sec. 5.2 centring = zero shift in this reproduction: no registration.
@@ -63,36 +62,33 @@ def options_from_config(config, background_sigma_radians):
         grmhd_sigma_degrees=float(np.rad2deg(sigma)))
 
 
-def validate_templates(root, config):
-    """Verify the template stages: delivered-data identity for all alphas and the analysis geometry."""
-    geometry = analysis_geometry(config)
-    for alpha in config['shared']['alphas']:
-        label = alpha_label(alpha)
-        processed = root / 'processed' / label
-        record = verify_stage(processed)
-        validate_processed_source(record, config, alpha=alpha,
-                                  resolution=config['raptor']['response']['resolution'])
-        if record['config'] != geometry['image_preprocess']:
-            raise ValueError('Theory preprocessing differs from selected geometry')
-        record = verify_stage(root / 'response' / label)
-        if {k: v for k, v in record['config'].items() if k != 'snapshot_labels'} != geometry['aperturefit']:
-            raise ValueError('Theory aperture differs from selected geometry')
-    directory = root / 'templates'
-    record = verify_stage(directory)
-    if record['stage'] != 'analysis:templates':
-        raise ValueError('Unexpected theory template stage')
-    path = directory / 'templates.npz'
-    require_declared_outputs(directory, [path])
-    products, inputs = {}, [manifest_path(directory), path]
+def validate_expected_signal(root, config):
+    """Verify analysis:expected-signal: made from the RAPTOR images of this experiment with its geometry."""
+    from scripts.analysis.expected_signal import image_inputs, stage_config
+
+    record = verify_stage(root)
+    if record['stage'] != 'analysis:expected-signal':
+        raise ValueError('Unexpected expected-signal stage')
+    cubes = [Path(p) for p in record['inputs'] if Path(p).name == 'stokes.npy']
+    if not cubes:
+        raise ValueError('Expected-signal stage declares no RAPTOR image cube')
+    _, inputs, labels = image_inputs(config, cubes[0].parents[2])
+    if record['inputs'] != describe_inputs(inputs):
+        raise ValueError('Expected signal was not made from the RAPTOR images of this experiment')
+    if record['config'] != json.loads(json.dumps(stage_config(config, labels))):
+        raise ValueError('Expected signal differs from the selected geometry')
+    path = root / 'expected.npz'
+    require_declared_outputs(root, [path])
+    products = {}
     for dim in ('1d', '2d'):
-        values = load_templates(path, dim)
+        values = load_expected_signal(path, dim)
         if not np.array_equal(values[0], config['shared']['alphas']):
-            raise ValueError('Theory alpha grid differs from configuration')
-        expected = (ANGULAR_BINS,) if dim == '1d' else (config['shared']['image']['shape'],) * 2
-        if values[3].shape != expected:
-            raise ValueError('Template spatial grid differs from configuration')
+            raise ValueError('Expected-signal alpha grid differs from configuration')
+        shape = (ANGULAR_BINS,) if dim == '1d' else (config['shared']['image']['shape'],) * 2
+        if values[3].shape != shape:
+            raise ValueError('Expected-signal spatial grid differs from configuration')
         products[dim] = values
-    return products, inputs
+    return products, [manifest_path(root), path]
 
 
 def save_results(out, products, prepared, config, sigmas, identity):
@@ -184,7 +180,7 @@ def selected_background(dimension, selected, config, source):
     No sqrt(2) correction: this sigma describes a day-pair difference directly.
     """
     from eht_axion.evpa import circular_difference
-    from eht_axion.analysis.templates import _integrate
+    from eht_axion.analysis.expected_signal import _integrate
 
     maps = np.load(source['stokes'], mmap_mode='r', allow_pickle=False)
     n = config['shared']['image']['shape']
@@ -223,7 +219,7 @@ def selected_background(dimension, selected, config, source):
 
 def theory_aperture_operator(config):
     """Exactly the RAPTOR fit/background bilinear CSR quadrature in Rg units."""
-    from eht_axion.analysis.templates import _operator
+    from eht_axion.analysis.expected_signal import _operator
 
     settings = analysis_geometry(config)['aperturefit']
     return _operator(config['shared']['image']['shape'], settings['fov'],
@@ -231,14 +227,14 @@ def theory_aperture_operator(config):
 
 
 def matched_aperture_samples(native_maps, operator):
-    """Sector statistics of every EHT draw with exactly the operator used for the templates.
+    """Sector statistics of every EHT draw with exactly the operator used for the expected signal.
 
     The native maps [draw, y, x] are transposed to the template order [x, y] (axis 0
     west, axis 1 north); sky bin k is centred k degrees east of north. Returns, each of
     shape (draws, ANGULAR_BINS): the sector EVPA (the 1D observable), the sector
     intensity and the I-weighted mean polarized brightness (selection statistics).
     """
-    from eht_axion.analysis.templates import _brightness, _integrate
+    from eht_axion.analysis.expected_signal import _brightness, _integrate
 
     evpa = np.empty((len(native_maps), ANGULAR_BINS))
     intensity, polarized = np.empty_like(evpa), np.empty_like(evpa)
@@ -249,11 +245,11 @@ def matched_aperture_samples(native_maps, operator):
     return evpa, intensity, polarized
 
 
-def prepare_limit_inputs(ensemble, templates, config, products):
+def prepare_limit_inputs(ensemble, expected, config, products):
     """Read the EHT ensemble (scripts/eht/summarize.py) and select the likelihood features.
 
     Native[y,x] -> template[x,y], physical (-E,N). Sector EVPAs and sector selection
-    statistics use the same quadrature operator as the templates. The ensemble holds the
+    statistics use the same quadrature operator as the expected signal. The ensemble holds the
     blurred EHT images (shared.image.blur_fwhm_uas, the same blur as the simulated images).
     """
     features = config['analysis']['features']
@@ -277,7 +273,7 @@ def prepare_limit_inputs(ensemble, templates, config, products):
     with np.load(axes_path, allow_pickle=False) as z:
         east_axis, north_axis = z['east_uas'], z['north_uas']
     geometry = analysis_geometry(config)
-    # Native maps are [y, x] with E decreasing along x; templates are [x, y] on (-E, N).
+    # Native maps are [y, x] with E decreasing along x; the expected signal is [x, y] on (-E, N).
     n = config['shared']['image']['shape']
     if east_axis.shape != (n,) or north_axis.shape != (n,):
         raise ValueError('Ensemble grid size differs from shared.image.shape')
@@ -355,25 +351,16 @@ def prepare_limit_inputs(ensemble, templates, config, products):
                 spatial='native[y,x] -> template[x,y]', template_axes='(-E,N)',
                 angular='sky bin k centred k degrees east of north',
                 sector_definition='aperture_operator quadrature on transposed per-draw Stokes, as for the '
-                                  'templates: EVPA 0.5 arg sum W I (Q+iU); selection by draw means of '
+                                  'expected signal: EVPA 0.5 arg sum W I (Q+iU); selection by draw means of '
                                   'sum W I and sum W I |P| / sum W I',
                 quadrature=geometry['aperturefit'], qu_rotation='none')))
-    processed = templates / 'background'
-    processed_record = verify_stage(processed)
-    if processed_record['stage'] != 'analysis:background':
-        raise ValueError('Unexpected background preprocessing stage')
-    preprocessing = {k: v for k, v in processed_record['config'].items() if k != 'state_indices'}
-    if (preprocessing != geometry['image_preprocess']
-            or processed_record['config'].get('state_indices') != [0]):
-        raise ValueError('Background preprocessing geometry/state mismatch')
-    stokes_path = processed / 'stokes.npy'
-    require_declared_outputs(processed, [stokes_path])
-    # Frame spacing from the GRMHD snapshot times recorded with the delivered cubes.
-    validate_processed_source(processed_record, config, alpha=None,
-                              resolution=config['raptor']['background']['resolution'])
-    (delivered,) = [Path(p) for p in processed_record['inputs'] if Path(p).suffix == '.npy']
-    cadence = input_cadence_hours(delivered, config)
-    background_inputs = [manifest_path(processed), stokes_path, delivered.parent / 'generated.json']
+    stokes_path = expected / 'background.npy'
+    require_declared_outputs(expected, [stokes_path])
+    # Frame spacing from the GRMHD snapshot times recorded with the background image cube.
+    (cube,) = [Path(p) for p in verify_stage(expected)['inputs']
+               if Path(p).name == 'stokes.npy' and Path(p).parent.name == 'background']
+    cadence = input_cadence_hours(cube, config)
+    background_inputs = [stokes_path, cube.parent / 'generated.json']
     sigmas = {dim: dict(stokes=str(stokes_path), cadence_hours=cadence) for dim in ('1d', '2d')}
     return prepared, inputs, dict(stage=record['stage'], centering=CENTERING,
         background_selection='pooled scalar on final selected features, no response variance'), \
@@ -385,9 +372,9 @@ def run(args):
     features = config['analysis']['features']
     if args.output_root.exists():
         raise FileExistsError('New output root required')
-    products, inputs = validate_templates(args.templates.resolve(), config)
+    products, inputs = validate_expected_signal(args.expected_signal.resolve(), config)
     prepared, source_inputs, source_identity, sigmas, background_inputs = prepare_limit_inputs(
-        args.ensemble.resolve(), args.templates.resolve(), config, products)
+        args.ensemble.resolve(), args.expected_signal.resolve(), config, products)
     identity = dict(schema='analysis-limits',
                     scientific_profile=config,
                     resultant_min=features['resultant_min'], centering=CENTERING,
@@ -405,11 +392,13 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: configs/experiment.yaml')
     p.add_argument('--ensemble', type=Path, help='scripts/eht/summarize.py stage (default: eht/ensemble)')
-    p.add_argument('--templates', type=Path, help='templates root (default: analysis/templates)')
+    p.add_argument('--expected-signal', type=Path,
+                   help='scripts/analysis/expected_signal.py stage (default: analysis/expected-signal)')
     p.add_argument('--output-root', type=Path, help='new directory (default: analysis/limits)')
     add_data_root_option(p)
     args = p.parse_args(argv)
-    fill_defaults(p, args, {'ensemble': ('eht.ensemble', {}), 'templates': ('analysis.templates', {}),
+    fill_defaults(p, args, {'ensemble': ('eht.ensemble', {}),
+                            'expected_signal': ('analysis.expected_signal', {}),
                             'output_root': ('analysis.limits', {})})
     run(args)
 

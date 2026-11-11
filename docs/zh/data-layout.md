@@ -14,7 +14,7 @@
     plan.json                    task plan, written by the first raptor/generate.py run
     build/                       raptor/build.py
     jobs/                        raptor/generate.py: one directory per task
-    delivered/                   raptor/generate.py: Stokes cubes
+    images/                      raptor/generate.py: Stokes image cubes
   eht/
     intensity/day-<day>/         eht/reconstruct.py --stage I
     fiducial/day-<day>/          eht/reconstruct.py --stage fiducial
@@ -22,7 +22,7 @@
     sample/                      eht/sample.py
     ensemble/                    eht/summarize.py
   analysis/
-    templates/                   analysis/templates.py (reads raptor/delivered)
+    expected-signal/             analysis/expected_signal.py (reads raptor/images)
     limits/                      analysis/limits.py
     check-grid/                  analysis/check_grid.py --check grid
     check-prior/                 analysis/check_grid.py --check prior
@@ -69,16 +69,16 @@ raptor/
     output/spectrum_<slot>_<inclination>.dat   frequency (Hz), I, Q, U, V (Jy)
     stdout.log, stderr.log
   attempts/<task id>/attempt-*/  input.json, stdout.log, stderr.log, result.json (+ work/ on failure)
-  delivered/
-    res-100/alpha-<α>/           stage raptor:delivery (8 directories, alpha-0.10 .. alpha-0.44)
+  images/
+    res-100/alpha-<α>/           stage raptor:images (8 directories, alpha-0.10 .. alpha-0.44)
       stokes.npy                 float64 (141, 17, 100, 100, 4) in Jy/sr
       generated.json
-    res-400/background/          stage raptor:delivery
+    res-400/background/          stage raptor:images
       stokes.npy                 float64 (141, 1, 400, 400, 4) in Jy/sr
       generated.json
 ```
 
-已交付 `stokes.npy` 的坐标轴顺序为 `(time, state, x, y, Stokes)`，斯托克斯（Stokes）通道顺序为 `[I, Q, U, V]`，单位为 $\mathrm{Jy\,sr^{-1}}$；状态 `0` 为无轴子基线，状态 `k+1` 对应轴子相位 $k\pi/8$。
+图像数据立方 `stokes.npy` 的坐标轴顺序为 `(time, state, x, y, Stokes)`，斯托克斯（Stokes）通道顺序为 `[I, Q, U, V]`，单位为 $\mathrm{Jy\,sr^{-1}}$；状态 `0` 为无轴子基线，状态 `k+1` 对应轴子相位 $k\pi/8$。
 
 ### EHT 成像
 
@@ -115,19 +115,11 @@ ENSEMBLE/                        stage eht:ensemble
 ### 分析
 
 ```text
-TEMPLATES/
-  processed/alpha-<α>/           stage analysis:preprocess
-    stokes.npy                   float64 (141, 17, 64, 64, 4); processing.json
-  response/alpha-<α>/            stage analysis:fit
-    response-2d.npz              amplitude, phase, baseline (141, 64, 64) rad; snapshot_labels (141)
-    response-1d.npz              amplitude, phase, baseline (141, 360) rad; snapshot_labels (141)
-    response.json
-  templates/                     stage analysis:templates
-    templates.npz                <1d|2d>/alphas (8); <1d|2d>/amplitude_mean, amplitude_std, phase_mean,
-                                 phase_std, amplitude_count, phase_count: (8, 360) or (8, 64, 64)
-    summary.json
-  background/                    stage analysis:background
-    stokes.npy                   float64 (141, 1, 64, 64, 4); processing.json
+EXPECTED_SIGNAL/                 stage analysis:expected-signal (no intermediate products)
+  expected.npz                   <1d|2d>/alphas (8); <1d|2d>/amplitude_mean, amplitude_std, phase_mean,
+                                 phase_std (rad per raptor.response.reference_norm), amplitude_count,
+                                 phase_count: (8, 360) sectors or (8, 64, 64) pixels
+  background.npy                 float64 (141, 1, 64, 64, 4): axion-off images on the sky grid
 LIMITS/                          stage analysis:limits
   report.json                    identity, results table, notes; sections observations/<1d|2d>,
                                  background/<1d|2d>, cases/<data>-<mode>-<dim> without their arrays
@@ -153,7 +145,7 @@ PAPER/                           stage analysis:paper
 ```
 
 **分析产品中的下标与排序约定：**
-- 2D `selected_indices` 为模板网格 `[x, y]`（`x = -East`，`y = +North`）上的行优先展平下标 $64\,x + y$；`coordinates` 保存 `(east_uas, north_uas)`。
+- 2D `selected_indices` 为预期信号网格 `[x, y]`（`x = -East`，`y = +North`）上的行优先展平下标 $64\,x + y$；`coordinates` 保存 `(east_uas, north_uas)`。
 - 1D `selected_indices` 为以北偏东整度数表示的扇区中心角（`0`–`359`）。
 - 观测日轴固定按 `(95, 96, 100, 101)` 排列；日对轴固定按 `(96 - 95, 101 - 100)` 排列。
 
@@ -185,11 +177,11 @@ PAPER/                           stage analysis:paper
 |---|---|
 | `raptor:build` | `scripts/raptor/build.py` |
 | `raptor:job` | `scripts/raptor/generate.py` |
-| `raptor:delivery` | `scripts/raptor/generate.py` |
+| `raptor:images` | `scripts/raptor/generate.py` |
 | `eht:i`、`eht:fiducial` | `scripts/eht/reconstruct.py` |
 | `eht:refine` | `scripts/eht/refine.py` |
 | `eht:ensemble` | `scripts/eht/summarize.py` |
-| `analysis:preprocess`、`analysis:fit`、`analysis:templates`、`analysis:background` | `scripts/analysis/templates.py` |
+| `analysis:expected-signal` | `scripts/analysis/expected_signal.py` |
 | `analysis:limits` | `scripts/analysis/limits.py` |
 | `analysis:check-grid` | `scripts/analysis/check_grid.py` |
 | `analysis:check-covariance` | `scripts/analysis/check_covariance.py` |

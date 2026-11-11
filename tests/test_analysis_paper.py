@@ -206,32 +206,23 @@ def data_root(tmp_path):
         "analysis:check-covariance",
         {"covariance-sensitivity.csv": covariance_csv, "report.json": text({})},
     )
-    templates = root / "analysis/templates"
-    stage(
-        templates / "processed/alpha-0.30",
-        "analysis:preprocess",
-        {"stokes.npy": array(stokes(rng, (1, 1, n, n)))},
-    )
-    stage(
-        templates / "response/alpha-0.30",
-        "analysis:fit",
-        {
-            "response-2d.npz": arrays(
-                amplitude=0.01 + 0.01 * rng.random((1, n, n)),
-                phase=rng.uniform(-np.pi, np.pi, (1, n, n)),
-                snapshot_labels=np.array([2300]),
-            )
-        },
-    )
-    template_arrays = {}
+    expected = {}
     for d, shape in (("1d", (360,)), ("2d", (n, n))):
-        template_arrays.update({
+        expected.update({
             f"{d}/alphas": np.asarray(alphas),
             f"{d}/amplitude_mean": 0.04 + 0.01 * rng.random((len(alphas),) + shape),
             f"{d}/amplitude_std": 0.005 * rng.random((len(alphas),) + shape) + 1e-4,
         })
-    stage(templates / "templates", "analysis:templates", {"templates.npz": arrays(**template_arrays)})
-    stage(templates / "background", "analysis:background", {"stokes.npy": array(stokes(rng, (6, 1, n, n)))})
+    stage(root / "analysis/expected-signal", "analysis:expected-signal",
+          {"expected.npz": arrays(**expected), "background.npy": array(stokes(rng, (6, 1, n, n)))})
+    stage(
+        root / "raptor/images/res-100/alpha-0.30",
+        "raptor:images",
+        {
+            "stokes.npy": array(stokes(rng, (1, 17, 32, 32)) * 1e9),
+            "generated.json": text({"snapshot_labels": [2300]}),
+        },
+    )
     days = []
     for day in (95, 96, 100, 101):
         values = np.column_stack(
@@ -262,8 +253,8 @@ def data_root(tmp_path):
         ),
     )
     stage(
-        root / "raptor/delivered/res-400/background",
-        "raptor:delivery",
+        root / "raptor/images/res-400/background",
+        "raptor:images",
         {
             "stokes.npy": array(np.ones((141, 1, 2, 2, 4)) * 1e9),
             "generated.json": text({"times_tg": list(np.arange(15010.0, 15151.0))}),

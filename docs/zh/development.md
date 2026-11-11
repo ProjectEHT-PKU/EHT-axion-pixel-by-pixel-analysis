@@ -11,7 +11,7 @@
 | 环境名 | 支持平台 | 在 `default` 基础上新增的依赖 | 用途 |
 |---|---|---|---|
 | `default` | `linux-64`、`linux-aarch64`、`osx-64`、`osx-arm64`、`win-64` | Python `3.12.*`、`numpy`、`scipy`、`matplotlib`、`h5py`、`pyyaml`、`pytest`、`ruff`、`python-dotenv` | 分析脚本、代码检查（`lint`）及不依赖 `ehtim`/`astropy` 的测试 |
-| `raptor-build` | `linux-64` | `c-compiler`、`make`、`gsl`、`hdf5`、`pkg-config`、`rsync` | 编译 `RAPTOR`、运行光线追踪作业、合并与交付数据立方 |
+| `raptor-build` | `linux-64` | `c-compiler`、`make`、`gsl`、`hdf5`、`pkg-config`、`rsync` | 编译 `RAPTOR`、运行光线追踪作业、写出图像数据立方 |
 | `eht-summary` | 全部 5 个平台 | `astropy` | 将仪器偏振泄漏（D 项，D-term）蒙特卡罗（Monte Carlo）FITS 抽样汇总为 `eht:ensemble` |
 | `eht-imaging` | 全部 5 个平台 | `astropy`、`ehtim == 1.3.2`（PyPI） | EHT 重建、凸优化精化、蒙特卡罗抽样以及完整测试套件 |
 
@@ -20,7 +20,7 @@
 | `raptor-build`、`raptor-generate` | `-e raptor-build` | `scripts/raptor/{build,generate}.py` |
 | `eht-reconstruct`、`eht-refine`、`eht-sample` | `-e eht-imaging` | `scripts/eht/{reconstruct,refine,sample}.py` |
 | `eht-summarize` | `-e eht-summary`（或 `-e eht-imaging`） | `scripts/eht/summarize.py` |
-| `analysis-templates`、`analysis-limits`、`analysis-check-grid`、`analysis-check-covariance`、`analysis-summarize`、`analysis-paper` | `default` | `scripts/analysis/{templates,limits,check_grid,check_covariance,summarize,paper}.py` |
+| `analysis-expected-signal`、`analysis-limits`、`analysis-check-grid`、`analysis-check-covariance`、`analysis-summarize`、`analysis-paper` | `default` | `scripts/analysis/{expected_signal,limits,check_grid,check_covariance,summarize,paper}.py` |
 | `test` | `default` 或 `-e eht-imaging` | `python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=."` |
 | `lint` | `default` | `ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts` |
 | `check` | `default` | 依次运行 `test` 与 `lint` |
@@ -64,16 +64,16 @@ pixi run --locked lint
 | `eht_axion/raptor/affinity.py` | 互不相交的 `taskset` CPU 分配及 Linux/`cgroup-v2` 内存余量检查 | `allocate_cpu_sets`、`check_memory`、`launch_prefix` |
 | `eht_axion/raptor/outputs.py` | 单作业 HDF5 像素块/坐标及积分流量谱校验 | `validate_job_output`、`read_core_constants`、`hdf_mapping` |
 | `eht_axion/raptor/convert.py` | 将分块作业 HDF5 拼接为 float64 `(T, S, H, W, 4)` `stokes.npy` | `convert_hdf5` |
-| `eht_axion/raptor/delivery.py` | 数据立方交付及下游实验配置身份核对 | `deliver_stokes`、`generated_inputs`、`input_cadence_hours`、`validate_processed_source` |
-| `eht_axion/raptor/layout.py` | 已交付产品的目录命名规则（`alpha-<α>/`、`background/`） | `alpha_label`、`product_directory`、`delivered_cube` |
+| `eht_axion/raptor/images.py` | 由作业 HDF5 写出 Stokes 图像数据立方及下游实验配置身份核对 | `write_images`、`generated_inputs`、`input_cadence_hours` |
+| `eht_axion/raptor/layout.py` | 图像数据立方的目录命名规则（`alpha-<α>/`、`background/`） | `alpha_label`、`product_directory`、`image_cube` |
 | `eht_axion/raptor/options.py` | `RAPTOR` 脚本共用的命令行/dotenv 解析器 | `options` |
 | `eht_axion/eht/calibration.py` | 原生圆偏振 HOPS 载入、`fsys`、逆琼斯 D 改正、零先验前向 D 拟合与四天 D 抽样 | `load_native`、`add_fsys`、`make_imaging_obs`、`apply_fixed_d`、`fit_forward_d`、`d_distribution`、`sample_dterms` |
 | `eht_axion/eht/convex.py` | 带对偶间隙（duality gap）证书的固定 $I$/固定 $D$ 精确凸优化原始–对偶混合梯度（PDHG）$P$ 求解器 | `exact_cartesian_problem`、`solve_problem`、`CartesianProblem` |
 | `eht_axion/eht/ensemble.py` | 严格四扩展单元（4-HDU）Stokes FITS 读取器、Paper VII 全局诊断量与逐像素 EVPA 图 | `load_stokes_fits`、`global_diagnostics`、`global_values`、`map_evpa` |
 | `eht_axion/analysis/results.py` | 上限类阶段的结果文件：数组存入 `results.npz`，其余存入 `report.json` | `write_results`、`read_results` |
-| `eht_axion/analysis/templates.py` | 高斯模糊与天空旋转重采样、16 相位离散傅里叶拟合、快照极大似然汇总及模板读取 | `preprocess_frame`、`preprocess_cube`、`fit_phase_dft`、`fit_processed`、`summarize_fits`、`load_templates`、`RunLayout` |
+| `eht_axion/analysis/expected_signal.py` | 高斯模糊与天空旋转重采样、逐快照 16 相位离散傅里叶拟合、跨快照极大似然统计及读取 | `preprocess_frame`、`fit_phase_dft`、`snapshot_response`、`alpha_responses`、`expected_signal`、`processed_background`、`load_expected_signal` |
 | `eht_axion/analysis/aperture.py` | 用于 1D 扇区 EVPA 和扇区亮度的压缩稀疏行（CSR）双线性求积算子 | `aperture_operator`、`integrate_stokes`、`sector_brightness` |
-| `eht_axion/analysis/model.py` | 轴子云振幅标度 $b(\alpha)$、$\alpha$ 节点圆插值及双历元日对 EVPA 信号模板 | `cloud_amplitude_scaling`、`interpolate_fit_parameters`、`evpa_templates` |
+| `eht_axion/analysis/model.py` | 轴子云振幅标度 $b(\alpha)$、$\alpha$ 节点圆插值及双历元日对 EVPA 信号模型 | `cloud_amplitude_scaling`、`interpolate_fit_parameters`、`evpa_templates` |
 | `eht_axion/analysis/observations.py` | 逐日圆统计矩、总体 D 散布协方差、日对差值以及分支割线/特征值诊断 | `ObservationData`、`moments`、`build_observations`、`branch_risk`、`covariance_diagnostics` |
 | `eht_axion/analysis/likelihood.py` | 三种协方差模式（`std`、`cor`、`cor_fixed_background`）、高斯 $\chi^2$ 与相位边缘化 | `LimitOptions`、`MODES`、`calculate_observed` |
 | `eht_axion/analysis/posterior.py` | 梯形法则后验归一化与分段线性累积分布函数（CDF）解析求逆上限 | `normalized_posterior_cdf`、`posterior_upper_limit` |

@@ -19,7 +19,7 @@ from eht_axion import provenance
 from eht_axion.analysis.likelihood import MODES, calculate_observed
 from eht_axion.analysis.observations import ObservationData
 from eht_axion.analysis.results import read_results
-from eht_axion.analysis.templates import load_templates
+from eht_axion.analysis.expected_signal import load_expected_signal
 from eht_axion.evpa import circular_difference
 from eht_axion.experiment import DEFAULT_PATH, read_experiment
 from scripts.analysis.limits import options_from_config
@@ -36,11 +36,13 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: configs/experiment.yaml')
     p.add_argument('--source', type=Path, help='scripts/analysis/limits.py stage (default: analysis/limits)')
-    p.add_argument('--templates', type=Path, help='templates root (default: analysis/templates)')
+    p.add_argument('--expected-signal', type=Path,
+                   help='scripts/analysis/expected_signal.py stage (default: analysis/expected-signal)')
     p.add_argument('--output-root', type=Path, help='new directory (default: analysis/check-covariance)')
     add_data_root_option(p)
     args = p.parse_args(argv)
-    fill_defaults(p, args, {'source': ('analysis.limits', {}), 'templates': ('analysis.templates', {}),
+    fill_defaults(p, args, {'source': ('analysis.limits', {}),
+                            'expected_signal': ('analysis.expected_signal', {}),
                             'output_root': ('analysis.check_covariance', {})})
     if args.output_root.exists():
         raise FileExistsError(f'New output root required: {args.output_root}')
@@ -53,12 +55,12 @@ def main(argv=None):
         raise ValueError('The source limits were produced from a different experiment')
     draws = config['eht_imaging']['uncertainty_draws']
     half = draws // 2
-    root = args.templates/'templates'
+    root = args.expected_signal
     provenance.verify_stage(root)
-    provenance.require_declared_outputs(root, [root/'templates.npz'])
-    products = {dim: load_templates(root/'templates.npz', dim) for dim in ('1d', '2d')}
+    provenance.require_declared_outputs(root, [root/'expected.npz'])
+    products = {dim: load_expected_signal(root/'expected.npz', dim) for dim in ('1d', '2d')}
     inputs = [provenance.manifest_path(args.source), *files,
-              provenance.manifest_path(root), root/'templates.npz']
+              provenance.manifest_path(root), root/'expected.npz']
     identity = dict(source=str(args.source), fixed_observed_centers=True, fixed_selection=True,
                     covariance_halves=[list(range(half)), list(range(half, draws))],
                     covariance_regularization='none', scope='finite MC sensitivity, not new error model')

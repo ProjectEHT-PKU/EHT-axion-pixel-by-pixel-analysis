@@ -171,7 +171,7 @@ def test_library_signatures_have_no_numeric_default_values():
 
     allowed = {
         ("raptor/jobs.py", "run_jobs", "threads"), ("raptor/jobs.py", "run_jobs", "workers"),  # execution
-        ("analysis/templates.py", "fit_phase_dft", "phase_axis"),  # array layout
+        ("analysis/expected_signal.py", "fit_phase_dft", "phase_axis"),  # array layout
         ("raptor/plan.py", "append_task", "phase"),  # baseline tasks have phase 0 by definition
         ("eht/calibration.py", "tlist", "t_gather"),  # mirrors the ehtim method signature
     }

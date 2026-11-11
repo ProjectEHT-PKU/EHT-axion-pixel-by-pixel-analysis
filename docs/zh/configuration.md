@@ -31,8 +31,8 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | 符号 | 返回结果 | 调用方 |
 |---|---|---|
 | `physical_scale(config)` | `PhysicalScale`（`tg_seconds` $= 32\,015.7\,\mathrm{s}$、`tg_hours` $= 8.893\,\mathrm{h}$、`angular_rg_uas` $= 3.819\,\mu\mathrm{as}$ 及单位换算方法） | 各分析脚本、`RAPTOR` 帧时间间隔（`input_cadence_hours`） |
-| `ray_tracing_config(config)` | `shared` 中的物理标量（`mass_solar`、`distance_mpc`、`label_step_tg`、`alphas`、`principal_n`）加上不含 `raptor.source` 的 `raptor` 节 | `RAPTOR` 任务计划、`generated.json` 交付身份记录 |
-| `analysis_geometry(config)` | `image_preprocess`（以 $r_g$ 和 $\mathrm{rad}$ 为单位的 `sigma`、`init_fov`、`final_fov`、`final_shape`、`rotation_angle`）、`aperturefit`（`fov`、`radial_max`、`window_degrees`、`angular_bins`）和 `metadata` | `scripts/analysis/templates.py`、`scripts/analysis/limits.py` |
+| `ray_tracing_config(config)` | `shared` 中的物理标量（`mass_solar`、`distance_mpc`、`label_step_tg`、`alphas`、`principal_n`）加上不含 `raptor.source` 的 `raptor` 节 | `RAPTOR` 任务计划、`generated.json` 图像数据立方身份记录 |
+| `analysis_geometry(config)` | `image_preprocess`（以 $r_g$ 和 $\mathrm{rad}$ 为单位的 `sigma`、`init_fov`、`final_fov`、`final_shape`、`rotation_angle`）、`aperturefit`（`fov`、`radial_max`、`window_degrees`、`angular_bins`）和 `metadata` | `scripts/analysis/expected_signal.py`、`scripts/analysis/limits.py` |
 | `eht_imaging_parameters(config, locations)` | 由 `EHT_LOCATIONS`、`shared.image`（`npix`、`fov_uas`、`blur_fwhm_uas`）以及不含 `refine` 和 `monte_carlo` 的 `eht_imaging` 键组成的扁平字典 | `scripts/eht/reconstruct.py`、`scripts/eht/refine.py`、`scripts/eht/export_bundle.py` |
 | `EHT_DAYS = (95, 96, 100, 101)` | 2017 年观测年积日（`eht_imaging.inputs` 必须精确匹配该集合） | 全部 EHT 成像、汇总与分析模块 |
 | `ANGULAR_BINS = 360` | 1D 扇形孔径观测量中 $1^\circ$ 间隔的扇区分格数 | `analysis_geometry`、`scripts/analysis/limits.py` |
@@ -46,7 +46,7 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | `mass_solar` | `6500000000.0` | $M_\odot$ | M87\* 质量（$> 0$） | `physical_scale`；`RAPTOR` `MBH` |
 | `distance_mpc` | `16.8` | $\mathrm{Mpc}$ | 到 M87\* 的距离（$> 0$；乘以 $1000$ 后以 $\mathrm{kpc}$ 写入 `RAPTOR` `DISTANCE`） | `physical_scale`；`RAPTOR` `DISTANCE` |
 | `label_step_tg` | `0.1` | $t_g$ / 标签 | 每个 GRMHD 快照标签单位对应的预期尾部时间步长（$> 0$） | `plan_generation` 尾部时间间隔检查；`PhysicalScale` |
-| `alphas` | `[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.44]` | – | 严格递增的两位小数正值 $\alpha$ 网格（共 8 个值） | `RAPTOR` 规划与交付、模板、似然、论文脚本 |
+| `alphas` | `[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.44]` | – | 严格递增的两位小数正值 $\alpha$ 网格（共 8 个值） | `RAPTOR` 规划与图像数据立方、预期信号、似然、论文脚本 |
 | `principal_n` | `2` | – | $\Omega(\alpha) = \alpha(1 - \alpha^2/(2n^2))$ 中的主量子数 $n \ge 1$ | `RAPTOR` `AXION_OMEGA`；`analysis/model.py` |
 | `image.shape` | `64` | 像素 | 正方形天空网格的边长（$\ge 2$） | EHT `npix`、系综汇总、分析重采样 |
 | `image.fov_uas` | `120.0` | $\mu\mathrm{as}$ | 天空网格的视场（field of view, FOV，每像素 $1.875\,\mu\mathrm{as}$；替换官方 EHT 脚本中的 `128` $\mu\mathrm{as}$） | EHT `fov_uas`、分析重采样与孔径 |
@@ -57,7 +57,7 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | 键 | 当前取值 | 单位 | 物理含义与校验约束 | 读取位置 |
 |---|---|---|---|---|
 | `source.repository` | `github.com/projecteht-pku/raptor` | – | 规范化小写 `host/owner/name`；本地工作副本至少有一个 Git 远程地址规范化后等于此值 | `build_raptor`、`generate.py` 计划的 `raptor_source`、`run_jobs` |
-| `source.commit` | `20056006820b6536c96de790dd5fdaad5ada4eae` | – | 洁净本地 `RAPTOR` 工作副本 `HEAD` 必须精确匹配的 40 位十六进制提交号 | `build_raptor`、`run_jobs`、`deliver_stokes`、`paper.py`（`src/axion.c`） |
+| `source.commit` | `20056006820b6536c96de790dd5fdaad5ada4eae` | – | 洁净本地 `RAPTOR` 工作副本 `HEAD` 必须精确匹配的 40 位十六进制提交号 | `build_raptor`、`run_jobs`、`write_images`、`paper.py`（`src/axion.c`） |
 | `camera_fov_rg` | `46.2261` | $r_g$ | 正方形相机视场宽度（$176.5\,\mu\mathrm{as}$） | `RAPTOR` `CAM_SIZE_X/Y`；`analysis_geometry` `init_fov` |
 | `fluid_spin` | `0.9375` | – | 无量纲黑洞自旋 $a \in [0, 1]$，与每个 BHAC 快照尾部核对 | `read_snapshot_footer`、`paper.py` |
 | `build.model` | `bhac` | – | `setup.sh --code`（`bhac`、`harm3d`、`hamr`；`run_jobs` 要求 `MKSBHAC`） | `build_raptor` |
@@ -77,10 +77,10 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | `plasma.inclination_degrees` | `163.0` | $\mathrm{deg}$ | 观测者倾角 `INCLINATION`（$\in [0, 180]$） | `RAPTOR` `model.in`、谱文件名 |
 | `plasma.frequency_hz` | `230.0e+9` | $\mathrm{Hz}$ | 单一观测频率 `FREQ_MIN`（$> 0$） | `RAPTOR` `model.in`、HDF5 数据集名 |
 | `plasma.step_size` | `0.005` | – | 测地线积分步长 `STEPSIZE`（$> 0$） | `RAPTOR` `model.in` |
-| `snapshots.{start, stop, step}` | `1600, 3000, 10` | 标签 | 含端点的快照标签等差网格（共 $141$ 个快照，`0 <= start <= stop <= 999999`） | `plan_generation`、`deliver_stokes`、`generated_inputs` |
-| `response.resolution` | `100` | 像素 | 有轴子图像与 100 像素基线图像的正方形边长（10 的整数倍） | `plan_generation`、`deliver_stokes`、`templates.py` |
+| `snapshots.{start, stop, step}` | `1600, 3000, 10` | 标签 | 含端点的快照标签等差网格（共 $141$ 个快照，`0 <= start <= stop <= 999999`） | `plan_generation`、`write_images`、`generated_inputs` |
+| `response.resolution` | `100` | 像素 | 有轴子图像与 100 像素基线图像的正方形边长（10 的整数倍） | `plan_generation`、`write_images`、`expected_signal.py` |
 | `response.reference_norm` | `0.1` | – | `AXION_NORM` 参考场振幅（$> 0$） | `RAPTOR` `model.in`、`limits.py`、`paper.py` |
-| `background.resolution` | `400` | 像素 | 无轴子背景图像的正方形边长（10 的整数倍） | `plan_generation`、`deliver_stokes`、`templates.py`、`paper.py` |
+| `background.resolution` | `400` | 像素 | 无轴子背景图像的正方形边长（10 的整数倍） | `plan_generation`、`write_images`、`expected_signal.py`、`paper.py` |
 | `radial_tables.low.spin` | `0.9375` | – | `low` 径向 CSV 表声明的黑洞自旋 $a \in [0, 1]$ | `plan_generation`、`paper.py` |
 | `radial_tables.high.spin` | `0.99` | – | `high` 径向 CSV 表声明的黑洞自旋 $a \in [0, 1]$（有意与 `fluid_spin` 不同） | `plan_generation`、`paper.py` |
 | `alpha_table` | `0.10`–`0.30`: `low`；`0.35`–`0.44`: `high` | – | 将全部两位小数字符串键 `'0.10'`、…、`'0.44'` 映射到 `low` 或 `high` | `plan_generation`、`run_jobs`、`paper.py` |

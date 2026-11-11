@@ -2,14 +2,14 @@
 
 [← Documentation index](index.md)
 
-The analysis pipeline combines delivered `RAPTOR` Stokes cubes with the summarized EHT polarimetric ensembles to place phase-marginalized Bayesian upper limits $c_{95}(\alpha)$ on the dimensionless coupling $c$. All analysis scripts run in the `default` Pixi environment.
+The analysis pipeline combines the `RAPTOR` Stokes image cubes with the summarized EHT polarimetric ensembles to place phase-marginalized Bayesian upper limits $c_{95}(\alpha)$ on the dimensionless coupling $c$. All analysis scripts run in the `default` Pixi environment.
 
 ## Running the analysis
 
 With `EHT_DATA_ROOT` set in `.env` (or `--data-root`), all input and output paths default to the [standard data layout](data-layout.md#default-layout); `analysis-paper` additionally reads `src/axion.c` from the pinned `RAPTOR` checkout (`EHT_RAPTOR_SOURCE_ROOT`) and the radial tables from the [input layout](data-layout.md#input-layout) (`EHT_INPUT_ROOT`):
 
 ```bash
-pixi run analysis-templates
+pixi run analysis-expected-signal
 pixi run analysis-limits
 pixi run analysis-check-grid --check grid --phase-count 128 --coupling-points 240
 pixi run analysis-check-grid --check prior --phase-count 128 --coupling-points 260 --coupling-max 10000
@@ -21,32 +21,32 @@ pixi run analysis-paper
 Explicit directory flags override any layout default:
 
 ```bash
-pixi run analysis-templates --raptor-input-root DELIVERED --output-root TEMPLATES
-pixi run analysis-limits --templates TEMPLATES --ensemble ENSEMBLE --output-root LIMITS
-pixi run analysis-check-grid --source LIMITS --templates TEMPLATES --output-root GRID \
+pixi run analysis-expected-signal --raptor-images IMAGES --output-root EXPECTED
+pixi run analysis-limits --expected-signal EXPECTED --ensemble ENSEMBLE --output-root LIMITS
+pixi run analysis-check-grid --source LIMITS --expected-signal EXPECTED --output-root GRID \
     --phase-count 128 --coupling-points 240
-pixi run analysis-check-grid --source LIMITS --templates TEMPLATES --output-root PRIOR \
+pixi run analysis-check-grid --source LIMITS --expected-signal EXPECTED --output-root PRIOR \
     --phase-count 128 --coupling-points 260 --coupling-max 10000
-pixi run analysis-check-covariance --source LIMITS --templates TEMPLATES --output-root COV
+pixi run analysis-check-covariance --source LIMITS --expected-signal EXPECTED --output-root COV
 pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR \
     --covcheck COV --output-root SUMMARY
 pixi run analysis-paper --limits LIMITS --gridcheck GRID --priorcheck PRIOR --covcheck COV \
-    --templates TEMPLATES --ensemble ENSEMBLE --raptor-input-root DELIVERED \
+    --expected-signal EXPECTED --ensemble ENSEMBLE --raptor-images IMAGES \
     --raptor-plan plan.json --raptor-source-root RAPTOR --output-root PAPER
 ```
 
 When `--data-root` / `EHT_DATA_ROOT` is not set, `--covcheck` is optional in `scripts/analysis/summarize.py`; with a data root, `summarize.py` defaults `--covcheck` to `$EHT_DATA_ROOT/analysis/check-covariance`.
 
-## Simulation templates (`scripts/analysis/templates.py`)
+## Expected signal (`scripts/analysis/expected_signal.py`)
 
 ### Image preprocessing
 
-`scripts/analysis/templates.py` verifies every delivered cube against `configs/experiment.yaml` (`generated_inputs`) and streams frames through `preprocess_cube` (`eht_axion/analysis/templates.py`). For each frame, `preprocess_frame`:
+`scripts/analysis/expected_signal.py` verifies every image cube against `configs/experiment.yaml` (`generated_inputs`) and publishes one stage `analysis:expected-signal`. It works snapshot by snapshot and stores nothing in between: the 16 axion-phase images of a snapshot are put on the sky grid, fitted (below) and accumulated. For each image, `preprocess_frame` (`eht_axion/analysis/expected_signal.py`):
 1. Convolves each Stokes channel on the native camera grid with a circular Gaussian of standard deviation $\sigma = \mathrm{FWHM}/\sqrt{8\ln 2}$ (`shared.image.blur_fwhm_uas` $= 19\,\mu\mathrm{as} \to 2.113\,r_g$) using nearest-value boundary extension (`mode="nearest"`).
 2. Resamples from `raptor.camera_fov_rg` ($46.2261\,r_g \approx 176.5\,\mu\mathrm{as}$) onto the $64 \times 64$, $120\,\mu\mathrm{as}$ ($31.42\,r_g$) sky grid by bilinear interpolation (`order=1`, `prefilter=False`), actively rotating the image by $\theta =$ `analysis.rotation_degrees` ($108^\circ$).
 3. Rotates linear polarization by the spin-2 factor $Q + iU \mapsto e^{2i\theta}(Q + iU)$.
 
-No flux renormalization is applied. Processed maps have spatial axes `[x, y]` with axis `0` pointing west (`-East`) and axis `1` pointing north (`+North`). Response cubes (`analysis:preprocess`) retain all 17 states; the 400-pixel axion-off background (`analysis:background`) retains state `0` only.
+No flux renormalization is applied. Processed maps have spatial axes `[x, y]` with axis `0` pointing west (`-East`) and axis `1` pointing north (`+North`). The 400-pixel axion-off background images are written on the sky grid as `background.npy` (state `0` only); they are the only processed images that are stored.
 
 ### Sector aperture operator (1D observable)
 
@@ -64,9 +64,9 @@ with sector width $w =$ `analysis.aperture.window_degrees` ($10^\circ$) and oute
 
 The identical sparse operator $W_{kj}$ is applied to the simulated frames and (after transposing `[y, x] -> [x, y]`) to every EHT draw.
 
-### Harmonic response fit and snapshot summary
+### Harmonic response fit and mean over the snapshots
 
-For each snapshot and $\alpha$, `fit_processed` (stage `analysis:fit`) drops state `0` and fits the 16 phase states ($\psi_k = 2\pi k/16$, $k = 0, \dots, 15$) at every pixel (2D) and sector (1D) via `fit_phase_dft`:
+For each snapshot and $\alpha$, `snapshot_response` drops state `0` and fits the 16 phase states ($\psi_k = 2\pi k/16$, $k = 0, \dots, 15$) at every pixel (2D) and sector (1D) via `fit_phase_dft`:
 
 $$
 \chi_k = \bar{\chi} + A\cos(\psi_k + \phi).
@@ -74,16 +74,16 @@ $$
 
 Values are first lifted onto the $\pi$-branch of their circular mean $\chi_0 = \frac{1}{2}\arg\langle e^{2i\chi_k}\rangle$, giving $\bar{\chi} = \langle\tilde{\chi}_k\rangle$ and $A e^{i\phi} = \frac{1}{8}\sum_{k=0}^{15} (\tilde{\chi}_k - \bar{\chi})\,e^{-2\pi i k/16}$. Any missing phase invalidates that location; $A \le 64\varepsilon_{\mathrm{mach}}$ yields $A = 0$ and $\phi = \mathrm{NaN}$.
 
-`summarize_fits` (stage `analysis:templates`) aggregates across the 141 snapshots for each $\alpha$ (requiring $\ge 2$ finite snapshots): Gaussian MLE (`ddof = 0`) `amplitude_mean` and `amplitude_std`, plus circularly lifted `phase_mean` and `phase_std`. `load_templates` marks a location valid only if all four statistics are finite and both standard deviations are non-negative at every $\alpha$; only the means enter the signal model.
+`expected_signal` aggregates across the 141 snapshots for each $\alpha$ (requiring $\ge 2$ finite snapshots): Gaussian MLE (`ddof = 0`) `amplitude_mean` and `amplitude_std`, plus circularly lifted `phase_mean` and `phase_std`. These are the expected signal amplitude $A(x)$ and phase $\phi(x)$ per unit `raptor.response.reference_norm`, written to `expected.npz`. `load_expected_signal` marks a location valid only if all four statistics are finite and both standard deviations are non-negative at every $\alpha$; only the means enter the signal model.
 
 ## Observational features and covariance (`scripts/analysis/limits.py`)
 
 ### Feature selection
 
-`prepare_limit_inputs` transposes each EHT ensemble map `[y, x]` to template order `[x, y]` (verifying exact grid match) and selects features blind to the observed day-to-day EVPA differences:
+`prepare_limit_inputs` transposes each EHT ensemble map `[y, x]` to the expected-signal order `[x, y]` (verifying exact grid match) and selects features blind to the observed day-to-day EVPA differences:
 
-- **2D pixel features** must have a valid template, radial distance from the grid centre in $[\texttt{min\_radius\_rg}, r_{\max}] = [7.64\,\mu\mathrm{as}, 60\,\mu\mathrm{as}]$, both spatial indices divisible by `pixel_stride` (`5`), finite EVPA in all 1000 draws of every day, and daily draw-mean Stokes maps satisfying $I \ge 0.1\,I_{\max}$ (`intensity_fraction`) and $\lvert P\rvert \ge 0.2\,\lvert P\rvert_{\max}$ (`polarization_fraction`) on all four days.
-- **1D sector features** are candidate bins $k \equiv 4 \pmod{10}$ ($4^\circ, 14^\circ, \dots, 354^\circ$; `sector_offset_degrees`, `sector_spacing_degrees`) that have a valid template, finite sector EVPA $\chi_k$ across all draws of every day, and daily draw-means satisfying $\bar{B}_k \ge 0.1\max_j \bar{B}_j$ and $\overline{\langle\mathcal{P}\rangle}_k \ge 0.2\max_j \overline{\langle\mathcal{P}\rangle}_j$ on all four days.
+- **2D pixel features** must have a valid expected signal, radial distance from the grid centre in $[\texttt{min\_radius\_rg}, r_{\max}] = [7.64\,\mu\mathrm{as}, 60\,\mu\mathrm{as}]$, both spatial indices divisible by `pixel_stride` (`5`), finite EVPA in all 1000 draws of every day, and daily draw-mean Stokes maps satisfying $I \ge 0.1\,I_{\max}$ (`intensity_fraction`) and $\lvert P\rvert \ge 0.2\,\lvert P\rvert_{\max}$ (`polarization_fraction`) on all four days.
+- **1D sector features** are candidate bins $k \equiv 4 \pmod{10}$ ($4^\circ, 14^\circ, \dots, 354^\circ$; `sector_offset_degrees`, `sector_spacing_degrees`) that have a valid expected signal, finite sector EVPA $\chi_k$ across all draws of every day, and daily draw-means satisfying $\bar{B}_k \ge 0.1\max_j \bar{B}_j$ and $\overline{\langle\mathcal{P}\rangle}_k \ge 0.2\max_j \overline{\langle\mathcal{P}\rangle}_j$ on all four days.
 
 `build_observations` (`eht_axion/analysis/observations.py`) then retains only features whose circular resultant length $R = \lvert\langle e^{2i\chi}\rangle\rvert$ across draws is at least `resultant_min` ($0.7$) on all four days.
 
@@ -104,7 +104,7 @@ $$
 
 Both $C_1$ and $C_2$ must pass an unregularized Cholesky factorization. Proximity to the $\pm\pi/2$ branch cut ($\pi/2 - \lvert d\rvert$ in units of marginal $\sigma$) and eigenvalue condition numbers are recorded as diagnostics without altering feature selection.
 
-**GRMHD background (`selected_background`):** on the exact retained 1D or 2D features, the 141 preprocessed 400-pixel axion-off frames yield EVPA time series $\theta_t$ and lagged differences $\Delta_t = \operatorname{wrap}_\pi(\theta_{t+L} - \theta_t)$ at lag $L =$ `analysis.background.lag_frames` ($3$ frames $= 3\,t_g = 26.68\,\mathrm{h}$, derived from the BHAC footer times). The pooled centered population standard deviation across all retained features and frame pairs,
+**GRMHD background (`selected_background`):** on the exact retained 1D or 2D features, the 141 axion-off frames of `background.npy` yield EVPA time series $\theta_t$ and lagged differences $\Delta_t = \operatorname{wrap}_\pi(\theta_{t+L} - \theta_t)$ at lag $L =$ `analysis.background.lag_frames` ($3$ frames $= 3\,t_g = 26.68\,\mathrm{h}$, derived from the BHAC footer times). The pooled centered population standard deviation across all retained features and frame pairs,
 
 $$
 \sigma_{\mathrm{bg}} = \sqrt{\bigl\langle(\Delta - \langle\Delta\rangle)^2\bigr\rangle},
@@ -122,7 +122,7 @@ $$
 s_p(x; \alpha, \phi_0) = b(\alpha)\,\frac{2\sin(\omega\tau / 2)\,\operatorname{sinc}(\omega T / 2)}{N_{\mathrm{ref}}}\,A(x, \alpha)\,\sin\!\bigl(\phi_0 + \phi(x, \alpha) + \omega t_p\bigr),
 $$
 
-where $\omega = \Omega(\alpha)/t_g$ ($\mathrm{rad\,h^{-1}}$), $\tau = 24\,\mathrm{h}$ (`day_gap_hours`), $T = 6\,\mathrm{h}$ (`exposure_hours`), $\operatorname{sinc}(u) = \sin u / u$, $t_1 = 0$ and $t_2 = 120\,\mathrm{h}$ (`pair_separation_hours`, placing the phase origin at the first pair midpoint), $N_{\mathrm{ref}} = 0.1$ (`raptor.response.reference_norm`), and $b(\alpha) = 0.03\,(\alpha / 0.05)^{1.75}$. Template means $A$ and $\phi$ are linearly interpolated in $\alpha$ between nodes ($\phi$ on the unit circle) and clamped outside the node range.
+where $\omega = \Omega(\alpha)/t_g$ ($\mathrm{rad\,h^{-1}}$), $\tau = 24\,\mathrm{h}$ (`day_gap_hours`), $T = 6\,\mathrm{h}$ (`exposure_hours`), $\operatorname{sinc}(u) = \sin u / u$, $t_1 = 0$ and $t_2 = 120\,\mathrm{h}$ (`pair_separation_hours`, placing the phase origin at the first pair midpoint), $N_{\mathrm{ref}} = 0.1$ (`raptor.response.reference_norm`), and $b(\alpha) = 0.03\,(\alpha / 0.05)^{1.75}$. Expected-signal means $A$ and $\phi$ are linearly interpolated in $\alpha$ between nodes ($\phi$ on the unit circle) and clamped outside the node range.
 
 ### Covariance modes, likelihood, and upper limits
 

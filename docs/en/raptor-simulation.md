@@ -2,7 +2,7 @@
 
 [← Documentation index](index.md)
 
-The `RAPTOR` simulation pipeline compiles a pinned version of the polarized general-relativistic ray tracer `RAPTOR`, validates BHAC GRMHD snapshots and axion radial-profile tables, executes $18\,330$ ray-tracing jobs with bounded concurrency and optional CPU pinning, validates every HDF5/spectrum pair, and delivers float64 Stokes cubes for the downstream analysis. It does not depend on any EHT imaging product.
+The `RAPTOR` simulation pipeline compiles a pinned version of the polarized general-relativistic ray tracer `RAPTOR`, validates BHAC GRMHD snapshots and axion radial-profile tables, executes $18\,330$ ray-tracing jobs with bounded concurrency and optional CPU pinning, validates every HDF5/spectrum pair, and writes float64 Stokes image cubes for the downstream analysis. It does not depend on any EHT imaging product.
 
 ## Prerequisites and inputs
 
@@ -13,7 +13,7 @@ Running the `RAPTOR` scripts requires Linux (`linux-64`) and the `raptor-build` 
 - **Radial-profile tables** (`--radial-low`, `--radial-high`, default `$EHT_INPUT_ROOT/radial/result_a=0.9375_l1m1.txt` and `$EHT_INPUT_ROOT/radial/result_a=0.99_l1m1.txt`): two headerless three-column CSV files $(\alpha, r, R)$ for `low` (`spin = 0.9375`) and `high` (`spin = 0.99`), also at paths of at most 255 UTF-8 bytes without whitespace.
 - **Experiment parameters** (`--config`, default `configs/experiment.yaml`): `shared` physics scalars and the `raptor` section.
 
-All `RAPTOR` products live in `raptor/` below the data root (`plan.json`, `build/`, `jobs/`, `delivered/`); it must not overlap the repository root, the `RAPTOR` source checkout, the snapshot directory, or the radial-table directories, and cannot lie inside an existing stage directory.
+All `RAPTOR` products live in `raptor/` below the data root (`plan.json`, `build/`, `jobs/`, `images/`); it must not overlap the repository root, the `RAPTOR` source checkout, the snapshot directory, or the radial-table directories, and cannot lie inside an existing stage directory.
 
 ## Running the simulation
 
@@ -26,15 +26,15 @@ pixi run -e raptor-build raptor-build
 # 2. Validate inputs and list the tasks without launching C processes or writing files
 pixi run -e raptor-build raptor-generate --plan
 
-# 3. Write raptor/plan.json, execute the ray-tracing jobs (resumable) and deliver the Stokes cubes
+# 3. Write raptor/plan.json, execute the ray-tracing jobs (resumable) and write the Stokes image cubes
 pixi run -e raptor-build raptor-generate
 
-# Deliver the cubes of already completed jobs without launching RAPTOR:
+# Write the image cubes of already completed jobs without launching RAPTOR:
 pixi run -e raptor-build raptor-generate --convert-only
 ```
 
 **Execution options on `scripts/raptor/generate.py`:**
-- `--max-jobs N`: run only the first `N` planned tasks (skips cube delivery while tasks remain incomplete).
+- `--max-jobs N`: run only the first `N` planned tasks (no image cubes while tasks remain incomplete).
 - `--workers W` (`EHT_RAPTOR_WORKERS`, default `1`) and `--threads T` (`EHT_RAPTOR_THREADS`, default `2`): concurrent `RAPTOR` processes and OpenMP threads per process.
 - `--cpu-affinity {none,physical,logical}` (`EHT_RAPTOR_CPU_AFFINITY`, fallback `none`) and `--cpu-list RANGE` (`EHT_RAPTOR_CPU_LIST`, e.g. `0-47`): worker CPU pinning via `taskset`.
 - `--timeout-seconds SEC` (`EHT_RAPTOR_TIMEOUT_SECONDS`): per-process wall-time limit.
@@ -82,13 +82,13 @@ Before launching jobs, `scripts/raptor/generate.py` and `run_jobs` (`eht_axion/r
 - verifies the single-row `output/spectrum_<slot>_<inclination:.2f>.dat` (`frequency`, $I, Q, U, V$ in $\mathrm{Jy}$) matches $\sum \text{HDF5}_{IQUV}\,\Delta\Omega$ within relative tolerance $10^{-10}$, where $\Delta\Omega = (\Delta x\,\Delta y)(r_g / D)^2$ uses the literal C constants `GGRAV`, `MSUN`, `SPEED_OF_LIGHT`, and `KPCTOCM` parsed from `build/definitions.h`;
 - counts pixels with $I < 0$ or $\sqrt{Q^2 + U^2 + V^2} > I$ as diagnostics without filtering data (returned by `validate_job_output`, not stored).
 
-## Stokes cube conversion and delivery
+## Stokes image cubes
 
 `convert_hdf5` (`eht_axion/raptor/convert.py`) assembles a rectangular `time × state` grid of validated job HDF5 files into a float64 `(T, S, N, N, 4)` array (`[time, state, x, y, IQUV]` in $\mathrm{Jy\,sr^{-1}}$); the job HDF5 files it reads are the inputs of the delivery manifest.
 
-`deliver_stokes` (`eht_axion/raptor/delivery.py`) maps every planned task to its completed job stage in `raptor/jobs/`, checks each job's recorded build and inputs, and publishes `raptor:delivery` stages under `raptor/delivered/`:
+`write_images` (`eht_axion/raptor/images.py`) maps every planned task to its completed job stage in `raptor/jobs/`, checks each job's recorded build and inputs, and publishes `raptor:images` stages under `raptor/images/`:
 - `res-100/alpha-<alpha:.2f>/stokes.npy` of shape `(141, 17, 100, 100, 4)` (8 stages: state `0` axion-off baseline, state `k+1` phase $k\pi/8$);
 - `res-400/background/stokes.npy` of shape `(141, 1, 400, 400, 4)` (axion-off only).
 
-Each delivery stage also writes `generated.json` (schema `raptor-generated`, storing `ray_tracing_config`, `alpha`, `resolution`, `snapshot_labels`, BHAC footer `times_tg`, `state_count`, `omega`, axes, and units). Downstream analysis stages call `generated_inputs` to enforce exact agreement between `generated.json` and `configs/experiment.yaml`.
+Each image stage also writes `generated.json` (schema `raptor-generated`, storing `ray_tracing_config`, `alpha`, `resolution`, `snapshot_labels`, BHAC footer `times_tg`, `state_count`, `omega`, axes, and units). Downstream analysis stages call `generated_inputs` to enforce exact agreement between `generated.json` and `configs/experiment.yaml`.
 

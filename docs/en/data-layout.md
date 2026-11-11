@@ -14,7 +14,7 @@ Setting `EHT_DATA_ROOT` (in `.env` or the shell) or passing `--data-root PATH` o
     plan.json                    task plan, written by the first raptor/generate.py run
     build/                       raptor/build.py
     jobs/                        raptor/generate.py: one directory per task
-    delivered/                   raptor/generate.py: Stokes cubes
+    images/                      raptor/generate.py: Stokes image cubes
   eht/
     intensity/day-<day>/         eht/reconstruct.py --stage I
     fiducial/day-<day>/          eht/reconstruct.py --stage fiducial
@@ -22,7 +22,7 @@ Setting `EHT_DATA_ROOT` (in `.env` or the shell) or passing `--data-root PATH` o
     sample/                      eht/sample.py
     ensemble/                    eht/summarize.py
   analysis/
-    templates/                   analysis/templates.py (reads raptor/delivered)
+    expected-signal/             analysis/expected_signal.py (reads raptor/images)
     limits/                      analysis/limits.py
     check-grid/                  analysis/check_grid.py --check grid
     check-prior/                 analysis/check_grid.py --check prior
@@ -69,16 +69,16 @@ raptor/
     output/spectrum_<slot>_<inclination>.dat   frequency (Hz), I, Q, U, V (Jy)
     stdout.log, stderr.log
   attempts/<task id>/attempt-*/  input.json, stdout.log, stderr.log, result.json (+ work/ on failure)
-  delivered/
-    res-100/alpha-<α>/           stage raptor:delivery (8 directories, alpha-0.10 .. alpha-0.44)
+  images/
+    res-100/alpha-<α>/           stage raptor:images (8 directories, alpha-0.10 .. alpha-0.44)
       stokes.npy                 float64 (141, 17, 100, 100, 4) in Jy/sr
       generated.json
-    res-400/background/          stage raptor:delivery
+    res-400/background/          stage raptor:images
       stokes.npy                 float64 (141, 1, 400, 400, 4) in Jy/sr
       generated.json
 ```
 
-Delivered `stokes.npy` axes are `(time, state, x, y, Stokes)` with channels `[I, Q, U, V]` in $\mathrm{Jy\,sr^{-1}}$; state `0` is axion-off and state `k+1` has axion phase $k\pi/8$.
+Image-cube `stokes.npy` axes are `(time, state, x, y, Stokes)` with channels `[I, Q, U, V]` in $\mathrm{Jy\,sr^{-1}}$; state `0` is axion-off and state `k+1` has axion phase $k\pi/8$.
 
 ### EHT imaging
 
@@ -115,19 +115,11 @@ D-term JSON files map station codes to `[[Re D_R, Im D_R], [Re D_L, Im D_L]]` (f
 ### Analysis
 
 ```text
-TEMPLATES/
-  processed/alpha-<α>/           stage analysis:preprocess
-    stokes.npy                   float64 (141, 17, 64, 64, 4); processing.json
-  response/alpha-<α>/            stage analysis:fit
-    response-2d.npz              amplitude, phase, baseline (141, 64, 64) rad; snapshot_labels (141)
-    response-1d.npz              amplitude, phase, baseline (141, 360) rad; snapshot_labels (141)
-    response.json
-  templates/                     stage analysis:templates
-    templates.npz                <1d|2d>/alphas (8); <1d|2d>/amplitude_mean, amplitude_std, phase_mean,
-                                 phase_std, amplitude_count, phase_count: (8, 360) or (8, 64, 64)
-    summary.json
-  background/                    stage analysis:background
-    stokes.npy                   float64 (141, 1, 64, 64, 4); processing.json
+EXPECTED_SIGNAL/                 stage analysis:expected-signal (no intermediate products)
+  expected.npz                   <1d|2d>/alphas (8); <1d|2d>/amplitude_mean, amplitude_std, phase_mean,
+                                 phase_std (rad per raptor.response.reference_norm), amplitude_count,
+                                 phase_count: (8, 360) sectors or (8, 64, 64) pixels
+  background.npy                 float64 (141, 1, 64, 64, 4): axion-off images on the sky grid
 LIMITS/                          stage analysis:limits
   report.json                    identity, results table, notes; sections observations/<1d|2d>,
                                  background/<1d|2d>, cases/<data>-<mode>-<dim> without their arrays
@@ -153,7 +145,7 @@ PAPER/                           stage analysis:paper
 ```
 
 **Indexing conventions in analysis products:**
-- 2D `selected_indices` are flat row-major indices $64\,x + y$ into the template grid `[x, y]` (`x = -East`, `y = +North`); `coordinates` holds `(east_uas, north_uas)`.
+- 2D `selected_indices` are flat row-major indices $64\,x + y$ into the expected-signal grid `[x, y]` (`x = -East`, `y = +North`); `coordinates` holds `(east_uas, north_uas)`.
 - 1D `selected_indices` are integer sector centres in degrees east of north (`0`–`359`).
 - Day axes follow `(95, 96, 100, 101)`; pair axes follow `(96 - 95, 101 - 100)`.
 
@@ -185,11 +177,11 @@ PAPER/                           stage analysis:paper
 |---|---|
 | `raptor:build` | `scripts/raptor/build.py` |
 | `raptor:job` | `scripts/raptor/generate.py` |
-| `raptor:delivery` | `scripts/raptor/generate.py` |
+| `raptor:images` | `scripts/raptor/generate.py` |
 | `eht:i`, `eht:fiducial` | `scripts/eht/reconstruct.py` |
 | `eht:refine` | `scripts/eht/refine.py` |
 | `eht:ensemble` | `scripts/eht/summarize.py` |
-| `analysis:preprocess`, `analysis:fit`, `analysis:templates`, `analysis:background` | `scripts/analysis/templates.py` |
+| `analysis:expected-signal` | `scripts/analysis/expected_signal.py` |
 | `analysis:limits` | `scripts/analysis/limits.py` |
 | `analysis:check-grid` | `scripts/analysis/check_grid.py` |
 | `analysis:check-covariance` | `scripts/analysis/check_covariance.py` |

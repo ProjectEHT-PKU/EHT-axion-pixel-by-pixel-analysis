@@ -11,7 +11,7 @@ All four Pixi environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_
 | Environment | Platforms | Dependencies added beyond `default` | Purpose |
 |---|---|---|---|
 | `default` | `linux-64`, `linux-aarch64`, `osx-64`, `osx-arm64`, `win-64` | Python `3.12.*`, `numpy`, `scipy`, `matplotlib`, `h5py`, `pyyaml`, `pytest`, `ruff`, `python-dotenv` | Analysis scripts, `lint`, and non-`ehtim`/`astropy` tests |
-| `raptor-build` | `linux-64` | `c-compiler`, `make`, `gsl`, `hdf5`, `pkg-config`, `rsync` | Compiling `RAPTOR`, running jobs, and merging/delivering cubes |
+| `raptor-build` | `linux-64` | `c-compiler`, `make`, `gsl`, `hdf5`, `pkg-config`, `rsync` | Compiling `RAPTOR`, running jobs, and writing the image cubes |
 | `eht-summary` | All 5 platforms | `astropy` | Summarizing D-term Monte Carlo FITS draws into `eht:ensemble` |
 | `eht-imaging` | All 5 platforms | `astropy`, `ehtim == 1.3.2` (PyPI) | EHT reconstruction, convex refinement, Monte Carlo, and full test suite |
 
@@ -20,7 +20,7 @@ All four Pixi environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_
 | `raptor-build`, `raptor-generate` | `-e raptor-build` | `scripts/raptor/{build,generate}.py` |
 | `eht-reconstruct`, `eht-refine`, `eht-sample` | `-e eht-imaging` | `scripts/eht/{reconstruct,refine,sample}.py` |
 | `eht-summarize` | `-e eht-summary` (or `-e eht-imaging`) | `scripts/eht/summarize.py` |
-| `analysis-templates`, `analysis-limits`, `analysis-check-grid`, `analysis-check-covariance`, `analysis-summarize`, `analysis-paper` | `default` | `scripts/analysis/{templates,limits,check_grid,check_covariance,summarize,paper}.py` |
+| `analysis-expected-signal`, `analysis-limits`, `analysis-check-grid`, `analysis-check-covariance`, `analysis-summarize`, `analysis-paper` | `default` | `scripts/analysis/{expected_signal,limits,check_grid,check_covariance,summarize,paper}.py` |
 | `test` | `default` or `-e eht-imaging` | `python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=."` |
 | `lint` | `default` | `ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts` |
 | `check` | `default` | Runs `test` and `lint` |
@@ -64,16 +64,16 @@ Several test modules enforce repository-wide invariants rather than single-funct
 | `eht_axion/raptor/affinity.py` | Disjoint `taskset` CPU allocation and Linux/`cgroup-v2` RAM headroom checks | `allocate_cpu_sets`, `check_memory`, `launch_prefix` |
 | `eht_axion/raptor/outputs.py` | Single-job HDF5 block/coordinate and integrated-spectrum validation | `validate_job_output`, `read_core_constants`, `hdf_mapping` |
 | `eht_axion/raptor/convert.py` | Tiled job HDF5 assembly into float64 `(T, S, H, W, 4)` `stokes.npy` | `convert_hdf5` |
-| `eht_axion/raptor/delivery.py` | Cube delivery and downstream experiment-identity checks | `deliver_stokes`, `generated_inputs`, `input_cadence_hours`, `validate_processed_source` |
-| `eht_axion/raptor/layout.py` | Delivered product directory naming (`alpha-<α>/`, `background/`) | `alpha_label`, `product_directory`, `delivered_cube` |
+| `eht_axion/raptor/images.py` | Stokes image cubes from the job HDF5 and downstream experiment-identity checks | `write_images`, `generated_inputs`, `input_cadence_hours` |
+| `eht_axion/raptor/layout.py` | Image-cube directory naming (`alpha-<α>/`, `background/`) | `alpha_label`, `product_directory`, `image_cube` |
 | `eht_axion/raptor/options.py` | Shared CLI/dotenv parser of the `RAPTOR` scripts | `options` |
 | `eht_axion/eht/calibration.py` | Native circular HOPS loading, `fsys`, inverse Jones D application, zero-prior forward D fit, and 4-day D sampling | `load_native`, `add_fsys`, `make_imaging_obs`, `apply_fixed_d`, `fit_forward_d`, `d_distribution`, `sample_dterms` |
 | `eht_axion/eht/convex.py` | Exact convex fixed-$I$/fixed-$D$ PDHG $P$ solver with duality-gap certification | `exact_cartesian_problem`, `solve_problem`, `CartesianProblem` |
 | `eht_axion/eht/ensemble.py` | Strict 4-HDU Stokes FITS reader, Paper VII global diagnostics, and per-pixel EVPA maps | `load_stokes_fits`, `global_diagnostics`, `global_values`, `map_evpa` |
 | `eht_axion/analysis/results.py` | Limit-stage result files: arrays in `results.npz`, everything else in `report.json` | `write_results`, `read_results` |
-| `eht_axion/analysis/templates.py` | Gaussian blur + sky rotation resampling, 16-phase DFT fit, snapshot MLE summary, and template loader | `preprocess_frame`, `preprocess_cube`, `fit_phase_dft`, `fit_processed`, `summarize_fits`, `load_templates`, `RunLayout` |
+| `eht_axion/analysis/expected_signal.py` | Gaussian blur + sky rotation resampling, 16-phase DFT fit per snapshot, MLE over the snapshots, and reader | `preprocess_frame`, `fit_phase_dft`, `snapshot_response`, `alpha_responses`, `expected_signal`, `processed_background`, `load_expected_signal` |
 | `eht_axion/analysis/aperture.py` | Sparse CSR bilinear quadrature operator for 1D sector EVPA and brightness | `aperture_operator`, `integrate_stokes`, `sector_brightness` |
-| `eht_axion/analysis/model.py` | Cloud amplitude $b(\alpha)$, circular $\alpha$ interpolation, and two-pair EVPA signal templates | `cloud_amplitude_scaling`, `interpolate_fit_parameters`, `evpa_templates` |
+| `eht_axion/analysis/model.py` | Cloud amplitude $b(\alpha)$, circular $\alpha$ interpolation, and two-pair EVPA signal model | `cloud_amplitude_scaling`, `interpolate_fit_parameters`, `evpa_templates` |
 | `eht_axion/analysis/observations.py` | Daily circular moments, population D-scatter covariances, pair differences, and seam/eigenvalue diagnostics | `ObservationData`, `moments`, `build_observations`, `branch_risk`, `covariance_diagnostics` |
 | `eht_axion/analysis/likelihood.py` | Covariance modes (`std`, `cor`, `cor_fixed_background`), Gaussian $\chi^2$, and phase marginalization | `LimitOptions`, `MODES`, `calculate_observed` |
 | `eht_axion/analysis/posterior.py` | Trapezoidal posterior normalization and analytical piecewise-linear CDF upper-limit inversion | `normalized_posterior_cdf`, `posterior_upper_limit` |

@@ -21,7 +21,7 @@ from eht_axion import provenance
 from eht_axion.analysis.likelihood import MODES, calculate_observed
 from eht_axion.analysis.observations import ObservationData
 from eht_axion.analysis.results import read_results, write_results
-from eht_axion.analysis.templates import load_templates
+from eht_axion.analysis.expected_signal import load_expected_signal
 from eht_axion.experiment import DEFAULT_PATH, read_experiment
 from scripts.analysis.limits import options_from_config, plot_results
 from eht_axion.environment import add_data_root_option, fill_defaults
@@ -63,12 +63,12 @@ def run(args):
     files = [args.source/'report.json', args.source/'results.npz']
     provenance.require_declared_outputs(args.source, files)
     source_report, source = read_results(args.source, ('observations',))
-    root = args.templates/'templates'
+    root = args.expected_signal
     provenance.verify_stage(root)
-    provenance.require_declared_outputs(root, [root/'templates.npz'])
-    products = {dim: load_templates(root/'templates.npz', dim) for dim in ('1d', '2d')}
+    provenance.require_declared_outputs(root, [root/'expected.npz'])
+    products = {dim: load_expected_signal(root/'expected.npz', dim) for dim in ('1d', '2d')}
     inputs = [provenance.manifest_path(args.source), *files,
-              provenance.manifest_path(root), root/'templates.npz']
+              provenance.manifest_path(root), root/'expected.npz']
     identity = dict(changed=changed, source=str(args.source),
         same_selected_observations=True, same_covariance=True)
     with provenance.stage_directory(args.output_root, 'analysis:check-grid',
@@ -107,7 +107,8 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, default=DEFAULT_PATH, help='default: configs/experiment.yaml')
     p.add_argument('--source', type=Path, help='scripts/analysis/limits.py stage (default: analysis/limits)')
-    p.add_argument('--templates', type=Path, help='templates root (default: analysis/templates)')
+    p.add_argument('--expected-signal', type=Path,
+                   help='scripts/analysis/expected_signal.py stage (default: analysis/expected-signal)')
     p.add_argument('--output-root', type=Path,
                    help='new directory (default: analysis/check-grid or analysis/check-prior, see --check)')
     p.add_argument('--check', choices=('grid', 'prior'),
@@ -119,7 +120,7 @@ def main(argv=None):
     args = p.parse_args(argv)
     if args.output_root is None and args.check is None:
         p.error('Provide --output-root, or --check grid|prior with a data root')
-    defaults = {'source': ('analysis.limits', {}), 'templates': ('analysis.templates', {})}
+    defaults = {'source': ('analysis.limits', {}), 'expected_signal': ('analysis.expected_signal', {})}
     if args.output_root is None:
         defaults['output_root'] = (f'analysis.check_{args.check}', {})
     fill_defaults(p, args, defaults)

@@ -1,4 +1,4 @@
-"""Plan/run/resume RAPTOR jobs and deliver their Stokes cubes into raptor/delivered; never build."""
+"""Plan/run/resume RAPTOR jobs and write their Stokes image cubes into raptor/images; never build."""
 
 from pathlib import Path
 import sys
@@ -9,7 +9,7 @@ import json
 import shutil
 
 from eht_axion.raptor.options import options
-from eht_axion.raptor.delivery import deliver_stokes
+from eht_axion.raptor.images import write_images
 from eht_axion.raptor.jobs import run_jobs
 from eht_axion.raptor.plan import plan_generation
 
@@ -79,10 +79,10 @@ def main(argv=None):
         if not result["complete"]:
             return 1
         if args.max_jobs is not None and args.max_jobs < len(plan["tasks"]):
-            print("Selected task prefix completed; full delivery waits for the remaining jobs.")
+            print("Selected task prefix completed; the image cubes wait for the remaining jobs.")
             return 0
-    products = deliver_stokes(plan, args.run_root)
-    print(f"Stokes cubes: {args.run_root / 'delivered'} ({len(products)} products)")
+    products = write_images(plan, args.run_root)
+    print(f"Stokes cubes: {args.run_root / 'images'} ({len(products)} products)")
     return 0
 
 

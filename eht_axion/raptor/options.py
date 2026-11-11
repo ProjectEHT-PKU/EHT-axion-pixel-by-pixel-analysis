@@ -3,7 +3,7 @@
 Three roots (eht_axion/environment.py): ``--source-root`` / ``EHT_RAPTOR_SOURCE_ROOT`` (the
 RAPTOR checkout), ``--input-root`` / ``EHT_INPUT_ROOT`` (snapshots and radial tables; generate
 only) and ``--data-root`` / ``EHT_DATA_ROOT`` (the run is raptor/ below it: plan.json, build/,
-jobs/, delivered/).
+jobs/, images/).
 """
 from __future__ import annotations
 
@@ -34,9 +34,9 @@ def options(kind, argv=None):
                                 help=f"default: {layout} layout entry below --input-root")
         parser.add_argument("--plan", action="store_true", help="Validate and list tasks; never launch C")
         parser.add_argument("--convert-only", action="store_true",
-                            help="Deliver already complete jobs; no launch")
+                            help="Write the image cubes of already complete jobs; no launch")
         parser.add_argument("--max-jobs", type=int,
-                            help="Run at most this many planned tasks; incomplete data not delivered")
+                            help="Run at most this many planned tasks; image cubes need all jobs")
         parser.add_argument("--threads", type=int, help="OpenMP threads per RAPTOR process")
         parser.add_argument("--workers", type=int, help="Concurrent RAPTOR processes, independent of threads")
         parser.add_argument("--cpu-affinity", choices=["none", "physical", "logical"],

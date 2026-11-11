@@ -1,4 +1,4 @@
-"""Directory layout of the delivered RAPTOR Stokes cubes (res-*/{alpha-*,background}/)."""
+"""Directory layout of the RAPTOR image cubes (res-*/{alpha-*,background}/)."""
 
 from decimal import Decimal, DecimalException
 from pathlib import Path
@@ -21,8 +21,8 @@ def product_directory(root, alpha, resolution):
     return Path(root) / f"res-{resolution}" / name
 
 
-def delivered_cube(root, alpha, resolution):
-    """The delivered Stokes cube (T, S, N, N, 4) of one alpha (None: axion-off background)."""
+def image_cube(root, alpha, resolution):
+    """The Stokes image cube (T, S, N, N, 4) of one alpha (None: axion-off background)."""
     path = product_directory(root, alpha, resolution) / "stokes.npy"
     if not path.is_file():
         raise FileNotFoundError(f"No RAPTOR product: {path}")

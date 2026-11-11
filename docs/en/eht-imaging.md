@@ -80,7 +80,7 @@ where $h(m) = \frac{1}{2}\bigl[(1+m)\ln(1+m) + (1-m)\ln(1-m)\bigr]$, $F = \sum_x
 
 `solve_problem` minimizes $J(P)$ in reduced variables $x = P / I$ via diagonally preconditioned primal–dual hybrid gradient (PDHG, step-size safety factor $\theta = 0.99 < 1$, safeguarded Newton–bisection radial entropy prox) and evaluates a feasible Fenchel–Rockafellar dual lower bound every `check_every` (`500`) iterations. A solution is **numerically certified** when $\text{best\_primal} - \text{best\_lower} \le \text{gap\_atol}$ (`1e-6`; floating-point duality gap, not interval arithmetic).
 
-`scripts/eht/refine.py` (stage `eht:refine`) starts from the fiducial `final-raw-IQU.fits` and `final-dterms.json`, runs `outer_rounds = 100` alternations of certified PDHG $P$ solves (`maxiter = 20000`, `time_limit = 300` s) and forward `L-BFGS-B` D refits (`eht_imaging.refine.d_optimizer`, logged to `D-optimizer-records.json`), followed by a 101st $P$ solve aligned with the last D terms, which is the delivered `final-*` image; rounds 1–100 are in `rounds.npz`.
+`scripts/eht/refine.py` (stage `eht:refine`) starts from the fiducial `final-raw-IQU.fits` and `final-dterms.json`, runs `outer_rounds = 100` alternations of certified PDHG $P$ solves (`maxiter = 20000`, `time_limit = 300` s) and forward `L-BFGS-B` D refits (`eht_imaging.refine.d_optimizer`, logged to `D-optimizer-records.json`), followed by a 101st $P$ solve aligned with the last D terms, which is the final `final-*` image; rounds 1–100 are in `rounds.npz`.
 
 ### D-term Monte Carlo and ensemble summary
 

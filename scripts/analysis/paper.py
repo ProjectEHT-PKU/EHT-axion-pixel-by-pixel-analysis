@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Analysis: everything the paper uses from the pipeline, in one directory (stage analysis:paper).
 
-Reads finished products only (limits, the three checks, templates, the EHT ensemble,
-the delivered axion-off background cubes, the RAPTOR plan), the radial tables of the plan
+Reads finished products only (limits, the three checks, the expected signal, the EHT ensemble,
+the RAPTOR image cubes, the RAPTOR plan), the radial tables of the plan
 and src/axion.c of the pinned RAPTOR checkout (raptor.source), and writes:
 
   figures/*.pdf      vector figures
@@ -37,14 +37,14 @@ from eht_axion import provenance
 from eht_axion.analysis.likelihood import MODES
 from eht_axion.analysis.model import cloud_amplitude_scaling
 from eht_axion.analysis.results import read_results
-from eht_axion.analysis.templates import RunLayout, _integrate
+from eht_axion.analysis.expected_signal import _integrate, _operator, preprocess_frame, snapshot_response
 from eht_axion.eht.ensemble import global_diagnostics
-from eht_axion.experiment import DEFAULT_PATH, EHT_DAYS, physical_scale, read_experiment
+from eht_axion.experiment import DEFAULT_PATH, EHT_DAYS, analysis_geometry, physical_scale, read_experiment
 from eht_axion.physics import HBAR_EV_S, omega
 from eht_axion.raptor.build import _clean_source
-from eht_axion.raptor.layout import delivered_cube
+from eht_axion.raptor.layout import image_cube
 
-PAPER_ALPHA = 0.30  # alpha of the response maps, templates figure, chi^2 table and fit figure
+PAPER_ALPHA = 0.30  # alpha of the response maps, expected-signal figure, chi^2 table and fit figure
 PAPER_SNAPSHOT_LABEL = 2300  # GRMHD label of the response-map figure
 TICKS = dict(stride=4, intensity_fraction=0.1, polarization_fraction=0.2, length_uas=9.0)  # EVPA ticks
 RADIAL_SAMPLE_RG = (5.0, 10.0, 20.0)  # radii of the radial-amplitude panel
@@ -276,14 +276,14 @@ def add_scales(numbers, config, times_tg, lag_hours, pairs):
     if count != (labels["stop"] - labels["start"]) // labels["step"] + 1:
         raise ValueError("Delivered snapshot count differs from raptor.snapshots")
     numbers.add(
-        "NumSnapshots", str(count), count, "raptor/delivered generated.json times_tg", "GRMHD snapshots"
+        "NumSnapshots", str(count), count, "raptor/images generated.json times_tg", "GRMHD snapshots"
     )
     span = times_tg[-1] - times_tg[0]
     numbers.add(
         "NumSpanTg",
         f"{span:g}",
         span,
-        "raptor/delivered generated.json times_tg",
+        "raptor/images generated.json times_tg",
         "time spanned by the snapshots in t_g",
     )
     numbers.add(
@@ -452,14 +452,14 @@ def add_signal(numbers, amplitude_deg, sector_mean_deg, sector_fraction):
         "NumResponseMinDeg",
         sig(amplitude_deg.min(), 2),
         amplitude_deg.min(),
-        "analysis/templates response/alpha-*/response-2d.npz amplitude",
+        "raptor/images res-100/alpha-* snapshot PAPER_SNAPSHOT_LABEL, pixel response amplitude",
         "minimum response amplitude per unit c of the paper snapshot (deg)",
     )
     numbers.add(
         "NumResponseMaxDeg",
         sig(amplitude_deg.max(), 2),
         amplitude_deg.max(),
-        "analysis/templates response/alpha-*/response-2d.npz amplitude",
+        "raptor/images res-100/alpha-* snapshot PAPER_SNAPSHOT_LABEL, pixel response amplitude",
         "maximum response amplitude per unit c of the paper snapshot (deg)",
     )
     for label, f in (("Min", np.min), ("Max", np.max)):
@@ -468,7 +468,7 @@ def add_signal(numbers, amplitude_deg, sector_mean_deg, sector_fraction):
             f"NumSectorTemplate{label}Deg",
             sig(value, 2),
             value,
-            "analysis/templates templates/templates.npz 1d/amplitude_mean",
+            "analysis/expected-signal expected.npz 1d/amplitude_mean",
             f"{label.lower()} sector template amplitude per unit c (deg)",
         )
     for label, f in (("Min", np.min), ("Median", np.median), ("Max", np.max)):
@@ -477,7 +477,7 @@ def add_signal(numbers, amplitude_deg, sector_mean_deg, sector_fraction):
             f"NumSectorTemplateScatter{label}Percent",
             f"{value:.0f}",
             value,
-            "templates/templates.npz 1d/amplitude_std / 1d/amplitude_mean",
+            "expected.npz 1d/amplitude_std / 1d/amplitude_mean",
             f"{label.lower()} fractional snapshot scatter of the sector template (percent)",
         )
 
@@ -488,7 +488,7 @@ def add_model_vs_reconstruction(numbers, flux, recon_flux, model_m, model_beta, 
             f"NumModelFlux{label}Jy",
             f"{value:.2f}",
             value,
-            "raptor/delivered res-400 background stokes (sum I dOmega, state 0)",
+            "raptor/images res-400 background stokes (sum I dOmega, state 0)",
             f"{'mean' if not label else label.lower()} 230 GHz flux of the simulated images (Jy)",
         )
     numbers.add(
@@ -516,14 +516,14 @@ def add_model_vs_reconstruction(numbers, flux, recon_flux, model_m, model_beta, 
             name,
             f"{100 * value:.1f}",
             100 * value,
-            "analysis/templates background/stokes.npy",
+            "analysis/expected-signal background.npy",
             f"{text} resolved linear polarization fraction of the simulated images (percent)",
         )
     numbers.add(
         "NumModelPolApproxPercent",
         f"{100 * model_m.mean():.0f}",
         100 * model_m.mean(),
-        "analysis/templates background/stokes.npy",
+        "analysis/expected-signal background.npy",
         "mean simulated polarization fraction, rounded",
     )
     for name, value in (("NumReconPolMinPercent", min(recon_m)), ("NumReconPolMaxPercent", max(recon_m))):
@@ -546,7 +546,7 @@ def add_model_vs_reconstruction(numbers, flux, recon_flux, model_m, model_beta, 
         "NumModelBetaTwo",
         sig(model_beta.mean(), 2),
         model_beta.mean(),
-        "analysis/templates background/stokes.npy (global_diagnostics)",
+        "analysis/expected-signal background.npy (global_diagnostics)",
         "mean |beta_2| of the simulated images",
     )
     for name, value in (("NumReconBetaTwoMin", min(recon_beta)), ("NumReconBetaTwoMax", max(recon_beta))):
@@ -940,6 +940,21 @@ def background_evpa(frames, dimension, operator):
     return np.asarray(values)
 
 
+def paper_snapshot(cube_path, config):
+    """Axion-off image and pixel response (amplitude, phase) of snapshot PAPER_SNAPSHOT_LABEL on the sky
+    grid, computed from the RAPTOR image cube exactly as scripts/analysis/expected_signal.py does."""
+    labels = read_json(cube_path.parent / "generated.json")["snapshot_labels"]
+    index = labels.index(PAPER_SNAPSHOT_LABEL)
+    geometry = analysis_geometry(config)
+    preprocess, aperture = geometry["image_preprocess"], geometry["aperturefit"]
+    cube = np.load(cube_path, mmap_mode="r", allow_pickle=False)
+    images = [preprocess_frame(cube[index, s], **preprocess) for s in range(17)]
+    operator = _operator(preprocess["final_shape"], aperture["fov"], aperture["radial_max"],
+                         aperture["window_degrees"], aperture["angular_bins"])
+    pixel, _ = snapshot_response(np.stack(images[1:]), operator)
+    return images[0], dict(amplitude=pixel[..., 0], phase=pixel[..., 1])
+
+
 def run(args):
     from eht_axion.analysis import paper_figures as figures
     from scripts.analysis.limits import theory_aperture_operator
@@ -969,21 +984,22 @@ def run(args):
     )
     with (Path(args.covcheck) / "covariance-sensitivity.csv").open(newline="") as stream:
         covariance_rows = list(csv.DictReader(stream))
-    layout = RunLayout(args.templates.resolve())
-    inputs.stage(layout.processed(PAPER_ALPHA), "analysis:preprocess", ["stokes.npy"])
-    inputs.stage(layout.response(PAPER_ALPHA), "analysis:fit", ["response-2d.npz"])
-    inputs.stage(layout.templates, "analysis:templates", ["templates.npz"])
-    inputs.stage(layout.background_processed, "analysis:background", ["stokes.npy"])
+    expected = args.expected_signal.resolve()
+    inputs.stage(expected, "analysis:expected-signal", ["expected.npz", "background.npy"])
+    paper_cube = image_cube(
+        args.raptor_images.resolve(), PAPER_ALPHA, config["raptor"]["response"]["resolution"]
+    )
+    inputs.stage(paper_cube.parent, "raptor:images", [paper_cube.name, "generated.json"])
     ensemble = args.ensemble.resolve()
     inputs.stage(
         ensemble,
         "eht:ensemble",
         ["report.json", "axes.npz", "global.npz"],
     )
-    background_cube = delivered_cube(
-        args.raptor_input_root.resolve(), None, config["raptor"]["background"]["resolution"]
+    background_cube = image_cube(
+        args.raptor_images.resolve(), None, config["raptor"]["background"]["resolution"]
     )
-    inputs.stage(background_cube.parent, "raptor:delivery", [background_cube.name, "generated.json"])
+    inputs.stage(background_cube.parent, "raptor:images", [background_cube.name, "generated.json"])
     plan = read_json(inputs.file(args.raptor_plan))
     tables = radial_tables(args, plan, inputs, environment)
 
@@ -1015,16 +1031,14 @@ def run(args):
         exponent=cloud["exponent"],
     )
     per_c = b / config["raptor"]["response"]["reference_norm"]
-    response = npz(layout.response(PAPER_ALPHA) / "response-2d.npz")
-    index = int(np.flatnonzero(response["snapshot_labels"] == PAPER_SNAPSHOT_LABEL)[0])
-    processed = np.load(layout.processed(PAPER_ALPHA) / "stokes.npy", mmap_mode="r", allow_pickle=False)
-    frame = np.asarray(processed[index, 0])
-    amplitude_deg = np.rad2deg(response["amplitude"][index] * per_c)
-    templates = npz(layout.templates / "templates.npz")
-    j = {d: int(np.flatnonzero(np.isclose(templates[f"{d}/alphas"], PAPER_ALPHA))[0]) for d in DIMENSIONS}
-    sector_mean = np.rad2deg(templates["1d/amplitude_mean"][j["1d"]] * per_c)
+    frame, response = paper_snapshot(paper_cube, config)
+    amplitude_deg = np.rad2deg(response["amplitude"] * per_c)
+    expected_arrays = npz(expected / "expected.npz")
+    j = {d: int(np.flatnonzero(np.isclose(expected_arrays[f"{d}/alphas"], PAPER_ALPHA))[0])
+         for d in DIMENSIONS}
+    sector_mean = np.rad2deg(expected_arrays["1d/amplitude_mean"][j["1d"]] * per_c)
     sector_fraction = (
-        templates["1d/amplitude_std"][j["1d"]] / templates["1d/amplitude_mean"][j["1d"]]
+        expected_arrays["1d/amplitude_std"][j["1d"]] / expected_arrays["1d/amplitude_mean"][j["1d"]]
     )
     add_signal(numbers, amplitude_deg, sector_mean, sector_fraction)
 
@@ -1032,9 +1046,7 @@ def run(args):
     ensemble_report = read_json(ensemble / "report.json")
     if ensemble_report["bunit"].upper() != "JY/PIXEL":
         raise ValueError("Reconstruction flux requires images in Jy/pixel")
-    background_frames = np.load(
-        layout.background_processed / "stokes.npy", mmap_mode="r", allow_pickle=False
-    )
+    background_frames = np.load(expected / "background.npy", mmap_mode="r", allow_pickle=False)
     model_m, model_beta = [], []
     for item in background_frames:
         values = global_diagnostics(
@@ -1092,9 +1104,9 @@ def run(args):
             gridcheck=str(Path(args.gridcheck).resolve()),
             priorcheck=str(Path(args.priorcheck).resolve()),
             covcheck=str(Path(args.covcheck).resolve()),
-            templates=str(layout.root),
+            expected_signal=str(expected),
             ensemble=str(ensemble),
-            raptor_input_root=str(args.raptor_input_root.resolve()),
+            raptor_images=str(args.raptor_images.resolve()),
             raptor_plan=str(Path(args.raptor_plan).resolve()),
         ),
         presentation=dict(
@@ -1125,10 +1137,10 @@ def run(args):
             figures.radial_function(figure_dir, profiles, window, horizon, switch, RADIAL_SAMPLE_RG)
             figures.two_photon(figure_dir, TWO_EMITTER["left_ratio"], TWO_EMITTER["right_phi_degrees"])
             fov = config["shared"]["image"]["fov_uas"]
-            figures.signal_maps(figure_dir, frame, amplitude_deg, response["phase"][index], fov, TICKS)
-            mean = templates["2d/amplitude_mean"][j["2d"]]
-            fraction = templates["2d/amplitude_std"][j["2d"]] / mean
-            spread = np.rad2deg(templates["1d/amplitude_std"][j["1d"]] * per_c)
+            figures.signal_maps(figure_dir, frame, amplitude_deg, response["phase"], fov, TICKS)
+            mean = expected_arrays["2d/amplitude_mean"][j["2d"]]
+            fraction = expected_arrays["2d/amplitude_std"][j["2d"]] / mean
+            spread = np.rad2deg(expected_arrays["1d/amplitude_std"][j["1d"]] * per_c)
             figures.template_maps(
                 figure_dir, np.rad2deg(mean * per_c), fraction, sector_mean, spread, fov
             )
@@ -1192,9 +1204,9 @@ def main(argv=None):
         ("gridcheck", "analysis/check-grid"),
         ("priorcheck", "analysis/check-prior"),
         ("covcheck", "analysis/check-covariance"),
-        ("templates", "analysis/templates"),
+        ("expected-signal", "analysis/expected-signal"),
         ("ensemble", "eht/ensemble"),
-        ("raptor-input-root", "raptor/delivered"),
+        ("raptor-images", "raptor/images"),
         ("raptor-plan", "raptor/plan.json"),
         ("output-root", "analysis/paper"),
     ):
@@ -1222,9 +1234,9 @@ def main(argv=None):
             "gridcheck": ("analysis.check_grid", {}),
             "priorcheck": ("analysis.check_prior", {}),
             "covcheck": ("analysis.check_covariance", {}),
-            "templates": ("analysis.templates", {}),
+            "expected_signal": ("analysis.expected_signal", {}),
             "ensemble": ("eht.ensemble", {}),
-            "raptor_input_root": ("raptor.delivered", {}),
+            "raptor_images": ("raptor.images", {}),
             "raptor_plan": ("raptor.plan", {}),
             "output_root": ("analysis.paper", {}),
         },

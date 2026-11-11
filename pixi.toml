@@ -36,7 +36,7 @@ rsync = "*"
 
 [feature.raptor-build.tasks]
 raptor-build = { cmd = "python scripts/raptor/build.py", description = "RAPTOR: build the pinned RAPTOR core" }
-raptor-generate = { cmd = "python scripts/raptor/generate.py", description = "RAPTOR: plan/run jobs and deliver Stokes cubes" }
+raptor-generate = { cmd = "python scripts/raptor/generate.py", description = "RAPTOR: plan/run jobs and write the Stokes image cubes" }
 
 [feature.eht-summary.dependencies]
 astropy = ">=6,<8"
@@ -54,7 +54,7 @@ eht-summarize = { cmd = "python scripts/eht/summarize.py", description = "EHT im
 
 # Analysis (combines RAPTOR and EHT products) and maintenance tasks; default environment.
 [tasks]
-analysis-templates = { cmd = "python scripts/analysis/templates.py", description = "Analysis: templates and GRMHD background from delivered RAPTOR data" }
+analysis-expected-signal = { cmd = "python scripts/analysis/expected_signal.py", description = "Analysis: expected axion signal and GRMHD background from the RAPTOR images" }
 analysis-limits = { cmd = "python scripts/analysis/limits.py", description = "Analysis: feature selection on EHT ensembles, likelihood and limits on c" }
 analysis-check-grid = { cmd = "python scripts/analysis/check_grid.py", description = "Analysis: re-evaluate limits on a denser grid / wider prior (CLI overrides)" }
 analysis-check-covariance = { cmd = "python scripts/analysis/check_covariance.py", description = "Analysis: split-ensemble covariance sensitivity" }

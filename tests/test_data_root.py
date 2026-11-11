@@ -117,17 +117,17 @@ def capture(monkeypatch, module, name="run"):
 
 
 def test_analysis_scripts_default_roots(project, monkeypatch):
-    from scripts.analysis import check_covariance, check_grid, limits, summarize, templates
+    from scripts.analysis import check_covariance, check_grid, expected_signal, limits, summarize
 
-    calls = capture(monkeypatch, templates)
-    templates.main(["--data-root", "/d"])
-    assert calls[0][0][1:] == (Path("/d/raptor/delivered"), Path("/d/analysis/templates"))
+    calls = capture(monkeypatch, expected_signal)
+    expected_signal.main(["--data-root", "/d"])
+    assert calls[0][0][1:] == (Path("/d/raptor/images"), Path("/d/analysis/expected-signal"))
 
     calls = capture(monkeypatch, limits)
     limits.main(["--data-root", "/d", "--output-root", "/new"])
     args = calls[0][0][0]
-    assert (args.ensemble, args.templates, args.output_root) == (
-        Path("/d/eht/ensemble"), Path("/d/analysis/templates"), Path("/new"))
+    assert (args.ensemble, args.expected_signal, args.output_root) == (
+        Path("/d/eht/ensemble"), Path("/d/analysis/expected-signal"), Path("/new"))
 
     calls = capture(monkeypatch, check_grid)
     check_grid.main(["--data-root", "/d", "--check", "prior", "--coupling-max", "1e4"])

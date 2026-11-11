@@ -1,6 +1,6 @@
 """Footer-time cadence contracts with tiny JSON fixtures, no scientific runs.
 
-Identity/ancestry validation belongs to generated_inputs and its delivery tests;
+Identity/ancestry validation belongs to generated_inputs and its image tests;
 these tests isolate input_cadence_hours, which only reads footer-time metadata.
 """
 
@@ -10,7 +10,7 @@ import json
 import pytest
 
 from eht_axion.experiment import read_experiment
-from eht_axion.raptor.delivery import input_cadence_hours
+from eht_axion.raptor.images import input_cadence_hours
 
 
 @pytest.fixture

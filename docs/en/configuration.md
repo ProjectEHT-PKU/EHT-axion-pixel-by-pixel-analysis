@@ -31,8 +31,8 @@ An alternative YAML file passed via `--config PATH` must contain the exact same 
 | Symbol | Result | Consumers |
 |---|---|---|
 | `physical_scale(config)` | `PhysicalScale` (`tg_seconds` $= 32\,015.7\,\mathrm{s}$, `tg_hours` $= 8.893\,\mathrm{h}$, `angular_rg_uas` $= 3.819\,\mu\mathrm{as}$, unit conversions) | Analysis scripts, `RAPTOR` frame cadence (`input_cadence_hours`) |
-| `ray_tracing_config(config)` | `shared` physics scalars (`mass_solar`, `distance_mpc`, `label_step_tg`, `alphas`, `principal_n`) plus `raptor` without `raptor.source` | `RAPTOR` task plans, `generated.json` delivery identity |
-| `analysis_geometry(config)` | `image_preprocess` (`sigma`, `init_fov`, `final_fov`, `final_shape`, `rotation_angle` in $r_g$ and $\mathrm{rad}$), `aperturefit` (`fov`, `radial_max`, `window_degrees`, `angular_bins`), and `metadata` | `scripts/analysis/templates.py`, `scripts/analysis/limits.py` |
+| `ray_tracing_config(config)` | `shared` physics scalars (`mass_solar`, `distance_mpc`, `label_step_tg`, `alphas`, `principal_n`) plus `raptor` without `raptor.source` | `RAPTOR` task plans, `generated.json` image-cube identity |
+| `analysis_geometry(config)` | `image_preprocess` (`sigma`, `init_fov`, `final_fov`, `final_shape`, `rotation_angle` in $r_g$ and $\mathrm{rad}$), `aperturefit` (`fov`, `radial_max`, `window_degrees`, `angular_bins`), and `metadata` | `scripts/analysis/expected_signal.py`, `scripts/analysis/limits.py` |
 | `eht_imaging_parameters(config, locations)` | Flat dictionary combining `EHT_LOCATIONS`, `shared.image` (`npix`, `fov_uas`, `blur_fwhm_uas`), and `eht_imaging` excluding `refine` and `monte_carlo` | `scripts/eht/reconstruct.py`, `scripts/eht/refine.py`, `scripts/eht/export_bundle.py` |
 | `EHT_DAYS = (95, 96, 100, 101)` | Observing days of year 2017 (`eht_imaging.inputs` must match this exact set) | All EHT imaging, summary, and analysis modules |
 | `ANGULAR_BINS = 360` | Number of $1^\circ$ sector bins in the 1D aperture observable | `analysis_geometry`, `scripts/analysis/limits.py` |
@@ -46,7 +46,7 @@ An alternative YAML file passed via `--config PATH` must contain the exact same 
 | `mass_solar` | `6500000000.0` | $M_\odot$ | M87\* mass ($> 0$) | `physical_scale`; `RAPTOR` `MBH` |
 | `distance_mpc` | `16.8` | $\mathrm{Mpc}$ | Distance to M87\* ($> 0$; multiplied by $1000$ for `RAPTOR` `DISTANCE` in $\mathrm{kpc}$) | `physical_scale`; `RAPTOR` `DISTANCE` |
 | `label_step_tg` | `0.1` | $t_g$ / label | Expected GRMHD footer time step per snapshot label unit ($> 0$) | `plan_generation` footer cadence check; `PhysicalScale` |
-| `alphas` | `[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.44]` | – | Strictly increasing positive two-decimal $\alpha$ grid (8 values) | `RAPTOR` planning/delivery, templates, likelihood, paper |
+| `alphas` | `[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.44]` | – | Strictly increasing positive two-decimal $\alpha$ grid (8 values) | `RAPTOR` planning and image cubes, expected signal, likelihood, paper |
 | `principal_n` | `2` | – | Principal quantum number $n \ge 1$ in $\Omega(\alpha) = \alpha(1 - \alpha^2/(2n^2))$ | `RAPTOR` `AXION_OMEGA`; `analysis/model.py` |
 | `image.shape` | `64` | pixels | Square sky-grid side length ($\ge 2$) | EHT `npix`, ensemble summary, analysis resampling |
 | `image.fov_uas` | `120.0` | $\mu\mathrm{as}$ | Sky-grid field of view ($1.875\,\mu\mathrm{as}$/pixel; replaces `128` $\mu\mathrm{as}$ in the official EHT script) | EHT `fov_uas`, analysis resampling and aperture |
@@ -57,7 +57,7 @@ An alternative YAML file passed via `--config PATH` must contain the exact same 
 | Key | Value | Unit | Meaning and validation | Read by |
 |---|---|---|---|---|
 | `source.repository` | `github.com/projecteht-pku/raptor` | – | Normalized lowercase `host/owner/name`; at least one git remote of the local checkout must match | `build_raptor`, `generate.py` plan `raptor_source`, `run_jobs` |
-| `source.commit` | `20056006820b6536c96de790dd5fdaad5ada4eae` | – | Exact 40-hex commit required at `HEAD` of a clean local `RAPTOR` checkout | `build_raptor`, `run_jobs`, `deliver_stokes`, `paper.py` (`src/axion.c`) |
+| `source.commit` | `20056006820b6536c96de790dd5fdaad5ada4eae` | – | Exact 40-hex commit required at `HEAD` of a clean local `RAPTOR` checkout | `build_raptor`, `run_jobs`, `write_images`, `paper.py` (`src/axion.c`) |
 | `camera_fov_rg` | `46.2261` | $r_g$ | Square camera width ($176.5\,\mu\mathrm{as}$) | `RAPTOR` `CAM_SIZE_X/Y`; `analysis_geometry` `init_fov` |
 | `fluid_spin` | `0.9375` | – | Dimensionless black-hole spin $a \in [0, 1]$ checked against every BHAC snapshot footer | `read_snapshot_footer`, `paper.py` |
 | `build.model` | `bhac` | – | `setup.sh --code` (`bhac`, `harm3d`, `hamr`; `run_jobs` requires `MKSBHAC`) | `build_raptor` |
@@ -77,10 +77,10 @@ An alternative YAML file passed via `--config PATH` must contain the exact same 
 | `plasma.inclination_degrees` | `163.0` | $\mathrm{deg}$ | Observer inclination `INCLINATION` ($\in [0, 180]$) | `RAPTOR` `model.in`, spectrum file name |
 | `plasma.frequency_hz` | `230.0e+9` | $\mathrm{Hz}$ | Single observing frequency `FREQ_MIN` ($> 0$) | `RAPTOR` `model.in`, HDF5 dataset names |
 | `plasma.step_size` | `0.005` | – | Geodesic integrator step `STEPSIZE` ($> 0$) | `RAPTOR` `model.in` |
-| `snapshots.{start, stop, step}` | `1600, 3000, 10` | label | Inclusive snapshot label grid ($141$ snapshots, `0 <= start <= stop <= 999999`) | `plan_generation`, `deliver_stokes`, `generated_inputs` |
-| `response.resolution` | `100` | pixels | Square side of axion-on and 100-px baseline images (multiple of 10) | `plan_generation`, `deliver_stokes`, `templates.py` |
+| `snapshots.{start, stop, step}` | `1600, 3000, 10` | label | Inclusive snapshot label grid ($141$ snapshots, `0 <= start <= stop <= 999999`) | `plan_generation`, `write_images`, `generated_inputs` |
+| `response.resolution` | `100` | pixels | Square side of axion-on and 100-px baseline images (multiple of 10) | `plan_generation`, `write_images`, `expected_signal.py` |
 | `response.reference_norm` | `0.1` | – | `AXION_NORM` reference amplitude ($> 0$) | `RAPTOR` `model.in`, `limits.py`, `paper.py` |
-| `background.resolution` | `400` | pixels | Square side of axion-off background images (multiple of 10) | `plan_generation`, `deliver_stokes`, `templates.py`, `paper.py` |
+| `background.resolution` | `400` | pixels | Square side of axion-off background images (multiple of 10) | `plan_generation`, `write_images`, `expected_signal.py`, `paper.py` |
 | `radial_tables.low.spin` | `0.9375` | – | Declared spin $a \in [0, 1]$ of the `low` radial CSV | `plan_generation`, `paper.py` |
 | `radial_tables.high.spin` | `0.99` | – | Declared spin $a \in [0, 1]$ of the `high` radial CSV (intentionally distinct from `fluid_spin`) | `plan_generation`, `paper.py` |
 | `alpha_table` | `0.10`–`0.30`: `low`; `0.35`–`0.44`: `high` | – | Maps every two-decimal string key `'0.10'`, …, `'0.44'` to `low` or `high` | `plan_generation`, `run_jobs`, `paper.py` |

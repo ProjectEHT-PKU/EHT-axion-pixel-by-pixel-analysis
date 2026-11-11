@@ -2,14 +2,14 @@
 
 [← 返回文档索引](index.md)
 
-分析流水线将已交付的 `RAPTOR` 斯托克斯（Stokes）数据立方与汇总后的事件视界望远镜（EHT）偏振系综结合起来，计算无量纲耦合常数 $c$ 的相位边缘化（phase-marginalized）贝叶斯可信上限（credible upper limit）$c_{95}(\alpha)$。所有分析脚本均在 `default` Pixi 环境中运行。
+分析流水线将 `RAPTOR` 斯托克斯（Stokes）图像数据立方与汇总后的事件视界望远镜（EHT）偏振系综结合起来，计算无量纲耦合常数 $c$ 的相位边缘化（phase-marginalized）贝叶斯可信上限（credible upper limit）$c_{95}(\alpha)$。所有分析脚本均在 `default` Pixi 环境中运行。
 
 ## 运行分析流水线
 
 在 `.env` 中设置 `EHT_DATA_ROOT`（或通过 `--data-root` 传入）后，全部输入与输出路径默认采用[标准数据布局](data-layout.md#默认目录布局)；`analysis-paper` 还会从固定版本的 `RAPTOR` 工作副本（`EHT_RAPTOR_SOURCE_ROOT`）读取 `src/axion.c`，并从[输入目录布局](data-layout.md#输入目录布局)（`EHT_INPUT_ROOT`）读取径向表：
 
 ```bash
-pixi run analysis-templates
+pixi run analysis-expected-signal
 pixi run analysis-limits
 pixi run analysis-check-grid --check grid --phase-count 128 --coupling-points 240
 pixi run analysis-check-grid --check prior --phase-count 128 --coupling-points 260 --coupling-max 10000
@@ -21,32 +21,32 @@ pixi run analysis-paper
 显式传入目录选项即可覆盖默认路径：
 
 ```bash
-pixi run analysis-templates --raptor-input-root DELIVERED --output-root TEMPLATES
-pixi run analysis-limits --templates TEMPLATES --ensemble ENSEMBLE --output-root LIMITS
-pixi run analysis-check-grid --source LIMITS --templates TEMPLATES --output-root GRID \
+pixi run analysis-expected-signal --raptor-images IMAGES --output-root EXPECTED
+pixi run analysis-limits --expected-signal EXPECTED --ensemble ENSEMBLE --output-root LIMITS
+pixi run analysis-check-grid --source LIMITS --expected-signal EXPECTED --output-root GRID \
     --phase-count 128 --coupling-points 240
-pixi run analysis-check-grid --source LIMITS --templates TEMPLATES --output-root PRIOR \
+pixi run analysis-check-grid --source LIMITS --expected-signal EXPECTED --output-root PRIOR \
     --phase-count 128 --coupling-points 260 --coupling-max 10000
-pixi run analysis-check-covariance --source LIMITS --templates TEMPLATES --output-root COV
+pixi run analysis-check-covariance --source LIMITS --expected-signal EXPECTED --output-root COV
 pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR \
     --covcheck COV --output-root SUMMARY
 pixi run analysis-paper --limits LIMITS --gridcheck GRID --priorcheck PRIOR --covcheck COV \
-    --templates TEMPLATES --ensemble ENSEMBLE --raptor-input-root DELIVERED \
+    --expected-signal EXPECTED --ensemble ENSEMBLE --raptor-images IMAGES \
     --raptor-plan plan.json --raptor-source-root RAPTOR --output-root PAPER
 ```
 
 当未设置 `--data-root` / `EHT_DATA_ROOT` 时，`scripts/analysis/summarize.py` 的 `--covcheck` 为可选参数；设置了数据根目录时，`summarize.py` 默认将 `--covcheck` 设为 `$EHT_DATA_ROOT/analysis/check-covariance`。
 
-## 模拟响应模板（`scripts/analysis/templates.py`）
+## 预期信号（`scripts/analysis/expected_signal.py`）
 
 ### 图像预处理
 
-`scripts/analysis/templates.py` 按当前 `configs/experiment.yaml` 逐一校验交付的数据立方（`generated_inputs`），并通过 `preprocess_cube`（`eht_axion/analysis/templates.py`）流式逐帧处理。对每一帧，`preprocess_frame`：
+`scripts/analysis/expected_signal.py` 按当前 `configs/experiment.yaml` 逐一校验图像数据立方（`generated_inputs`），只发布一个阶段 `analysis:expected-signal`。它逐个快照处理，不保存任何中间结果：每个快照的 16 张轴子相位图像先放到天空网格上，再做下文的拟合并累加。对每一张图像，`preprocess_frame`（`eht_axion/analysis/expected_signal.py`）：
 1. 在原生相机网格上，用标准差 $\sigma = \mathrm{FWHM}/\sqrt{8\ln 2}$（半高全宽 `shared.image.blur_fwhm_uas` $= 19\,\mu\mathrm{as} \to 2.113\,r_g$）的圆高斯核对每个 Stokes 通道做卷积，边界采用最近值延拓（`mode="nearest"`）。
 2. 通过双线性插值（`order=1`、`prefilter=False`）将相机视场 `raptor.camera_fov_rg`（$46.2261\,r_g \approx 176.5\,\mu\mathrm{as}$）重采样到 $64 \times 64$、$120\,\mu\mathrm{as}$（$31.42\,r_g$）的天空网格上，同时将图像主动旋转 $\theta =$ `analysis.rotation_degrees`（$108^\circ$）。
 3. 按自旋–2（spin-2）变换因子旋转线偏振：$Q + iU \mapsto e^{2i\theta}(Q + iU)$。
 
-不对流量做重新归一化。预处理后的图像具有空间轴 `[x, y]`，第 `0` 轴指向西（`-East`），第 `1` 轴指向北（`+North`）。有轴子响应数据立方（阶段 `analysis:preprocess`）保留全部 17 个状态；400 像素无轴子背景数据立方（阶段 `analysis:background`）仅保留状态 `0`。
+不对流量做重新归一化。预处理后的图像具有空间轴 `[x, y]`，第 `0` 轴指向西（`-East`），第 `1` 轴指向北（`+North`）。400 像素无轴子背景图像（仅状态 `0`）放到天空网格上后写为 `background.npy`，这是唯一保存的预处理图像。
 
 ### 扇形孔径算子（1D 观测量）
 
@@ -66,7 +66,7 @@ $$
 
 ### 谐波响应拟合与快照汇总
 
-对每个快照和每个 $\alpha$，`fit_processed`（阶段 `analysis:fit`）剔除状态 `0`，通过 `fit_phase_dft` 在每个像素（2D）和每个扇区（1D）上对 16 个相位状态（$\psi_k = 2\pi k/16$，$k = 0, \dots, 15$）做一次谐波拟合：
+对每个快照和每个 $\alpha$，`snapshot_response` 剔除状态 `0`，通过 `fit_phase_dft` 在每个像素（2D）和每个扇区（1D）上对 16 个相位状态（$\psi_k = 2\pi k/16$，$k = 0, \dots, 15$）做一次谐波拟合：
 
 $$
 \chi_k = \bar{\chi} + A\cos(\psi_k + \phi).
@@ -74,16 +74,16 @@ $$
 
 先把各相位的 EVPA 提升到其圆均值（circular mean）$\chi_0 = \frac{1}{2}\arg\langle e^{2i\chi_k}\rangle$ 所在的 $\pi$ 周期分支上，记基线均值 $\bar{\chi} = \langle\tilde{\chi}_k\rangle$，再由离散傅里叶变换计算 $A e^{i\phi} = \frac{1}{8}\sum_{k=0}^{15} (\tilde{\chi}_k - \bar{\chi})\,e^{-2\pi i k/16}$。缺少任一相位的位置记为无效；当 $A \le 64\varepsilon_{\mathrm{mach}}$ 时置 $A = 0$、$\phi = \mathrm{NaN}$。
 
-`summarize_fits`（阶段 `analysis:templates`）对每个 $\alpha$ 汇总 141 个快照（要求 $\ge 2$ 个有限值快照）：以高斯极大似然估计（Gaussian maximum-likelihood estimation, MLE，`ddof = 0`）计算振幅均值 `amplitude_mean` 和总体标准差 `amplitude_std`，并在圆分支提升后计算相位圆均值 `phase_mean` 和标准差 `phase_std`。`load_templates` 仅在四个统计量对全部 $\alpha$ 均有限且标准差非负时将该空间位置标记为有效；信号模型只读取均值。
+`expected_signal` 对每个 $\alpha$ 汇总 141 个快照（要求 $\ge 2$ 个有限值快照）：以高斯极大似然估计（Gaussian maximum-likelihood estimation, MLE，`ddof = 0`）计算振幅均值 `amplitude_mean` 和总体标准差 `amplitude_std`，并在圆分支提升后计算相位圆均值 `phase_mean` 和标准差 `phase_std`。这些就是单位 `raptor.response.reference_norm` 下的预期信号振幅 $A(x)$ 与相位 $\phi(x)$，写入 `expected.npz`。`load_expected_signal` 仅在四个统计量对全部 $\alpha$ 均有限且标准差非负时将该空间位置标记为有效；信号模型只读取均值。
 
 ## 观测特征与协方差（`scripts/analysis/limits.py`）
 
 ### 特征选择
 
-`prepare_limit_inputs` 将每天的 EHT 系综图 `[y, x]` 转置为模板轴序 `[x, y]`（核对网格坐标完全一致），并在不查看日间 EVPA 差值大小的前提下筛选特征：
+`prepare_limit_inputs` 将每天的 EHT 系综图 `[y, x]` 转置为预期信号轴序 `[x, y]`（核对网格坐标完全一致），并在不查看日间 EVPA 差值大小的前提下筛选特征：
 
-- **2D 像素特征**必须满足：模板有效；距网格中心的径向距离落在 $[\texttt{min\_radius\_rg}, r_{\max}] = [7.64\,\mu\mathrm{as}, 60\,\mu\mathrm{as}]$ 之内；两个空间下标均为 `pixel_stride`（`5`）的整数倍；在全部四天的全部 1000 次抽样中 EVPA 均有限；且在全部四天中，系综平均 Stokes 图满足 $I \ge 0.1\,I_{\max}$（`intensity_fraction`）和 $\lvert P\rvert \ge 0.2\,\lvert P\rvert_{\max}$（`polarization_fraction`）。
-- **1D 扇区特征**为满足 $k \equiv 4 \pmod{10}$（即 $4^\circ, 14^\circ, \dots, 354^\circ$；`sector_offset_degrees`、`sector_spacing_degrees`）的候选扇区，并要求：模板有效；扇区 EVPA $\chi_k$ 在全部四天的每次抽样中均有限；且在全部四天中，抽样均值满足 $\bar{B}_k \ge 0.1\max_j \bar{B}_j$ 和 $\overline{\langle\mathcal{P}\rangle}_k \ge 0.2\max_j \overline{\langle\mathcal{P}\rangle}_j$。
+- **2D 像素特征**必须满足：预期信号有效；距网格中心的径向距离落在 $[\texttt{min\_radius\_rg}, r_{\max}] = [7.64\,\mu\mathrm{as}, 60\,\mu\mathrm{as}]$ 之内；两个空间下标均为 `pixel_stride`（`5`）的整数倍；在全部四天的全部 1000 次抽样中 EVPA 均有限；且在全部四天中，系综平均 Stokes 图满足 $I \ge 0.1\,I_{\max}$（`intensity_fraction`）和 $\lvert P\rvert \ge 0.2\,\lvert P\rvert_{\max}$（`polarization_fraction`）。
+- **1D 扇区特征**为满足 $k \equiv 4 \pmod{10}$（即 $4^\circ, 14^\circ, \dots, 354^\circ$；`sector_offset_degrees`、`sector_spacing_degrees`）的候选扇区，并要求：预期信号有效；扇区 EVPA $\chi_k$ 在全部四天的每次抽样中均有限；且在全部四天中，抽样均值满足 $\bar{B}_k \ge 0.1\max_j \bar{B}_j$ 和 $\overline{\langle\mathcal{P}\rangle}_k \ge 0.2\max_j \overline{\langle\mathcal{P}\rangle}_j$。
 
 随后 `build_observations`（`eht_axion/analysis/observations.py`）仅保留在全部四天中抽样圆合成长度（circular resultant length）$R = \lvert\langle e^{2i\chi}\rangle\rvert$ 均不低于 `resultant_min`（$0.7$）的特征。
 
@@ -104,7 +104,7 @@ $$
 
 $C_1$ 与 $C_2$ 都必须在不加任何正则化项的条件下通过 Cholesky 正定分解。代码同时报告距离 $\pm\pi/2$ 分支割线的距离（以边缘标准差 $\sigma$ 为单位的 $\pi/2 - \lvert d\rvert$）与特征值条件数作为诊断量，但不据此剔除特征。
 
-**GRMHD 背景散布（`selected_background`）：** 严格在最终选定的 1D 或 2D 特征集合上，从 141 帧预处理后的 400 像素无轴子图像中提取 EVPA 时间序列 $\theta_t$，并在滞后帧数 $L =$ `analysis.background.lag_frames`（$3$ 帧 $= 3\,t_g = 26.68\,\mathrm{h}$，帧间隔由 BHAC 尾部时间给出）处计算差分 $\Delta_t = \operatorname{wrap}_\pi(\theta_{t+L} - \theta_t)$。将全部选定特征和帧对合并，求去中心化总体标准差：
+**GRMHD 背景散布（`selected_background`）：** 严格在最终选定的 1D 或 2D 特征集合上，从 `background.npy` 的 141 帧无轴子图像中提取 EVPA 时间序列 $\theta_t$，并在滞后帧数 $L =$ `analysis.background.lag_frames`（$3$ 帧 $= 3\,t_g = 26.68\,\mathrm{h}$，帧间隔由 BHAC 尾部时间给出）处计算差分 $\Delta_t = \operatorname{wrap}_\pi(\theta_{t+L} - \theta_t)$。将全部选定特征和帧对合并，求去中心化总体标准差：
 
 $$
 \sigma_{\mathrm{bg}} = \sqrt{\bigl\langle(\Delta - \langle\Delta\rangle)^2\bigr\rangle},
@@ -122,7 +122,7 @@ $$
 s_p(x; \alpha, \phi_0) = b(\alpha)\,\frac{2\sin(\omega\tau / 2)\,\operatorname{sinc}(\omega T / 2)}{N_{\mathrm{ref}}}\,A(x, \alpha)\,\sin\!\bigl(\phi_0 + \phi(x, \alpha) + \omega t_p\bigr),
 $$
 
-其中角频率 $\omega = \Omega(\alpha)/t_g$（$\mathrm{rad\,h^{-1}}$），日对内两天的间隔 $\tau = 24\,\mathrm{h}$（`day_gap_hours`），单次观测矩形曝光时长 $T = 6\,\mathrm{h}$（`exposure_hours`），$\operatorname{sinc}(u) = \sin u / u$，两日对中点时刻 $t_1 = 0$ 与 $t_2 = 120\,\mathrm{h}$（`pair_separation_hours`，即以第一个日对中点作为相位原点），参考归一化 $N_{\mathrm{ref}} = 0.1$（`raptor.response.reference_norm`），轴子云振幅标度 $b(\alpha) = 0.03\,(\alpha / 0.05)^{1.75}$。模板均值 $A$ 与 $\phi$ 在模板节点之间对 $\alpha$ 做线性插值（$\phi$ 在单位圆上插值），在节点范围之外保持边界常数。
+其中角频率 $\omega = \Omega(\alpha)/t_g$（$\mathrm{rad\,h^{-1}}$），日对内两天的间隔 $\tau = 24\,\mathrm{h}$（`day_gap_hours`），单次观测矩形曝光时长 $T = 6\,\mathrm{h}$（`exposure_hours`），$\operatorname{sinc}(u) = \sin u / u$，两日对中点时刻 $t_1 = 0$ 与 $t_2 = 120\,\mathrm{h}$（`pair_separation_hours`，即以第一个日对中点作为相位原点），参考归一化 $N_{\mathrm{ref}} = 0.1$（`raptor.response.reference_norm`），轴子云振幅标度 $b(\alpha) = 0.03\,(\alpha / 0.05)^{1.75}$。预期信号均值 $A$ 与 $\phi$ 在 $\alpha$ 节点之间对 $\alpha$ 做线性插值（$\phi$ 在单位圆上插值），在节点范围之外保持边界常数。
 
 ### 协方差模式、似然函数与可信上限
 

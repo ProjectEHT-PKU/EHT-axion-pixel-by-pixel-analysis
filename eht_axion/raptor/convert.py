@@ -1,13 +1,11 @@
-"""Delivered RAPTOR HDF5 -> float64 Stokes cube (stokes.npy), and small array-file helpers.
+"""RAPTOR job HDF5 -> float64 Stokes cube (stokes.npy), and small array-file helpers.
 
 convert_hdf5 reads the core's tiled IQUV datasets of a time x state grid of job
-outputs. The helpers (dtype/number checks, new output files that never alias an
-input, JSON metadata) are shared with the analysis image stages
-(analysis/templates.py). Inputs are read-only; outputs are new files.
+outputs. The dtype/number checks are shared with analysis/expected_signal.py.
+Inputs are read-only; outputs are new files.
 """
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -46,10 +44,6 @@ def _outputs(output_dir, names, inputs=()):
         require_new_output_file(path)
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     return paths
-
-
-def _metadata(path, **values):
-    path.write_text(json.dumps(values, indent=2, allow_nan=False) + "\n", encoding="utf-8")
 
 
 def _hdf_sources(sources):

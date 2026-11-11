@@ -1,5 +1,6 @@
-"""Delivery: RAPTOR job HDF5 -> Stokes cubes (delivered/res-*/{alpha-*,background}/stokes.npy), and checks of
-delivered cubes against this experiment (generated_inputs, input_cadence_hours, validate_processed_source)."""
+"""RAPTOR images: job HDF5 -> one Stokes cube per alpha and one background cube
+(images/res-*/{alpha-*,background}/stokes.npy), and checks of the cubes against this
+experiment (generated_inputs, input_cadence_hours)."""
 from __future__ import annotations
 
 import json
@@ -60,10 +61,10 @@ def _identity(config, *, alpha, resolution, labels, times):
     )
 
 
-def deliver_stokes(plan, run_root):
-    """Publish the Stokes cubes of the completed jobs of run_root into run_root/delivered.
+def write_images(plan, run_root):
+    """Publish the Stokes cubes of the completed jobs of run_root into run_root/images.
 
-    run_root holds build/, jobs/<task id>/ and delivered/res-<n>/{alpha-<a>,background}/stokes.npy.
+    run_root holds build/, jobs/<task id>/ and images/res-<n>/{alpha-<a>,background}/stokes.npy.
     """
     root = Path(run_root).resolve()
     config = plan["config"]
@@ -103,9 +104,9 @@ def deliver_stokes(plan, run_root):
                 inputs += [receipt, hdf]
             grid.append(row)
             times.append(baseline["time_tg"])
-        destination = product_directory(root / "delivered", alpha, resolution)
+        destination = product_directory(root / "images", alpha, resolution)
         identity = _identity(config, alpha=alpha, resolution=resolution, labels=labels, times=times)
-        with stage_directory(destination, "raptor:delivery", identity,
+        with stage_directory(destination, "raptor:images", identity,
                              list(dict.fromkeys(inputs))) as temp:
             if temp is not None:
                 frequency = config["raptor"]["plasma"]["frequency_hz"]
@@ -116,10 +117,10 @@ def deliver_stokes(plan, run_root):
 
 
 def generated_inputs(path, config, *, alpha, resolution):
-    """Check a delivered RAPTOR cube against this experiment; return its inputs and labels.
+    """Check a RAPTOR image cube against this experiment; return its inputs and labels.
 
     ``alpha`` is None for the axion-off background. The cube must be a complete
-    raptor:delivery stage whose generated.json equals what this experiment would deliver
+    raptor:images stage whose generated.json equals what this experiment would write
     (ray-tracing settings, alpha, resolution) over exactly the raptor.snapshots labels.
     """
     path = Path(path)
@@ -153,13 +154,3 @@ def input_cadence_hours(path, config):
         raise ValueError("Background requires a uniform finite footer-time grid")
     return float(delta[0]) * physical_scale(config).tg_hours
 
-
-def validate_processed_source(manifest, config, *, alpha, resolution):
-    """Recheck that a preprocess stage consumed exactly the delivered cube."""
-    raw = [Path(p) for p in manifest["inputs"] if Path(p).suffix == ".npy"]
-    if len(raw) != 1:
-        raise ValueError("Preprocess stage must declare exactly one delivered Stokes cube")
-    required, _ = generated_inputs(raw[0], config, alpha=alpha, resolution=resolution)
-    actual = {Path(p).resolve() for p in manifest["inputs"]}
-    if actual != {p.resolve() for p in required}:
-        raise ValueError("Preprocess source lineage omits generated identity or contains foreign inputs")

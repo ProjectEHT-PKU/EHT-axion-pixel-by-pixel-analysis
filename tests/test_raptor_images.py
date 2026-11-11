@@ -1,4 +1,4 @@
-"""Synthetic HDF delivery and downstream identity wiring, no real ray tracing."""
+"""Synthetic HDF image cubes and downstream identity wiring, no real ray tracing."""
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -8,15 +8,15 @@ import pytest
 
 from eht_axion.experiment import read_experiment
 from eht_axion.provenance import stage_directory, verify_stage
-from eht_axion.raptor.layout import delivered_cube
-from eht_axion.raptor.delivery import deliver_stokes, generated_inputs, input_cadence_hours
+from eht_axion.raptor.layout import image_cube
+from eht_axion.raptor.images import write_images, generated_inputs, input_cadence_hours
 from test_raptor_outputs import write_products
 
 REPOSITORY = "github.com/example/raptor"
 
 @pytest.fixture(scope="module")
-def delivered(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("generated-delivery")
+def raptor_images(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("generated-images")
     config = read_experiment()
     config["shared"]["alphas"] = [0.2]
     config["raptor"]["alpha_table"] = {"0.20": "low"}
@@ -70,16 +70,16 @@ def delivered(tmp_path_factory):
                              base_inputs + inputs) as temp:
             write_products(temp, prepared["parameters"], prepared["output_slot"])
             validate_job_output(temp, prepared)
-    products = deliver_stokes(plan, run)
+    products = write_images(plan, run)
     return config, run, products
 
 
-def test_delivery_shapes_axes_labels_and_ancestry(delivered):
-    config, run, products = delivered
+def test_image_shapes_axes_labels_and_ancestry(raptor_images):
+    config, run, products = raptor_images
     assert len(products) == 2
     for alpha, resolution, shape in ((.2, 100, (2, 17, 100, 100, 4)),
                                      (None, 400, (2, 1, 400, 400, 4))):
-        path = delivered_cube(run / "delivered", alpha, resolution)
+        path = image_cube(run / "images", alpha, resolution)
         array = np.load(path, mmap_mode="r")
         assert array.shape == shape
         expected = (1 + np.arange(resolution)[:, None]*2 + np.arange(resolution)[None, :]*3)*1e20
@@ -93,57 +93,61 @@ def test_delivery_shapes_axes_labels_and_ancestry(delivered):
 
 
 @pytest.mark.parametrize("key,value", [("mass_solar", 6.2e9), ("distance_mpc", 16.9)])
-def test_generated_physics_cannot_be_silently_changed(delivered, key, value):
-    config, run, _ = delivered
+def test_generated_physics_cannot_be_silently_changed(raptor_images, key, value):
+    config, run, _ = raptor_images
     changed = deepcopy(config)
     changed["shared"][key] = value
-    paths = delivered_cube(run / "delivered", .2, 100)
+    paths = image_cube(run / "images", .2, 100)
     with pytest.raises(ValueError, match="identity differs"):
         generated_inputs(paths, changed, alpha=.2, resolution=100)
 
 
-def test_analysis_ignores_sky_grid_but_not_ray_tracing_changes(delivered):
-    config, run, _ = delivered
+def test_analysis_ignores_sky_grid_but_not_ray_tracing_changes(raptor_images):
+    config, run, _ = raptor_images
     changed = deepcopy(config)
     changed["shared"]["image"]["fov_uas"] = 100.0
     changed["analysis"]["inference"]["phase_count"] = 32
-    paths = delivered_cube(run / "delivered", .2, 100)
+    paths = image_cube(run / "images", .2, 100)
     assert generated_inputs(paths, changed, alpha=.2, resolution=100)[1] == [1600, 1610]
     changed["raptor"]["plasma"]["mass_unit_g"] = 4e25
     with pytest.raises(ValueError, match="identity differs"):
         generated_inputs(paths, changed, alpha=.2, resolution=100)
 
 
-def test_generated_data_reaches_templates_and_background(delivered, tmp_path):
+def test_generated_data_reaches_the_expected_signal_and_background(raptor_images, tmp_path):
     import yaml
-    from scripts.analysis.templates import run as run_templates
-    from eht_axion.raptor.delivery import validate_processed_source
 
-    config, run, _ = delivered
+    from scripts.analysis.expected_signal import run as run_expected
+    from scripts.analysis.limits import validate_expected_signal
+
+    config, run, _ = raptor_images
     profile = deepcopy(config)
     profile["shared"]["image"]["shape"] = 8
     profile["analysis"]["background"]["lag_frames"] = 1
     path = tmp_path / "experiment.yaml"
     path.write_text(yaml.safe_dump(profile))
-    output = tmp_path / "analysis"
-    run_templates(path, run / "delivered", output)
-    with np.load(output / "response/alpha-0.20/response-2d.npz") as z:
-        np.testing.assert_array_equal(z["snapshot_labels"], [1600, 1610])
-    record = verify_stage(output / "processed/alpha-0.20")
-    validate_processed_source(record, profile, alpha=.2, resolution=100)
-    bg = verify_stage(output / "background")
-    validate_processed_source(bg, profile, alpha=None, resolution=400)
-    assert bg["config"]["state_indices"] == [0]
-    assert np.load(output / "background/stokes.npy", mmap_mode="r").shape == (2, 1, 8, 8, 4)
-    assert not (output / "background-unmasked").exists()
-    (delivered,) = [Path(e) for e in bg["inputs"] if e.endswith(".npy")]
-    assert input_cadence_hours(delivered, profile) > 0
+    output = tmp_path / "expected-signal"
+    run_expected(path, run / "images", output)
+    record = verify_stage(output)
+    assert record["stage"] == "analysis:expected-signal"
+    assert record["config"]["snapshot_labels"] == [1600, 1610]
+    assert sorted(p.name for p in output.iterdir()) == ["background.npy", "expected.npz", "manifest.json"]
+    products, inputs = validate_expected_signal(output, profile)
+    assert inputs == [output / "manifest.json", output / "expected.npz"]
+    assert products["2d"][3].shape == (8, 8) and products["1d"][3].shape == (360,)
+    assert np.load(output / "background.npy", mmap_mode="r").shape == (2, 1, 8, 8, 4)
+    (cube,) = [Path(e) for e in record["inputs"] if e.endswith("background/stokes.npy")]
+    assert input_cadence_hours(cube, profile) > 0
     with pytest.raises(FileExistsError):
-        run_templates(path, run / "delivered", output)
+        run_expected(path, run / "images", output)
+    changed = deepcopy(profile)
+    changed["analysis"]["rotation_degrees"] += 1
+    with pytest.raises(ValueError, match="geometry"):
+        validate_expected_signal(output, changed)
 
 
-def test_missing_metadata_is_rejected(delivered):
-    config, run, products = delivered
+def test_missing_metadata_is_rejected(raptor_images):
+    config, run, products = raptor_images
     path = products[0]
     metadata = path.parent / "generated.json"
     content = metadata.read_bytes()
@@ -155,8 +159,8 @@ def test_missing_metadata_is_rejected(delivered):
         metadata.write_bytes(content)
 
 
-def test_convert_only_rejects_wrong_build_even_with_valid_jobs(delivered):
-    config, run, _ = delivered
+def test_convert_only_rejects_wrong_build_even_with_valid_jobs(raptor_images):
+    config, run, _ = raptor_images
     from eht_axion.raptor.plan import plan_generation
 
     source = run.parent / "fluid"
@@ -164,10 +168,10 @@ def test_convert_only_rejects_wrong_build_even_with_valid_jobs(delivered):
     plan = plan_generation(config, source, tables, run / "build")
     plan["raptor_source"] = {"repository": REPOSITORY, "commit": "other-commit"}
     with pytest.raises(ValueError, match="Build RAPTOR source"):
-        deliver_stokes(plan, run)
+        write_images(plan, run)
 
 
-def test_undelivered_cube_is_rejected(tmp_path):
+def test_unimage_cube_is_rejected(tmp_path):
     cube = tmp_path / "stokes.npy"
     np.save(cube, np.zeros((2, 17, 100, 100, 4)))
     with pytest.raises(ValueError, match="no manifest"):
