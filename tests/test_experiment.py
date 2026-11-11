@@ -12,8 +12,7 @@ from eht_axion.experiment import (
     validate, validate_ray_tracing,
 )
 
-LOCATIONS = dict(input_root="/data/uvfits", feed_rotation_file="/data/feed.json",
-                 official_script="/data/pipeline.py")
+LOCATIONS = dict(input_root="/data/uvfits", official_script="/data/pipeline.py")
 
 
 @pytest.fixture
@@ -79,7 +78,8 @@ def test_ray_tracing_subset_excludes_sky_grid_imaging_and_analysis(config):
 
 def test_eht_imaging_parameters_flat_set_with_shared_grid(config):
     parameters = eht_imaging_parameters(config, LOCATIONS)
-    assert list(parameters)[:4] == ["input_root", "feed_rotation_file", "official_script", "inputs"]
+    assert list(parameters)[:3] == ["input_root", "official_script", "inputs"]
+    assert parameters["feed_rotation"]["SM"] == [1, -1, 45]
     assert (parameters["npix"], parameters["fov_uas"], parameters["blur_fwhm_uas"]) == (64, 120.0, 19.0)
     assert parameters["uncertainty_draws"] == 1000
     imaging = {k: v for k, v in config["eht_imaging"].items() if k not in ("refine", "monte_carlo")}

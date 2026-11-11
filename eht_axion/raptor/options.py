@@ -2,12 +2,12 @@
 
 Three roots (eht_axion/environment.py): ``--source-root`` / ``EHT_RAPTOR_SOURCE_ROOT`` (the
 RAPTOR checkout), ``--input-root`` / ``EHT_INPUT_ROOT`` (snapshots and radial tables; generate
-only) and ``--data-root`` / ``EHT_DATA_ROOT`` (default run root raptor/runs/main).
+only) and ``--data-root`` / ``EHT_DATA_ROOT`` (the run is raptor/ below it: plan.json, build/,
+jobs/, delivered/).
 """
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
 from ..environment import (DATA_ROOT_KEY, INPUT_ROOT_KEY, RAPTOR_SOURCE_ROOT_KEY, ROOT,
@@ -27,17 +27,12 @@ def options(kind, argv=None):
                         help="Experiment parameter file (default: configs/experiment.yaml)")
     parser.add_argument("--source-root", "--raptor-source-root", dest="source_root", type=Path,
                         help=f"RAPTOR Git checkout; overrides ${RAPTOR_SOURCE_ROOT_KEY}")
-    parser.add_argument("--run-root", type=Path,
-                        help="Run container (default: raptor/runs/main below --data-root)")
     if kind == "generate":
         add_input_root_option(parser)
         for key, layout in INPUTS.items():
             parser.add_argument("--" + key.replace("_", "-"), type=Path,
                                 help=f"default: {layout} layout entry below --input-root")
         parser.add_argument("--plan", action="store_true", help="Validate and list tasks; never launch C")
-        parser.add_argument("--plan-output", type=Path,
-                            help="With --plan: also write the frozen plan JSON "
-                                 "(input of scripts/raptor/merge.py)")
         parser.add_argument("--convert-only", action="store_true",
                             help="Deliver already complete jobs; no launch")
         parser.add_argument("--max-jobs", type=int,
@@ -53,10 +48,8 @@ def options(kind, argv=None):
     try:
         environment = resolve_environment(args)
         args.source_root = raptor_source_root(args, environment)
-        if args.run_root is None:
-            root = data_root(args, environment)
-            if root is not None:
-                args.run_root = layout_path(root, "raptor.run")
+        root = data_root(args, environment)
+        args.run_root = None if root is None else layout_path(root, "raptor")
         if kind == "generate":
             missing = [key for key in INPUTS if getattr(args, key) is None]
             root = input_root(args, environment) if missing else None
@@ -68,7 +61,7 @@ def options(kind, argv=None):
     if args.source_root is None:
         parser.error(f"Provide --source-root or ${RAPTOR_SOURCE_ROOT_KEY}")
     if args.run_root is None:
-        parser.error(f"Provide --run-root, or --data-root / ${DATA_ROOT_KEY}")
+        parser.error(f"Provide --data-root or ${DATA_ROOT_KEY}")
     if kind == "generate":
         missing = ", ".join("--" + key.replace("_", "-") for key in INPUTS if getattr(args, key) is None)
         if missing:
@@ -116,31 +109,3 @@ def options(kind, argv=None):
         parser.error(str(error))
     args.config_data = config
     return args
-
-
-def save_request(args, plan=None):
-    """Append a request record; never overwrite the run's experiment file or earlier results."""
-    import uuid
-
-    args.run_root.mkdir(parents=True, exist_ok=True)
-    target = args.run_root / "config.yaml"
-    reject_directory_symlinks(target)
-    content = args.config.read_bytes()
-    if target.exists():
-        if target.read_bytes() != content:
-            raise ValueError("Run ID already uses a different science configuration; choose a new run")
-    else:
-        with target.open("xb") as stream:
-            stream.write(content)
-    directory = args.run_root / "requests"
-    reject_directory_symlinks(directory)
-    directory.mkdir(exist_ok=True)
-    record = {"config": str(args.config), "run_root": str(args.run_root),
-              "core_source": str(args.source_root), "raptor_source": args.config_data["raptor"]["source"]}
-    if plan is not None:
-        record["plan"] = plan
-    path = directory / f"{uuid.uuid4().hex}.json"
-    with path.open("x") as stream:
-        json.dump(record, stream, indent=2, allow_nan=False)
-        stream.write("\n")
-    return path

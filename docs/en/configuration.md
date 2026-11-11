@@ -97,12 +97,13 @@ Note that the compact zero-baseline flux density (`zbl = 0.60` Jy) of the total-
 |---|---|---|---|---|
 | `inputs` | `{95: [...], 96: [...], 100: [...], 101: [...]}` | – | `[filename, sha256]` of each day's HOPS `SR2_M87_2017_<day>_lo_hops_zbl-dtcal+selfcal.uvfits` | `reconstruct.py` (SHA-256 of the file bytes in `$EHT_INPUT_ROOT/eht/`) |
 | `gain_tol` | `[0.02, 0.2]` | – | `[lower, upper]` fractional gain tolerances for shared-gain `selfcal` | `reconstruct.py` (`--stage I`) |
-| `fsys` | `0.005` | – | Fractional systematic noise added in quadrature to `RL`/`LR` sigmas ($> 0$) | `add_fsys` in `reconstruct.py`, `refine.py`, `sample.py`; `bundle.json` |
+| `fsys` | `0.005` | – | Fractional systematic noise added in quadrature to `RL`/`LR` sigmas ($> 0$) | `add_fsys` in `reconstruct.py`, `refine.py`, `sample.py` |
 | `solve_sites` | `['AZ', 'LM', 'PV']` | – | Stations whose D terms are solved (disjoint from `fixed_sites`) | `reconstruct.py`, `refine.py`, `sample.py` |
 | `fixed_sites` | `['AA', 'AP', 'SM', 'JC']` | – | Stations pre-corrected for leakage in released HOPS `uvfits` | `load_native` metadata, `sample_dterms` |
-| `p_data` | `{pvis: 1.0, m: 1.0}` | – | Data-term weights in the $P$ objective ($> 0$) | `reconstruct.py`, `convex.py`, `bundle.json` |
-| `p_reg` | `{hw: 100.0, ptv: 1.0}` | – | Regularizer weights: hold-weight polarization entropy `hw` and polarimetric TV `ptv` ($> 0$) | `reconstruct.py`, `convex.py`, `bundle.json` |
-| `norm_reg` | `true` | – | Normalize `ehtim` regularizers (`true` required by `convex.py`) | `reconstruct.py`, `convex.py`, `bundle.json` |
+| `feed_rotation` | `{AA: [1, 0, 0], …, SM: [1, -1, 45]}` | –, –, deg | Field-rotation coefficients `[fr_par, fr_elev, fr_off]` of every station (EHT Paper VII Table 1) | `load_native`, `load_gaincal_base` |
+| `p_data` | `{pvis: 1.0, m: 1.0}` | – | Data-term weights in the $P$ objective ($> 0$) | `reconstruct.py`, `convex.py` |
+| `p_reg` | `{hw: 100.0, ptv: 1.0}` | – | Regularizer weights: hold-weight polarization entropy `hw` and polarimetric TV `ptv` ($> 0$) | `reconstruct.py`, `convex.py` |
+| `norm_reg` | `true` | – | Normalize `ehtim` regularizers (`true` required by `convex.py`) | `reconstruct.py`, `convex.py` |
 | `initial_m` | `0.1` | – | Initial fractional polarization $m_0 \in (0, 1)$ of fiducial round 1 | `reconstruct.py` |
 | `initial_evpa_deg` | `0.0` | $\mathrm{deg}$ | Initial uniform EVPA $\chi_0$ of fiducial round 1 | `reconstruct.py` |
 | `rounds` | `50` | – | Fiducial $P$/$D$ alternation rounds ($\ge 1$) | `reconstruct.py` |
@@ -115,8 +116,8 @@ Note that the compact zero-baseline flux density (`zbl = 0.60` Jy) of the total-
 | `uv_min` | `100000000.0` | $\lambda$ | Minimum baseline length ($100\,\mathrm{M}\lambda$) excluding intra-site zero baselines before shared-gain calibration and in all $P$ imaging | `reconstruct.py`, `refine.py`, `sample.py` |
 | `uncertainty_draws` | `1000` | draws/day | D-term Monte Carlo realizations per day ($4000$ total) | `sample.py`, `eht/summarize.py`, `limits.py`, `check_covariance.py` |
 | `seed` | `20210405` | – | Base integer RNG seed ($\ge 0$); day $d$ uses `SeedSequence([seed, day])` | `sample.py` |
-| `covariance_ddof` | `1` | – | Delta degrees of freedom ($\in [0, 3]$) for the 4-day $(\operatorname{Re} D, \operatorname{Im} D)$ covariance | `d_distribution`, `export_bundle.py`, `sample.py` |
-| `residual_d_sigma` | `0.01` | – | Per-component ($\operatorname{Re}$, $\operatorname{Im}$) zero-mean Gaussian SD for `fixed_sites` | `sample_dterms`, `export_bundle.py`, `sample.py` |
+| `covariance_ddof` | `1` | – | Delta degrees of freedom ($\in [0, 3]$) for the 4-day $(\operatorname{Re} D, \operatorname{Im} D)$ covariance | `d_distribution`, `sample.py` |
+| `residual_d_sigma` | `0.01` | – | Per-component ($\operatorname{Re}$, $\operatorname{Im}$) zero-mean Gaussian SD for `fixed_sites` | `sample_dterms`, `sample.py` |
 | `refine.outer_rounds` | `100` | rounds | Alternating exact-$P$ / forward-$D$ rounds before the final $P$ solve | `refine.py` |
 | `refine.gap_atol` | `1.0e-06` | objective | Primal–dual gap certificate tolerance per PDHG $P$ solve | `refine.py` |
 | `refine.maxiter` | `20000` | iterations | PDHG iteration cap per $P$ solve in `refine.py` | `refine.py` |
@@ -164,21 +165,21 @@ Note that the compact zero-baseline flux density (`zbl = 0.60` Jy) of the total-
 Every machine-local location derives from exactly three path roots, set in one git-ignored `.env` at the repository root (copy from [`.env.example`](../../.env.example)), exported in the shell, or passed on the command line:
 
 1. `EHT_RAPTOR_SOURCE_ROOT` (`--source-root` / `--raptor-source-root`): the local `RAPTOR` git checkout pinned by `raptor.source`.
-2. `EHT_INPUT_ROOT` (`--input-root`): read-only external inputs in the fixed [input layout](data-layout.md#input-layout) (`INPUT_LAYOUT`): GRMHD snapshots, radial tables, the official EHT `uvfits` files, feed-rotation table, and imaging script.
+2. `EHT_INPUT_ROOT` (`--input-root`): read-only external inputs in the fixed [input layout](data-layout.md#input-layout) (`INPUT_LAYOUT`): GRMHD snapshots, radial tables, the official EHT `uvfits` files, and the imaging script.
 3. `EHT_DATA_ROOT` (`--data-root`): every generated product in the [default layout](data-layout.md#default-layout) (`LAYOUT`).
 
 `eht_axion/environment.py` parses `.env` strictly as key–value data:
 
 - **No shell execution or interpolation**: `$VAR` and `$(...)` are not expanded; syntax errors, unknown variable names, missing `=value`, or duplicate keys raise `ValueError`.
 - **No working-directory search**: the default dotenv file is always `ROOT / ".env"` in the repository root. `--env-file PATH` replaces it with another file; `--no-env-file` disables dotenv loading.
-- **Precedence**: `CLI option > exported environment (os.environ) > .env`. An explicit per-file option (`--run-root`, `--fluid-root`, `--radial-low`, `--radial-high`, `--uvfits-dir`, `--feed-rotation-file`, `--official-script`, or any `--...-root` of a stage) overrides the default derived from its root.
+- **Precedence**: `CLI option > exported environment (os.environ) > .env`. An explicit per-file option (`--fluid-root`, `--radial-low`, `--radial-high`, `--uvfits-dir`, `--official-script`, or any `--...-root` of a stage) overrides the default derived from its root.
 - **Path anchoring**: relative path values inside `.env` are anchored to the repository root. Relative CLI paths (and exported values) are resolved against the caller's working directory.
 
 | Variable | Kind | Fallback / default | Read by | Description |
 |---|---|---|---|---|
 | `EHT_RAPTOR_SOURCE_ROOT` | Path | required for `build.py`, `generate.py`, `paper.py` | `scripts/raptor/build.py`, `generate.py`, `scripts/analysis/paper.py` | Local checkout of `github.com/projecteht-pku/raptor` at `raptor.source.commit` (`--source-root`; `--raptor-source-root` in `paper.py`) |
-| `EHT_INPUT_ROOT` | Path | required unless every input file is given explicitly | `scripts/raptor/generate.py`, `scripts/eht/reconstruct.py`, `scripts/analysis/paper.py` | Root of the read-only [input layout](data-layout.md#input-layout): `grmhd/` (`--fluid-root`), `radial/` tables (`--radial-low`, `--radial-high`), and `eht/` (`--uvfits-dir`, `--feed-rotation-file`, `--official-script`); overridden by `--input-root` |
-| `EHT_DATA_ROOT` | Path | required unless explicit `--...-root` flags are given | Every pipeline script | Root of the [default directory layout](data-layout.md#default-layout), including the run root `raptor/runs/main` of `build.py` / `generate.py`; overridden by `--data-root` |
+| `EHT_INPUT_ROOT` | Path | required unless every input file is given explicitly | `scripts/raptor/generate.py`, `scripts/eht/reconstruct.py`, `scripts/analysis/paper.py` | Root of the read-only [input layout](data-layout.md#input-layout): `grmhd/` (`--fluid-root`), `radial/` tables (`--radial-low`, `--radial-high`), and `eht/` (`--uvfits-dir`, `--official-script`); overridden by `--input-root` |
+| `EHT_DATA_ROOT` | Path | required unless explicit `--...-root` flags are given | Every pipeline script | Root of the [default directory layout](data-layout.md#default-layout), including `raptor/` of `build.py` / `generate.py`; overridden by `--data-root` |
 | `EHT_RAPTOR_THREADS` | Value (`int`) | `2` | `scripts/raptor/generate.py` | OpenMP threads per `RAPTOR` worker process (`--threads`) |
 | `EHT_RAPTOR_WORKERS` | Value (`int`) | `1` | `scripts/raptor/generate.py` | Concurrent `RAPTOR` worker processes (`--workers`) |
 | `EHT_RAPTOR_CPU_AFFINITY` | Value (`str`) | `none` (`.env.example` uses `physical`) | `scripts/raptor/generate.py` | Worker CPU pinning policy: `none`, `physical`, or `logical` (`--cpu-affinity`) |

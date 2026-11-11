@@ -39,9 +39,7 @@ def documented_layout(path):
 def test_layout_is_the_documented_default_layout(language):
     documented = documented_layout(ROOT / "docs" / language / "data-layout.md")
     for key, relative in env.LAYOUT.items():
-        expected = relative.format(day="<day>").replace("runs/main", "runs/<name>")
-        if key == "raptor.data":
-            expected = "raptor/delivered"
+        expected = relative.format(day="<day>")
         assert expected in documented, key
 
 
@@ -123,7 +121,7 @@ def test_analysis_scripts_default_roots(project, monkeypatch):
 
     calls = capture(monkeypatch, templates)
     templates.main(["--data-root", "/d"])
-    assert calls[0][0][1:] == (Path("/d/raptor/delivered/data"), Path("/d/analysis/templates"))
+    assert calls[0][0][1:] == (Path("/d/raptor/delivered"), Path("/d/analysis/templates"))
 
     calls = capture(monkeypatch, limits)
     limits.main(["--data-root", "/d", "--output-root", "/new"])
@@ -157,18 +155,18 @@ def test_analysis_scripts_default_roots(project, monkeypatch):
 
 
 def test_eht_scripts_default_roots(project, monkeypatch):
-    from scripts.eht import export_bundle, reconstruct, refine
+    from scripts.eht import reconstruct, refine, sample
 
     args = reconstruct.parse(["--stage", "fiducial", "--day", "96", "--data-root", "/d",
                               "--input-root", "/i"])
     assert (args.i_root, args.output_root) == (Path("/d/eht/intensity/day-96"),
                                                Path("/d/eht/fiducial/day-96"))
-    assert (args.uvfits_dir, args.feed_rotation_file, args.official_script) == (
-        Path("/i/eht"), Path("/i/eht/feed-rotation.json"), Path("/i/eht/eht-imaging_pipeline.py"))
+    assert (args.uvfits_dir, args.official_script) == (
+        Path("/i/eht"), Path("/i/eht/eht-imaging_pipeline.py"))
     args = reconstruct.parse(["--stage", "I", "--day", "95", "--data-root", "/d", "--input-root", "/i",
-                              "--feed-rotation-file", "feed.json"])
+                              "--official-script", "official.py"])
     assert (args.i_root, args.output_root) == (None, Path("/d/eht/intensity/day-95"))
-    assert reconstruct.locations(args)["feed_rotation_file"] == Path("feed.json").resolve()
+    assert reconstruct.locations(args)["official_script"] == Path("official.py").resolve()
     with pytest.raises(SystemExit):  # no input root and no explicit locations
         reconstruct.parse(["--stage", "I", "--day", "95", "--data-root", "/d", "--no-env-file"])
     args = refine.parse(["--day", "100", "--data-root", "/d"])
@@ -176,12 +174,16 @@ def test_eht_scripts_default_roots(project, monkeypatch):
         Path("/d/eht/fiducial/day-100"), Path("/d/eht/intensity/day-100"), Path("/d/eht/refine/day-100"))
 
     seen = {}
-    monkeypatch.setattr(export_bundle, "export",
-                        lambda config, i, d, out: seen.update(i=i, d=d, out=out) or {"files": []})
-    export_bundle.main(["--data-root", "/d"])
+    monkeypatch.setattr(sample, "controller",
+                        lambda args, out: seen.update(i=args.i_root, d=args.d_root, out=out))
+    monkeypatch.setattr(sample.fcntl, "flock", lambda *a: None)
+    monkeypatch.setattr(sample.os, "open", lambda *a: 0)
+    monkeypatch.setattr(sample.os, "close", lambda *a: None)
+    monkeypatch.setattr(Path, "mkdir", lambda *a, **k: None)
+    sample.main(["--data-root", "/d"])
     assert seen["i"] == [Path(f"/d/eht/intensity/day-{day}") for day in (95, 96, 100, 101)]
     assert seen["d"] == [Path(f"/d/eht/refine/day-{day}") for day in (95, 96, 100, 101)]
-    assert seen["out"] == Path("/d/eht/bundle")
+    assert seen["out"] == Path("/d/eht/sample")
 
 
 def test_eht_sample_and_summary_default_roots(project, monkeypatch, tmp_path):
@@ -198,38 +200,14 @@ def test_eht_sample_and_summary_default_roots(project, monkeypatch, tmp_path):
 
 def test_raptor_scripts_default_roots(project, monkeypatch, tmp_path):
     from eht_axion.raptor import options as raptor_options
-    from scripts.raptor import merge
 
     core = project / "core"
     core.mkdir()
     monkeypatch.setattr(raptor_options, "ROOT", ROOT)
     args = raptor_options.options("build", ["--source-root", str(core), "--data-root", str(tmp_path / "d")])
-    assert args.run_root == (tmp_path / "d" / "raptor" / "runs" / "main").resolve()
+    assert args.run_root == (tmp_path / "d" / "raptor").resolve()
     (project / ".env").write_text(f"EHT_DATA_ROOT={tmp_path / 'dotenv'}\n")
-    args = raptor_options.options("build", ["--raptor-source-root", str(core),
-                                            "--data-root", str(tmp_path / "d")])
-    assert args.run_root == (tmp_path / "d" / "raptor" / "runs" / "main").resolve()
-    args = raptor_options.options("build", ["--source-root", str(core), "--run-root", str(tmp_path / "x")])
-    assert args.run_root == (tmp_path / "x").resolve()
-    args = raptor_options.options("build", ["--source-root", str(core)])
-    assert args.run_root == (tmp_path / "dotenv" / "raptor" / "runs" / "main").resolve()
-
-    data = tmp_path / "m"
-    for name in ("main", "background"):
-        (data / "raptor" / "runs" / name).mkdir(parents=True)
-    (data / "raptor" / "plan.json").write_text('{"config": {}}')
-    monkeypatch.setattr(merge, "validate_ray_tracing",
-                        lambda config: (_ for _ in ()).throw(RuntimeError("stop")))
-    parser_args = {}
-    real_parse = ArgumentParser.parse_args
-
-    def spy(self, *a, **k):
-        result = real_parse(self, *a, **k)
-        parser_args["args"] = result
-        return result
-    monkeypatch.setattr(ArgumentParser, "parse_args", spy)
-    with pytest.raises(RuntimeError, match="stop"):
-        merge.main(["--data-root", str(data)])
-    args = parser_args["args"]
-    assert args.job_root == [data / "raptor/runs/background", data / "raptor/runs/main"]
-    assert (args.plan, args.output_root) == (data / "raptor/plan.json", data / "raptor/delivered")
+    args = raptor_options.options("build", ["--raptor-source-root", str(core)])
+    assert args.run_root == (tmp_path / "dotenv" / "raptor").resolve()
+    with pytest.raises(SystemExit):
+        raptor_options.options("build", ["--source-root", str(core), "--run-root", str(tmp_path)])

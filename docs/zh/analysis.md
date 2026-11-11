@@ -21,7 +21,7 @@ pixi run analysis-paper
 显式传入目录选项即可覆盖默认路径：
 
 ```bash
-pixi run analysis-templates --raptor-input-root MERGED/data --output-root TEMPLATES
+pixi run analysis-templates --raptor-input-root DELIVERED --output-root TEMPLATES
 pixi run analysis-limits --templates TEMPLATES --ensemble ENSEMBLE --output-root LIMITS
 pixi run analysis-check-grid --source LIMITS --templates TEMPLATES --output-root GRID \
     --phase-count 128 --coupling-points 240
@@ -31,7 +31,7 @@ pixi run analysis-check-covariance --source LIMITS --templates TEMPLATES --outpu
 pixi run analysis-summarize --limits LIMITS --gridcheck GRID --priorcheck PRIOR \
     --covcheck COV --output-root SUMMARY
 pixi run analysis-paper --limits LIMITS --gridcheck GRID --priorcheck PRIOR --covcheck COV \
-    --templates TEMPLATES --ensemble ENSEMBLE --raptor-input-root MERGED/data \
+    --templates TEMPLATES --ensemble ENSEMBLE --raptor-input-root DELIVERED \
     --raptor-plan plan.json --raptor-source-root RAPTOR --output-root PAPER
 ```
 

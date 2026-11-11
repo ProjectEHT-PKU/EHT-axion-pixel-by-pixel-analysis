@@ -68,7 +68,7 @@ def build_plan(a):
     rawname, dname = 'final-raw-IQU.fits', 'final-dterms.json'
     consumed = [a.source_root/rawname, a.source_root/dname]
     provenance.require_declared_outputs(a.source_root, consumed)
-    paths = [*files, provenance.manifest_path(a.source_root), *consumed, Path(c['feed_rotation_file'])]
+    paths = [*files, provenance.manifest_path(a.source_root), *consumed]
     # Third-party packages are pinned by pixi.lock (in git); only their versions are recorded.
     packages = {name: metadata.version(name) for name in ('ehtim', 'numpy', 'scipy', 'astropy')}
     if packages['ehtim'] != '1.3.2':

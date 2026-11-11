@@ -3,8 +3,9 @@
 
 Science values (draw count, seed, fsys, uv cut, D-term statistics, sky grid,
 blur and the P solver settings eht_imaging.monte_carlo) come from
-experiment.yaml; the input bundle (scripts/eht/export_bundle.py) holds the four verified
-fiducial I/obs/D products. Execution options (workers, threads, memory) are CLI.
+experiment.yaml. Inputs per day: the fixed I image and gain-calibrated data of the I stage
+(eht/intensity/day-<day>) and the refined D terms of the refine stage (eht/refine/day-<day>).
+Execution options (workers, threads, memory) are CLI.
 Input-only: no export, SSH, D fit or thermal draw.
 
 Receipts are this script's batch records (batch.json, taskreceipt.json, finish.json), not stage manifests.
@@ -29,7 +30,8 @@ import resource
 import time
 import traceback
 
-from eht_axion.environment import add_data_root_option, fill_defaults
+from eht_axion.environment import DATA_ROOT_KEY, add_data_root_option, data_root, fill_defaults, layout_path
+from eht_axion import experiment, provenance
 from eht_axion.experiment import DEFAULT_PATH, EHT_DAYS
 from eht_axion.provenance import contained_path as contained
 
@@ -48,6 +50,7 @@ def science_settings(config_path):
                 residual_component_sigma=c['residual_d_sigma'], solve_sites=c['solve_sites'],
                 fixed_sites=c['fixed_sites'], sites=sorted(c['solve_sites'] + c['fixed_sites']),
                 p_data=c['p_data'], p_reg=c['p_reg'], norm_reg=c['norm_reg'],
+                feed_rotation=c['feed_rotation'],
                 draws_per_day=c['uncertainty_draws'], seed=c['seed'], monte_carlo=c['monte_carlo'])
 
 
@@ -65,30 +68,49 @@ def atomic(path, value):
     os.replace(tmp, path)
 
 
-def verify_bundle(root, science):
-    """Check the bundle contract and that every listed file is present; source stages are not read."""
-    root = Path(root).resolve()
-    b = json.loads((root / 'bundle.json').read_text())
-    if (b.get('schema') != 'eht-bundle' or set(b['days']) != set(DAYS)
-            or b.get('covariance_ddof') != science['covariance_ddof']
-            or b.get('residual_component_sigma') != science['residual_component_sigma']
-            or b.get('fsys') != science['fsys']
-            or b.get('objective') != dict(**science['p_data'], **science['p_reg'],
-                                          norm_reg=science['norm_reg'])):
-        raise ValueError('unsupported bundle science contract')
-    files = {}
-    for item in b['files']:
-        rel = item['path']
-        if rel in files or rel == 'bundle.json':
-            raise ValueError('duplicate/self-referencing bundle file')
-        p = contained(root, rel)
-        files[rel] = dict(bytes=p.stat().st_size, readonly_mode=not bool(p.stat().st_mode & 0o222))
-    needed = {b['feed_file']}
+I_FILES = {'I': 'final-fixedI.fits', 'obs': 'clean-gaincal-pol.uvfits'}
+D_FILES = ('final-dterms.json', 'termination.json')
+
+
+def _by_day(roots, stage, config):
+    """Check each completed stage and index it by its recorded day."""
+    result = {}
+    for root in roots:
+        root = Path(root).resolve(strict=True)
+        manifest = provenance.verify_stage(root)
+        if manifest['stage'] != stage:
+            raise ValueError(f'{root}: expected stage {stage}, found {manifest["stage"]}')
+        parameters = manifest['config']['parameters']
+        locations = {key: parameters[key] for key in experiment.EHT_LOCATIONS}
+        if parameters != json.loads(json.dumps(experiment.eht_imaging_parameters(config, locations))):
+            raise ValueError(f'{root}: imaging parameters differ from experiment.yaml eht_imaging')
+        day = str(manifest['config']['day'])
+        if day in result:
+            raise ValueError(f'two {stage} roots for day {day}')
+        result[day] = (root, manifest)
+    if set(result) != set(DAYS):
+        raise ValueError(f'{stage}: need exactly the days {DAYS}, got {sorted(result)}')
+    return result
+
+
+def verify_sources(i_roots, d_roots, config):
+    """{day: {I, obs, dterms}} from the I and refine stages; every refine P solve certified."""
+    images = _by_day(i_roots, 'eht:i', config)
+    dterms = _by_day(d_roots, 'eht:refine', config)
+    sources = {}
     for day in DAYS:
-        needed.update(b['days'][day][key] for key in ('I', 'obs', 'dterms'))
-    if not needed <= files.keys():
-        raise ValueError('bundle references unlisted inputs')
-    return b, dict(bundle=str(root), files=files)
+        i_root, d_root = images[day][0], dterms[day][0]
+        provenance.require_declared_outputs(i_root, [i_root / name for name in I_FILES.values()])
+        provenance.require_declared_outputs(d_root, [d_root / name for name in D_FILES])
+        closure = set(provenance.source_closure([provenance.manifest_path(d_root)]))
+        if any((i_root / name).resolve() not in closure for name in I_FILES.values()):
+            raise ValueError(f'day {day}: the refine stage does not descend from this I stage')
+        termination = json.loads((d_root / 'termination.json').read_text())
+        if termination.get('all_P_numerically_certified') is not True:
+            raise ValueError(f'day {day}: not every P solve of the refine stage is certified')
+        sources[day] = {key: str(i_root / name) for key, name in I_FILES.items()}
+        sources[day]['dterms'] = str(d_root / 'final-dterms.json')
+    return sources
 
 
 def configure_threads(n):
@@ -115,11 +137,11 @@ def code_identity():
     return dict(provenance.code_identity(), packages=packages, python=sys.version.split()[0])
 
 
-def make_draws(root, bundle, n, seed, science):
+def make_draws(sources, n, seed, science):
     import numpy as np
     from eht_axion.eht import calibration as core
     solve = set(science['solve_sites'])
-    daily = {d: json.loads(contained(root, bundle['days'][d]['dterms']).read_text()) for d in DAYS}
+    daily = {d: json.loads(Path(sources[d]['dterms']).read_text()) for d in DAYS}
     daily = {d: {s: v for s, v in terms.items() if s in solve} for d, terms in daily.items()}
     if any(set(v) != solve for v in daily.values()):
         raise ValueError(f'each fiducial must contain {sorted(solve)}')
@@ -185,7 +207,7 @@ def init_worker(threads):
         raise RuntimeError('BLAS thread limit not honored')
 
 
-def run_attempt(root, bundle, task, directory, config, numerical_attempt, science):
+def run_attempt(sources, task, directory, config, numerical_attempt, science):
     directory = Path(directory)
     started = time.monotonic()
     status = 'error'
@@ -197,10 +219,9 @@ def run_attempt(root, bundle, task, directory, config, numerical_attempt, scienc
             eh = core._library()
             d = task['day']
             if d not in _CACHE:
-                fixed = eh.image.load_fits(str(contained(root, bundle['days'][d]['I'])))
+                fixed = eh.image.load_fits(sources[d]['I'])
                 driver.validate_fixed(fixed, science, eh)
-                base = driver.load_gaincal_base(contained(root, bundle['days'][d]['obs']),
-                         dict(feed_rotation_file=str(contained(root, bundle['feed_file']))), eh)
+                base = driver.load_gaincal_base(Path(sources[d]['obs']), science, eh)
                 base = base.flag_uvdist(uv_min=science['uv_min'])
                 core._native(base)
                 _CACHE[d] = fixed, base
@@ -300,28 +321,27 @@ def memory_usage():
 
 def controller(args, out):
     science = science_settings(args.config)
-    bundle, snapshot = verify_bundle(args.bundle_root, science)
+    sources = verify_sources(args.i_root, args.d_root, experiment.read_experiment(args.config))
     configure_threads(args.threads)
     config = dict(draws_per_day=science['draws_per_day'], seed=science['seed'], **science['monte_carlo'],
                   threads=args.threads)
-    plan = dict(schema='eht-sample-batch', snapshot=snapshot,
+    plan = dict(schema='eht-sample-batch', inputs=sources,
                 code=code_identity(), config=config, science=science)
     planpath = out / 'batch.json'
     if planpath.exists():
         if json.loads(planpath.read_text()) != plan:
-            raise ValueError('resume requires the same bundle, science settings and code commit')
+            raise ValueError('resume requires the same inputs, science settings and code commit')
     else:
         if any(p.name != '.controller.lock' for p in out.iterdir()):
             raise ValueError('new output root must be empty')
         atomic(planpath, plan)
-    draws = make_draws(args.bundle_root, bundle, science['draws_per_day'], science['seed'], science)
-    for name, value in [('all-draws.json', draws), ('batch-plan.json', plan)]:
-        p = out / name
-        if p.exists():
-            if json.loads(p.read_text()) != value:
-                raise ValueError('persisted plan/draw mismatch')
-        else:
-            atomic(p, value)
+    draws = make_draws(sources, science['draws_per_day'], science['seed'], science)
+    p = out / 'all-draws.json'
+    if p.exists():
+        if json.loads(p.read_text()) != draws:
+            raise ValueError('persisted draw mismatch')
+    else:
+        atomic(p, draws)
     tasks = enumerate_tasks(draws)
     taskbytes = b''.join(encoded(t) + b'\n' for t in tasks)
     taskfile = out / 'tasks.jsonl'
@@ -382,8 +402,7 @@ def controller(args, out):
                 directory = parent / f'attempt-{ordinal:04d}'
                 directory.mkdir()  # Interrupted attempts remain untouched forever.
                 atomic(directory / 'attempt.json', dict(task=t, numerical_attempt=number))
-                future = pool.submit(run_attempt, args.bundle_root, bundle,
-                                     t, directory, config, number, science)
+                future = pool.submit(run_attempt, sources, t, directory, config, number, science)
                 active[future] = t
                 submitted += 1
                 continue
@@ -424,7 +443,10 @@ def controller(args, out):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--bundle-root', type=Path, help='export_bundle.py output (default: eht/bundle)')
+    p.add_argument('--i-root', type=Path, action='append',
+                   help='completed I stage; give all four days (default: eht/intensity/day-<day>)')
+    p.add_argument('--d-root', type=Path, action='append',
+                   help='completed refine stage; give all four days (default: eht/refine/day-<day>)')
     p.add_argument('--output-root', type=Path, help='batch root; resumable (default: eht/sample)')
     p.add_argument('--workers', type=int, default=64)
     p.add_argument('--resource-wait', type=float, default=300.,
@@ -438,7 +460,13 @@ def main(argv=None):
     p.add_argument('--max-active-memory-gib', type=float, default=100.)
     add_data_root_option(p)
     args = p.parse_args(argv)
-    fill_defaults(p, args, {'bundle_root': ('eht.bundle', {}), 'output_root': ('eht.sample', {})})
+    fill_defaults(p, args, {'output_root': ('eht.sample', {})})
+    for name, key in (('i_root', 'eht.intensity'), ('d_root', 'eht.refine')):
+        if getattr(args, name) is None:
+            root = data_root(args)
+            if root is None:
+                p.error(f'Provide --{name.replace("_", "-")} (four times), or --data-root / ${DATA_ROOT_KEY}')
+            setattr(args, name, [layout_path(root, key, day=day) for day in EHT_DAYS])
     import math
     if args.config is None:
         args.config = DEFAULT_PATH
@@ -446,10 +474,11 @@ def main(argv=None):
             or (args.task_limit is not None and args.task_limit < 1)
             or not all(math.isfinite(v) and v > 0 for v in (args.max_active_memory_gib, args.resource_wait))):
         p.error('positive workers, threads, memory and wait required')
-    args.bundle_root = args.bundle_root.resolve()
     out = args.output_root.resolve()
-    if out.is_relative_to(args.bundle_root) or args.bundle_root.is_relative_to(out):
-        p.error('input and output roots must be separate, non-nested directories')
+    for root in args.i_root + args.d_root:
+        root = root.resolve()
+        if out.is_relative_to(root) or root.is_relative_to(out):
+            p.error('input and output roots must be separate, non-nested directories')
     out.mkdir(parents=True, exist_ok=True)
     fd = os.open(out / '.controller.lock', os.O_CREAT | os.O_RDWR, 0o600)
     try:

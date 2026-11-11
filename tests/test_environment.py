@@ -97,7 +97,7 @@ def test_raptor_entrypoint_uses_automatic_files(project, monkeypatch):
     (project / ".env").write_text("EHT_DATA_ROOT=outputs\nEHT_RAPTOR_SOURCE_ROOT=core\n")
     monkeypatch.setattr(raptor_options, "ROOT", ROOT)
     args = raptor_options.options("build", [])
-    assert args.run_root == project / "outputs/raptor/runs/main"
+    assert args.run_root == project / "outputs/raptor"
     assert args.source_root == core
     assert args.config == ROOT / "configs" / "experiment.yaml"
     assert args.config_data["shared"]["mass_solar"] == 6.5e9
@@ -134,7 +134,7 @@ def test_generate_inputs_from_input_root_and_explicit_overrides(project, monkeyp
     assert args.fluid_root == inputs / "grmhd"
     assert args.radial_low == inputs / "radial/result_a=0.9375_l1m1.txt"
     assert args.radial_high == other
-    assert args.run_root == project / "d/raptor/runs/main"
+    assert args.run_root == project / "d/raptor"
     with pytest.raises(SystemExit):  # neither explicit inputs nor an input root
         raptor_options.options("generate", ["--plan", "--no-env-file", "--source-root", str(core),
                                             "--data-root", str(project / "d")])

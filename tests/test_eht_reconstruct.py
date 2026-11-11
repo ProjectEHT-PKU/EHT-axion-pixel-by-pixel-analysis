@@ -15,8 +15,7 @@ from scripts.eht import reconstruct as w
 ROOT = Path(__file__).resolve().parents[1]
 
 
-LOCATIONS = dict(input_root='/data/uvfits', feed_rotation_file='/data/feed.json',
-                 official_script='/data/official.py')
+LOCATIONS = dict(input_root='/data/uvfits', official_script='/data/official.py')
 
 
 @pytest.fixture
@@ -32,15 +31,14 @@ def plan_args(tmp_path, monkeypatch):
     raw = tmp_path / experiment['eht_imaging']['inputs'][95][0]
     raw.write_bytes(b'synthetic circular UVFITS placeholder')
     experiment['eht_imaging']['inputs'][95][1] = w.provenance.sha256(raw)
-    feed, official = tmp_path / 'feed.json', tmp_path / 'official.py'
-    feed.write_text('{}')
+    official = tmp_path / 'official.py'
     official.write_text("ttype     = 'nfft'\nfov       = 128*eh.RADPERUAS\n")
     path = tmp_path / 'experiment.yaml'
     path.write_text(yaml.safe_dump(experiment))
     dist = SimpleNamespace(version='1.3.2', files=[], locate_file=lambda f: f)
     monkeypatch.setattr(w.metadata, 'distribution', lambda name: dist)
     return w.parse(['--config', str(path), '--stage', 'I', '--day', '95',
-                    '--uvfits-dir', str(tmp_path), '--feed-rotation-file', str(feed),
+                    '--uvfits-dir', str(tmp_path),
                     '--official-script', str(official),
                     '--no-env-file', '--output-root', str(tmp_path / 'new'), '--plan'])
 
@@ -55,7 +53,7 @@ def test_plan_no_optional_import_no_writes(plan_args, monkeypatch):
     paths = {Path(p) for p in plan['inputs']}
     assert not any(p.is_relative_to(ROOT) for p in paths)  # the repository is pinned by its commit
     assert paths == {plan_args.uvfits_dir / 'SR2_M87_2017_095_lo_hops_zbl-dtcal+selfcal.uvfits',
-                     plan_args.feed_rotation_file, plan_args.official_script}
+                     plan_args.official_script}
     assert plan['ehtim_version'] == '1.3.2'
     assert plan['parameters']['input_root'] == str(plan_args.uvfits_dir)
     locations = {k: plan['parameters'][k] for k in w.experiment.EHT_LOCATIONS}
@@ -78,9 +76,9 @@ def test_locations_required_and_relative_paths_resolved(plan_args, monkeypatch):
 def test_input_root_layout_defaults(tmp_path, plan_args):
     eht = tmp_path / 'inputs' / 'eht'
     eht.mkdir(parents=True)
-    for name in ('feed.json', 'official.py', w.experiment.read_experiment()['eht_imaging']['inputs'][95][0]):
+    for name in ('official.py', w.experiment.read_experiment()['eht_imaging']['inputs'][95][0]):
         source = plan_args.uvfits_dir / name
-        renamed = {'feed.json': 'feed-rotation.json', 'official.py': 'eht-imaging_pipeline.py'}
+        renamed = {'official.py': 'eht-imaging_pipeline.py'}
         target = eht / renamed.get(name, name)
         target.write_bytes(source.read_bytes())
     args = w.parse(['--config', str(plan_args.config), '--stage', 'I', '--day', '95', '--no-env-file',
@@ -88,8 +86,7 @@ def test_input_root_layout_defaults(tmp_path, plan_args):
                     '--plan'])
     plan = w.build_plan(args)
     assert {k: plan['parameters'][k] for k in w.experiment.EHT_LOCATIONS} == dict(
-        input_root=str(eht), feed_rotation_file=str(eht / 'feed-rotation.json'),
-        official_script=str(eht / 'eht-imaging_pipeline.py'))
+        input_root=str(eht), official_script=str(eht / 'eht-imaging_pipeline.py'))
 
 
 def test_cli_stage_contract(plan_args):

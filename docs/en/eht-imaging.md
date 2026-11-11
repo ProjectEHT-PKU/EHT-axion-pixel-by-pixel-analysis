@@ -6,17 +6,16 @@ The EHT imaging pipeline reproduces the EHT 2017 M87\* polarimetric reconstructi
 
 ## Prerequisites and inputs
 
-`scripts/eht/reconstruct.py`, `refine.py`, `export_bundle.py`, and `sample.py` run in the `eht-imaging` Pixi environment (`ehtim 1.3.2`, `astropy`); `scripts/eht/summarize.py` requires only `eht-summary` (`astropy`). `scripts/eht/reconstruct.py` reads three machine-local locations from the `eht/` directory of the read-only input root (`EHT_INPUT_ROOT` / `--input-root`, see the [input layout](data-layout.md#input-layout)); each can be overridden by an explicit option, and relative paths are resolved against the working directory:
+`scripts/eht/reconstruct.py`, `refine.py`, and `sample.py` run in the `eht-imaging` Pixi environment (`ehtim 1.3.2`, `astropy`); `scripts/eht/summarize.py` requires only `eht-summary` (`astropy`). `scripts/eht/reconstruct.py` reads two machine-local locations from the `eht/` directory of the read-only input root (`EHT_INPUT_ROOT` / `--input-root`, see the [input layout](data-layout.md#input-layout)); each can be overridden by an explicit option, and relative paths are resolved against the working directory:
 
 - **HOPS `uvfits` directory** (`--uvfits-dir`, default `$EHT_INPUT_ROOT/eht`): contains the four released low-band files `SR2_M87_2017_<day>_lo_hops_zbl-dtcal+selfcal.uvfits` for days `95`, `96`, `100`, `101` (2017 April 5, 6, 10, 11), whose filenames and SHA-256 digests must match `eht_imaging.inputs` in `configs/experiment.yaml`.
-- **Feed-rotation table** (`--feed-rotation-file`, default `$EHT_INPUT_ROOT/eht/feed-rotation.json`): JSON with `"status": "verified"`, `"units": {"fr_off": "...degrees..."}`, and per-station `fr_par`, `fr_elev`, `fr_off`.
 - **Official EHT imaging script** (`--official-script`, default `$EHT_INPUT_ROOT/eht/eht-imaging_pipeline.py`): official total-intensity imaging pipeline script.
 
-The SHA-256 of the selected day's `uvfits` file is checked against `eht_imaging.inputs` before any imaging; the `uvfits` file, feed-rotation table, and official script are recorded as stage inputs, and their paths are recorded as the `input_root`, `feed_rotation_file`, and `official_script` imaging parameters (`EHT_LOCATIONS`).
+The SHA-256 of the selected day's `uvfits` file is checked against `eht_imaging.inputs` before any imaging; the `uvfits` file and official script are recorded as stage inputs, and their paths are recorded as the `input_root` and `official_script` imaging parameters (`EHT_LOCATIONS`). The station field-rotation coefficients (EHT Paper VII Table 1) are `eht_imaging.feed_rotation` of `configs/experiment.yaml`.
 
 ## Running the EHT pipeline
 
-With `EHT_INPUT_ROOT` and `EHT_DATA_ROOT` set in `.env`, run the per-day reconstruction and refinement for all four observing days (`95`, `96`, `100`, `101`), then export the bundle, draw the Monte Carlo ensemble, and summarize:
+With `EHT_INPUT_ROOT` and `EHT_DATA_ROOT` set in `.env`, run the per-day reconstruction and refinement for all four observing days (`95`, `96`, `100`, `101`), then draw the Monte Carlo ensemble and summarize:
 
 ```bash
 # Optional dry-run plan verification (no ehtim import or disk writes)
@@ -29,17 +28,14 @@ for day in 95 96 100 101; do
   pixi run -e eht-imaging eht-refine --day $day
 done
 
-# 4. Bundle the four fixed-I and refined-D stages for Monte Carlo sampling
-pixi run -e eht-imaging eht-export-bundle
-
-# 5. Run the 4 x 1000 D-term Monte Carlo (resumable in $EHT_DATA_ROOT/eht/sample)
+# 4. Run the 4 x 1000 D-term Monte Carlo (resumable in $EHT_DATA_ROOT/eht/sample)
 pixi run -e eht-imaging eht-sample --workers 64 --threads 2
 
-# 6. Summarize certified blurred FITS draws into $EHT_DATA_ROOT/eht/ensemble
+# 5. Summarize certified blurred FITS draws into $EHT_DATA_ROOT/eht/ensemble
 pixi run -e eht-summary eht-summarize
 ```
 
-Every output directory except `eht/sample` must be new. `scripts/eht/sample.py` supports `--workers` (default `64`), `--threads` (default `2`), `--max-active-memory-gib` (default `100`), `--resource-wait` (default `300` s; exits with code `3` if memory admission remains blocked, safe to resume), `--task-limit`, and `--resume`. Re-running `eht-sample` on the same output directory resumes automatically if the batch plan (`batch.json`: bundle files, science settings, code commit, package versions, threads) is identical.
+Every output directory except `eht/sample` must be new. `scripts/eht/sample.py` supports `--workers` (default `64`), `--threads` (default `2`), `--max-active-memory-gib` (default `100`), `--resource-wait` (default `300` s; exits with code `3` if memory admission remains blocked, safe to resume), `--task-limit`, and `--resume`. Re-running `eht-sample` on the same output directory resumes automatically if the batch plan (`batch.json`: input files, science settings, code commit, package versions, threads) is identical.
 
 ## Reconstruction method
 
@@ -47,7 +43,7 @@ Every output directory except `eht/sample` must be new. `scripts/eht/sample.py` 
 
 `load_native` loads each HOPS `uvfits` file in native circular polarization (`polrep="circ"`, products `RR`, `LL`, `RL`, `LR`) without round-tripping through Stokes:
 - Any visibility record where any of the four correlations or sigmas is non-finite or has $\sigma \le 0$ is dropped completely before averaging.
-- Feed-rotation angles (`fr_par`, `fr_elev`, `fr_off`) are populated from `feed-rotation.json`, station D terms are initialized to `0j`, and calibration flags are set to `ampcal = phasecal = frcal = True`, `dcal = False` (ALMA/APEX/SMA/JCMT in `fixed_sites` are pre-corrected in HOPS; `AZ`, `LM`, `PV` in `solve_sites` remain uncorrected).
+- Field-rotation angles (`fr_par`, `fr_elev`, `fr_off`) are populated from `eht_imaging.feed_rotation`, station D terms are initialized to `0j`, and calibration flags are set to `ampcal = phasecal = frcal = True`, `dcal = False` (ALMA/APEX/SMA/JCMT in `fixed_sites` are pre-corrected in HOPS; `AZ`, `LM`, `PV` in `solve_sites` remain uncorrected).
 - Visibilities are coherently scan-averaged once (`avg_coherent(0, scan_avg=True)`).
 - `make_imaging_obs` wraps `Obsdata` to preserve structured dtypes on rectangular `tlist` groups under NumPy 2 and fixes the missing factor of $1/4$ in $\operatorname{Var}(I) = (\sigma_{RR}^2 + \sigma_{LL}^2)/4$ in `ehtim` 1.3.2's `msigma` error propagation.
 
@@ -86,9 +82,9 @@ where $h(m) = \frac{1}{2}\bigl[(1+m)\ln(1+m) + (1-m)\ln(1-m)\bigr]$, $F = \sum_x
 
 `scripts/eht/refine.py` (stage `eht:refine`) starts from the fiducial `final-raw-IQU.fits` and `final-dterms.json`, runs `outer_rounds = 100` alternations of certified PDHG $P$ solves (`maxiter = 20000`, `time_limit = 300` s) and forward `L-BFGS-B` D refits (`eht_imaging.refine.d_optimizer`, logged to `D-optimizer-records.json`), followed by a 101st `final-P` solve aligned with the last D terms.
 
-### Bundle export, D-term Monte Carlo, and ensemble summary
+### D-term Monte Carlo and ensemble summary
 
-1. **Bundle export (`scripts/eht/export_bundle.py`)**: checks all four `eht:i` and four `eht:refine` stages, checks `all_P_numerically_certified == True` on every day, and copies read-only (`0444`) `<day>/fixedI.fits`, `<day>/gaincal-pol.uvfits`, `<day>/fiducial-dterms.json`, `lineage/<day>/*`, and `feed-rotation.json` with `bundle.json` (schema `eht-bundle`).
+1. **Inputs**: `scripts/eht/sample.py` reads the four `eht:i` stages (`final-fixedI.fits`, `clean-gaincal-pol.uvfits`) and the four `eht:refine` stages (`final-dterms.json`) directly and checks `all_P_numerically_certified == True` on every day.
 2. **D-term Monte Carlo (`scripts/eht/sample.py`)**:
    - Computes the 4-day mean and $2 \times 2$ $(\operatorname{Re} D, \operatorname{Im} D)$ sample covariance (`covariance_ddof = 1`) per hand (`R`, `L`) and station in `solve_sites` (`d_distribution`).
    - Draws `uncertainty_draws = 1000` D-term sets per day using `SeedSequence([20210405, day])`: bivariate normal for `AZ`, `LM`, `PV`, and independent zero-mean normal with per-component SD `residual_d_sigma = 0.01` for `AA`, `AP`, `SM`, `JC` (`sample_dterms`). Thermal visibility noise is not resampled and D terms are not refitted per draw.

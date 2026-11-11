@@ -262,11 +262,7 @@ def test_load_native_flags_feed_and_official_scan_api(toy, monkeypatch, tmp_path
     raw.data["lrvis"][1] = np.nan
     raw.data["rrsigma"][2] = 0
     raw.dcal = True  # loader default must NOT be trusted
-    table = dict(status="verified", units={"fr_off": "degrees"},
-                 table=[{key: (str(row[key]) if key == "site" else float(row[key]))
-                         for key in ("site", "fr_par", "fr_elev", "fr_off")} for row in raw.tarr])
-    feed = tmp_path / "feed.json"
-    feed.write_text(json.dumps(table))
+    feed = {str(row["site"]): [float(row[k]) for k in ("fr_par", "fr_elev", "fr_off")] for row in raw.tarr}
     calls = []
 
     def loader(path, **kwargs):

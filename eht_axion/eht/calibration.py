@@ -14,7 +14,6 @@ from copy import deepcopy
 from functools import lru_cache
 from importlib.metadata import version
 import inspect
-import json
 from pathlib import Path
 import re
 import time
@@ -53,10 +52,11 @@ def _metadata(obs, **updates):
     return obs
 
 
-def load_native(path, feed_file, *, scan_average, fixed_sites, solve_sites):
+def load_native(path, feed_rotation, *, scan_average, fixed_sites, solve_sites):
     """Load released HOPS zbl-dtcal+selfcal data without a Stokes conversion.
 
-    ``fixed_sites`` (leakage-corrected in the HOPS products) and ``solve_sites``
+    ``feed_rotation`` ({site: [fr_par, fr_elev, fr_off in degrees]}), ``fixed_sites``
+    (leakage-corrected in the HOPS products) and ``solve_sites``
     (D terms still to be solved) come from experiment.yaml eht_imaging and are
     recorded in the metadata.
 
@@ -69,13 +69,9 @@ def load_native(path, feed_file, *, scan_average, fixed_sites, solve_sites):
     pass scan_average=False if the I pipeline will perform that operation.
     """
     eh = _library()
-    path, feed_file = Path(path), Path(feed_file)
+    path = Path(path)
     if not re.fullmatch(r"SR2_M87_2017_\d{3}_(?:lo|hi)_hops_zbl-dtcal\+selfcal\.uvfits", path.name):
         raise ValueError("only the declared released HOPS zbl-dtcal+selfcal stage is supported")
-    feed = json.loads(feed_file.read_text())
-    if feed.get("status") != "verified" or "degrees" not in feed.get("units", {}).get("fr_off", ""):
-        raise ValueError("verified feed table with fr_off in degrees required")
-    table = {str(r["site"]): r for r in feed["table"]}
     obs = eh.obsdata.load_uvfits(str(path), polrep="circ", remove_nan=False)
     before = len(obs.data)
     keep = np.ones(before, dtype=bool)
@@ -87,10 +83,10 @@ def load_native(path, feed_file, *, scan_average, fixed_sites, solve_sites):
     _native(obs)
     for row in obs.tarr:
         site = str(row["site"])
-        if site not in table:
+        if site not in feed_rotation:
             raise ValueError(f"missing feed coefficients for {site}")
-        for key in ("fr_par", "fr_elev", "fr_off"):
-            value = float(table[site][key])
+        for key, value in zip(("fr_par", "fr_elev", "fr_off"), feed_rotation[site]):
+            value = float(value)
             if not np.isfinite(value):
                 raise ValueError("nonfinite feed coefficient")
             row[key] = value
@@ -105,7 +101,7 @@ def load_native(path, feed_file, *, scan_average, fixed_sites, solve_sites):
             scan_source = "official_add_scans_default_gap"
         obs = obs.avg_coherent(0, scan_avg=True)
         _native(obs)
-    meta = dict(input=str(path.resolve()), feed_file=str(feed_file.resolve()),
+    meta = dict(input=str(path.resolve()), feed_rotation=feed_rotation,
                 calibration_source="2023-D01-01 release README: HOPS zbl-dtcal+selfcal",
                 native_polrep="circ", fr_off_unit="degrees",
                 precorrected_sites=list(fixed_sites), remaining_d_sites=list(solve_sites),

@@ -51,12 +51,12 @@ pixi run --locked lint                                        # Ruff check only
 
 `RAPTOR` 模拟与 EHT 成像是两条相互独立的上游流水线，其产出共同作为下游分析的输入：
 
-1. **已交付的 `RAPTOR` Stokes 数据立方**（`$EHT_DATA_ROOT/raptor/delivered/data/`）：可以直接放入已有的模拟归档数据，也可以由广义相对论磁流体力学（general-relativistic magnetohydrodynamics, GRMHD）BHAC 快照（`data001600.dat`–`data003000.dat`）、两张无表头 $(\alpha, r, R)$ 径向轮廓 CSV 表，以及处于提交 `20056006820b6536c96de790dd5fdaad5ada4eae` 的洁净 `github.com/projecteht-pku/raptor` 工作副本依次运行 `raptor-build`、`raptor-generate` 和 `raptor-merge` 生成（由 `.env` 中的 `EHT_INPUT_ROOT` 与 `EHT_RAPTOR_SOURCE_ROOT` 定位；见 [RAPTOR 模拟](raptor-simulation.md)）。
-2. **汇总后的 EHT 偏振系综**（`$EHT_DATA_ROOT/eht/ensemble/`）：可以直接放入已有的成像归档数据，也可以基于 2017 年 M87\* 四个观测日（第 `95`、`96`、`100`、`101` 天）的官方低频段 HOPS `zbl-dtcal+selfcal` `uvfits` 文件、馈源旋转 JSON 表以及官方 EHT 成像脚本，依次运行 `eht-reconstruct`、`eht-refine`、`eht-export-bundle`、`eht-sample` 和 `eht-summarize` 重建生成（位于 `$EHT_INPUT_ROOT/eht/`；见 [EHT 成像](eht-imaging.md)）。
+1. **已交付的 `RAPTOR` Stokes 数据立方**（`$EHT_DATA_ROOT/raptor/delivered/`）：可以直接放入已有的模拟归档数据，也可以由广义相对论磁流体力学（general-relativistic magnetohydrodynamics, GRMHD）BHAC 快照（`data001600.dat`–`data003000.dat`）、两张无表头 $(\alpha, r, R)$ 径向轮廓 CSV 表，以及处于提交 `20056006820b6536c96de790dd5fdaad5ada4eae` 的洁净 `github.com/projecteht-pku/raptor` 工作副本依次运行 `raptor-build` 和 `raptor-generate` 生成（由 `.env` 中的 `EHT_INPUT_ROOT` 与 `EHT_RAPTOR_SOURCE_ROOT` 定位；见 [RAPTOR 模拟](raptor-simulation.md)）。
+2. **汇总后的 EHT 偏振系综**（`$EHT_DATA_ROOT/eht/ensemble/`）：可以直接放入已有的成像归档数据，也可以基于 2017 年 M87\* 四个观测日（第 `95`、`96`、`100`、`101` 天）的官方低频段 HOPS `zbl-dtcal+selfcal` `uvfits` 文件以及官方 EHT 成像脚本，依次运行 `eht-reconstruct`、`eht-refine`、`eht-sample` 和 `eht-summarize` 重建生成（位于 `$EHT_INPUT_ROOT/eht/`；见 [EHT 成像](eht-imaging.md)）。
 
 ### 在已有数据产品上运行分析链
 
-当 `$EHT_DATA_ROOT/raptor/delivered/data` 与 `$EHT_DATA_ROOT/eht/ensemble` 就绪后，可在 `default` 环境中运行完整的统计推断与数值敏感性检验链：
+当 `$EHT_DATA_ROOT/raptor/delivered` 与 `$EHT_DATA_ROOT/eht/ensemble` 就绪后，可在 `default` 环境中运行完整的统计推断与数值敏感性检验链：
 
 ```bash
 pixi run analysis-templates
@@ -81,7 +81,7 @@ pixi run analysis-paper
 |---|---|
 | [概览与基本概念](overview.md) | 流水线整体架构、Mermaid 数据流图、物理尺度、偏振符号约定及核心设计准则 |
 | [配置参考](configuration.md) | `configs/experiment.yaml` 全部键的逐项说明、校验规则与派生设置，以及 `.env` 中的三个路径根目录与执行设置 |
-| [RAPTOR 模拟](raptor-simulation.md) | 固定版本 `RAPTOR` 编译、BHAC 快照与径向表校验、任务标识符、作业调度、CPU 亲和性、数据交付与多机合并 |
+| [RAPTOR 模拟](raptor-simulation.md) | 固定版本 `RAPTOR` 编译、BHAC 快照与径向表校验、任务标识符、作业调度、CPU 亲和性与数据交付 |
 | [EHT 成像](eht-imaging.md) | EHT Paper VII 偏振成像复现、凸优化 PDHG 精化、D 项蒙特卡罗、系综汇总，以及与 Paper VII 的已知差异 |
 | [分析](analysis.md) | 图像预处理、扇形孔径算子、谐波响应模板、特征选择、协方差模型、贝叶斯似然与后验上限、敏感性检验及论文输出 |
 | [数据布局与溯源机制](data-layout.md) | 默认 `$EHT_DATA_ROOT` 目录树、只读 `$EHT_INPUT_ROOT` 输入目录布局、各阶段文件与数组规范、原子化 `stage_directory` 清单与非清单回执 |

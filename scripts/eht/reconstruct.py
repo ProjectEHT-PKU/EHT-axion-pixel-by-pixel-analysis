@@ -6,8 +6,8 @@ bundle (scripts/eht/export_bundle.py); the fiducial D terms are refined by scrip
 
 Scientific parameters: experiment.yaml (eht_imaging + shared.image); the uvfits file of
 each day is verified against its SHA-256 in eht_imaging.inputs. Machine-local locations
-(uvfits directory, feed-rotation table, official script) come from --uvfits-dir,
---feed-rotation-file and --official-script, else from the eht/ entries of the input root
+(uvfits directory, official script) come from --uvfits-dir and --official-script, else
+from the eht/ entries of the input root
 (--input-root / EHT_INPUT_ROOT). Not a bitwise reproduction of the published images.
 
 --plan only checks inputs; no optional imaging import or output writes.
@@ -47,8 +47,6 @@ def parser():
     p.add_argument('--day', type=int, choices=experiment.EHT_DAYS, required=True)
     p.add_argument('--uvfits-dir', '--eht-input-root', dest='uvfits_dir', type=Path,
                    help='directory of the eht_imaging.inputs uvfits files (default: eht below --input-root)')
-    p.add_argument('--feed-rotation-file', type=Path,
-                   help='station feed-rotation JSON (default: eht/feed-rotation.json below --input-root)')
     p.add_argument('--official-script', type=Path,
                    help='official EHT imaging script (default: eht/eht-imaging_pipeline.py below '
                         '--input-root)')
@@ -77,7 +75,6 @@ def parse(argv=None):
 
 # experiment.EHT_LOCATIONS -> (option attribute, INPUT_LAYOUT key below the input root)
 LOCATION_OPTIONS = dict(input_root=('uvfits_dir', 'eht.uvfits'),
-                        feed_rotation_file=('feed_rotation_file', 'eht.feed_rotation'),
                         official_script=('official_script', 'eht.official_script'))
 
 
@@ -125,15 +122,13 @@ def build_plan(args):
     if provenance.sha256(raw) != expected:
         raise ValueError(f'raw HOPS input checksum differs from experiment.yaml eht_imaging.inputs: {raw}')
     adapt_official(Path(c['official_script']).read_text(), c['fov_uas'])
-    inputs = [raw, Path(c['feed_rotation_file']), Path(c['official_script'])]
+    inputs = [raw, Path(c['official_script'])]
     if args.i_root:
         m, files = stage_inputs(args.i_root, 'I', args.day, I_PRODUCTS)
         upstream = m['config']['parameters']
         for key in ('npix', 'fov_uas'):
             if upstream[key] != c[key]:
                 raise ValueError(f'I-stage domain differs: {key}')
-        if upstream['feed_rotation_file'] != c['feed_rotation_file']:
-            raise ValueError('I-stage feed table differs')
         inputs.extend(files)
     # ehtim is pinned by pixi.lock (in git); only its version is recorded and checked.
     ehtim_version = metadata.version('ehtim')
@@ -162,7 +157,7 @@ def run_i(plan, core, eh, out):
     import numpy as np
 
     c = plan['parameters']
-    native, native_meta = core.load_native(plan['raw'], c['feed_rotation_file'], scan_average=True,
+    native, native_meta = core.load_native(plan['raw'], c['feed_rotation'], scan_average=True,
                                            fixed_sites=c['fixed_sites'], solve_sites=c['solve_sites'])
     text = Path(c['official_script']).read_text()
     (out / 'official-I-original.py').write_text(text)
@@ -215,10 +210,9 @@ def load_gaincal_base(path, c, eh):
     explicit I-stage contract, not the loader defaults or raw release filename.
     """
     obs = eh.obsdata.load_uvfits(str(path), polrep='circ', remove_nan=False)
-    feed = {row['site']: row for row in json.loads(Path(c['feed_rotation_file']).read_text())['table']}
     for row in obs.tarr:
-        for key in ('fr_par', 'fr_elev', 'fr_off'):
-            row[key] = feed[str(row['site'])][key]
+        for key, value in zip(('fr_par', 'fr_elev', 'fr_off'), c['feed_rotation'][str(row['site'])]):
+            row[key] = value
     obs.tarr['dr'] = obs.tarr['dl'] = 0j
     obs.ampcal = obs.phasecal = obs.frcal = True
     obs.dcal = False

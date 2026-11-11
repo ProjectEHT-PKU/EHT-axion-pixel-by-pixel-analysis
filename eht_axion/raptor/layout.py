@@ -1,4 +1,4 @@
-"""Directory layout of the delivered RAPTOR Stokes cubes (raptor/res-*/{alpha-*,background}/)."""
+"""Directory layout of the delivered RAPTOR Stokes cubes (res-*/{alpha-*,background}/)."""
 
 from decimal import Decimal, DecimalException
 from pathlib import Path
@@ -18,9 +18,9 @@ def alpha_label(alpha):
 
 
 def product_directory(root, alpha, resolution):
-    """root/raptor/res-<resolution>/alpha-<alpha>, or .../background for alpha None."""
+    """root/res-<resolution>/alpha-<alpha>, or .../background for alpha None."""
     name = "background" if alpha is None else alpha_label(alpha)
-    return Path(root) / "raptor" / f"res-{resolution}" / name
+    return Path(root) / f"res-{resolution}" / name
 
 
 def input_raptor_files(root, alpha, resolution):

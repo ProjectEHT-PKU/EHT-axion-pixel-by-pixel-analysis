@@ -13,35 +13,24 @@ Running the `RAPTOR` scripts requires Linux (`linux-64`) and the `raptor-build` 
 - **Radial-profile tables** (`--radial-low`, `--radial-high`, default `$EHT_INPUT_ROOT/radial/result_a=0.9375_l1m1.txt` and `$EHT_INPUT_ROOT/radial/result_a=0.99_l1m1.txt`): two headerless three-column CSV files $(\alpha, r, R)$ for `low` (`spin = 0.9375`) and `high` (`spin = 0.99`), also at paths of at most 255 UTF-8 bytes without whitespace.
 - **Experiment parameters** (`--config`, default `configs/experiment.yaml`): `shared` physics scalars and the `raptor` section.
 
-The run root (`--run-root`, default `$EHT_DATA_ROOT/raptor/runs/main`) must not overlap the repository root, the `RAPTOR` source checkout, the snapshot directory, or the radial-table directories, and cannot lie inside an existing stage directory.
+All `RAPTOR` products live in `raptor/` below the data root (`plan.json`, `build/`, `jobs/`, `delivered/`); it must not overlap the repository root, the `RAPTOR` source checkout, the snapshot directory, or the radial-table directories, and cannot lie inside an existing stage directory.
 
 ## Running the simulation
 
 Copy `.env.example` to `.env` and set the three roots `EHT_RAPTOR_SOURCE_ROOT`, `EHT_INPUT_ROOT`, and `EHT_DATA_ROOT`. The full workflow is:
 
 ```bash
-# 1. Compile the pinned RAPTOR binary into $EHT_DATA_ROOT/raptor/runs/main/build
+# 1. Compile the pinned RAPTOR binary into $EHT_DATA_ROOT/raptor/build
 pixi run -e raptor-build raptor-build
 
-# 2. Validate inputs and freeze the task plan without launching C processes
-pixi run -e raptor-build raptor-generate --plan --plan-output $EHT_DATA_ROOT/raptor/plan.json
+# 2. Validate inputs and list the tasks without launching C processes or writing files
+pixi run -e raptor-build raptor-generate --plan
 
-# 3. Execute ray-tracing jobs (resumable) and deliver Stokes cubes in the run root
+# 3. Write raptor/plan.json, execute the ray-tracing jobs (resumable) and deliver the Stokes cubes
 pixi run -e raptor-build raptor-generate
 
-# Deliver cubes from already completed jobs in one run root without launching RAPTOR:
+# Deliver the cubes of already completed jobs without launching RAPTOR:
 pixi run -e raptor-build raptor-generate --convert-only
-
-# 4. Merge completed job roots from one or more hosts/runs into $EHT_DATA_ROOT/raptor/delivered
-pixi run -e raptor-build raptor-merge
-```
-
-To merge explicit host directories instead of scanning `$EHT_DATA_ROOT/raptor/runs/*`:
-
-```bash
-pixi run -e raptor-build raptor-merge --plan /path/to/plan.json \
-    --job-root /path/to/runs/host-a --job-root /path/to/runs/host-b \
-    --output-root /path/to/delivered
 ```
 
 **Execution options on `scripts/raptor/generate.py`:**
@@ -50,11 +39,11 @@ pixi run -e raptor-build raptor-merge --plan /path/to/plan.json \
 - `--cpu-affinity {none,physical,logical}` (`EHT_RAPTOR_CPU_AFFINITY`, fallback `none`) and `--cpu-list RANGE` (`EHT_RAPTOR_CPU_LIST`, e.g. `0-47`): worker CPU pinning via `taskset`.
 - `--timeout-seconds SEC` (`EHT_RAPTOR_TIMEOUT_SECONDS`): per-process wall-time limit.
 
-`scripts/raptor/build.py` needs only the `RAPTOR` checkout (`--source-root`) and the run root (`--run-root`, or `--data-root` / `EHT_DATA_ROOT`); it neither requires nor resolves the input root, so a build-only machine needs no snapshots or radial tables. A second run root on the same data root, such as `raptor/runs/background`, is selected with `--run-root`.
+`scripts/raptor/build.py` needs only the `RAPTOR` checkout (`--source-root`) and the data root (`--data-root` / `EHT_DATA_ROOT`); it neither requires nor resolves the input root. The first `scripts/raptor/generate.py` run writes `raptor/plan.json` (hashing every snapshot once); every later run must plan the same tasks or is refused.
 
 ## Building the pinned RAPTOR core
 
-`build_raptor` (`eht_axion/raptor/build.py`) publishes stage `raptor:build` at `<run_root>/build/`:
+`build_raptor` (`eht_axion/raptor/build.py`) publishes stage `raptor:build` at `raptor/build/`:
 
 1. Verifies that `--source-root` is a clean git repository at `raptor.source.commit` with a normalized remote matching `raptor.source.repository`.
 2. Extracts tracked git blobs (`git ls-tree` / `git cat-file`) into `build/source/`, sanitizes ambient `make`/include variables (`VPATH`, `CPATH`, `MAKEFLAGS`, `RAPTOR`, etc.), and resolves `h5cc` (`HDF5_CC`).
@@ -85,7 +74,7 @@ Before launching jobs, `scripts/raptor/generate.py` and `run_jobs` (`eht_axion/r
 
 **Scheduling and CPU affinity (`eht_axion/raptor/affinity.py`):** task index `i` is deterministically assigned to worker slot `i % workers`. `allocate_cpu_sets` assigns each worker `threads` disjoint CPUs (`physical` selects one logical CPU per `(socket, core)` from `/sys/devices/system/cpu/*/topology`; `logical` selects any allowed CPU; `none` does not pin). When affinity is active, workers launch under `taskset --cpu-list ...` with `OMP_PROC_BIND=close` and `OMP_PLACES=cores`, and those binding settings are recorded in the `raptor:job` config so pinned cache hits remain deterministic on resume.
 
-**Execution, resume, and failure preservation:** each new execution creates `<run_root>/attempts/<task_id>/attempt-*/` (`input.json`, `stdout.log`, `stderr.log`, `result.json`) and invokes `RAPTOR model.in <snapshot> <output_slot>` in a temporary stage directory. If `RAPTOR` fails, times out, or is interrupted (`SIGINT`/`SIGTERM` kills all active process groups), the partial temporary directory is copied to `attempts/<task_id>/attempt-*/work/` and no stage is published. On re-run, an existing `jobs/<task_id>/` stage is reused only if its manifest records the same configuration and inputs and its `success.json`, `output.json`, `model.in`, `task.json`, and `grid_mks.in` agree with the task.
+**Execution, resume, and failure preservation:** each new execution creates `raptor/attempts/<task_id>/attempt-*/` (`input.json`, `stdout.log`, `stderr.log`, `result.json`) and invokes `RAPTOR model.in <snapshot> <output_slot>` in a temporary stage directory. If `RAPTOR` fails, times out, or is interrupted (`SIGINT`/`SIGTERM` kills all active process groups), the partial temporary directory is copied to `attempts/<task_id>/attempt-*/work/` and no stage is published. On re-run, an existing `jobs/<task_id>/` stage is reused only if its manifest records the same configuration and inputs and its `success.json`, `output.json`, `model.in`, `task.json`, and `grid_mks.in` agree with the task.
 
 **Per-job output validation (`validate_job_output` in `eht_axion/raptor/outputs.py`):**
 - checks `output/img_data_<slot>.h5` has exclusively internal hard-linked datasets `{I,Q,U,V,tau,tauF}<freq:e>`, `alpha`, and `beta`, each finite of shape `((N/10)^2, 100)` ($10 \times 10$ x-major blocks);
@@ -93,14 +82,13 @@ Before launching jobs, `scripts/raptor/generate.py` and `run_jobs` (`eht_axion/r
 - verifies the single-row `output/spectrum_<slot>_<inclination:.2f>.dat` (`frequency`, $I, Q, U, V$ in $\mathrm{Jy}$) matches $\sum \text{HDF5}_{IQUV}\,\Delta\Omega$ within relative tolerance $10^{-10}$, where $\Delta\Omega = (\Delta x\,\Delta y)(r_g / D)^2$ uses the literal C constants `GGRAV`, `MSUN`, `SPEED_OF_LIGHT`, and `KPCTOCM` parsed from `build/definitions.h`;
 - records pixel counts with $I < 0$ or $\sqrt{Q^2 + U^2 + V^2} > I$ in `output.json` as diagnostics without filtering data.
 
-## Stokes cube conversion, delivery, and multi-host merge
+## Stokes cube conversion and delivery
 
 `convert_hdf5` (`eht_axion/raptor/convert.py`) assembles a rectangular `time × state` grid of validated job HDF5 files into a float64 `(T, S, N, N, 4)` array (`[time, state, x, y, IQUV]` in $\mathrm{Jy\,sr^{-1}}$) and writes `convert.json`.
 
-`deliver_stokes` (`eht_axion/raptor/delivery.py`) maps every planned task to a unique job stage across one or more job roots, checks each job's recorded build and inputs and its `success.json`, and publishes `raptor:delivery` stages under `<target>/data/raptor/`:
+`deliver_stokes` (`eht_axion/raptor/delivery.py`) maps every planned task to its completed job stage in `raptor/jobs/`, checks each job's recorded build and inputs and its `success.json`, and publishes `raptor:delivery` stages under `raptor/delivered/`:
 - `res-100/alpha-<alpha:.2f>/stokes.npy` of shape `(141, 17, 100, 100, 4)` (8 stages: state `0` axion-off baseline, state `k+1` phase $k\pi/8$);
 - `res-400/background/t<A>-t<B>/stokes-t<A>-t<B>.npy` in contiguous shards of at most 10 snapshots (15 stages: `t1600-t1690` … `t3000-t3000`), shape `(T, 1, 400, 400, 4)`.
 
-Each delivery stage also writes `generated.json` (schema `raptor-generated`, storing `ray_tracing_config`, `alpha`, `resolution`, `snapshot_labels`, BHAC footer `times_tg`, `state_count`, `omega`, axes, and units) and `sources.json` (task-to-job-root mapping). Downstream analysis stages call `generated_inputs` to enforce exact agreement between `generated.json` and `configs/experiment.yaml`.
+Each delivery stage also writes `generated.json` (schema `raptor-generated`, storing `ray_tracing_config`, `alpha`, `resolution`, `snapshot_labels`, BHAC footer `times_tg`, `state_count`, `omega`, axes, and units). Downstream analysis stages call `generated_inputs` to enforce exact agreement between `generated.json` and `configs/experiment.yaml`.
 
-When jobs were split across multiple hosts or run directories, `scripts/raptor/merge.py` runs `deliver_stokes` into a disjoint `--output-root` (`$EHT_DATA_ROOT/raptor/delivered/`) and records `inventory/index.json` (stage `raptor:merge`, layout `raptor-merge`) without modifying any source job directory.

@@ -88,11 +88,11 @@ def main(argv=None):
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", type=Path, default=DEFAULT_PATH, help="default: configs/experiment.yaml")
     parser.add_argument("--raptor-input-root", type=Path,
-                        help="delivered data root containing raptor/res-*/ (default: raptor/delivered/data)")
+                        help="delivered data root containing raptor/res-*/ (default: raptor/delivered)")
     parser.add_argument("--output-root", type=Path, help="new directory (default: analysis/templates)")
     add_data_root_option(parser)
     args = parser.parse_args(argv)
-    fill_defaults(parser, args, {"raptor_input_root": ("raptor.data", {}),
+    fill_defaults(parser, args, {"raptor_input_root": ("raptor.delivered", {}),
                                  "output_root": ("analysis.templates", {})})
     run(args.config, args.raptor_input_root, args.output_root)
 

@@ -6,17 +6,16 @@ EHT 成像流水线基于 `ehtim == 1.3.2` 复现 EHT Paper VII 的 2017 年事�
 
 ## 前置条件与输入数据
 
-`scripts/eht/reconstruct.py`、`refine.py`、`export_bundle.py` 和 `sample.py` 在 `eht-imaging` Pixi 环境（含 `ehtim 1.3.2`、`astropy`）中运行；`scripts/eht/summarize.py` 仅需 `eht-summary`（`astropy`）。`scripts/eht/reconstruct.py` 从只读输入根目录（`EHT_INPUT_ROOT` / `--input-root`，见[输入目录布局](data-layout.md#输入目录布局)）的 `eht/` 目录读取三个本机数据路径；每一项都可用显式选项覆盖，相对路径以当前工作目录为基准解析：
+`scripts/eht/reconstruct.py`、`refine.py` 和 `sample.py` 在 `eht-imaging` Pixi 环境（含 `ehtim 1.3.2`、`astropy`）中运行；`scripts/eht/summarize.py` 仅需 `eht-summary`（`astropy`）。`scripts/eht/reconstruct.py` 从只读输入根目录（`EHT_INPUT_ROOT` / `--input-root`，见[输入目录布局](data-layout.md#输入目录布局)）的 `eht/` 目录读取两个本机数据路径；每一项都可用显式选项覆盖，相对路径以当前工作目录为基准解析：
 
 - **HOPS `uvfits` 目录**（`--uvfits-dir`，默认 `$EHT_INPUT_ROOT/eht`）：包含第 `95`、`96`、`100`、`101` 天（2017 年 4 月 5、6、10、11 日）公开发布的四个低频段文件 `SR2_M87_2017_<day>_lo_hops_zbl-dtcal+selfcal.uvfits`，其文件名和 SHA-256 摘要必须与 `configs/experiment.yaml` 中的 `eht_imaging.inputs` 一致。
-- **馈源旋转表**（`--feed-rotation-file`，默认 `$EHT_INPUT_ROOT/eht/feed-rotation.json`）：含 `"status": "verified"`、`"units": {"fr_off": "...degrees..."}` 以及各台站 `fr_par`、`fr_elev`、`fr_off` 的 JSON。
 - **官方 EHT 成像脚本**（`--official-script`，默认 `$EHT_INPUT_ROOT/eht/eht-imaging_pipeline.py`）：官方总强度成像流水线脚本。
 
-在任何成像计算之前，所选观测日 `uvfits` 文件的 SHA-256 会与 `eht_imaging.inputs` 核对；`uvfits` 文件、馈源旋转表和官方脚本均记入阶段输入，其路径作为成像参数 `input_root`、`feed_rotation_file` 与 `official_script`（`EHT_LOCATIONS`）记录下来。
+在任何成像计算之前，所选观测日 `uvfits` 文件的 SHA-256 会与 `eht_imaging.inputs` 核对；`uvfits` 文件和官方脚本记入阶段输入，其路径作为成像参数 `input_root` 与 `official_script`（`EHT_LOCATIONS`）记录下来。台站场旋转系数（EHT Paper VII 表 1）是 `configs/experiment.yaml` 中的 `eht_imaging.feed_rotation`。
 
 ## 运行 EHT 成像流水线
 
-在 `.env` 中设置 `EHT_INPUT_ROOT` 与 `EHT_DATA_ROOT` 后，对全部四个观测日（`95`、`96`、`100`、`101`）依次运行逐日重建与精化，然后打包导出、执行蒙特卡罗抽样并汇总系综：
+在 `.env` 中设置 `EHT_INPUT_ROOT` 与 `EHT_DATA_ROOT` 后，对全部四个观测日（`95`、`96`、`100`、`101`）依次运行逐日重建与精化，然后执行蒙特卡罗抽样并汇总系综：
 
 ```bash
 # Optional dry-run plan verification (no ehtim import or disk writes)
@@ -29,17 +28,14 @@ for day in 95 96 100 101; do
   pixi run -e eht-imaging eht-refine --day $day
 done
 
-# 4. Bundle the four fixed-I and refined-D stages for Monte Carlo sampling
-pixi run -e eht-imaging eht-export-bundle
-
-# 5. Run the 4 x 1000 D-term Monte Carlo (resumable in $EHT_DATA_ROOT/eht/sample)
+# 4. Run the 4 x 1000 D-term Monte Carlo (resumable in $EHT_DATA_ROOT/eht/sample)
 pixi run -e eht-imaging eht-sample --workers 64 --threads 2
 
-# 6. Summarize certified blurred FITS draws into $EHT_DATA_ROOT/eht/ensemble
+# 5. Summarize certified blurred FITS draws into $EHT_DATA_ROOT/eht/ensemble
 pixi run -e eht-summary eht-summarize
 ```
 
-除 `eht/sample` 外，所有输出目录都必须是全新目录。`scripts/eht/sample.py` 支持 `--workers`（默认 `64`）、`--threads`（默认 `2`）、`--max-active-memory-gib`（默认 `100`）、`--resource-wait`（默认 `300` s；若内存准入持续受阻则以状态码 `3` 退出，可安全续跑）、`--task-limit` 和 `--resume`。只要批次计划（`batch.json`：打包文件、科学参数、代码提交号、依赖包版本、线程数）不变，对同一输出目录重新运行 `eht-sample` 会自动断点续跑。
+除 `eht/sample` 外，所有输出目录都必须是全新目录。`scripts/eht/sample.py` 支持 `--workers`（默认 `64`）、`--threads`（默认 `2`）、`--max-active-memory-gib`（默认 `100`）、`--resource-wait`（默认 `300` s；若内存准入持续受阻则以状态码 `3` 退出，可安全续跑）、`--task-limit` 和 `--resume`。只要批次计划（`batch.json`：输入文件、科学参数、代码提交号、依赖包版本、线程数）不变，对同一输出目录重新运行 `eht-sample` 会自动断点续跑。
 
 ## 图像重建方法
 
@@ -47,7 +43,7 @@ pixi run -e eht-summary eht-summarize
 
 `load_native` 以原生圆偏振表示（`polrep="circ"`，相关乘积 `RR`、`LL`、`RL`、`LR`）直接载入每个 HOPS `uvfits` 文件，不经由斯托克斯（Stokes）参量中转：
 - 在扫描平均前，只要四个相关乘积或误差中任一项非有限或满足 $\sigma \le 0$，整条可见度（visibility）记录即被丢弃。
-- 从 `feed-rotation.json` 写入台站馈源旋转系数（`fr_par`、`fr_elev`、`fr_off`），将台站 D 项置为 `0j`，并设置校准标志 `ampcal = phasecal = frcal = True`、`dcal = False`（`fixed_sites` 中的 ALMA/APEX/SMA/JCMT 已在 HOPS 产品中预改正，`solve_sites` 中的 `AZ`、`LM`、`PV` 尚未改正）。
+- 从 `eht_imaging.feed_rotation` 写入台站场旋转系数（`fr_par`、`fr_elev`、`fr_off`），将台站 D 项置为 `0j`，并设置校准标志 `ampcal = phasecal = frcal = True`、`dcal = False`（`fixed_sites` 中的 ALMA/APEX/SMA/JCMT 已在 HOPS 产品中预改正，`solve_sites` 中的 `AZ`、`LM`、`PV` 尚未改正）。
 - 对可见度做一次相干扫描平均（`avg_coherent(0, scan_avg=True)`）。
 - `make_imaging_obs` 封装 `Obsdata`，既修复了 NumPy 2 下等长 `tlist` 分组丢失结构化数据类型的问题，也修正了 `ehtim` 1.3.2 在计算圆偏振比值误差 `msigma` 时 $\operatorname{Var}(I) = (\sigma_{RR}^2 + \sigma_{LL}^2)/4$ 漏掉 $1/4$ 因子的问题。
 
@@ -86,9 +82,9 @@ $$
 
 `scripts/eht/refine.py`（阶段 `eht:refine`）以基准阶段的 `final-raw-IQU.fits` 和 `final-dterms.json` 为起点，执行 `outer_rounds = 100` 轮带证书的 PDHG $P$ 求解（`maxiter = 20000`、`time_limit = 300` s）与前向 `L-BFGS-B` D 项重拟合（参数 `eht_imaging.refine.d_optimizer`，逐次记录于 `D-optimizer-records.json`），最后执行第 101 次 `final-P` 求解以对齐最终 D 项。
 
-### 打包导出、D 项蒙特卡罗与系综汇总
+### D 项蒙特卡罗与系综汇总
 
-1. **打包导出（`scripts/eht/export_bundle.py`）**：检查四个 `eht:i` 阶段和四个 `eht:refine` 阶段，确认每天均满足 `all_P_numerically_certified == True`，将以只读权限（`0444`）复制的 `<day>/fixedI.fits`、`<day>/gaincal-pol.uvfits`、`<day>/fiducial-dterms.json`、`lineage/<day>/*` 和 `feed-rotation.json` 连同 `bundle.json`（模式 `eht-bundle`）导出到打包目录。
+1. **输入**：`scripts/eht/sample.py` 直接读取四个 `eht:i` 阶段（`final-fixedI.fits`、`clean-gaincal-pol.uvfits`）和四个 `eht:refine` 阶段（`final-dterms.json`），并确认每天均满足 `all_P_numerically_certified == True`。
 2. **D 项蒙特卡罗（`scripts/eht/sample.py`）**：
    - 对 `solve_sites` 中的每个台站和每种圆偏振旋向（`R`、`L`），由四天精化解计算 $(\operatorname{Re} D, \operatorname{Im} D)$ 的均值与 $2 \times 2$ 样本协方差（`covariance_ddof = 1`，见 `d_distribution`）。
    - 每天以随机数种子 `SeedSequence([20210405, day])` 抽取 `uncertainty_draws = 1000` 组 D 项（`sample_dterms`）：`AZ`、`LM`、`PV` 服从二元正态分布；预改正台站 `AA`、`AP`、`SM`、`JC` 在每个实部和虚部分量上独立抽取标准差为 `residual_d_sigma = 0.01` 的零均值正态残差。不重抽样热噪声，也不对每次抽样重拟合 D 项。

@@ -1,4 +1,4 @@
-"""Plan/run/resume RAPTOR jobs or deliver verified HDF; never implicitly build."""
+"""Plan/run/resume RAPTOR jobs and deliver their Stokes cubes into raptor/delivered; never build."""
 
 from pathlib import Path
 import sys
@@ -8,30 +8,47 @@ sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / 
 import json
 import shutil
 
-from eht_axion.raptor.options import options, save_request
+from eht_axion.raptor.options import options
 from eht_axion.raptor.delivery import deliver_stokes
 from eht_axion.raptor.jobs import run_jobs
 from eht_axion.raptor.plan import plan_generation
 
 
+def frozen_plan(args):
+    """raptor/plan.json: written once (snapshots hashed then); later runs must plan the same tasks."""
+    inputs = (args.config_data, args.fluid_root, {"low": args.radial_low, "high": args.radial_high},
+              args.run_root / "build")
+    path = args.run_root / "plan.json"
+    plan = plan_generation(*inputs)
+    roots = (args.fluid_root, args.radial_low.parent, args.radial_high.parent)
+    extra = dict(input_roots=[str(p) for p in roots],
+                 source_roots=[str(args.source_root)],
+                 raptor_source=dict(args.config_data["raptor"]["source"]))
+    plan.update(extra)
+    if path.exists():
+        stored = json.loads(path.read_text())
+        light = json.loads(json.dumps(stored))
+        light["hash_inputs"] = False
+        for record in light["snapshots"] + light["tasks"]:
+            record["source_sha256"] = None
+        if light != json.loads(json.dumps(plan)):
+            raise ValueError(f"{path} plans different tasks; use a new data root")
+        return stored, False
+    if args.plan:
+        return plan, True
+    plan = dict(plan_generation(*inputs, hash_inputs=True), **extra)
+    return plan, True
+
+
 def main(argv=None):
     args = options("generate", argv)
-    plan = plan_generation(args.config_data, args.fluid_root,
-                           {"low": args.radial_low, "high": args.radial_high},
-                           args.run_root / "build")
-    plan["input_roots"] = [str(args.fluid_root), str(args.radial_low.parent), str(args.radial_high.parent)]
-    plan["source_roots"] = [str(args.source_root)]
-    plan["raptor_source"] = dict(args.config_data["raptor"]["source"])
+    plan, new = frozen_plan(args)
     summary = {"counts": plan["counts"], "requirements": plan["requirements"],
                "warnings": plan["warnings"], "run_root": str(args.run_root),
                "scheduling": {"workers": args.workers, "threads_per_worker": args.threads,
                               "affinity": args.cpu_affinity, "cpu_sets": args.cpu_sets}}
     print(json.dumps(summary, indent=2, allow_nan=False))
     if args.plan:
-        if args.plan_output is not None:
-            with args.plan_output.open("x") as stream:
-                json.dump(plan, stream, indent=2, allow_nan=False)
-                stream.write("\n")
         return 0
     # Numerical arrays only are a lower bound. Require additional disk headroom;
     # job RSS/elapsed time are not estimated here.
@@ -43,14 +60,17 @@ def main(argv=None):
     if shutil.disk_usage(existing).free < required:
         raise ValueError(f"Insufficient free space: require at least {required} bytes "
                          "for conservative headroom")
+    if new:
+        args.run_root.mkdir(parents=True, exist_ok=True)
+        with (args.run_root / "plan.json").open("x") as stream:
+            json.dump(plan, stream, indent=2, allow_nan=False)
+            stream.write("\n")
     if not args.convert_only:
         from eht_axion.raptor.affinity import check_memory
 
         per_worker = max(int(2.5 * 1024**3),
                          2 * plan["requirements"]["per_process_memory_lower_bound_bytes"])
         check_memory(args.workers, per_worker)
-    save_request(args, plan)
-    if not args.convert_only:
         result = run_jobs(plan, args.run_root / "build", args.run_root, max_jobs=args.max_jobs,
                           threads=args.threads, workers=args.workers,
                           cpu_affinity=args.cpu_affinity, cpu_list=args.cpu_list,
@@ -62,7 +82,7 @@ def main(argv=None):
             print("Selected task prefix completed; full delivery waits for the remaining jobs.")
             return 0
     products = deliver_stokes(plan, args.run_root)
-    print(f"Verified Stokes data: {args.run_root / 'data'} ({len(products)} products)")
+    print(f"Stokes cubes: {args.run_root / 'delivered'} ({len(products)} products)")
     return 0
 
 

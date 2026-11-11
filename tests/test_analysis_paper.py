@@ -260,7 +260,7 @@ def data_root(tmp_path):
             },
         ),
     )
-    shard = root / "raptor/delivered/data/raptor/res-400/background/t1600-t3000"
+    shard = root / "raptor/delivered/res-400/background/t1600-t3000"
     stage(
         shard,
         "raptor:delivery",

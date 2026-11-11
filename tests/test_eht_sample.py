@@ -10,65 +10,39 @@ from scripts.eht import sample as batch
 SCRIPT = Path(batch.__file__)
 
 
-def snapshot(tmp_path):
-    root = tmp_path / 'inputs'
-    root.mkdir()
-    days, files = {}, []
+def sources(tmp_path):
+    result = {}
     for day in batch.DAYS:
-        days[day] = dict(I=f'{day}/fixedI.fits', obs=f'{day}/gaincal-pol.uvfits',
-                         dterms=f'{day}/fiducial-dterms.json')
-        for kind, rel in days[day].items():
-            p = root / rel
-            p.parent.mkdir(exist_ok=True)
-            if kind == 'dterms':
-                value = {s: [[.01 * int(day), .002], [.003, -.004 * int(day)]]
-                         for s in ('AZ', 'LM', 'PV')}
-                p.write_text(json.dumps(value))
-            else:
-                p.write_bytes((day + kind).encode())
-            p.chmod(0o444)
-            files.append(dict(path=rel))
-    feed = root / 'feed-rotation.json'
-    feed.write_text('{}')
-    feed.chmod(0o444)
-    files.append(dict(path=feed.name))
-    b = dict(schema='eht-bundle', days=days, files=files, feed_file=feed.name,
-             covariance_ddof=1, residual_component_sigma=.01, fsys=.005,
-             objective=dict(pvis=1.0, m=1.0, hw=100.0, ptv=1.0, norm_reg=True))
-    (root / 'bundle.json').write_text(json.dumps(b))
-    return root, b
+        p = tmp_path / f'{day}-final-dterms.json'
+        terms = {s: [[.01 * int(day), .002], [.003, -.004 * int(day)]] for s in ('AZ', 'LM', 'PV')}
+        p.write_text(json.dumps(terms))
+        result[day] = dict(I=str(tmp_path / f'{day}.fits'), obs=str(tmp_path / f'{day}.uvfits'),
+                           dterms=str(p))
+    return result
 
 
-def test_bundle_bytes_seeds_and_4000_unique_tasks(tmp_path):
-    root, b = snapshot(tmp_path)
+def test_settings_seeds_and_4000_unique_tasks(tmp_path):
+    inputs = sources(tmp_path)
     science = batch.science_settings(SCRIPT.parents[2] / 'configs' / 'experiment.yaml')
     assert science['sites'] == ['AA', 'AP', 'AZ', 'JC', 'LM', 'PV', 'SM']
     assert (science['draws_per_day'], science['seed'], science['fsys']) == (1000, 20210405, .005)
+    assert science['feed_rotation']['SM'] == [1, -1, 45]
     assert science['monte_carlo'] == dict(initial_p_fraction=.05, gap_atol=1e-6, maxiter=50000,
                                           check_every=500, time_limit=600., retry_maxiter=200000,
                                           retry_time_limit=1800.)
-    verified, lineage = batch.verify_bundle(root, science)
-    assert verified == b
-    assert all(f['readonly_mode'] for f in lineage['files'].values())
-    assert lineage['bundle'] == str(root)
-    draws = batch.make_draws(root, b, 1000, 20210405, science)
+    draws = batch.make_draws(inputs, 1000, 20210405, science)
     tasks = batch.enumerate_tasks(draws)
     assert len(tasks) == len({t['id'] for t in tasks}) == 4000
     assert all(sum(t['day'] == d for t in tasks[:64]) == 16 for d in batch.DAYS)
     assert {t['day'] for t in tasks} == set(batch.DAYS)
     assert all(len(draws[d]['draws']) == 1000 for d in batch.DAYS)
     assert all(set(t['dterms']) == set(science['sites']) for t in tasks)
-    repeated = batch.make_draws(root, dict(b, days=dict(reversed(list(b['days'].items())))), 1000, 20210405,
-                                science)
+    repeated = batch.make_draws(dict(reversed(list(inputs.items()))), 1000, 20210405, science)
     assert repeated == draws
     assert len({draws[d]['seed'] for d in batch.DAYS}) == 4
     assert draws['95']['draws'][0] != draws['96']['draws'][0]
-    with pytest.raises(ValueError, match='science contract'):
-        batch.verify_bundle(root, dict(science, fsys=.01))
-    with pytest.raises(ValueError, match='science contract'):
-        batch.verify_bundle(root, dict(science, p_reg=dict(hw=50.0, ptv=1.0)))
     with pytest.raises(ValueError, match='Unsafe'):
-        batch.contained(root, '../escape')
+        batch.contained(tmp_path, '../escape')
 
 
 def test_receipts_retry_and_tiny_exact_solver(tmp_path):

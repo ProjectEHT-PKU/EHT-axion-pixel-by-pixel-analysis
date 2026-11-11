@@ -8,8 +8,8 @@ The M87\* EHT axion pipeline tests for birefringent electric-vector position ang
 
 | Part | Scripts | Pixi environment | Primary outputs |
 |---|---|---|---|
-| `RAPTOR` simulation | `scripts/raptor/build.py`, `scripts/raptor/generate.py`, `scripts/raptor/merge.py` | `raptor-build` (`linux-64`) | Delivered float64 Stokes cubes (`res-100/alpha-*/stokes.npy`, `res-400/background/...`) |
-| EHT imaging | `scripts/eht/reconstruct.py`, `scripts/eht/refine.py`, `scripts/eht/export_bundle.py`, `scripts/eht/sample.py` | `eht-imaging` | Fixed-$I$ images, refined fiducial D terms, and $4 \times 1000$ certified polarimetric FITS draws |
+| `RAPTOR` simulation | `scripts/raptor/build.py`, `scripts/raptor/generate.py` | `raptor-build` (`linux-64`) | Delivered float64 Stokes cubes (`res-100/alpha-*/stokes.npy`, `res-400/background/...`) |
+| EHT imaging | `scripts/eht/reconstruct.py`, `scripts/eht/refine.py`, `scripts/eht/sample.py` | `eht-imaging` | Fixed-$I$ images, refined fiducial D terms, and $4 \times 1000$ certified polarimetric FITS draws |
 | EHT ensemble summary | `scripts/eht/summarize.py` | `eht-summary` | Per-day Stokes/EVPA arrays and Paper VII diagnostics (`eht/ensemble/`) |
 | Analysis | `scripts/analysis/templates.py`, `scripts/analysis/limits.py`, `scripts/analysis/check_grid.py`, `scripts/analysis/check_covariance.py`, `scripts/analysis/summarize.py`, `scripts/analysis/paper.py` | `default` | Response templates, upper limits $c_{95}(\alpha)$, sensitivity checks, `RESULTS.md`, and paper figures/macros/tables |
 
@@ -17,15 +17,13 @@ The M87\* EHT axion pipeline tests for birefringent electric-vector position ang
 flowchart LR
   subgraph RAPTOR["RAPTOR simulation"]
     RB["raptor/build.py"] --> RG["raptor/generate.py"]
-    RG --> RM["raptor/merge.py"]
   end
   subgraph EHT["EHT imaging"]
     EI["eht/reconstruct.py --stage I"] --> EF["eht/reconstruct.py --stage fiducial"]
     EF --> ER["eht/refine.py"]
     EI --> ER
-    ER --> EB["eht/export_bundle.py"]
-    EI --> EB
-    EB --> ES["eht/sample.py"]
+    ER --> ES["eht/sample.py"]
+    EI --> ES
     ES --> EM["eht/summarize.py"]
   end
   subgraph AN["Analysis"]
@@ -40,13 +38,12 @@ flowchart LR
     AG --> AP
     AC --> AP
   end
-  RM -- "delivered Stokes cubes" --> AT
   RG -- "delivered Stokes cubes" --> AT
   EM -- "EHT ensemble" --> AL
   EM -- "EHT ensemble" --> AP
 ```
 
-Arrows mean "reads the verified output of". When all ray-tracing jobs execute under a single run root, `scripts/raptor/generate.py` delivers the Stokes cubes directly; when jobs are split across hosts or builds, `scripts/raptor/merge.py` merges their job roots into one delivered tree. `scripts/analysis/paper.py` also reads the frozen `RAPTOR` plan, `src/axion.c` of the pinned `RAPTOR` checkout, the radial-profile CSVs, and the delivered 400-pixel axion-off cubes.
+Arrows mean "reads the verified output of". `scripts/raptor/generate.py` runs the ray-tracing jobs and delivers their Stokes cubes into `raptor/delivered/`. `scripts/analysis/paper.py` also reads the frozen `RAPTOR` plan, `src/axion.c` of the pinned `RAPTOR` checkout, the radial-profile CSVs, and the delivered 400-pixel axion-off cubes.
 
 ## Scientific workflow
 

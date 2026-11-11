@@ -74,7 +74,7 @@ raptor:  # simulation input: what determines the ray-traced Stokes images
 
 eht_imaging:  # observation input: Paper IV/VII method (fixed I, D-term solution, D-term Monte Carlo)
   # Data identity: official HOPS low-band uvfits per day, [file name, sha256].
-  # The uvfits directory, feed-rotation table and official script are eht/ below
+  # The uvfits directory and official script are eht/ below
   # EHT_INPUT_ROOT (.env or CLI), see docs/en/configuration.md.
   inputs:
     95: [SR2_M87_2017_095_lo_hops_zbl-dtcal+selfcal.uvfits, a749309931dbaa506b7a1575e1eef49af97b3ea62ded1fa717efadbaa2fdd5b4]
@@ -85,6 +85,14 @@ eht_imaging:  # observation input: Paper IV/VII method (fixed I, D-term solution
   fsys: 0.005                    # fractional systematic noise
   solve_sites: [AZ, LM, PV]      # D terms solved here
   fixed_sites: [AA, AP, SM, JC]  # already leakage-corrected in the HOPS products
+  feed_rotation:                 # [fr_par, fr_elev, fr_off (degrees)] per station: EHT Paper VII Table 1
+    AA: [1, 0, 0]
+    AP: [1, 1, 0]
+    AZ: [1, 1, 0]
+    LM: [1, -1, 0]
+    PV: [1, -1, 0]
+    SM: [1, -1, 45]
+    JC: [1, 0, 0]
   p_data: {pvis: 1.0, m: 1.0}
   p_reg: {hw: 100.0, ptv: 1.0}
   norm_reg: true

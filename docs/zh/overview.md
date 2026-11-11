@@ -8,8 +8,8 @@ M87\* EHT 轴子分析流水线用于检验环绕 M87\* 的超轻轴子云（ult
 
 | 部分 | 脚本 | Pixi 环境 | 主要输出产品 |
 |---|---|---|---|
-| `RAPTOR` 模拟 | `scripts/raptor/build.py`、`scripts/raptor/generate.py`、`scripts/raptor/merge.py` | `raptor-build`（`linux-64`） | 已交付的 float64 Stokes 数据立方（`res-100/alpha-*/stokes.npy`、`res-400/background/...`） |
-| EHT 成像 | `scripts/eht/reconstruct.py`、`scripts/eht/refine.py`、`scripts/eht/export_bundle.py`、`scripts/eht/sample.py` | `eht-imaging` | 固定总强度（$I$）图像、精化后的基准仪器偏振泄漏（D 项，D-terms）以及 $4 \times 1000$ 幅带数值证书的偏振 FITS 抽样图像 |
+| `RAPTOR` 模拟 | `scripts/raptor/build.py`、`scripts/raptor/generate.py` | `raptor-build`（`linux-64`） | 已交付的 float64 Stokes 数据立方（`res-100/alpha-*/stokes.npy`、`res-400/background/...`） |
+| EHT 成像 | `scripts/eht/reconstruct.py`、`scripts/eht/refine.py`、`scripts/eht/sample.py` | `eht-imaging` | 固定总强度（$I$）图像、精化后的基准仪器偏振泄漏（D 项，D-terms）以及 $4 \times 1000$ 幅带数值证书的偏振 FITS 抽样图像 |
 | EHT 系综汇总 | `scripts/eht/summarize.py` | `eht-summary` | 按天汇总的 Stokes/EVPA 数组及 Paper VII 诊断量（`eht/ensemble/`） |
 | 分析 | `scripts/analysis/templates.py`、`scripts/analysis/limits.py`、`scripts/analysis/check_grid.py`、`scripts/analysis/check_covariance.py`、`scripts/analysis/summarize.py`、`scripts/analysis/paper.py` | `default` | 响应模板、上限 $c_{95}(\alpha)$、敏感性检验、`RESULTS.md` 以及论文图、宏定义和表格 |
 
@@ -17,15 +17,13 @@ M87\* EHT 轴子分析流水线用于检验环绕 M87\* 的超轻轴子云（ult
 flowchart LR
   subgraph RAPTOR["RAPTOR simulation"]
     RB["raptor/build.py"] --> RG["raptor/generate.py"]
-    RG --> RM["raptor/merge.py"]
   end
   subgraph EHT["EHT imaging"]
     EI["eht/reconstruct.py --stage I"] --> EF["eht/reconstruct.py --stage fiducial"]
     EF --> ER["eht/refine.py"]
     EI --> ER
-    ER --> EB["eht/export_bundle.py"]
-    EI --> EB
-    EB --> ES["eht/sample.py"]
+    ER --> ES["eht/sample.py"]
+    EI --> ES
     ES --> EM["eht/summarize.py"]
   end
   subgraph AN["Analysis"]
@@ -40,13 +38,12 @@ flowchart LR
     AG --> AP
     AC --> AP
   end
-  RM -- "delivered Stokes cubes" --> AT
   RG -- "delivered Stokes cubes" --> AT
   EM -- "EHT ensemble" --> AL
   EM -- "EHT ensemble" --> AP
 ```
 
-图中箭头表示“读取已校验的上游输出”。当全部光线追踪作业在同一个运行根目录下完成时，`scripts/raptor/generate.py` 可直接交付 Stokes 数据立方；当作业分布在多台主机或多次编译中完成时，`scripts/raptor/merge.py` 将各作业根目录合并交付到同一目录树。`scripts/analysis/paper.py` 还会读取冻结的 `RAPTOR` 任务计划、固定版本 `RAPTOR` 工作副本中的 `src/axion.c`、径向轮廓 CSV 表以及已交付的 400 像素无轴子数据立方。
+图中箭头表示“读取已校验的上游输出”。`scripts/raptor/generate.py` 运行光线追踪作业，并把 Stokes 数据立方交付到 `raptor/delivered/`。`scripts/analysis/paper.py` 还会读取冻结的 `RAPTOR` 任务计划、固定版本 `RAPTOR` 工作副本中的 `src/axion.c`、径向轮廓 CSV 表以及已交付的 400 像素无轴子数据立方。
 
 ## 科学计算流程
 

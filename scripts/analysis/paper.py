@@ -1208,7 +1208,7 @@ def main(argv=None):
         ("covcheck", "analysis/check-covariance"),
         ("templates", "analysis/templates"),
         ("ensemble", "eht/ensemble"),
-        ("raptor-input-root", "raptor/delivered/data"),
+        ("raptor-input-root", "raptor/delivered"),
         ("raptor-plan", "raptor/plan.json"),
         ("output-root", "analysis/paper"),
     ):
@@ -1238,7 +1238,7 @@ def main(argv=None):
             "covcheck": ("analysis.check_covariance", {}),
             "templates": ("analysis.templates", {}),
             "ensemble": ("eht.ensemble", {}),
-            "raptor_input_root": ("raptor.data", {}),
+            "raptor_input_root": ("raptor.delivered", {}),
             "raptor_plan": ("raptor.plan", {}),
             "output_root": ("analysis.paper", {}),
         },

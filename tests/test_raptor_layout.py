@@ -19,9 +19,9 @@ def cube(path, times=1):
 
 
 def test_response_whole_cube_and_background_shards(tmp_path):
-    whole = cube(tmp_path / "raptor/res-100/alpha-0.20/stokes.npy")
+    whole = cube(tmp_path / "res-100/alpha-0.20/stokes.npy")
     assert input_raptor_files(tmp_path, 0.2, 100) == [whole]
-    base = tmp_path / "raptor/res-400/background"
+    base = tmp_path / "res-400/background"
     assert product_directory(tmp_path, None, 400) == base
     late = cube(base / "t1700-t1790/stokes-t1700-t1790.npy")
     early = cube(base / "t1600-t1690/stokes-t1600-t1690.npy")
@@ -31,7 +31,7 @@ def test_response_whole_cube_and_background_shards(tmp_path):
 def test_missing_ambiguous_and_misnamed_products(tmp_path):
     with pytest.raises(FileNotFoundError):
         input_raptor_files(tmp_path, 0.3, 400)
-    base = tmp_path / "raptor/res-400/alpha-0.30"
+    base = tmp_path / "res-400/alpha-0.30"
     cube(base / "stokes.npy")
     cube(base / "t1600-t1690/stokes-t1600-t1690.npy")
     with pytest.raises(ValueError, match="Ambiguous"):

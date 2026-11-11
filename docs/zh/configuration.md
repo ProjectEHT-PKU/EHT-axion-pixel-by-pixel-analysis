@@ -97,12 +97,13 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 |---|---|---|---|---|
 | `inputs` | `{95: [...], 96: [...], 100: [...], 101: [...]}` | – | 每天 HOPS 文件 `SR2_M87_2017_<day>_lo_hops_zbl-dtcal+selfcal.uvfits` 的 `[filename, sha256]` | `reconstruct.py`（核对 `$EHT_INPUT_ROOT/eht/` 中文件字节的 SHA-256） |
 | `gain_tol` | `[0.02, 0.2]` | – | 共享增益自校准 `selfcal` 的 `[lower, upper]` 相对增益容差 | `reconstruct.py`（`--stage I`） |
-| `fsys` | `0.005` | – | 按平方和加到 `RL`/`LR` 误差上的相对系统噪声（$> 0$） | `reconstruct.py`、`refine.py`、`sample.py` 中的 `add_fsys`；`bundle.json` |
+| `fsys` | `0.005` | – | 按平方和加到 `RL`/`LR` 误差上的相对系统噪声（$> 0$） | `reconstruct.py`、`refine.py`、`sample.py` 中的 `add_fsys` |
 | `solve_sites` | `['AZ', 'LM', 'PV']` | – | 求解 D 项的台站列表（与 `fixed_sites` 互不相交） | `reconstruct.py`、`refine.py`、`sample.py` |
 | `fixed_sites` | `['AA', 'AP', 'SM', 'JC']` | – | 已在公开发布的 HOPS `uvfits` 中预先完成泄漏改正的台站 | `load_native` 元数据、`sample_dterms` |
-| `p_data` | `{pvis: 1.0, m: 1.0}` | – | $P$ 目标函数中的数据项权重（$> 0$） | `reconstruct.py`、`convex.py`、`bundle.json` |
-| `p_reg` | `{hw: 100.0, ptv: 1.0}` | – | 正则项权重：偏振熵权重 `hw` 与偏振全变差（total variation, TV）权重 `ptv`（$> 0$） | `reconstruct.py`、`convex.py`、`bundle.json` |
-| `norm_reg` | `true` | – | 启用 `ehtim` 正则项归一化（`convex.py` 要求为 `true`） | `reconstruct.py`、`convex.py`、`bundle.json` |
+| `feed_rotation` | `{AA: [1, 0, 0], …, SM: [1, -1, 45]}` | –, –, deg | 每个台站的场旋转系数 `[fr_par, fr_elev, fr_off]`（EHT Paper VII 表 1） | `load_native`、`load_gaincal_base` |
+| `p_data` | `{pvis: 1.0, m: 1.0}` | – | $P$ 目标函数中的数据项权重（$> 0$） | `reconstruct.py`、`convex.py` |
+| `p_reg` | `{hw: 100.0, ptv: 1.0}` | – | 正则项权重：偏振熵权重 `hw` 与偏振全变差（total variation, TV）权重 `ptv`（$> 0$） | `reconstruct.py`、`convex.py` |
+| `norm_reg` | `true` | – | 启用 `ehtim` 正则项归一化（`convex.py` 要求为 `true`） | `reconstruct.py`、`convex.py` |
 | `initial_m` | `0.1` | – | 基准阶段第 1 轮的初始线偏振度 $m_0 \in (0, 1)$ | `reconstruct.py` |
 | `initial_evpa_deg` | `0.0` | $\mathrm{deg}$ | 基准阶段第 1 轮的初始均匀电矢量位置角（EVPA）$\chi_0$ | `reconstruct.py` |
 | `rounds` | `50` | – | 基准 $P$/$D$ 交替轮数（$\ge 1$） | `reconstruct.py` |
@@ -115,8 +116,8 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | `uv_min` | `100000000.0` | $\lambda$ | 最短基线长度截断（$100\,\mathrm{M}\lambda$），在共享增益校准前及全部 $P$ 成像中剔除同址零基线 | `reconstruct.py`、`refine.py`、`sample.py` |
 | `uncertainty_draws` | `1000` | 次/天 | 每天的 D 项蒙特卡罗抽样次数（四天共 $4000$ 次） | `sample.py`、`eht/summarize.py`、`limits.py`、`check_covariance.py` |
 | `seed` | `20210405` | – | 基础非负整数随机数种子；第 $d$ 天使用 `SeedSequence([seed, day])` | `sample.py` |
-| `covariance_ddof` | `1` | – | 四天 $(\operatorname{Re} D, \operatorname{Im} D)$ 样本协方差的自由度修正（delta degrees of freedom，$\in [0, 3]$） | `d_distribution`、`export_bundle.py`、`sample.py` |
-| `residual_d_sigma` | `0.01` | – | `fixed_sites` 在每个实部/虚部分量（$\operatorname{Re}$、$\operatorname{Im}$）上的零均值高斯标准差 | `sample_dterms`、`export_bundle.py`、`sample.py` |
+| `covariance_ddof` | `1` | – | 四天 $(\operatorname{Re} D, \operatorname{Im} D)$ 样本协方差的自由度修正（delta degrees of freedom，$\in [0, 3]$） | `d_distribution`、`sample.py` |
+| `residual_d_sigma` | `0.01` | – | `fixed_sites` 在每个实部/虚部分量（$\operatorname{Re}$、$\operatorname{Im}$）上的零均值高斯标准差 | `sample_dterms`、`sample.py` |
 | `refine.outer_rounds` | `100` | 轮 | 最终 $P$ 求解前精确 $P$ 求解与前向 $D$ 重拟合的外层交替轮数 | `refine.py` |
 | `refine.gap_atol` | `1.0e-06` | 目标函数 | 每次原始–对偶混合梯度（PDHG）$P$ 求解的对偶间隙（duality gap）证书绝对容差 | `refine.py` |
 | `refine.maxiter` | `20000` | 迭代步 | `refine.py` 中单次 $P$ 求解的 PDHG 最大迭代步数 | `refine.py` |
@@ -164,21 +165,21 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 所有本机路径都只由三个路径根目录派生，可写在仓库根目录下一个被 git 忽略的 `.env` 中（由 [`.env.example`](../../.env.example) 复制修改）、在 shell 中导出，或通过命令行传入：
 
 1. `EHT_RAPTOR_SOURCE_ROOT`（`--source-root` / `--raptor-source-root`）：由 `raptor.source` 固定版本的本地 `RAPTOR` Git 工作副本。
-2. `EHT_INPUT_ROOT`（`--input-root`）：按固定[输入目录布局](data-layout.md#输入目录布局)（`INPUT_LAYOUT`）存放的只读外部输入：GRMHD 快照、径向表、官方 EHT `uvfits` 文件、馈源旋转表及成像脚本。
+2. `EHT_INPUT_ROOT`（`--input-root`）：按固定[输入目录布局](data-layout.md#输入目录布局)（`INPUT_LAYOUT`）存放的只读外部输入：GRMHD 快照、径向表、官方 EHT `uvfits` 文件及成像脚本。
 3. `EHT_DATA_ROOT`（`--data-root`）：按[默认目录布局](data-layout.md#默认目录布局)（`LAYOUT`）存放的全部生成产物。
 
 `eht_axion/environment.py` 将 `.env` 严格作为键值数据解析：
 
 - **不执行 Shell 代码、不做变量展开**：不展开 `$VAR` 或 `$(...)`；任何语法错误、未知变量名、缺少 `=value` 或重复键都会抛出 `ValueError`。
 - **不在调用者当前工作目录中搜索**：默认 dotenv 文件固定为仓库根目录下的 `ROOT / ".env"`。`--env-file PATH` 用另一个文件替换它；`--no-env-file` 禁用 dotenv 读取。
-- **优先级顺序**：`CLI option > exported environment (os.environ) > .env`。显式的单文件选项（`--run-root`、`--fluid-root`、`--radial-low`、`--radial-high`、`--uvfits-dir`、`--feed-rotation-file`、`--official-script` 或任一阶段的 `--...-root`）优先于由对应根目录派生的默认路径。
+- **优先级顺序**：`CLI option > exported environment (os.environ) > .env`。显式的单文件选项（`--fluid-root`、`--radial-low`、`--radial-high`、`--uvfits-dir`、`--official-script` 或任一阶段的 `--...-root`）优先于由对应根目录派生的默认路径。
 - **相对路径基准**：写在 `.env` 中的相对路径统一以仓库根目录为基准；命令行传入的相对路径（以及 shell 导出的值）以调用者的当前工作目录为基准解析。
 
 | 变量名 | 类型 | 回退值 / 默认值 | 读取脚本 | 说明 |
 |---|---|---|---|---|
 | `EHT_RAPTOR_SOURCE_ROOT` | 路径 | `build.py`、`generate.py`、`paper.py` 必填 | `scripts/raptor/build.py`、`generate.py`、`scripts/analysis/paper.py` | 处于 `raptor.source.commit` 的 `github.com/projecteht-pku/raptor` 本地工作副本（`--source-root`；`paper.py` 中为 `--raptor-source-root`） |
-| `EHT_INPUT_ROOT` | 路径 | 未显式给出全部输入文件时必填 | `scripts/raptor/generate.py`、`scripts/eht/reconstruct.py`、`scripts/analysis/paper.py` | 只读[输入目录布局](data-layout.md#输入目录布局)的根目录：`grmhd/`（`--fluid-root`）、`radial/` 径向表（`--radial-low`、`--radial-high`）与 `eht/`（`--uvfits-dir`、`--feed-rotation-file`、`--official-script`）；可由 `--input-root` 覆盖 |
-| `EHT_DATA_ROOT` | 路径 | 未显式传 `--...-root` 时必填 | 所有流水线脚本 | [默认目录布局](data-layout.md#默认目录布局)的数据根目录，包括 `build.py` / `generate.py` 的运行根目录 `raptor/runs/main`；可由 `--data-root` 覆盖 |
+| `EHT_INPUT_ROOT` | 路径 | 未显式给出全部输入文件时必填 | `scripts/raptor/generate.py`、`scripts/eht/reconstruct.py`、`scripts/analysis/paper.py` | 只读[输入目录布局](data-layout.md#输入目录布局)的根目录：`grmhd/`（`--fluid-root`）、`radial/` 径向表（`--radial-low`、`--radial-high`）与 `eht/`（`--uvfits-dir`、`--official-script`）；可由 `--input-root` 覆盖 |
+| `EHT_DATA_ROOT` | 路径 | 未显式传 `--...-root` 时必填 | 所有流水线脚本 | [默认目录布局](data-layout.md#默认目录布局)的数据根目录，包括 `build.py` / `generate.py` 使用的 `raptor/`；可由 `--data-root` 覆盖 |
 | `EHT_RAPTOR_THREADS` | 数值（`int`） | `2` | `scripts/raptor/generate.py` | 每个 `RAPTOR` 进程的 OpenMP 线程数（`--threads`） |
 | `EHT_RAPTOR_WORKERS` | 数值（`int`） | `1` | `scripts/raptor/generate.py` | 并发运行的 `RAPTOR` 工作进程数（`--workers`） |
 | `EHT_RAPTOR_CPU_AFFINITY` | 数值（`str`） | `none`（`.env.example` 示例为 `physical`） | `scripts/raptor/generate.py` | CPU 亲和性（CPU affinity）策略：`none`、`physical` 或 `logical`（`--cpu-affinity`） |

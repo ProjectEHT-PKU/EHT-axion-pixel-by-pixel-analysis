@@ -13,12 +13,12 @@
 | `default` | `linux-64`、`linux-aarch64`、`osx-64`、`osx-arm64`、`win-64` | Python `3.12.*`、`numpy`、`scipy`、`matplotlib`、`h5py`、`pyyaml`、`pytest`、`ruff`、`python-dotenv` | 分析脚本、代码检查（`lint`）及不依赖 `ehtim`/`astropy` 的测试 |
 | `raptor-build` | `linux-64` | `c-compiler`、`make`、`gsl`、`hdf5`、`pkg-config`、`rsync` | 编译 `RAPTOR`、运行光线追踪作业、合并与交付数据立方 |
 | `eht-summary` | 全部 5 个平台 | `astropy` | 将仪器偏振泄漏（D 项，D-term）蒙特卡罗（Monte Carlo）FITS 抽样汇总为 `eht:ensemble` |
-| `eht-imaging` | 全部 5 个平台 | `astropy`、`ehtim == 1.3.2`（PyPI） | EHT 重建、凸优化精化、打包导出、蒙特卡罗抽样以及完整测试套件 |
+| `eht-imaging` | 全部 5 个平台 | `astropy`、`ehtim == 1.3.2`（PyPI） | EHT 重建、凸优化精化、蒙特卡罗抽样以及完整测试套件 |
 
 | 任务名 | 环境 | 执行命令 / 目标脚本 |
 |---|---|---|
-| `raptor-build`、`raptor-generate`、`raptor-merge` | `-e raptor-build` | `scripts/raptor/{build,generate,merge}.py` |
-| `eht-reconstruct`、`eht-refine`、`eht-export-bundle`、`eht-sample` | `-e eht-imaging` | `scripts/eht/{reconstruct,refine,export_bundle,sample}.py` |
+| `raptor-build`、`raptor-generate` | `-e raptor-build` | `scripts/raptor/{build,generate}.py` |
+| `eht-reconstruct`、`eht-refine`、`eht-sample` | `-e eht-imaging` | `scripts/eht/{reconstruct,refine,sample}.py` |
 | `eht-summarize` | `-e eht-summary`（或 `-e eht-imaging`） | `scripts/eht/summarize.py` |
 | `analysis-templates`、`analysis-limits`、`analysis-check-grid`、`analysis-check-covariance`、`analysis-summarize`、`analysis-paper` | `default` | `scripts/analysis/{templates,limits,check_grid,check_covariance,summarize,paper}.py` |
 | `test` | `default` 或 `-e eht-imaging` | `python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=."` |
@@ -64,9 +64,9 @@ pixi run --locked lint
 | `eht_axion/raptor/affinity.py` | 互不相交的 `taskset` CPU 分配及 Linux/`cgroup-v2` 内存余量检查 | `allocate_cpu_sets`、`check_memory`、`launch_prefix` |
 | `eht_axion/raptor/outputs.py` | 单作业 HDF5 像素块/坐标及积分流量谱校验 | `validate_job_output`、`read_core_constants`、`hdf_mapping` |
 | `eht_axion/raptor/convert.py` | 将分块作业 HDF5 拼接为 float64 `(T, S, H, W, 4)` `stokes.npy` | `convert_hdf5` |
-| `eht_axion/raptor/delivery.py` | 数据立方的校验交付/多机合并及下游实验配置身份核对 | `deliver_stokes`、`generated_inputs`、`input_cadence_hours`、`validate_processed_source` |
+| `eht_axion/raptor/delivery.py` | 数据立方交付及下游实验配置身份核对 | `deliver_stokes`、`generated_inputs`、`input_cadence_hours`、`validate_processed_source` |
 | `eht_axion/raptor/layout.py` | 已交付产品的目录命名规则（`alpha-<α>/` 与 `background/` 分片） | `alpha_label`、`product_directory`、`input_raptor_files` |
-| `eht_axion/raptor/options.py` | `RAPTOR` 脚本共用的命令行/dotenv 解析器与 `requests/<uuid>.json` 调用记录 | `options`、`save_request` |
+| `eht_axion/raptor/options.py` | `RAPTOR` 脚本共用的命令行/dotenv 解析器 | `options` |
 | `eht_axion/eht/calibration.py` | 原生圆偏振 HOPS 载入、`fsys`、逆琼斯 D 改正、零先验前向 D 拟合与四天 D 抽样 | `load_native`、`add_fsys`、`make_imaging_obs`、`apply_fixed_d`、`fit_forward_d`、`d_distribution`、`sample_dterms` |
 | `eht_axion/eht/convex.py` | 带对偶间隙（duality gap）证书的固定 $I$/固定 $D$ 精确凸优化原始–对偶混合梯度（PDHG）$P$ 求解器 | `exact_cartesian_problem`、`solve_problem`、`CartesianProblem` |
 | `eht_axion/eht/ensemble.py` | 严格四扩展单元（4-HDU）Stokes FITS 读取器、Paper VII 全局诊断量与逐日系综汇总写出器 | `load_stokes_fits`、`global_diagnostics`、`summarize` |

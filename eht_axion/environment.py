@@ -95,15 +95,14 @@ def resolve_environment(args):
 # Relative locations of the generated products below the data root; "{day}" is an EHT
 # observing day.
 LAYOUT = {
+    "raptor": "raptor",
     "raptor.plan": "raptor/plan.json",
-    "raptor.runs": "raptor/runs",
-    "raptor.run": "raptor/runs/main",
+    "raptor.build": "raptor/build",
+    "raptor.jobs": "raptor/jobs",
     "raptor.delivered": "raptor/delivered",
-    "raptor.data": "raptor/delivered/data",
     "eht.intensity": "eht/intensity/day-{day}",
     "eht.fiducial": "eht/fiducial/day-{day}",
     "eht.refine": "eht/refine/day-{day}",
-    "eht.bundle": "eht/bundle",
     "eht.sample": "eht/sample",
     "eht.ensemble": "eht/ensemble",
     "analysis.templates": "analysis/templates",
@@ -123,7 +122,6 @@ INPUT_LAYOUT = {
     "radial.low": "radial/result_a=0.9375_l1m1.txt",
     "radial.high": "radial/result_a=0.99_l1m1.txt",
     "eht.uvfits": "eht",
-    "eht.feed_rotation": "eht/feed-rotation.json",
     "eht.official_script": "eht/eht-imaging_pipeline.py",
 }
 

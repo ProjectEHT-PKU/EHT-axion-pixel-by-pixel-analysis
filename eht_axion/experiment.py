@@ -42,7 +42,8 @@ SCHEMA = {
     "raptor.radial_tables": {"low", "high"},
     "raptor.grid": {"nxlone", "xprobmin", "xprobmax", "hslope"},
     "eht_imaging": {
-        "inputs", "gain_tol", "fsys", "solve_sites", "fixed_sites", "p_data", "p_reg", "norm_reg",
+        "inputs", "gain_tol", "fsys", "solve_sites", "fixed_sites", "feed_rotation", "p_data", "p_reg",
+        "norm_reg",
         "initial_m", "initial_evpa_deg", "rounds", "restart_rounds", "restart_blur_uas",
         "restart_domain_epsilon", "maxit", "stop", "shift_objective_constant", "uv_min",
         "uncertainty_draws", "seed", "covariance_ddof", "residual_d_sigma",
@@ -72,7 +73,7 @@ ANGULAR_BINS = 360
 EHT_SOLVER_SECTIONS = ("refine", "monte_carlo")
 # Machine-local eht-imaging locations; recorded in the imaging plan, never in YAML. input_root is
 # the directory of the eht_imaging.inputs uvfits files (default: eht/ below EHT_INPUT_ROOT).
-EHT_LOCATIONS = ("input_root", "feed_rotation_file", "official_script")
+EHT_LOCATIONS = ("input_root", "official_script")
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
@@ -274,6 +275,13 @@ def _validate_eht_imaging(config):
             raise ValueError(f"eht_imaging.{key} must be a list of station codes")
     if set(c["solve_sites"]) & set(c["fixed_sites"]):
         raise ValueError("eht_imaging solve_sites and fixed_sites overlap")
+    feed = c["feed_rotation"]
+    if (not isinstance(feed, dict) or set(feed) != set(c["solve_sites"]) | set(c["fixed_sites"])
+            or not all(isinstance(v, list) and len(v) == 3 for v in feed.values())):
+        raise ValueError("eht_imaging.feed_rotation needs [fr_par, fr_elev, fr_off] for every station")
+    for site, values in feed.items():
+        for value in values:
+            _number(value, f"eht_imaging.feed_rotation.{site}")
     for key, names in (("p_data", {"pvis", "m"}), ("p_reg", {"hw", "ptv"})):
         if not isinstance(c[key], dict) or set(c[key]) != names:
             raise ValueError(f"eht_imaging.{key} requires exactly {sorted(names)}")
@@ -451,8 +459,9 @@ def eht_imaging_parameters(config, locations):
 
 
 _EHT_PARAMETER_ORDER = (
-    "input_root", "feed_rotation_file", "official_script", "inputs", "npix", "fov_uas",
-    "gain_tol", "fsys", "solve_sites", "fixed_sites", "p_data", "p_reg", "norm_reg", "initial_m",
+    "input_root", "official_script", "inputs", "npix", "fov_uas",
+    "gain_tol", "fsys", "solve_sites", "fixed_sites", "feed_rotation", "p_data", "p_reg", "norm_reg",
+    "initial_m",
     "initial_evpa_deg", "rounds", "restart_rounds", "restart_blur_uas", "restart_domain_epsilon",
     "maxit", "stop", "shift_objective_constant", "uv_min", "blur_fwhm_uas", "uncertainty_draws",
     "seed", "covariance_ddof", "residual_d_sigma",

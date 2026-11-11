@@ -81,7 +81,7 @@ def test_delivery_shapes_axes_labels_and_ancestry(delivered):
     assert len(products) == 2
     for alpha, resolution, shape in ((.2, 100, (2, 17, 100, 100, 4)),
                                      (None, 400, (2, 1, 400, 400, 4))):
-        paths = input_raptor_files(run / "data", alpha, resolution)
+        paths = input_raptor_files(run / "delivered", alpha, resolution)
         assert len(paths) == 1
         array = np.load(paths[0], mmap_mode="r")
         assert array.shape == shape
@@ -100,7 +100,7 @@ def test_generated_physics_cannot_be_silently_changed(delivered, key, value):
     config, run, _ = delivered
     changed = deepcopy(config)
     changed["shared"][key] = value
-    paths = input_raptor_files(run / "data", .2, 100)
+    paths = input_raptor_files(run / "delivered", .2, 100)
     with pytest.raises(ValueError, match="identity differs"):
         generated_inputs(paths, changed, alpha=.2, resolution=100)
 
@@ -110,7 +110,7 @@ def test_analysis_ignores_sky_grid_but_not_ray_tracing_changes(delivered):
     changed = deepcopy(config)
     changed["shared"]["image"]["fov_uas"] = 100.0
     changed["analysis"]["inference"]["phase_count"] = 32
-    paths = input_raptor_files(run / "data", .2, 100)
+    paths = input_raptor_files(run / "delivered", .2, 100)
     assert generated_inputs(paths, changed, alpha=.2, resolution=100)[1] == [1600, 1610]
     changed["raptor"]["plasma"]["mass_unit_g"] = 4e25
     with pytest.raises(ValueError, match="identity differs"):
@@ -129,7 +129,7 @@ def test_generated_data_reaches_templates_and_background(delivered, tmp_path):
     path = tmp_path / "experiment.yaml"
     path.write_text(yaml.safe_dump(profile))
     output = tmp_path / "analysis"
-    run_templates(path, run / "data", output)
+    run_templates(path, run / "delivered", output)
     with np.load(output / "response/alpha-0.20/response-2d.npz") as z:
         np.testing.assert_array_equal(z["snapshot_labels"], [1600, 1610])
     record = verify_stage(output / "processed/alpha-0.20")
@@ -142,7 +142,7 @@ def test_generated_data_reaches_templates_and_background(delivered, tmp_path):
     delivered = [Path(e) for e in bg["inputs"] if e.endswith(".npy")]
     assert input_cadence_hours(delivered, profile) > 0
     with pytest.raises(FileExistsError):
-        run_templates(path, run / "data", output)
+        run_templates(path, run / "delivered", output)
 
 
 def test_missing_metadata_is_rejected(delivered):

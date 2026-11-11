@@ -13,12 +13,12 @@ All four Pixi environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_
 | `default` | `linux-64`, `linux-aarch64`, `osx-64`, `osx-arm64`, `win-64` | Python `3.12.*`, `numpy`, `scipy`, `matplotlib`, `h5py`, `pyyaml`, `pytest`, `ruff`, `python-dotenv` | Analysis scripts, `lint`, and non-`ehtim`/`astropy` tests |
 | `raptor-build` | `linux-64` | `c-compiler`, `make`, `gsl`, `hdf5`, `pkg-config`, `rsync` | Compiling `RAPTOR`, running jobs, and merging/delivering cubes |
 | `eht-summary` | All 5 platforms | `astropy` | Summarizing D-term Monte Carlo FITS draws into `eht:ensemble` |
-| `eht-imaging` | All 5 platforms | `astropy`, `ehtim == 1.3.2` (PyPI) | EHT reconstruction, convex refinement, bundle export, Monte Carlo, and full test suite |
+| `eht-imaging` | All 5 platforms | `astropy`, `ehtim == 1.3.2` (PyPI) | EHT reconstruction, convex refinement, Monte Carlo, and full test suite |
 
 | Task | Environment | Command / target |
 |---|---|---|
-| `raptor-build`, `raptor-generate`, `raptor-merge` | `-e raptor-build` | `scripts/raptor/{build,generate,merge}.py` |
-| `eht-reconstruct`, `eht-refine`, `eht-export-bundle`, `eht-sample` | `-e eht-imaging` | `scripts/eht/{reconstruct,refine,export_bundle,sample}.py` |
+| `raptor-build`, `raptor-generate` | `-e raptor-build` | `scripts/raptor/{build,generate}.py` |
+| `eht-reconstruct`, `eht-refine`, `eht-sample` | `-e eht-imaging` | `scripts/eht/{reconstruct,refine,sample}.py` |
 | `eht-summarize` | `-e eht-summary` (or `-e eht-imaging`) | `scripts/eht/summarize.py` |
 | `analysis-templates`, `analysis-limits`, `analysis-check-grid`, `analysis-check-covariance`, `analysis-summarize`, `analysis-paper` | `default` | `scripts/analysis/{templates,limits,check_grid,check_covariance,summarize,paper}.py` |
 | `test` | `default` or `-e eht-imaging` | `python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=."` |
@@ -64,9 +64,9 @@ Several test modules enforce repository-wide invariants rather than single-funct
 | `eht_axion/raptor/affinity.py` | Disjoint `taskset` CPU allocation and Linux/`cgroup-v2` RAM headroom checks | `allocate_cpu_sets`, `check_memory`, `launch_prefix` |
 | `eht_axion/raptor/outputs.py` | Single-job HDF5 block/coordinate and integrated-spectrum validation | `validate_job_output`, `read_core_constants`, `hdf_mapping` |
 | `eht_axion/raptor/convert.py` | Tiled job HDF5 assembly into float64 `(T, S, H, W, 4)` `stokes.npy` | `convert_hdf5` |
-| `eht_axion/raptor/delivery.py` | Verified cube delivery/merge and downstream experiment-identity checks | `deliver_stokes`, `generated_inputs`, `input_cadence_hours`, `validate_processed_source` |
+| `eht_axion/raptor/delivery.py` | Cube delivery and downstream experiment-identity checks | `deliver_stokes`, `generated_inputs`, `input_cadence_hours`, `validate_processed_source` |
 | `eht_axion/raptor/layout.py` | Delivered product directory naming (`alpha-<α>/` and `background/` shards) | `alpha_label`, `product_directory`, `input_raptor_files` |
-| `eht_axion/raptor/options.py` | Shared CLI/dotenv parser and `requests/<uuid>.json` audit records for `RAPTOR` scripts | `options`, `save_request` |
+| `eht_axion/raptor/options.py` | Shared CLI/dotenv parser of the `RAPTOR` scripts | `options` |
 | `eht_axion/eht/calibration.py` | Native circular HOPS loading, `fsys`, inverse Jones D application, zero-prior forward D fit, and 4-day D sampling | `load_native`, `add_fsys`, `make_imaging_obs`, `apply_fixed_d`, `fit_forward_d`, `d_distribution`, `sample_dterms` |
 | `eht_axion/eht/convex.py` | Exact convex fixed-$I$/fixed-$D$ PDHG $P$ solver with duality-gap certification | `exact_cartesian_problem`, `solve_problem`, `CartesianProblem` |
 | `eht_axion/eht/ensemble.py` | Strict 4-HDU Stokes FITS reader, Paper VII global diagnostics, and daily ensemble writer | `load_stokes_fits`, `global_diagnostics`, `summarize` |
