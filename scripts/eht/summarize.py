@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """EHT imaging: summarize the D-term Monte Carlo images of scripts/eht/sample.py into EHT ensembles.
 
-The ensembles are the EHT input of the analysis (scripts/analysis/limits.py).
+The ensembles are the EHT input of the analysis (scripts/analysis/constraints.py).
 
 pixi run -e eht-summary eht-summarize --sample-root MC --output-root OUT
 MC is the output root of scripts/eht/sample.py; its batch must be finished and must have been

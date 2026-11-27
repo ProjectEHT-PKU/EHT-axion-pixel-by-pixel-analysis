@@ -1,4 +1,4 @@
-"""Analysis: limits on c from the EHT ensembles, with the zero-data control.
+"""Analysis: constraints on c from the EHT ensembles, with the zero-data control.
 
 Inputs: the expected signal of scripts/analysis/expected_signal.py and the fixed-D EHT ensemble
 summary of scripts/eht/summarize.py. Feature selection, cloud model, background and the
@@ -131,7 +131,7 @@ def save_results(out, products, prepared, config, sigmas, identity):
                 table.extend(dict(data=label, mode=mode, dimension=dim, alpha=float(x),
                                   log10_c95=float(y), c95=float(10**y)) for x, y in zip(a, cuts))
                 print(key, cuts, flush=True)
-    with (out / 'limits.csv').open('w', newline='') as stream:
+    with (out / 'constraints.csv').open('w', newline='') as stream:
         writer = csv.DictWriter(stream, fieldnames=[
             'data', 'mode', 'dimension', 'alpha', 'log10_c95', 'c95'])
         writer.writeheader()
@@ -224,7 +224,7 @@ def matched_aperture_samples(native_maps, operator):
     return evpa, intensity, polarized
 
 
-def prepare_limit_inputs(ensemble, expected, config, products):
+def prepare_constraint_inputs(ensemble, expected, config, products):
     """Read the EHT ensemble (scripts/eht/summarize.py) and select the likelihood features.
 
     Native[y,x] -> template[x,y], physical (-E,N). Sector EVPAs and sector selection
@@ -352,16 +352,16 @@ def run(args):
     if args.output_root.exists():
         raise FileExistsError('New output root required')
     products, inputs = validate_expected_signal(args.expected_signal.resolve(), config)
-    prepared, source_inputs, source_identity, sigmas, background_inputs = prepare_limit_inputs(
+    prepared, source_inputs, source_identity, sigmas, background_inputs = prepare_constraint_inputs(
         args.ensemble.resolve(), args.expected_signal.resolve(), config, products)
-    identity = dict(schema='analysis-limits',
+    identity = dict(schema='analysis-constraints',
                     scientific_profile=config,
                     resultant_min=features['resultant_min'], centering=CENTERING,
                     pixel_stride=features['pixel_stride'],
                     ensemble=source_identity, covariance='D-draw population scatter; independent days',
-                    scope='credible limits conditional on grid and prior; D-term scatter as covariance')
+                    scope='credible constraints conditional on grid and prior; D-term scatter as covariance')
     inputs += source_inputs + background_inputs
-    with stage_directory(args.output_root.resolve(), 'analysis:limits',
+    with stage_directory(args.output_root.resolve(), 'analysis:constraints',
                          identity, inputs) as out:
         if out is not None:
             return save_results(out, products, prepared, config, sigmas, identity)
@@ -373,12 +373,12 @@ def main(argv=None):
     p.add_argument('--ensemble', type=Path, help='scripts/eht/summarize.py stage (default: eht/ensemble)')
     p.add_argument('--expected-signal', type=Path,
                    help='scripts/analysis/expected_signal.py stage (default: analysis/expected-signal)')
-    p.add_argument('--output-root', type=Path, help='new directory (default: analysis/limits)')
+    p.add_argument('--output-root', type=Path, help='new directory (default: analysis/constraints)')
     add_data_root_option(p)
     args = p.parse_args(argv)
     fill_defaults(p, args, {'ensemble': ('eht.ensemble', {}),
                             'expected_signal': ('analysis.expected_signal', {}),
-                            'output_root': ('analysis.limits', {})})
+                            'output_root': ('analysis.constraints', {})})
     run(args)
 
 

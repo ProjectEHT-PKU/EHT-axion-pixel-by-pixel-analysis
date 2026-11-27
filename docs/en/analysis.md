@@ -10,7 +10,7 @@ With `EHT_DATA_ROOT` set in `.env` (or `--data-root`), all input and output path
 
 ```bash
 pixi run analysis-expected-signal
-pixi run analysis-limits
+pixi run analysis-constraints
 pixi run analysis-paper
 ```
 
@@ -18,8 +18,8 @@ Explicit directory flags override any layout default:
 
 ```bash
 pixi run analysis-expected-signal --raptor-images IMAGES --output-root EXPECTED
-pixi run analysis-limits --expected-signal EXPECTED --ensemble ENSEMBLE --output-root LIMITS
-pixi run analysis-paper --limits LIMITS \
+pixi run analysis-constraints --expected-signal EXPECTED --ensemble ENSEMBLE --output-root CONSTRAINTS
+pixi run analysis-paper --constraints CONSTRAINTS \
     --expected-signal EXPECTED --ensemble ENSEMBLE --raptor-images IMAGES \
     --raptor-plan plan.json --raptor-source-root RAPTOR --output-root PAPER
 ```
@@ -63,11 +63,11 @@ Values are first lifted onto the $\pi$-branch of their circular mean $\chi_0 = \
 
 `expected_signal` aggregates across the 141 snapshots for each $\alpha$ (requiring $\ge 2$ finite snapshots): Gaussian MLE (`ddof = 0`) `amplitude_mean` and `amplitude_std`, plus circularly lifted `phase_mean` and `phase_std`. These are the expected signal amplitude $A(x)$ and phase $\phi(x)$ per unit `raptor.response.reference_norm`, written to `expected.npz`. `load_expected_signal` marks a location valid only if all four statistics are finite and both standard deviations are non-negative at every $\alpha$; only the means enter the signal model.
 
-## Observational features and covariance (`scripts/analysis/limits.py`)
+## Observational features and covariance (`scripts/analysis/constraints.py`)
 
 ### Feature selection
 
-`prepare_limit_inputs` transposes each EHT ensemble map `[y, x]` to the expected-signal order `[x, y]` (verifying exact grid match) and selects features blind to the observed day-to-day EVPA differences:
+`prepare_constraint_inputs` transposes each EHT ensemble map `[y, x]` to the expected-signal order `[x, y]` (verifying exact grid match) and selects features blind to the observed day-to-day EVPA differences:
 
 - **2D pixel features** must have a valid expected signal, radial distance from the grid centre in $[\texttt{min\_radius\_rg}, r_{\max}] = [7.64\,\mu\mathrm{as}, 60\,\mu\mathrm{as}]$, both spatial indices divisible by `pixel_stride` (`5`), finite EVPA in all 1000 draws of every day, and daily draw-mean Stokes maps satisfying $I \ge 0.1\,I_{\max}$ (`intensity_fraction`) and $\lvert P\rvert \ge 0.2\,\lvert P\rvert_{\max}$ (`polarization_fraction`) on all four days.
 - **1D sector features** are candidate bins $k \equiv 4 \pmod{10}$ ($4^\circ, 14^\circ, \dots, 354^\circ$; `sector_offset_degrees`, `sector_spacing_degrees`) that have a valid expected signal, finite sector EVPA $\chi_k$ across all draws of every day, and daily draw-means satisfying $\bar{B}_k \ge 0.1\max_j \bar{B}_j$ and $\overline{\langle\mathcal{P}\rangle}_k \ge 0.2\max_j \overline{\langle\mathcal{P}\rangle}_j$ on all four days.

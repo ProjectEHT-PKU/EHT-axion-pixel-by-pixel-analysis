@@ -8,7 +8,7 @@ from eht_axion.analysis.observations import (
     branch_risk, build_observations, covariance_diagnostics, moments,
 )
 from eht_axion.analysis.likelihood import calculate_observed
-from scripts.analysis import limits as driver
+from scripts.analysis import constraints as driver
 from eht_axion.analysis.results import read_results
 import json
 
@@ -180,7 +180,7 @@ def test_native_east_feature_transpose_and_no_second_aperture_roll(tmp_path, mon
     valid2d[20, 35] = True
     products = {'1d': (None, None, None, np.ones(360, dtype=bool)),
                 '2d': (None, None, None, valid2d)}
-    prepared, _, _, sigmas, background_inputs = driver.prepare_limit_inputs(
+    prepared, _, _, sigmas, background_inputs = driver.prepare_constraint_inputs(
         ensemble, theory, config, products)
     assert cadences == [delivered]
     assert sigmas == {dim: dict(stokes=str(theory / 'background.npy'), cadence_hours=8.)
@@ -274,8 +274,8 @@ def test_save_all_six_cases_and_zero_data_control(tmp_path, monkeypatch):
     assert len(report['supported_cases']) == 6
     assert len(report['results']) == 12
     assert report['response_model_variance_included'] is False
-    assert len((tmp_path / 'limits.csv').read_text().splitlines()) == 97
-    assert {p.name for p in tmp_path.iterdir()} == {'limits.csv', 'report.json', 'results.npz'}
+    assert len((tmp_path / 'constraints.csv').read_text().splitlines()) == 97
+    assert {p.name for p in tmp_path.iterdir()} == {'constraints.csv', 'report.json', 'results.npz'}
     stored, records = read_results(tmp_path, ('observations', 'background', 'cases'))
     assert stored['results'] == json.loads(json.dumps(report['results']))
     assert set(records['cases']) == set(report['results'])

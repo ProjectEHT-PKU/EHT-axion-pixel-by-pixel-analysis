@@ -10,7 +10,7 @@
 
 ```bash
 pixi run analysis-expected-signal
-pixi run analysis-limits
+pixi run analysis-constraints
 pixi run analysis-paper
 ```
 
@@ -18,8 +18,8 @@ pixi run analysis-paper
 
 ```bash
 pixi run analysis-expected-signal --raptor-images IMAGES --output-root EXPECTED
-pixi run analysis-limits --expected-signal EXPECTED --ensemble ENSEMBLE --output-root LIMITS
-pixi run analysis-paper --limits LIMITS \
+pixi run analysis-constraints --expected-signal EXPECTED --ensemble ENSEMBLE --output-root CONSTRAINTS
+pixi run analysis-paper --constraints CONSTRAINTS \
     --expected-signal EXPECTED --ensemble ENSEMBLE --raptor-images IMAGES \
     --raptor-plan plan.json --raptor-source-root RAPTOR --output-root PAPER
 ```
@@ -63,11 +63,11 @@ $$
 
 `expected_signal` 对每个 $\alpha$ 汇总 141 个快照（要求 $\ge 2$ 个有限值快照）：以高斯极大似然估计（Gaussian maximum-likelihood estimation, MLE，`ddof = 0`）计算振幅均值 `amplitude_mean` 和总体标准差 `amplitude_std`，并在圆分支提升后计算相位圆均值 `phase_mean` 和标准差 `phase_std`。这些就是单位 `raptor.response.reference_norm` 下的预期信号振幅 $A(x)$ 与相位 $\phi(x)$，写入 `expected.npz`。`load_expected_signal` 仅在四个统计量对全部 $\alpha$ 均有限且标准差非负时将该空间位置标记为有效；信号模型只读取均值。
 
-## 观测特征与协方差（`scripts/analysis/limits.py`）
+## 观测特征与协方差（`scripts/analysis/constraints.py`）
 
 ### 特征选择
 
-`prepare_limit_inputs` 将每天的 EHT 系综图 `[y, x]` 转置为预期信号轴序 `[x, y]`（核对网格坐标完全一致），并在不查看日间 EVPA 差值大小的前提下筛选特征：
+`prepare_constraint_inputs` 将每天的 EHT 系综图 `[y, x]` 转置为预期信号轴序 `[x, y]`（核对网格坐标完全一致），并在不查看日间 EVPA 差值大小的前提下筛选特征：
 
 - **2D 像素特征**必须满足：预期信号有效；距网格中心的径向距离落在 $[\texttt{min\_radius\_rg}, r_{\max}] = [7.64\,\mu\mathrm{as}, 60\,\mu\mathrm{as}]$ 之内；两个空间下标均为 `pixel_stride`（`5`）的整数倍；在全部四天的全部 1000 次抽样中 EVPA 均有限；且在全部四天中，系综平均 Stokes 图满足 $I \ge 0.1\,I_{\max}$（`intensity_fraction`）和 $\lvert P\rvert \ge 0.2\,\lvert P\rvert_{\max}$（`polarization_fraction`）。
 - **1D 扇区特征**为满足 $k \equiv 4 \pmod{10}$（即 $4^\circ, 14^\circ, \dots, 354^\circ$；`sector_offset_degrees`、`sector_spacing_degrees`）的候选扇区，并要求：预期信号有效；扇区 EVPA $\chi_k$ 在全部四天的每次抽样中均有限；且在全部四天中，抽样均值满足 $\bar{B}_k \ge 0.1\max_j \bar{B}_j$ 和 $\overline{\langle\mathcal{P}\rangle}_k \ge 0.2\max_j \overline{\langle\mathcal{P}\rangle}_j$。

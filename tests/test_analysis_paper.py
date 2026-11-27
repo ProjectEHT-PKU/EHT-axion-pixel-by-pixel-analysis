@@ -168,7 +168,7 @@ def data_root(tmp_path):
             for data in ("observed", "zero-data"):
                 c95 = list(np.geomspace(100, 0.1, len(alphas)) * (1.5 if data == "observed" else 1))
                 results[f"{data}-{m}-{d}"] = dict(alphas=alphas, c95=c95, log10_c95=list(np.log10(c95)))
-    stage(root / "analysis/limits", "analysis:limits", {
+    stage(root / "analysis/constraints", "analysis:constraints", {
         "report.json": lambda path: write_results(
             path.parent, dict(scientific_profile=config, results=results), sections),
         "results.npz": lambda path: None,

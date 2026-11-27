@@ -106,7 +106,7 @@ LAYOUT = {
     "eht.sample": "eht/sample",
     "eht.ensemble": "eht/ensemble",
     "analysis.expected_signal": "analysis/expected-signal",
-    "analysis.limits": "analysis/limits",
+    "analysis.constraints": "analysis/constraints",
     "analysis.paper": "analysis/paper",
 }
 

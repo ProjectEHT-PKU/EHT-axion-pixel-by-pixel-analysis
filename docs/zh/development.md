@@ -20,7 +20,7 @@
 | `raptor-build`、`raptor-generate` | `-e raptor-build` | `scripts/raptor/{build,generate}.py` |
 | `eht-reconstruct`、`eht-refine`、`eht-sample` | `-e eht-imaging` | `scripts/eht/{reconstruct,refine,sample}.py` |
 | `eht-summarize` | `-e eht-summary`（或 `-e eht-imaging`） | `scripts/eht/summarize.py` |
-| `analysis-expected-signal`、`analysis-limits`、`analysis-paper` | `default` | `scripts/analysis/{expected_signal,limits,paper}.py` |
+| `analysis-expected-signal`、`analysis-constraints`、`analysis-paper` | `default` | `scripts/analysis/{expected_signal,constraints,paper}.py` |
 | `test` | `default` 或 `-e eht-imaging` | `python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=."` |
 | `lint` | `default` | `ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts` |
 | `check` | `default` | 依次运行 `test` 与 `lint` |

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Analysis: everything the paper uses from the pipeline, in one directory (stage analysis:paper).
 
-Reads finished products only (limits, the expected signal, the EHT ensemble,
+Reads finished products only (constraints, the expected signal, the EHT ensemble,
 the RAPTOR image cubes, the RAPTOR plan), the radial tables of the plan
 and src/axion.c of the pinned RAPTOR checkout (raptor.source), and writes:
 
@@ -310,14 +310,14 @@ def add_scales(numbers, config, times_tg, lag_hours, pairs):
         "NumLagHours",
         sig(lag_hours, 3),
         lag_hours,
-        "analysis/limits report.json background 1d lag_hours",
+        "analysis/constraints report.json background 1d lag_hours",
         "background lag in hours",
     )
     numbers.add(
         "NumBackgroundPairs",
         str(pairs),
         pairs,
-        "analysis/limits results.npz background/1d/differences",
+        "analysis/constraints results.npz background/1d/differences",
         "lagged snapshot pairs of the background",
     )
     period = 2 * np.pi * ORBIT_RADIUS_RG**1.5 * tg / 24
@@ -573,7 +573,7 @@ def add_observations(numbers, obs, info, background, config, branch_minimum):
             f"Num{word_dim}",
             str(n),
             n,
-            f"analysis/limits results.npz observations/{dim}/selected_indices",
+            f"analysis/constraints results.npz observations/{dim}/selected_indices",
             f"selected {word_dim.lower()}",
         )
         numbers.add(
@@ -687,7 +687,7 @@ def add_limits(numbers, results):
                         f"NumLimit{data_word}{dim_word}{mode_word}{alpha_word(alpha)}",
                         sig(value, 3),
                         value,
-                        f"analysis/limits report.json results {data}-{mode}-{dim}",
+                        f"analysis/constraints report.json results {data}-{mode}-{dim}",
                         f"c95, {data}, {mode}, {dim}, alpha={alpha:.2f}",
                     )
     for alpha in (alphas[0], alphas[-1]):
@@ -755,7 +755,9 @@ def add_chi2(numbers, rows):
     gains = {}
     for (dim, mode), (_n, zero, best) in rows.items():
         name = f"{DIMENSIONS[dim]}{MODE_WORDS[mode]}"
-        source = f"analysis/limits report.json cases observed-{mode}-{dim} fits at alpha={PAPER_ALPHA:.2f}"
+        source = (
+            f"analysis/constraints report.json cases observed-{mode}-{dim} fits at alpha={PAPER_ALPHA:.2f}"
+        )
         numbers.add(
             f"NumChiZero{name}",
             f"{zero:.1f}",
@@ -883,7 +885,7 @@ def paper_snapshot(cube_path, config):
 
 def run(args):
     from eht_axion.analysis import paper_figures as figures
-    from scripts.analysis.limits import theory_aperture_operator
+    from scripts.analysis.constraints import theory_aperture_operator
     from eht_axion.evpa import circular_difference
 
     destination = args.output_root.resolve()
@@ -891,13 +893,13 @@ def run(args):
         raise FileExistsError(f"New output root required: {destination}")
     config = json.loads(json.dumps(read_experiment(args.config)))
     inputs, numbers = Inputs(), Numbers()
-    limits = args.limits.resolve()
+    constraints = args.constraints.resolve()
     environment = resolve_environment(args)
     axion_source = raptor_axion_source(args, config, environment)
-    inputs.stage(limits, "analysis:limits", ["report.json", "results.npz"])
-    report, records = read_results(limits, ("observations", "background", "cases"))
+    inputs.stage(constraints, "analysis:constraints", ["report.json", "results.npz"])
+    report, records = read_results(constraints, ("observations", "background", "cases"))
     if report["scientific_profile"] != config:
-        raise ValueError("The limits were produced from a different experiment.yaml")
+        raise ValueError("The constraints were produced from a different experiment.yaml")
     expected = args.expected_signal.resolve()
     inputs.stage(expected, "analysis:expected-signal", ["expected.npz", "background.npy"])
     paper_cube = image_cube(
@@ -1013,7 +1015,7 @@ def run(args):
     identity = dict(
         schema="analysis-paper",
         sources=dict(
-            limits=str(limits),
+            constraints=str(constraints),
             expected_signal=str(expected),
             ensemble=str(ensemble),
             raptor_images=str(args.raptor_images.resolve()),
@@ -1110,7 +1112,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--config", type=Path, default=DEFAULT_PATH, help="default: configs/experiment.yaml")
     for name, default in (
-        ("limits", "analysis/limits"),
+        ("constraints", "analysis/constraints"),
         ("expected-signal", "analysis/expected-signal"),
         ("ensemble", "eht/ensemble"),
         ("raptor-images", "raptor/images"),
@@ -1137,7 +1139,7 @@ def main(argv=None):
         p,
         args,
         {
-            "limits": ("analysis.limits", {}),
+            "constraints": ("analysis.constraints", {}),
             "expected_signal": ("analysis.expected_signal", {}),
             "ensemble": ("eht.ensemble", {}),
             "raptor_images": ("raptor.images", {}),

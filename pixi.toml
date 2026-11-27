@@ -55,7 +55,7 @@ eht-summarize = { cmd = "python scripts/eht/summarize.py", description = "EHT im
 # Analysis (combines RAPTOR and EHT products) and maintenance tasks; default environment.
 [tasks]
 analysis-expected-signal = { cmd = "python scripts/analysis/expected_signal.py", description = "Analysis: expected axion signal and GRMHD background from the RAPTOR images" }
-analysis-limits = { cmd = "python scripts/analysis/limits.py", description = "Analysis: feature selection on EHT ensembles, likelihood and limits on c" }
+analysis-constraints = { cmd = "python scripts/analysis/constraints.py", description = "Analysis: feature selection on EHT ensembles, likelihood and constraints on c" }
 analysis-paper = { cmd = "python scripts/analysis/paper.py", description = "Analysis: figures, numbers.tex/json and tables used by the paper" }
 test = { cmd = 'python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=."', description = "Run tests; discovery and local source paths are configured here" }
 lint = { cmd = "ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts", description = "Check code using explicit rules; no external Ruff configuration" }

@@ -60,10 +60,10 @@ Once `$EHT_DATA_ROOT/raptor/images` and `$EHT_DATA_ROOT/eht/ensemble` exist, run
 
 ```bash
 pixi run analysis-expected-signal
-pixi run analysis-limits
+pixi run analysis-constraints
 ```
 
-Each command publishes a new stage directory under `$EHT_DATA_ROOT/analysis/` (`expected-signal/` and `limits/`, including `limits/limits.csv`) and refuses to overwrite an existing output directory.
+Each command publishes a new stage directory under `$EHT_DATA_ROOT/analysis/` (`expected-signal/` and `constraints/`, including `constraints/constraints.csv`) and refuses to overwrite an existing output directory.
 
 To generate the publication figures, LaTeX macros (`numbers.tex`, `numbers.json`), and tables (`table-limits.tex`, `table-chi2.tex`) in `$EHT_DATA_ROOT/analysis/paper/` — which additionally reads `$EHT_DATA_ROOT/raptor/plan.json`, `src/axion.c` of the `RAPTOR` checkout at `$EHT_RAPTOR_SOURCE_ROOT`, and the radial-profile CSVs in `$EHT_INPUT_ROOT/radial/` — run:
 

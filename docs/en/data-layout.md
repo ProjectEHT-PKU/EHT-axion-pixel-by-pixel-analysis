@@ -23,7 +23,7 @@ Setting `EHT_DATA_ROOT` (in `.env` or the shell) or passing `--data-root PATH` o
     ensemble/                    eht/summarize.py
   analysis/
     expected-signal/             analysis/expected_signal.py (reads raptor/images)
-    limits/                      analysis/limits.py
+    constraints/                 analysis/constraints.py
     paper/                       analysis/paper.py
 ```
 
@@ -116,13 +116,13 @@ EXPECTED_SIGNAL/                 stage analysis:expected-signal (no intermediate
                                  phase_std (rad per raptor.response.reference_norm), amplitude_count,
                                  phase_count: (8, 360) sectors or (8, 64, 64) pixels
   background.npy                 float64 (141, 1, 64, 64, 4): axion-off images on the sky grid
-LIMITS/                          stage analysis:limits
+CONSTRAINTS/                     stage analysis:constraints
   report.json                    identity, results table, notes; sections observations/<1d|2d>,
                                  background/<1d|2d>, cases/<data>-<mode>-<dim> without their arrays
   results.npz                    every array of the sections as "<section>/<name>/<field>", e.g.
                                  observations/1d/pair_covariances, background/2d/differences,
                                  cases/observed-cor-1d/log_likelihood
-  limits.csv                     columns: data, mode, dimension, alpha, log10_c95, c95
+  constraints.csv                columns: data, mode, dimension, alpha, log10_c95, c95
 PAPER/                           stage analysis:paper
   figures/<name>.pdf             radial_function, two_photon, signal_maps, template_maps, background,
                                  observational_uncertainty, data_vs_model, limits
@@ -168,10 +168,10 @@ PAPER/                           stage analysis:paper
 | `eht:refine` | `scripts/eht/refine.py` |
 | `eht:ensemble` | `scripts/eht/summarize.py` |
 | `analysis:expected-signal` | `scripts/analysis/expected_signal.py` |
-| `analysis:limits` | `scripts/analysis/limits.py` |
+| `analysis:constraints` | `scripts/analysis/constraints.py` |
 | `analysis:paper` | `scripts/analysis/paper.py` |
 
-Auxiliary JSON records name their record type in a `schema` (or `layout`) string: `raptor-generated`, `eht-sample-batch`, `eht-sample-task`, `eht-sample-finish`, `eht-ensemble`, `analysis-limits`, `analysis-paper`, and `analysis-paper-numbers`.
+Auxiliary JSON records name their record type in a `schema` (or `layout`) string: `raptor-generated`, `eht-sample-batch`, `eht-sample-task`, `eht-sample-finish`, `eht-ensemble`, `analysis-constraints`, `analysis-paper`, and `analysis-paper-numbers`.
 
 ### Non-manifest receipts
 

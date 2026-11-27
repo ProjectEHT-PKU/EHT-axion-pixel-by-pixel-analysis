@@ -32,10 +32,10 @@ An alternative YAML file passed via `--config PATH` must contain the exact same 
 |---|---|---|
 | `physical_scale(config)` | `PhysicalScale` (`tg_seconds` $= 32\,015.7\,\mathrm{s}$, `tg_hours` $= 8.893\,\mathrm{h}$, `angular_rg_uas` $= 3.819\,\mu\mathrm{as}$, unit conversions) | Analysis scripts, `RAPTOR` frame cadence (`input_cadence_hours`) |
 | `ray_tracing_config(config)` | `shared` physics scalars (`mass_solar`, `distance_mpc`, `label_step_tg`, `alphas`, `principal_n`) plus `raptor` without `raptor.source` | `RAPTOR` task plans, `generated.json` image-cube identity |
-| `analysis_geometry(config)` | `image_preprocess` (`sigma`, `init_fov`, `final_fov`, `final_shape`, `rotation_angle` in $r_g$ and $\mathrm{rad}$), `aperturefit` (`fov`, `radial_max`, `window_degrees`, `angular_bins`), and `metadata` | `scripts/analysis/expected_signal.py`, `scripts/analysis/limits.py` |
+| `analysis_geometry(config)` | `image_preprocess` (`sigma`, `init_fov`, `final_fov`, `final_shape`, `rotation_angle` in $r_g$ and $\mathrm{rad}$), `aperturefit` (`fov`, `radial_max`, `window_degrees`, `angular_bins`), and `metadata` | `scripts/analysis/expected_signal.py`, `scripts/analysis/constraints.py` |
 | `eht_imaging_parameters(config, locations)` | Flat dictionary combining `EHT_LOCATIONS`, `shared.image` (`npix`, `fov_uas`, `blur_fwhm_uas`), and `eht_imaging` excluding `refine` and `monte_carlo` | `scripts/eht/reconstruct.py`, `scripts/eht/refine.py`, `scripts/eht/export_bundle.py` |
 | `EHT_DAYS = (95, 96, 100, 101)` | Observing days of year 2017 (`eht_imaging.inputs` must match this exact set) | All EHT imaging, summary, and analysis modules |
-| `ANGULAR_BINS = 360` | Number of $1^\circ$ sector bins in the 1D aperture observable | `analysis_geometry`, `scripts/analysis/limits.py` |
+| `ANGULAR_BINS = 360` | Number of $1^\circ$ sector bins in the 1D aperture observable | `analysis_geometry`, `scripts/analysis/constraints.py` |
 
 ## Parameter reference: `configs/experiment.yaml`
 
@@ -79,7 +79,7 @@ An alternative YAML file passed via `--config PATH` must contain the exact same 
 | `plasma.step_size` | `0.005` | – | Geodesic integrator step `STEPSIZE` ($> 0$) | `RAPTOR` `model.in` |
 | `snapshots.{start, stop, step}` | `1600, 3000, 10` | label | Inclusive snapshot label grid ($141$ snapshots, `0 <= start <= stop <= 999999`) | `plan_generation`, `write_images`, `generated_inputs` |
 | `response.resolution` | `100` | pixels | Square side of axion-on and 100-px baseline images (multiple of 10) | `plan_generation`, `write_images`, `expected_signal.py` |
-| `response.reference_norm` | `0.1` | – | `AXION_NORM` reference amplitude ($> 0$) | `RAPTOR` `model.in`, `limits.py`, `paper.py` |
+| `response.reference_norm` | `0.1` | – | `AXION_NORM` reference amplitude ($> 0$) | `RAPTOR` `model.in`, `constraints.py`, `paper.py` |
 | `background.resolution` | `400` | pixels | Square side of axion-off background images (multiple of 10) | `plan_generation`, `write_images`, `expected_signal.py`, `paper.py` |
 | `radial_tables.low.spin` | `0.9375` | – | Declared spin $a \in [0, 1]$ of the `low` radial CSV | `plan_generation`, `paper.py` |
 | `radial_tables.high.spin` | `0.99` | – | Declared spin $a \in [0, 1]$ of the `high` radial CSV (intentionally distinct from `fluid_spin`) | `plan_generation`, `paper.py` |
@@ -114,7 +114,7 @@ Note that the compact zero-baseline flux density (`zbl = 0.60` Jy) of the total-
 | `stop` | `1.0e-08` | – | `ehtim` optimizer convergence tolerance in `fiducial` | `reconstruct.py` |
 | `shift_objective_constant` | `true` | – | Add constant $w_{\mathrm{pvis}} + w_m + h_w\ln 2$ to `ehtim` $P$ objective (minimizer unchanged) | `reconstruct.py` |
 | `uv_min` | `100000000.0` | $\lambda$ | Minimum baseline length ($100\,\mathrm{M}\lambda$) excluding intra-site zero baselines before shared-gain calibration and in all $P$ imaging | `reconstruct.py`, `refine.py`, `sample.py` |
-| `uncertainty_draws` | `1000` | draws/day | D-term Monte Carlo realizations per day ($4000$ total) | `sample.py`, `eht/summarize.py`, `limits.py` |
+| `uncertainty_draws` | `1000` | draws/day | D-term Monte Carlo realizations per day ($4000$ total) | `sample.py`, `eht/summarize.py`, `constraints.py` |
 | `seed` | `20210405` | – | Base integer RNG seed ($\ge 0$); day $d$ uses `SeedSequence([seed, day])` | `sample.py` |
 | `covariance_ddof` | `1` | – | Delta degrees of freedom ($\in [0, 3]$) for the 4-day $(\operatorname{Re} D, \operatorname{Im} D)$ covariance | `d_distribution`, `sample.py` |
 | `residual_d_sigma` | `0.01` | – | Per-component ($\operatorname{Re}$, $\operatorname{Im}$) zero-mean Gaussian SD for `fixed_sites` | `sample_dterms`, `sample.py` |
@@ -139,12 +139,12 @@ Note that the compact zero-baseline flux density (`zbl = 0.60` Jy) of the total-
 | `rotation_degrees` | `108.0` | $\mathrm{deg}$ | Active rotation angle $\theta$ mapping `RAPTOR` camera coordinates onto the sky (rotates image and multiplies $Q + iU$ by $e^{2i\theta}$) | `analysis_geometry` |
 | `aperture.window_degrees` | `10` | $\mathrm{deg}$ | Angular full width $w \in (0, 360]$ of each sector aperture | `analysis_geometry` → `aperture_operator` |
 | `aperture.radial_max_fraction` | `1.0` | – | Fraction $\in (0, 1]$ of the half-FOV ($60\,\mu\mathrm{as}$) defining the outer aperture radius $r_{\max}$ | `analysis_geometry` → `aperture_operator`, 2D radius mask |
-| `features.intensity_fraction` | `0.1` | – | Minimum daily mean brightness relative to the daily maximum ($\in [0, 1)$) | `limits.py` |
-| `features.polarization_fraction` | `0.2` | – | Minimum daily mean polarized brightness relative to the daily maximum ($\in [0, 1)$; `0` selects by intensity only) | `limits.py` |
-| `features.min_radius_rg` | `2.0` | $r_g$ | Inner radius cut ($7.64\,\mu\mathrm{as}$) for 2D pixel features | `limits.py` |
-| `features.pixel_stride` | `5` | pixels | Subsampling stride along both spatial axes for 2D pixel features | `limits.py` |
-| `features.sector_spacing_degrees` | `10` | $\mathrm{deg}$ | Angular spacing between candidate 1D sectors ($\in [1, 360]$) | `limits.py`, `paper.py` |
-| `features.sector_offset_degrees` | `4` | $\mathrm{deg}$ | Starting sector index east of north ($4^\circ, 14^\circ, \dots, 354^\circ$; $\in [0, \text{spacing}-1]$) | `limits.py` |
+| `features.intensity_fraction` | `0.1` | – | Minimum daily mean brightness relative to the daily maximum ($\in [0, 1)$) | `constraints.py` |
+| `features.polarization_fraction` | `0.2` | – | Minimum daily mean polarized brightness relative to the daily maximum ($\in [0, 1)$; `0` selects by intensity only) | `constraints.py` |
+| `features.min_radius_rg` | `2.0` | $r_g$ | Inner radius cut ($7.64\,\mu\mathrm{as}$) for 2D pixel features | `constraints.py` |
+| `features.pixel_stride` | `5` | pixels | Subsampling stride along both spatial axes for 2D pixel features | `constraints.py` |
+| `features.sector_spacing_degrees` | `10` | $\mathrm{deg}$ | Angular spacing between candidate 1D sectors ($\in [1, 360]$) | `constraints.py`, `paper.py` |
+| `features.sector_offset_degrees` | `4` | $\mathrm{deg}$ | Starting sector index east of north ($4^\circ, 14^\circ, \dots, 354^\circ$; $\in [0, \text{spacing}-1]$) | `constraints.py` |
 | `features.resultant_min` | `0.7` | – | Minimum circular resultant length $R = \lvert\langle e^{2i\chi}\rangle\rvert \in (0, 1]$ required on all four days | `build_observations` |
 | `cloud.coefficient` | `0.03` | – | Normalization in $b(\alpha) = \text{coefficient} \times (\alpha / \text{pivot\_alpha})^{\text{exponent}}$ ($> 0$) | `cloud_amplitude_scaling` |
 | `cloud.pivot_alpha` | `0.05` | – | Pivot $\alpha$ in $b(\alpha)$ ($> 0$) | `cloud_amplitude_scaling` |

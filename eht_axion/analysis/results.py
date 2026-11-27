@@ -1,4 +1,4 @@
-"""Result files of the limit stages: numeric arrays in results.npz, everything else in report.json.
+"""Result files of the constraint stage: numeric arrays in results.npz, everything else in report.json.
 
 A stage writes one report (identity, summary table, notes) plus named sections of records,
 for example ``observations`` {"1d": {...}, "2d": {...}} or ``cases`` {"observed-cor-1d": {...}}.

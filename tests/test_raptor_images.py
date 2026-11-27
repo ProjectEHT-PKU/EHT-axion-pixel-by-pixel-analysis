@@ -118,7 +118,7 @@ def test_generated_data_reaches_the_expected_signal_and_background(raptor_images
     import yaml
 
     from scripts.analysis.expected_signal import run as run_expected
-    from scripts.analysis.limits import validate_expected_signal
+    from scripts.analysis.constraints import validate_expected_signal
 
     config, run, _ = raptor_images
     profile = deepcopy(config)

@@ -86,7 +86,7 @@ def test_input_root_precedence(project, monkeypatch):
 
 def parse(argv, defaults, environment=None):
     parser = ArgumentParser()
-    parser.add_argument("--limits", type=Path)
+    parser.add_argument("--constraints", type=Path)
     env.add_data_root_option(parser)
     args = parser.parse_args(argv)
     env.fill_defaults(parser, args, defaults, environment)
@@ -94,20 +94,20 @@ def parse(argv, defaults, environment=None):
 
 
 def test_precedence_cli_root_then_data_root_from_cli_env_dotenv(project, monkeypatch):
-    defaults = {"limits": ("analysis.limits", {})}
-    assert parse(["--limits", "x", "--data-root", "/d"], defaults).limits == Path("x")
-    assert parse(["--data-root", "/d"], defaults).limits == Path("/d/analysis/limits")
+    defaults = {"constraints": ("analysis.constraints", {})}
+    assert parse(["--constraints", "x", "--data-root", "/d"], defaults).constraints == Path("x")
+    assert parse(["--data-root", "/d"], defaults).constraints == Path("/d/analysis/constraints")
     (project / ".env").write_text("EHT_DATA_ROOT=data\n")
-    assert parse([], defaults).limits == project / "data/analysis/limits"
+    assert parse([], defaults).constraints == project / "data/analysis/constraints"
     monkeypatch.setenv("EHT_DATA_ROOT", "/exported")
-    assert parse([], defaults).limits == Path("/exported/analysis/limits")
-    assert parse(["--data-root", "/cli"], defaults).limits == Path("/cli/analysis/limits")
-    assert parse(["--no-env-file"], defaults).limits == Path("/exported/analysis/limits")
+    assert parse([], defaults).constraints == Path("/exported/analysis/constraints")
+    assert parse(["--data-root", "/cli"], defaults).constraints == Path("/cli/analysis/constraints")
+    assert parse(["--no-env-file"], defaults).constraints == Path("/exported/analysis/constraints")
 
 
 def test_missing_root_is_an_error(project):
     with pytest.raises(SystemExit):
-        parse([], {"limits": ("analysis.limits", {})})
+        parse([], {"constraints": ("analysis.constraints", {})})
 
 
 def capture(monkeypatch, module, name="run"):
@@ -117,14 +117,14 @@ def capture(monkeypatch, module, name="run"):
 
 
 def test_analysis_scripts_default_roots(project, monkeypatch):
-    from scripts.analysis import expected_signal, limits
+    from scripts.analysis import constraints, expected_signal
 
     calls = capture(monkeypatch, expected_signal)
     expected_signal.main(["--data-root", "/d"])
     assert calls[0][0][1:] == (Path("/d/raptor/images"), Path("/d/analysis/expected-signal"))
 
-    calls = capture(monkeypatch, limits)
-    limits.main(["--data-root", "/d", "--output-root", "/new"])
+    calls = capture(monkeypatch, constraints)
+    constraints.main(["--data-root", "/d", "--output-root", "/new"])
     args = calls[0][0][0]
     assert (args.ensemble, args.expected_signal, args.output_root) == (
         Path("/d/eht/ensemble"), Path("/d/analysis/expected-signal"), Path("/new"))

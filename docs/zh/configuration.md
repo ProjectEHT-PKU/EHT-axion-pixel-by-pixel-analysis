@@ -32,10 +32,10 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 |---|---|---|
 | `physical_scale(config)` | `PhysicalScale`（`tg_seconds` $= 32\,015.7\,\mathrm{s}$、`tg_hours` $= 8.893\,\mathrm{h}$、`angular_rg_uas` $= 3.819\,\mu\mathrm{as}$ 及单位换算方法） | 各分析脚本、`RAPTOR` 帧时间间隔（`input_cadence_hours`） |
 | `ray_tracing_config(config)` | `shared` 中的物理标量（`mass_solar`、`distance_mpc`、`label_step_tg`、`alphas`、`principal_n`）加上不含 `raptor.source` 的 `raptor` 节 | `RAPTOR` 任务计划、`generated.json` 图像数据立方身份记录 |
-| `analysis_geometry(config)` | `image_preprocess`（以 $r_g$ 和 $\mathrm{rad}$ 为单位的 `sigma`、`init_fov`、`final_fov`、`final_shape`、`rotation_angle`）、`aperturefit`（`fov`、`radial_max`、`window_degrees`、`angular_bins`）和 `metadata` | `scripts/analysis/expected_signal.py`、`scripts/analysis/limits.py` |
+| `analysis_geometry(config)` | `image_preprocess`（以 $r_g$ 和 $\mathrm{rad}$ 为单位的 `sigma`、`init_fov`、`final_fov`、`final_shape`、`rotation_angle`）、`aperturefit`（`fov`、`radial_max`、`window_degrees`、`angular_bins`）和 `metadata` | `scripts/analysis/expected_signal.py`、`scripts/analysis/constraints.py` |
 | `eht_imaging_parameters(config, locations)` | 由 `EHT_LOCATIONS`、`shared.image`（`npix`、`fov_uas`、`blur_fwhm_uas`）以及不含 `refine` 和 `monte_carlo` 的 `eht_imaging` 键组成的扁平字典 | `scripts/eht/reconstruct.py`、`scripts/eht/refine.py`、`scripts/eht/export_bundle.py` |
 | `EHT_DAYS = (95, 96, 100, 101)` | 2017 年观测年积日（`eht_imaging.inputs` 必须精确匹配该集合） | 全部 EHT 成像、汇总与分析模块 |
-| `ANGULAR_BINS = 360` | 1D 扇形孔径观测量中 $1^\circ$ 间隔的扇区分格数 | `analysis_geometry`、`scripts/analysis/limits.py` |
+| `ANGULAR_BINS = 360` | 1D 扇形孔径观测量中 $1^\circ$ 间隔的扇区分格数 | `analysis_geometry`、`scripts/analysis/constraints.py` |
 
 ## 参数详表：`configs/experiment.yaml`
 
@@ -79,7 +79,7 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | `plasma.step_size` | `0.005` | – | 测地线积分步长 `STEPSIZE`（$> 0$） | `RAPTOR` `model.in` |
 | `snapshots.{start, stop, step}` | `1600, 3000, 10` | 标签 | 含端点的快照标签等差网格（共 $141$ 个快照，`0 <= start <= stop <= 999999`） | `plan_generation`、`write_images`、`generated_inputs` |
 | `response.resolution` | `100` | 像素 | 有轴子图像与 100 像素基线图像的正方形边长（10 的整数倍） | `plan_generation`、`write_images`、`expected_signal.py` |
-| `response.reference_norm` | `0.1` | – | `AXION_NORM` 参考场振幅（$> 0$） | `RAPTOR` `model.in`、`limits.py`、`paper.py` |
+| `response.reference_norm` | `0.1` | – | `AXION_NORM` 参考场振幅（$> 0$） | `RAPTOR` `model.in`、`constraints.py`、`paper.py` |
 | `background.resolution` | `400` | 像素 | 无轴子背景图像的正方形边长（10 的整数倍） | `plan_generation`、`write_images`、`expected_signal.py`、`paper.py` |
 | `radial_tables.low.spin` | `0.9375` | – | `low` 径向 CSV 表声明的黑洞自旋 $a \in [0, 1]$ | `plan_generation`、`paper.py` |
 | `radial_tables.high.spin` | `0.99` | – | `high` 径向 CSV 表声明的黑洞自旋 $a \in [0, 1]$（有意与 `fluid_spin` 不同） | `plan_generation`、`paper.py` |
@@ -114,7 +114,7 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | `stop` | `1.0e-08` | – | `fiducial` 阶段 `ehtim` 优化器收敛容差 | `reconstruct.py` |
 | `shift_objective_constant` | `true` | – | 向 `ehtim` $P$ 目标函数加上常数 $w_{\mathrm{pvis}} + w_m + h_w\ln 2$（极小点不变） | `reconstruct.py` |
 | `uv_min` | `100000000.0` | $\lambda$ | 最短基线长度截断（$100\,\mathrm{M}\lambda$），在共享增益校准前及全部 $P$ 成像中剔除同址零基线 | `reconstruct.py`、`refine.py`、`sample.py` |
-| `uncertainty_draws` | `1000` | 次/天 | 每天的 D 项蒙特卡罗抽样次数（四天共 $4000$ 次） | `sample.py`、`eht/summarize.py`、`limits.py` |
+| `uncertainty_draws` | `1000` | 次/天 | 每天的 D 项蒙特卡罗抽样次数（四天共 $4000$ 次） | `sample.py`、`eht/summarize.py`、`constraints.py` |
 | `seed` | `20210405` | – | 基础非负整数随机数种子；第 $d$ 天使用 `SeedSequence([seed, day])` | `sample.py` |
 | `covariance_ddof` | `1` | – | 四天 $(\operatorname{Re} D, \operatorname{Im} D)$ 样本协方差的自由度修正（delta degrees of freedom，$\in [0, 3]$） | `d_distribution`、`sample.py` |
 | `residual_d_sigma` | `0.01` | – | `fixed_sites` 在每个实部/虚部分量（$\operatorname{Re}$、$\operatorname{Im}$）上的零均值高斯标准差 | `sample_dterms`、`sample.py` |
@@ -139,12 +139,12 @@ pixi run python -c "from eht_axion.experiment import read_experiment; read_exper
 | `rotation_degrees` | `108.0` | $\mathrm{deg}$ | 将 `RAPTOR` 相机坐标系映射到天空的主动旋转角 $\theta$（同时旋转图像并将 $Q + iU$ 乘以 $e^{2i\theta}$） | `analysis_geometry` |
 | `aperture.window_degrees` | `10` | $\mathrm{deg}$ | 每个扇形孔径的角向全宽 $w \in (0, 360]$ | `analysis_geometry` → `aperture_operator` |
 | `aperture.radial_max_fraction` | `1.0` | – | 孔径外半径 $r_{\max}$ 占半视场（$60\,\mu\mathrm{as}$）的比例（$\in (0, 1]$） | `analysis_geometry` → `aperture_operator`、2D 半径掩码 |
-| `features.intensity_fraction` | `0.1` | – | 当日平均亮度相对于当日最大值的最低比例阈值（$\in [0, 1)$） | `limits.py` |
-| `features.polarization_fraction` | `0.2` | – | 当日平均偏振亮度相对于当日最大值的最低比例阈值（$\in [0, 1)$；取 `0` 时仅按亮度筛选） | `limits.py` |
-| `features.min_radius_rg` | `2.0` | $r_g$ | 2D 像素特征距图像中心的内半径截断（$7.64\,\mu\mathrm{as}$） | `limits.py` |
-| `features.pixel_stride` | `5` | 像素 | 2D 像素特征在两个空间轴上的降采样步长 | `limits.py` |
-| `features.sector_spacing_degrees` | `10` | $\mathrm{deg}$ | 候选 1D 扇区之间的角度间隔（$\in [1, 360]$） | `limits.py`、`paper.py` |
-| `features.sector_offset_degrees` | `4` | $\mathrm{deg}$ | 起始扇区的北偏东角度下标（$4^\circ, 14^\circ, \dots, 354^\circ$；$\in [0, \text{spacing}-1]$） | `limits.py` |
+| `features.intensity_fraction` | `0.1` | – | 当日平均亮度相对于当日最大值的最低比例阈值（$\in [0, 1)$） | `constraints.py` |
+| `features.polarization_fraction` | `0.2` | – | 当日平均偏振亮度相对于当日最大值的最低比例阈值（$\in [0, 1)$；取 `0` 时仅按亮度筛选） | `constraints.py` |
+| `features.min_radius_rg` | `2.0` | $r_g$ | 2D 像素特征距图像中心的内半径截断（$7.64\,\mu\mathrm{as}$） | `constraints.py` |
+| `features.pixel_stride` | `5` | 像素 | 2D 像素特征在两个空间轴上的降采样步长 | `constraints.py` |
+| `features.sector_spacing_degrees` | `10` | $\mathrm{deg}$ | 候选 1D 扇区之间的角度间隔（$\in [1, 360]$） | `constraints.py`、`paper.py` |
+| `features.sector_offset_degrees` | `4` | $\mathrm{deg}$ | 起始扇区的北偏东角度下标（$4^\circ, 14^\circ, \dots, 354^\circ$；$\in [0, \text{spacing}-1]$） | `constraints.py` |
 | `features.resultant_min` | `0.7` | – | 全部四天要求的圆合成长度（circular resultant length）$R = \lvert\langle e^{2i\chi}\rangle\rvert \in (0, 1]$ 下限 | `build_observations` |
 | `cloud.coefficient` | `0.03` | – | $b(\alpha) = \text{coefficient} \times (\alpha / \text{pivot\_alpha})^{\text{exponent}}$ 的系数（$> 0$） | `cloud_amplitude_scaling` |
 | `cloud.pivot_alpha` | `0.05` | – | $b(\alpha)$ 的参考点 $\alpha$（$> 0$） | `cloud_amplitude_scaling` |

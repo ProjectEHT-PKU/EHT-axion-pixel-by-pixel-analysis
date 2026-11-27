@@ -11,7 +11,7 @@ per RAPTOR normalisation (raptor.response.reference_norm).
                    amplitude_mean, amplitude_std, phase_mean, phase_std, amplitude_count, phase_count
   background.npy   axion-off background images on the sky grid (T, 1, N, N, 4)
 
-The GRMHD background sigma is computed by scripts/analysis/limits.py on exactly the features
+The GRMHD background sigma is computed by scripts/analysis/constraints.py on exactly the features
 used in the likelihood, from background.npy. No ray tracing, no EHT data.
 """
 

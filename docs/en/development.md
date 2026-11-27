@@ -20,7 +20,7 @@ All four Pixi environments set `MPLBACKEND=Agg`, `OPENBLAS_NUM_THREADS=2`, `OMP_
 | `raptor-build`, `raptor-generate` | `-e raptor-build` | `scripts/raptor/{build,generate}.py` |
 | `eht-reconstruct`, `eht-refine`, `eht-sample` | `-e eht-imaging` | `scripts/eht/{reconstruct,refine,sample}.py` |
 | `eht-summarize` | `-e eht-summary` (or `-e eht-imaging`) | `scripts/eht/summarize.py` |
-| `analysis-expected-signal`, `analysis-limits`, `analysis-paper` | `default` | `scripts/analysis/{expected_signal,limits,paper}.py` |
+| `analysis-expected-signal`, `analysis-constraints`, `analysis-paper` | `default` | `scripts/analysis/{expected_signal,constraints,paper}.py` |
 | `test` | `default` or `-e eht-imaging` | `python -m pytest -q -ra -o "testpaths=tests" -o "pythonpath=."` |
 | `lint` | `default` | `ruff check --isolated --target-version py312 --line-length 110 --select E,F,W eht_axion tests scripts` |
 | `check` | `default` | Runs `test` and `lint` |
@@ -70,7 +70,7 @@ Several test modules enforce repository-wide invariants rather than single-funct
 | `eht_axion/eht/calibration.py` | Native circular HOPS loading, `fsys`, inverse Jones D application, zero-prior forward D fit, and 4-day D sampling | `load_native`, `add_fsys`, `make_imaging_obs`, `apply_fixed_d`, `fit_forward_d`, `d_distribution`, `sample_dterms` |
 | `eht_axion/eht/convex.py` | Exact convex fixed-$I$/fixed-$D$ PDHG $P$ solver with duality-gap certification | `exact_cartesian_problem`, `solve_problem`, `CartesianProblem` |
 | `eht_axion/eht/ensemble.py` | Strict 4-HDU Stokes FITS reader, Paper VII global diagnostics, and per-pixel EVPA maps | `load_stokes_fits`, `global_diagnostics`, `global_values`, `map_evpa` |
-| `eht_axion/analysis/results.py` | Limit-stage result files: arrays in `results.npz`, everything else in `report.json` | `write_results`, `read_results` |
+| `eht_axion/analysis/results.py` | Constraint-stage result files: arrays in `results.npz`, everything else in `report.json` | `write_results`, `read_results` |
 | `eht_axion/analysis/expected_signal.py` | Gaussian blur + sky rotation resampling, 16-phase DFT fit per snapshot, MLE over the snapshots, and reader | `preprocess_frame`, `fit_phase_dft`, `snapshot_response`, `alpha_responses`, `expected_signal`, `processed_background`, `load_expected_signal` |
 | `eht_axion/analysis/aperture.py` | Sparse CSR bilinear quadrature operator for 1D sector EVPA and brightness | `aperture_operator`, `integrate_stokes`, `sector_brightness` |
 | `eht_axion/analysis/model.py` | Cloud amplitude $b(\alpha)$, circular $\alpha$ interpolation, and two-pair EVPA signal model | `cloud_amplitude_scaling`, `interpolate_fit_parameters`, `evpa_templates` |

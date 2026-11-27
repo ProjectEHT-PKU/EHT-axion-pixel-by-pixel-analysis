@@ -11,7 +11,7 @@ M87\* EHT 轴子分析流水线用于检验环绕 M87\* 的超轻轴子云（ult
 | `RAPTOR` 模拟 | `scripts/raptor/build.py`、`scripts/raptor/generate.py` | `raptor-build`（`linux-64`） | float64 Stokes 图像数据立方（`raptor/images/res-100/alpha-*/stokes.npy`、`res-400/background/stokes.npy`） |
 | EHT 成像 | `scripts/eht/reconstruct.py`、`scripts/eht/refine.py`、`scripts/eht/sample.py` | `eht-imaging` | 固定总强度（$I$）图像、精化后的基准仪器偏振泄漏（D 项，D-terms）以及 $4 \times 1000$ 幅带数值证书的偏振 FITS 抽样图像 |
 | EHT 系综汇总 | `scripts/eht/summarize.py` | `eht-summary` | 按天汇总的 Stokes/EVPA 数组及 Paper VII 诊断量（`eht/ensemble/`） |
-| 分析 | `scripts/analysis/expected_signal.py`、`scripts/analysis/limits.py`、`scripts/analysis/paper.py` | `default` | 预期轴子信号、上限 $c_{95}(\alpha)$、论文图、宏定义和表格 |
+| 分析 | `scripts/analysis/expected_signal.py`、`scripts/analysis/constraints.py`、`scripts/analysis/paper.py` | `default` | 预期轴子信号、约束 $c_{95}(\alpha)$、论文图、宏定义和表格 |
 
 ```mermaid
 flowchart LR
@@ -27,7 +27,7 @@ flowchart LR
     ES --> EM["eht/summarize.py"]
   end
   subgraph AN["Analysis"]
-    AT["analysis/expected_signal.py"] --> AL["analysis/limits.py"]
+    AT["analysis/expected_signal.py"] --> AL["analysis/constraints.py"]
     AT --> AP["analysis/paper.py"]
     AL --> AP
   end
